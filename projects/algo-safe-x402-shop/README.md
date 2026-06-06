@@ -33,6 +33,8 @@ curl -s -i http://localhost:4021/weather        # -> HTTP/1.1 402, PAYMENT-REQUI
 A `402` carrying payment requirements (scheme `exact`, Algorand testnet,
 `payTo`, price) confirms the shop is correctly gated.
 
+Verified (gating check A): /health 200, /weather 402 with payment requirements on 2026-06-06.
+
 ## Verify (full on-chain loop — needs testnet funds)
 
 Use the reference template's bundled buyer with an account funded with testnet
