@@ -10,6 +10,7 @@ import { Icon } from '../components/ui/Icon'
 import { Stepper } from '../components/ui/Stepper'
 
 const STEPS = ['Contract Deployment', 'MBR Funding']
+const TX_VALIDITY_WINDOW = 200
 
 type FlowStage = 'idle' | 'deploying' | 'funding' | 'bootstrapping' | 'success' | 'error'
 
@@ -108,7 +109,7 @@ export function InitializeSafePage() {
       setStage('deploying')
 
       const senderAddress = getCanonicalSenderAddress(activeAddress)
-      const algorand = AlgorandClient.fromClients({ algod: algodClient })
+      const algorand = AlgorandClient.fromClients({ algod: algodClient }).setDefaultValidityWindow(TX_VALIDITY_WINDOW)
       algorand.setSigner(senderAddress, transactionSigner)
 
       const factory = algorand.client.getTypedAppFactory(AlgoSafeFactory, {
