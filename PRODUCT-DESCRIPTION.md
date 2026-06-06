@@ -138,7 +138,63 @@ Algorand atomic groups may contain a mix of transaction types. The frontend must
 
 ## Packaging And Architecture
 
-Algo Safe is delivered as two layers with a strict boundary between them.
+Algo Safe is delivered as two layers with a strict boundary between them. Every consumer — the reference frontend, third-party apps, automation scripts, and AI/MCP agents — interacts with a safe **only** through the `algo-safe` npm library. The library is the single source of truth that builds, simulates, and submits Algorand atomic transaction groups; callers hand it a wallet `TransactionSigner` and never assemble raw transactions themselves.
+
+### Architecture Diagram
+
+```mermaid
+flowchart TB
+    subgraph Consumers["Consumers (any TypeScript/JavaScript environment)"]
+        FE["algo-safe-frontend<br/>(reference React client)"]
+        TP["Third-party apps & UIs"]
+        BOT["Scripts, bots & backends"]
+        AGENT["AI / MCP agents"]
+    end
+
+    subgraph Wallets["Wallet Layer (@txnlab/use-wallet)"]
+        W["Pera · Defly · Exodus · Daffi<br/>Ledger · KMD/LocalNet · WalletConnect"]
+        PQ["Quantum-secure signer<br/>(Falcon / post-quantum key)"]
+    end
+
+    subgraph Library["algo-safe npm library (public API — single source of truth)"]
+        API["Public API<br/>safe create · signer groups · proposals · approvals · execute · queries"]
+        BUILD["Transaction group builder<br/>pay · axfer · appl · keyreg"]
+        POLICY["Policy & threshold logic<br/>limits · allowlists · M-of-N"]
+        CLIENT["Generated typed clients + ARC-56 app spec"]
+        API --> BUILD
+        API --> POLICY
+        BUILD --> CLIENT
+    end
+
+    subgraph Chain["Algorand Network"]
+        APP["Algo Safe Application<br/>(smart account / AVM app)"]
+        SAFEADDR["Controlled safe address<br/>ALGO + ASA holdings"]
+        ALGOD["algod · indexer · simulate"]
+        VERIFY["On-chain verification<br/>Ed25519 · multisig · falcon_verify"]
+    end
+
+    FE --> API
+    TP --> API
+    BOT --> API
+    AGENT --> API
+
+    API -- "active address + TransactionSigner" --> W
+    API -- "post-quantum signature" --> PQ
+    W -- "signs exact group ID" --> BUILD
+    PQ -- "post-quantum signature" --> POLICY
+
+    CLIENT -- "atomic transaction group" --> ALGOD
+    ALGOD --> APP
+    APP --> SAFEADDR
+    APP --> VERIFY
+
+    classDef boundary fill:#0b7285,stroke:#063,color:#fff;
+    classDef chain fill:#364fc7,stroke:#1a2a6c,color:#fff;
+    class API,BUILD,POLICY,CLIENT boundary;
+    class APP,SAFEADDR,ALGOD,VERIFY chain;
+```
+
+**Boundary rule:** consumers call only the library's public API. The library owns transaction building, policy enforcement, signing handoff, and on-chain submission, so the frontend, third parties, and agents all share identical, audited logic.
 
 ### `algo-safe` npm Library (from `algo-safe-contracts`)
 
