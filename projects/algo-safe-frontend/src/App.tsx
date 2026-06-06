@@ -2,6 +2,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { DEFAULT_NETWORK_CONFIG, NetworkId, SupportedWallet, WalletId, WalletManager, WalletProvider } from '@txnlab/use-wallet-react'
 import { SnackbarProvider } from 'notistack'
+import { useMemo } from 'react'
 import { RouterProvider } from 'react-router-dom'
 import { router } from './routes'
 import { ServiceProvider, services } from './services'
@@ -73,12 +74,18 @@ const queryClient = new QueryClient()
 
 export default function App() {
   const algodConfig = getAlgodConfigFromViteEnvironment()
-  const walletManager = new WalletManager({
-    wallets: supportedWallets,
-    defaultNetwork: NetworkId.MAINNET,
-    networks: getWalletNetworks(algodConfig),
-    options: { resetNetwork: true },
-  })
+  const defaultNetwork = toSupportedChainId(String(algodConfig.network).toLowerCase())
+  const walletManager = useMemo(
+    () =>
+      new WalletManager({
+        wallets: supportedWallets,
+        defaultNetwork,
+        networks: getWalletNetworks(algodConfig),
+        options: { resetNetwork: false },
+      }),
+    [algodConfig.network, algodConfig.port, algodConfig.server, algodConfig.token, defaultNetwork],
+  )
+
   return (
     <QueryClientProvider client={queryClient}>
       <SnackbarProvider maxSnack={3}>
