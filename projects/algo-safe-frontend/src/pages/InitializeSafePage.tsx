@@ -53,6 +53,10 @@ function getCanonicalAppAddress(appId: bigint) {
   return algosdk.getApplicationAddress(appId).toString()
 }
 
+function getCanonicalSenderAddress(address: string): algosdk.Address {
+  return algosdk.Address.fromString(String(address))
+}
+
 export function InitializeSafePage() {
   const { activeNetwork } = useNetwork()
   const { activeAddress, isReady, transactionSigner } = useWallet()
@@ -104,13 +108,14 @@ export function InitializeSafePage() {
       setDeployment(null)
       setStage('deploying')
 
+      const senderAddress = getCanonicalSenderAddress(activeAddress)
       const algodConfig = getAlgodConfigFromViteEnvironment()
       const algod = new algosdk.Algodv2(String(algodConfig.token ?? ''), algodConfig.server, algodConfig.port)
       const algorand = AlgorandClient.fromClients({ algod })
-      algorand.setSigner(activeAddress, transactionSigner)
+      algorand.setSigner(senderAddress, transactionSigner)
 
       const factory = algorand.client.getTypedAppFactory(AlgoSafeFactory, {
-        defaultSender: activeAddress,
+        defaultSender: senderAddress,
       })
 
       const { appClient, result } = await factory.send.create.createApplication({
@@ -132,7 +137,7 @@ export function InitializeSafePage() {
 
       await algorand.send.payment({
         amount: algo(depositAlgo),
-        sender: activeAddress,
+        sender: senderAddress,
         receiver: nextDeployment.address,
         suppressLog: true,
       })
@@ -151,6 +156,8 @@ export function InitializeSafePage() {
         error,
         failedStage,
         activeAddress,
+        activeAddressType: typeof activeAddress,
+        activeAddressConstructor: activeAddress?.constructor?.name,
         deployment,
         safeName,
       })
