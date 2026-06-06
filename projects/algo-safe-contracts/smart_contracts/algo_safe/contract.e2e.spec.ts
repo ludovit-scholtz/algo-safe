@@ -18,7 +18,6 @@ import {
   ZERO_ADDR,
   createAdminChange,
   createAppCallPayload,
-  createEmptySafeTxn,
   createPaymentPayload,
   createPaymentSafeTxn,
   toSafeTxnGroup,
@@ -32,10 +31,6 @@ function mkAdminChange(partial: Partial<AdminChange>): AdminChange {
 
 function mkPayment(receiver: string, amount: bigint) {
   return createPaymentPayload(receiver, amount)
-}
-
-function emptySafeTxn(): SafeTxn {
-  return createEmptySafeTxn()
 }
 
 function safePayment(receiver: string, amount: bigint, note = ''): SafeTxn {
