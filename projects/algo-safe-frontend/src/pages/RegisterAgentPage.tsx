@@ -111,11 +111,12 @@ export const RegisterAgentPage = () => {
                   </FormField>
 
                   {/* Operational Purpose */}
-                  <FormField label="Operational Purpose">
+                  <FormField label="Operational Purpose *">
                     <select
                       className={`${inputCls} mt-1 appearance-none`}
                       value={purpose}
                       onChange={e => setPurpose(e.target.value)}
+                      required
                     >
                       <option value="" disabled>Select execution scope...</option>
                       {PURPOSE_OPTIONS.map(o => (

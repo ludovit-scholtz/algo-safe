@@ -71,7 +71,7 @@ export const ProposalDetailPage = () => {
   }
 
   const isTerminal = proposal.status === 'executed' || proposal.status === 'rejected'
-  const canExecute = proposal.approvals >= proposal.threshold && proposal.status !== 'executed'
+  const canExecute = proposal.approvals >= proposal.threshold && !isTerminal
   const approveLabel = proposal.status === 'blocked' ? 'Approve (admin override)' : 'Approve'
   const progressPct = Math.min(100, Math.round((proposal.approvals / proposal.threshold) * 100))
 

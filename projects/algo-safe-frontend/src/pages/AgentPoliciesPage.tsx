@@ -29,6 +29,7 @@ export const AgentPoliciesPage = () => {
   const [editedPolicy, setEditedPolicy] = useState<Partial<Policy>>({})
   const [newAllowEntry, setNewAllowEntry] = useState('')
   const [localAllowlist, setLocalAllowlist] = useState<string[]>([])
+  const [search, setSearch] = useState('')
 
   // Sync local state when policy loads or selection changes
   useEffect(() => {
@@ -89,11 +90,21 @@ export const AgentPoliciesPage = () => {
 
   const addAllowEntry = () => {
     const trimmed = newAllowEntry.trim()
-    if (trimmed && !localAllowlist.includes(trimmed)) {
+    if (!trimmed) return
+    if (!localAllowlist.includes(trimmed)) {
       setLocalAllowlist(prev => [...prev, trimmed])
-      setNewAllowEntry('')
     }
+    setNewAllowEntry('')
   }
+
+  const filteredAgents = (agents ?? []).filter((a: Agent) => {
+    if (!search) return true
+    const q = search.toLowerCase()
+    return (
+      (a.alias ?? '').toLowerCase().includes(q) ||
+      (a.address ?? '').toLowerCase().includes(q)
+    )
+  })
 
   const removeAllowEntry = (entry: string) => {
     setLocalAllowlist(prev => prev.filter(e => e !== entry))
@@ -187,6 +198,8 @@ export const AgentPoliciesPage = () => {
                 type="text"
                 placeholder="Search ID or Name"
                 className="pl-8 pr-3 py-1.5 text-xs bg-white border border-surface-border rounded focus:border-brand-500 focus:outline-none w-44 transition-all"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
               />
             </div>
           </div>
@@ -207,7 +220,7 @@ export const AgentPoliciesPage = () => {
                   </tr>
                 </thead>
                 <tbody className="text-sm text-ink-900">
-                  {(agents ?? []).map((agent: Agent) => {
+                  {filteredAgents.map((agent: Agent) => {
                     const isSelected = agent.id === selectedId
                     return (
                       <tr
@@ -250,10 +263,10 @@ export const AgentPoliciesPage = () => {
                       </tr>
                     )
                   })}
-                  {(agents ?? []).length === 0 && (
+                  {filteredAgents.length === 0 && (
                     <tr>
                       <td colSpan={4} className="py-10 text-center text-sm text-ink-500">
-                        No agents deployed
+                        {search ? 'No agents match your search' : 'No agents deployed'}
                       </td>
                     </tr>
                   )}
@@ -380,13 +393,6 @@ export const AgentPoliciesPage = () => {
                       <Icon name="list_alt" className="text-[16px] text-ink-400" />
                       Destination Allowlist
                     </h4>
-                    <button
-                      type="button"
-                      onClick={() => setNewAllowEntry('new-entry')}
-                      className="text-xs font-semibold text-brand-600 hover:underline"
-                    >
-                      Add Entry
-                    </button>
                   </div>
 
                   <div className="space-y-1.5 bg-surface-muted border border-surface-border p-2 rounded-lg min-h-[80px]">
@@ -419,7 +425,7 @@ export const AgentPoliciesPage = () => {
                       type="text"
                       placeholder="App ID or address..."
                       className="flex-1 text-xs font-mono border border-surface-border rounded-lg px-3 py-2 focus:border-brand-500 focus:outline-none bg-white"
-                      value={newAllowEntry === 'new-entry' ? '' : newAllowEntry}
+                      value={newAllowEntry}
                       onChange={e => setNewAllowEntry(e.target.value)}
                       onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addAllowEntry())}
                     />
