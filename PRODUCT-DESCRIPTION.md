@@ -136,6 +136,72 @@ Algorand atomic groups may contain a mix of transaction types. The frontend must
 
 ---
 
+## EURD Onramp And Offramp (Quantoz)
+
+Algo Safe integrates **EURD**, the regulated euro stablecoin issued by **Quantoz Payments B.V.** (Netherlands), so teams can fund and defund their safe with real euros without leaving the custody workflow. EURD is electronic money compliant with the European **Electronic Money Directive (EMD)** and, when issued as an e-money token (EMT), with the **Markets in Crypto-Assets Regulation (MiCAR)**. Holders have a right of redemption against the issuer at any time and at par value. On Algorand, EURD is an Algorand Standard Asset (ASA ID `1221682136`), so it behaves like any other ASA inside the safe while remaining fully fiat-backed (1:1 reserves held in segregated accounts with Tier 1 banks and AAA EU government bonds).
+
+This makes EURD a natural treasury asset for an Algorand safe: an **onramp** converts incoming EUR (via SEPA/bank transfer) into EURD delivered to the safe's controlled address, and an **offramp** redeems EURD held by the safe back into EUR paid out to a bank account.
+
+### Integration Model
+
+Algo Safe consumes the **Quantoz Payments API** documented at `https://portal.quantozpay.com/documentation`. Quantoz exposes three integration models; Algo Safe targets the **blockchain-based EUR accounts on Algorand** model (self-hosted wallets), with optional support for the **embedded payments** model where a partner acts on behalf of end users.
+
+As with every other capability, the frontend never calls the Quantoz API or constructs EURD transfers directly. EURD onramp/offramp is exposed **only through the `algo-safe` npm library**, which:
+
+- Wraps the Quantoz Payments REST API behind typed, documented methods.
+- Builds and previews the resulting Algorand atomic groups (for example the ASA opt-in to EURD and any required application calls) so they pass through the same proposal, policy, and approval flow as any other safe action.
+- Hands wallet signing back to the caller's `TransactionSigner`; the library never holds keys or banking credentials.
+- Keeps Quantoz API keys/secrets server-side, never embedded in the reference frontend bundle.
+
+### Onramp (Buy / Mint EURD Into The Safe)
+
+Purpose: turn EUR into EURD credited to the safe's controlled Algorand address.
+
+Flow:
+
+1. Operator chooses **Add funds (EURD)** and enters a target amount.
+2. The library ensures the safe is **opted in** to the EURD ASA, proposing an `axfer` opt-in transaction through the normal governed flow if needed.
+3. The library requests onramp instructions from Quantoz (deposit reference / SEPA details, or an embedded-payment authorization, depending on the integration model).
+4. The operator (or partner) completes the EUR deposit.
+5. Quantoz mints/issues EURD and transfers it to the safe's controlled address on Algorand.
+6. The dashboard reflects the new EURD balance once on-chain and Quantoz settlement confirm.
+
+Requirements:
+
+- Show KYC/onboarding state required by Quantoz before an onramp can proceed, in plain language.
+- Show deposit reference, expected settlement time, fees, and minimums returned by the API.
+- Track onramp requests as first-class items with states: `initiated`, `awaiting EUR deposit`, `EUR received`, `EURD issued`, `settled on-chain`, `failed`, `expired`.
+- Surface the EURD ASA id, decimals, and opt-in status exactly like any other ASA.
+
+### Offramp (Sell / Redeem EURD Out Of The Safe)
+
+Purpose: redeem EURD held by the safe back into EUR paid to a bank account.
+
+Flow:
+
+1. Operator chooses **Withdraw to EUR (EURD)**, enters an amount, and selects a verified payout IBAN.
+2. The library builds the EURD redemption as a **governed proposal**: the EURD `axfer` (and any required `appl`) is previewed as an exact atomic group and routed through the safe's signer groups and policies.
+3. Required signers approve under the normal M-of-N threshold.
+4. On execution, EURD leaves the safe to the Quantoz redemption address on Algorand.
+5. Quantoz burns/redeems the EURD and pays out EUR to the destination bank account.
+6. The activity log records the on-chain txn id together with the Quantoz redemption reference.
+
+Requirements:
+
+- Redemption must respect the safe's spending limits, allowlists, and admin-approval rules (for example treating a payout IBAN like an allowlisted receiver).
+- Show payout IBAN, fees, minimums, expected EUR settlement time, and the redemption reference.
+- Track offramp requests with states: `proposed`, `awaiting approvals`, `EURD sent on-chain`, `redeemed`, `EUR paid out`, `failed`, `cancelled`.
+- Flag the EURD redemption recipient address as a known, verified Quantoz address so signers can review it confidently.
+
+### Why This Belongs In The Safe
+
+- **Treasury completeness**: teams can move between EUR and on-chain value under the same M-of-N approval, policy, and audit guarantees as payments and ASA transfers.
+- **Agent budgets in euros**: agent signer groups can be funded with EURD and constrained by the same daily/monthly limits, enabling euro-denominated agentic payments.
+- **One audit trail**: every onramp and offramp appears in the activity log alongside the proposals, signatures, and executed transaction ids that authorized it.
+- **Boundary preserved**: third-party apps, scripts, and AI/MCP agents get the same EURD onramp/offramp by calling the `algo-safe` library, never the Quantoz API directly.
+
+---
+
 ## Packaging And Architecture
 
 Algo Safe is delivered as two layers with a strict boundary between them. Every consumer — the reference frontend, third-party apps, automation scripts, and AI/MCP agents — interacts with a safe **only** through the `algo-safe` npm library. The library is the single source of truth that builds, simulates, and submits Algorand atomic transaction groups; callers hand it a wallet `TransactionSigner` and never assemble raw transactions themselves.
@@ -204,7 +270,7 @@ The library must:
 
 - Compile the Algorand TypeScript smart contracts and ship the ARC-56 app spec(s) and generated typed clients.
 - Export a stable, documented, semver-versioned public API surface.
-- Provide high-level methods for every safe operation, including safe creation, signer-group management, proposal building, approval/co-signing, execution, and read/query helpers.
+- Provide high-level methods for every safe operation, including safe creation, signer-group management, proposal building, approval/co-signing, execution, read/query helpers, and EURD onramp/offramp via the Quantoz Payments API.
 - Build the exact Algorand atomic transaction groups (`pay`, `axfer`, `appl`, `keyreg`) internally so callers never assemble raw transactions by hand.
 - Accept a wallet/signer handoff (for example an Algorand `TransactionSigner`) so the library performs signing through the caller's wallet rather than holding keys.
 - Be framework-agnostic and usable from any TypeScript/JavaScript environment: web frontends, Node.js backends, scripts, bots, and AI/MCP agents.
@@ -454,6 +520,8 @@ Proposal types:
 - Call application
 - Register participation keys
 - Build custom atomic group
+- Onramp EUR to EURD (Quantoz)
+- Offramp EURD to EUR (Quantoz)
 - Add signer group
 - Edit signer group
 - Add signer
