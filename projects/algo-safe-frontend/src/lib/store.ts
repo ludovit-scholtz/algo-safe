@@ -2,7 +2,7 @@
 import type { Agent, Policy, Proposal, Safe } from '../services/types'
 
 let nextAgentSeq = 4
-let nextPropSeq = 43
+let nextPropSeq = 44
 
 export const store = {
   safe: {
