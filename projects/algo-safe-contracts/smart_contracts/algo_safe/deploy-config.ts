@@ -12,9 +12,17 @@ export async function deploy() {
     defaultSender: deployer.addr,
   })
 
-  const { appClient, result } = await factory.deploy({ onUpdate: 'append', onSchemaBreak: 'append' })
+  const { appClient, result } = await factory.deploy({
+    onUpdate: 'append',
+    onSchemaBreak: 'append',
+    createParams: {
+      method: 'createApplication',
+      args: { name: 'Algo Safe' },
+      extraProgramPages: undefined,
+    },
+  })
 
-  // If app was just created fund the app account
+  // Fund the app account so it can cover box minimum balance requirements.
   if (['create', 'replace'].includes(result.operationPerformed)) {
     await algorand.send.payment({
       amount: (1).algo(),
@@ -23,11 +31,11 @@ export async function deploy() {
     })
   }
 
-  const method = 'hello'  
-  const response = await appClient.send.hello({
-    args: { name: 'world' },
+  // Bootstrap the genesis admin signer group (1-of-1, the deployer).
+  await appClient.send.bootstrap({
+    args: { groupName: 'Admins' },
   })
-  console.log(
-    `Called ${method} on ${appClient.appClient.appName} (${appClient.appClient.appId}) with name = world, received: ${response.return}`,
-  )
+
+  const config = await appClient.send.getConfig({ args: {} })
+  console.log(`Deployed Algo Safe (${appClient.appClient.appId}); config:`, config.return)
 }
