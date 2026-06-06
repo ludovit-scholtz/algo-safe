@@ -1,5 +1,13 @@
 # Algo Safe
 
+**Policy-Driven Smart Accounts for the Agent Economy**
+
+Algo Safe is designed for the emerging agent economy, allowing AI agents to operate within predefined on-chain policies on Algorand. These policies define what agents can access, spend, and execute, ensuring actions remain transparent and controlled. By supporting standards such as x402, agents can securely authorize actions, pay for services, and access paid APIs while staying within approved spending and governance rules.
+
+* Policy-Controlled Accounts for AI Agents on Algorand
+* Secure AI Agent Wallets and Treasuries on Algorand
+* Programmable Accounts for Humans and AI Agents
+
 **A policy-driven smart account for Algorand teams, treasuries, builders, validators, and AI agents.**
 
 Algo Safe is an on-chain safe for Algorand: a wallet-like smart account controlled by configurable signer groups, spending rules, and transparent transaction proposals. It is inspired by the operational safety of products like Safe on EVM chains, but designed around Algorand-native primitives: fast finality, atomic transaction groups, application calls, Algorand Standard Assets, participation key management, and wallet signing through the Algorand wallet ecosystem.
