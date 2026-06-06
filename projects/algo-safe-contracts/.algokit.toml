@@ -34,6 +34,9 @@ environment_secrets = [
 build = { commands = [
   'pnpm run build',
 ], description = 'Build all smart contracts in the project' }
+build-package = { commands = [
+  'pnpm run build-package',
+], description = 'Build the publishable npm package' }
 test = { commands = [
   'pnpm run test',
 ], description = 'Run smart contract tests using vitest' }
