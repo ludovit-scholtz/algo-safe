@@ -538,12 +538,12 @@ When the threshold is met, `executeProposal` re-checks policy, loads the approve
 sequenceDiagram
     participant Caller as Caller (library + signer)
     participant App as Algo Safe Application
-    participant Box as Box storage
+    participant Store as Box storage
     participant Inner as Inner transactions
     participant Chain as Algorand (algod)
 
     Caller->>App: executeProposal(proposalId)
-    App->>Box: load Proposal + SignerGroup + typed payload
+    App->>Store: load Proposal + SignerGroup + typed payload
     App->>App: assert status == ReadyToExecute
     App->>App: assert approvalsCount >= threshold
     App->>App: assert round <= expiryRound
@@ -551,7 +551,7 @@ sequenceDiagram
     App->>Inner: compose pay / axfer / appl / keyreg inner group (fee = 0)
     Inner->>Chain: atomic inner group
     Chain-->>App: success or rollback
-    App->>Box: update SignerGroup daily/monthly usage + status = Executed
+    App->>Store: update SignerGroup daily/monthly usage + status = Executed
     App-->>Caller: emit Executed event (ARC-28) + txn ids
 ```
 
