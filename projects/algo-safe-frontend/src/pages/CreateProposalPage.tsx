@@ -12,11 +12,17 @@ import { useSafe } from '../hooks'
 import { useOnChainSafeHoldings } from '../hooks/useOnChainSafeHoldings'
 import { useSafeId } from '../lib/SafeContext'
 import { formatUnits, getZeroAddress } from '../lib/onChainSafe'
+import type { NetworkId } from '../services/types'
 
 const TX_VALIDITY_WINDOW = 200
 const PROPOSAL_CALL_FEE = algo(0.2)
 
-type ProposalKind = 'payment' | 'asset-transfer'
+type ProposalKind = 'payment' | 'asset-transfer' | 'opt-in'
+
+type KnownAsset = {
+  id: string
+  label: string
+}
 
 type CreatedProposal = {
   proposalId: string
@@ -42,6 +48,23 @@ function getCurrentRound(status: Record<string, unknown>) {
   return 0n
 }
 
+function getKnownAssets(network: NetworkId | undefined): KnownAsset[] {
+  switch (network) {
+    case 'mainnet':
+      return [
+        { label: 'EURD', id: '227855942' },
+        { label: 'USDC', id: '31566704' },
+        { label: 'AsaGold', id: '764036623' },
+        { label: 'GoBTC', id: '386192725' },
+        { label: 'WBTC', id: '386192725' },
+      ]
+    case 'testnet':
+      return [{ label: 'USDC', id: '10458941' }]
+    default:
+      return []
+  }
+}
+
 export function CreateProposalPage() {
   const safeId = useSafeId()
   const { data: safe } = useSafe(safeId)
@@ -60,6 +83,10 @@ export function CreateProposalPage() {
 
   const assetOptions = useMemo(() => (holdings ?? []).filter((holding) => !holding.isNative), [holdings])
   const selectedAsset = assetOptions.find((holding) => String(holding.assetId) === assetId)
+  const knownAssets = useMemo(() => getKnownAssets(safe?.network), [safe?.network])
+  const selectedKnownAsset = knownAssets.find((asset) => asset.id === assetId)
+  const effectiveReceiver = proposalKind === 'opt-in' ? safe?.address ?? '' : receiver
+  const showsAssetIdInput = proposalKind === 'asset-transfer' || proposalKind === 'opt-in'
 
   async function handleSaveProposal(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -76,7 +103,7 @@ export function CreateProposalPage() {
       return
     }
 
-    if (!algosdk.isValidAddress(receiver.trim())) {
+    if (!algosdk.isValidAddress(effectiveReceiver.trim())) {
       setErrorMessage('Enter a valid Algorand receiver address.')
       return
     }
@@ -130,21 +157,31 @@ export function CreateProposalPage() {
           txId: result.txIds[0] ?? '',
         })
       } else {
-        if (!selectedAsset?.assetId) {
-          throw new Error('Select an opted-in asset for the asset transfer proposal.')
+        const resolvedAssetId = assetId.trim()
+        if (!resolvedAssetId || !/^\d+$/.test(resolvedAssetId)) {
+          throw new Error(
+            proposalKind === 'opt-in'
+              ? 'Enter a valid asset ID to create an opt-in proposal.'
+              : 'Select an opted-in asset for the asset transfer proposal.',
+          )
         }
 
-        const rawAmount = parseBaseUnits(amount, selectedAsset.decimals)
-        if (rawAmount === null || rawAmount <= 0n) {
-          throw new Error('Enter a valid asset amount for the transfer proposal.')
+        const resolvedAssetDecimals = proposalKind === 'opt-in' ? 0 : (selectedAsset?.decimals ?? 0)
+        const rawAmount = proposalKind === 'opt-in' ? 0n : parseBaseUnits(amount, resolvedAssetDecimals)
+        if (rawAmount === null || rawAmount < 0n || (proposalKind !== 'opt-in' && rawAmount <= 0n)) {
+          throw new Error(
+            proposalKind === 'opt-in'
+              ? 'Opt-in proposals must use a zero amount.'
+              : 'Enter a valid asset amount for the transfer proposal.',
+          )
         }
 
         const result = await appClient.send.proposeAssetTransfer({
           args: {
             groupId: parsedGroupId,
             payload: {
-              xferAsset: BigInt(selectedAsset.assetId),
-              assetReceiver: receiver.trim(),
+              xferAsset: BigInt(resolvedAssetId),
+              assetReceiver: effectiveReceiver.trim(),
               assetAmount: rawAmount,
               hasClose: 0n,
               assetCloseTo: getZeroAddress(),
@@ -193,6 +230,7 @@ export function CreateProposalPage() {
                 <select className={inputCls} value={proposalKind} onChange={(event) => setProposalKind(event.target.value as ProposalKind)}>
                   <option value="payment">ALGO payment</option>
                   <option value="asset-transfer">ASA transfer</option>
+                  <option value="opt-in">Opt in ASA</option>
                 </select>
               </FormField>
               <FormField
@@ -210,45 +248,106 @@ export function CreateProposalPage() {
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
-              <FormField label="Receiver" hint="The address that will receive the ALGO payment or ASA transfer.">
-                <input
-                  className={inputCls}
-                  value={receiver}
-                  onChange={(event) => setReceiver(event.target.value)}
-                  placeholder="Algorand address"
-                />
-              </FormField>
-              <FormField
-                label={proposalKind === 'payment' ? 'Amount (ALGO)' : 'Amount'}
-                hint={
-                  proposalKind === 'payment'
-                    ? 'The amount is converted to microAlgos before submission.'
-                    : selectedAsset
-                      ? `Uses ${selectedAsset.symbol} with ${selectedAsset.decimals} decimals.`
-                      : 'Select an opted-in asset first.'
-                }
-              >
-                <input
-                  className={inputCls}
-                  inputMode="decimal"
-                  value={amount}
-                  onChange={(event) => setAmount(event.target.value)}
-                  placeholder="0.00"
-                />
-              </FormField>
+              {proposalKind !== 'opt-in' ? (
+                <FormField label="Receiver" hint="The address that will receive the ALGO payment or ASA transfer.">
+                  <input
+                    className={inputCls}
+                    value={receiver}
+                    onChange={(event) => setReceiver(event.target.value)}
+                    placeholder="Algorand address"
+                  />
+                </FormField>
+              ) : (
+                <FormField label="Receiver" hint="Opt-in proposals always target the safe address itself.">
+                  <input className={`${inputCls} text-on-surface-variant`} value={safe?.address ?? ''} disabled readOnly />
+                </FormField>
+              )}
+
+              {proposalKind !== 'opt-in' ? (
+                <FormField
+                  label={proposalKind === 'payment' ? 'Amount (ALGO)' : 'Amount'}
+                  hint={
+                    proposalKind === 'payment'
+                      ? 'The amount is converted to microAlgos before submission.'
+                      : selectedAsset
+                        ? `Uses ${selectedAsset.symbol} with ${selectedAsset.decimals} decimals.`
+                        : 'Select an opted-in asset first.'
+                  }
+                >
+                  <input
+                    className={inputCls}
+                    inputMode="decimal"
+                    value={amount}
+                    onChange={(event) => setAmount(event.target.value)}
+                    placeholder="0.00"
+                  />
+                </FormField>
+              ) : (
+                <FormField label="Amount" hint="Opt-in proposals always use amount 0.">
+                  <input className={`${inputCls} text-on-surface-variant`} value="0" disabled readOnly />
+                </FormField>
+              )}
             </div>
 
-            {proposalKind === 'asset-transfer' && (
-              <FormField label="Opted-in Asset" hint="Only assets already opted in by the safe are available here.">
-                <select className={inputCls} value={assetId} onChange={(event) => setAssetId(event.target.value)}>
-                  <option value="">Select asset</option>
-                  {assetOptions.map((holding) => (
-                    <option key={holding.key} value={holding.assetId}>
-                      {holding.symbol} · {holding.assetId} · Available {holding.balanceDisplay}
-                    </option>
-                  ))}
-                </select>
-              </FormField>
+            {showsAssetIdInput && (
+              <div className="space-y-3">
+                {proposalKind === 'asset-transfer' ? (
+                  <FormField label="Opted-in Asset" hint="Only assets already opted in by the safe are available here.">
+                    <select className={inputCls} value={assetId} onChange={(event) => setAssetId(event.target.value)}>
+                      <option value="">Select asset</option>
+                      {assetOptions.map((holding) => (
+                        <option key={holding.key} value={holding.assetId}>
+                          {holding.symbol} · {holding.assetId} · Available {holding.balanceDisplay}
+                        </option>
+                      ))}
+                    </select>
+                  </FormField>
+                ) : (
+                  <>
+                    <FormField
+                      label="Asset ID"
+                      hint={
+                        knownAssets.length
+                          ? 'Choose a known asset for this network or enter any ASA ID manually.'
+                          : 'Enter the ASA ID the safe should opt in to.'
+                      }
+                    >
+                      <input
+                        list="known-asset-ids"
+                        className={inputCls}
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        value={assetId}
+                        onChange={(event) => setAssetId(event.target.value.replace(/[^0-9]/g, ''))}
+                        placeholder="e.g. 31566704"
+                      />
+                    </FormField>
+                    {knownAssets.length > 0 && (
+                      <>
+                        <datalist id="known-asset-ids">
+                          {knownAssets.map((asset) => (
+                            <option key={`${asset.label}-${asset.id}`} value={asset.id}>
+                              {asset.label}
+                            </option>
+                          ))}
+                        </datalist>
+                        <div className="flex flex-wrap gap-2">
+                          {knownAssets.map((asset) => (
+                            <button
+                              key={`${asset.label}-${asset.id}`}
+                              type="button"
+                              onClick={() => setAssetId(asset.id)}
+                              className={`rounded-sm border px-3 py-1.5 text-xs transition ${assetId === asset.id ? 'border-primary bg-primary/10 text-primary' : 'border-outline-variant bg-surface-container-low text-on-surface-variant hover:border-primary/50 hover:text-on-surface'}`}
+                            >
+                              {asset.label} · {asset.id}
+                            </button>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </>
+                )}
+              </div>
             )}
 
             <div className="grid gap-4 md:grid-cols-2">
@@ -307,13 +406,26 @@ export function CreateProposalPage() {
                 Native ALGO:{' '}
                 <span className="font-mono text-on-surface">{holdings?.find((holding) => holding.isNative)?.balanceDisplay ?? '—'}</span>
               </p>
+              {proposalKind === 'opt-in' && (
+                <p>
+                  Opt-in target:{' '}
+                  <span className="font-mono text-on-surface">{safe?.address ?? '—'}</span>
+                </p>
+              )}
               {selectedAsset && (
                 <p>
                   Selected ASA balance:{' '}
                   <span className="font-mono text-on-surface">{formatUnits(selectedAsset.rawAmount, selectedAsset.decimals)}</span>
                 </p>
               )}
+              {proposalKind === 'opt-in' && selectedKnownAsset && (
+                <p>
+                  Known asset:{' '}
+                  <span className="font-mono text-on-surface">{selectedKnownAsset.label} · {selectedKnownAsset.id}</span>
+                </p>
+              )}
               {!selectedAsset && proposalKind === 'asset-transfer' && <p>Select an asset to see its available balance.</p>}
+              {proposalKind === 'opt-in' && !assetId && <p>Choose a known asset ID or enter an ASA ID manually.</p>}
             </div>
           </Card>
         </div>
