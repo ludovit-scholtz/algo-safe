@@ -81,3 +81,39 @@ export interface RegisterAgentInput {
   primaryAsset: AssetSymbol
 }
 export interface PolicyChangeInput { agentId: string; policy: Partial<Policy> }
+
+export type SafeTier = string // e.g. "2-of-3 Multisig"
+export interface SafeSummary {
+  safeId: string
+  name: string
+  appId: number
+  address: string
+  tier: SafeTier
+  totalValueEur: number
+  agentCount: number
+  status: 'active' | 'paused'
+}
+
+export type AssetHoldingType = 'native' | 'stablecoin' | 'lending'
+export interface AssetHolding {
+  symbol: AssetSymbol
+  name: string          // "Algorand Native", "EURD"
+  assetId?: number
+  amount: number        // human units
+  valueEur: number
+  type: AssetHoldingType
+  apy?: number          // for lending positions
+}
+
+export interface TreasurySummary {
+  totalValueEur: number
+  availableAlgo: number
+  availableEurd: number
+}
+
+export interface CreateSafeInput {
+  name: string
+  threshold: number
+  signerCount: number
+  initialDepositEurd: number
+}
