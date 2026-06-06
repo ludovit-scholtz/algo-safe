@@ -1,7 +1,14 @@
 // src/services/SafeService.ts
-import type { Safe, Agent, Policy, Proposal, RegisterAgentInput, PolicyChangeInput } from './types'
+import type {
+  Safe, SafeSummary, Agent, Policy, Proposal, AssetHolding, TreasurySummary,
+  RegisterAgentInput, PolicyChangeInput, CreateSafeInput,
+} from './types'
 export interface SafeService {
-  getSafe(): Promise<Safe>
+  listSafes(): Promise<SafeSummary[]>
+  getSafe(safeId: string): Promise<Safe>
+  createSafe(input: CreateSafeInput): Promise<SafeSummary>
+  listAssets(safeId: string): Promise<AssetHolding[]>
+  getTreasury(safeId: string): Promise<TreasurySummary>
   listAgents(): Promise<Agent[]>
   registerAgent(input: RegisterAgentInput): Promise<Agent>
   getPolicy(agentId: string): Promise<Policy>

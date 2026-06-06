@@ -1,12 +1,30 @@
 // src/services/mock/safeMock.ts
 import type { SafeService } from '../SafeService'
-import type { Agent, Proposal } from '../types'
+import type { Agent, CreateSafeInput, Proposal } from '../types'
 import { store } from '../../lib/store'
 
 const delay = <T>(v: T) => new Promise<T>(r => setTimeout(() => r(v), 150))
+const wait = (ms = 250) => new Promise<void>(r => setTimeout(r, ms))
 
 export const safeMock: SafeService = {
-  getSafe: () => delay(store.safe),
+  async listSafes() { await wait(); return [...store.safes] },
+  async getSafe(safeId: string) {
+    const s = store.safes.find(x => x.safeId === safeId) ?? store.safes[0]
+    return { name: s.name, appId: s.appId, address: s.address, network: 'mainnet' as const }
+  },
+  async createSafe(input: CreateSafeInput) {
+    await wait()
+    const summary = {
+      safeId: store.newSafeId(), name: input.name, appId: 100000000 + store.safes.length,
+      address: `NEW${store.safes.length}...SAFE`, tier: `${input.threshold}-of-${input.signerCount} Multisig`,
+      totalValueEur: input.initialDepositEurd, agentCount: 0, status: 'active' as const,
+    }
+    store.safes.push(summary)
+    return summary
+  },
+  async listAssets(_safeId: string) { await wait(); return [...store.assets] },
+  async getTreasury(_safeId: string) { await wait(); return { ...store.treasury } },
+
   listAgents: () => delay([...store.agents]),
 
   async registerAgent(input) {

@@ -23,3 +23,27 @@ test('approving a blocked proposal moves it to executed (admin override)', async
   const updated = await safeMock.approveProposal(blocked.id)
   expect(['pending', 'executed']).toContain(updated.status)
 })
+
+describe('safeMock v2 methods', () => {
+  it('lists at least two safes', async () => {
+    const safes = await safeMock.listSafes()
+    expect(safes.length).toBeGreaterThanOrEqual(2)
+    expect(safes[0]).toHaveProperty('totalValueEur')
+  })
+  it('getSafe resolves a known safe by id', async () => {
+    const safe = await safeMock.getSafe('safe_1')
+    expect(safe.name).toBe('Cold Storage A')
+  })
+  it('createSafe returns a new safe and adds it to listSafes', async () => {
+    const before = (await safeMock.listSafes()).length
+    const created = await safeMock.createSafe({ name: 'Ops Wallet', threshold: 2, signerCount: 3, initialDepositEurd: 5000 })
+    expect(created.name).toBe('Ops Wallet')
+    expect((await safeMock.listSafes()).length).toBe(before + 1)
+  })
+  it('listAssets and getTreasury return holdings', async () => {
+    const assets = await safeMock.listAssets('safe_1')
+    expect(assets.some(a => a.symbol === 'EURD')).toBe(true)
+    const t = await safeMock.getTreasury('safe_1')
+    expect(t.totalValueEur).toBeGreaterThan(0)
+  })
+})
