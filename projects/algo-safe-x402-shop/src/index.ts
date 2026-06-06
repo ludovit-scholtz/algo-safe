@@ -2,7 +2,7 @@ import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
 import { appendFileSync, mkdirSync } from 'fs';
-dotenv.config({ path: resolve(dirname(fileURLToPath(import.meta.url)), '../../.env') });
+dotenv.config({ path: resolve(dirname(fileURLToPath(import.meta.url)), '../.env') });
 import { Hono } from 'hono';
 import type { Context } from 'hono';
 import { serve } from '@hono/node-server';
