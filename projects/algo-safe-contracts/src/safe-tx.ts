@@ -1,5 +1,10 @@
 import algosdk from 'algosdk'
-import type { AppCallPayload, AssetPayload, KeyRegPayload, PaymentPayload } from '../smart_contracts/artifacts/algo_safe/AlgoSafeClient'
+import type {
+  AppCallPayload,
+  AssetPayload,
+  KeyRegPayload,
+  PaymentPayload,
+} from '../smart_contracts/artifacts/algo_safe/AlgoSafeClient'
 import { EMPTY_BYTES, TX_APP, TX_ASSET, TX_KEYREG, TX_PAYMENT } from './constants'
 
 export type SafeTxn = {

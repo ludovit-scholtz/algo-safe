@@ -2,10 +2,8 @@ import { Config } from '@algorandfoundation/algokit-utils'
 import { algorandFixture } from '@algorandfoundation/algokit-utils/testing'
 import algosdk from 'algosdk'
 import { beforeAll, beforeEach, describe, expect, test } from 'vitest'
-import { AdminChange, AlgoSafeClient, AlgoSafeFactory } from '../artifacts/algo_safe/AlgoSafeClient'
 import {
   ACT_ALL,
-  ACT_APPL,
   ACT_AXFER,
   ACT_PAY,
   ADM_ADD_MEMBER,
@@ -26,6 +24,7 @@ import {
   toSafeTxnGroup,
   type SafeTxn,
 } from '../../src'
+import { AdminChange, AlgoSafeClient, AlgoSafeFactory } from '../artifacts/algo_safe/AlgoSafeClient'
 
 function mkAdminChange(partial: Partial<AdminChange>): AdminChange {
   return createAdminChange(partial)
