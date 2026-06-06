@@ -85,7 +85,7 @@ export function CreateProposalPage() {
   const selectedAsset = assetOptions.find((holding) => String(holding.assetId) === assetId)
   const knownAssets = useMemo(() => getKnownAssets(safe?.network), [safe?.network])
   const selectedKnownAsset = knownAssets.find((asset) => asset.id === assetId)
-  const effectiveReceiver = proposalKind === 'opt-in' ? safe?.address ?? '' : receiver
+  const effectiveReceiver = proposalKind === 'opt-in' ? (safe?.address ?? '') : receiver
   const showsAssetIdInput = proposalKind === 'asset-transfer' || proposalKind === 'opt-in'
 
   async function handleSaveProposal(event: React.FormEvent<HTMLFormElement>) {
@@ -408,8 +408,7 @@ export function CreateProposalPage() {
               </p>
               {proposalKind === 'opt-in' && (
                 <p>
-                  Opt-in target:{' '}
-                  <span className="font-mono text-on-surface">{safe?.address ?? '—'}</span>
+                  Opt-in target: <span className="font-mono text-on-surface">{safe?.address ?? '—'}</span>
                 </p>
               )}
               {selectedAsset && (
@@ -421,7 +420,9 @@ export function CreateProposalPage() {
               {proposalKind === 'opt-in' && selectedKnownAsset && (
                 <p>
                   Known asset:{' '}
-                  <span className="font-mono text-on-surface">{selectedKnownAsset.label} · {selectedKnownAsset.id}</span>
+                  <span className="font-mono text-on-surface">
+                    {selectedKnownAsset.label} · {selectedKnownAsset.id}
+                  </span>
                 </p>
               )}
               {!selectedAsset && proposalKind === 'asset-transfer' && <p>Select an asset to see its available balance.</p>}
