@@ -111,6 +111,42 @@ Algorand atomic groups may contain a mix of transaction types. The frontend must
 
 ---
 
+## Packaging And Architecture
+
+Algo Safe is delivered as two layers with a strict boundary between them.
+
+### `algo-safe` npm Library (from `algo-safe-contracts`)
+
+The output of `algo-safe-contracts` is a reusable, publishable **npm library** named `algo-safe` that anyone can install and use, not just this project's frontend.
+
+The library must:
+
+- Compile the Algorand TypeScript smart contracts and ship the ARC-56 app spec(s) and generated typed clients.
+- Export a stable, documented, semver-versioned public API surface.
+- Provide high-level methods for every safe operation, including safe creation, signer-group management, proposal building, approval/co-signing, execution, and read/query helpers.
+- Build the exact Algorand atomic transaction groups (`pay`, `axfer`, `appl`, `keyreg`) internally so callers never assemble raw transactions by hand.
+- Accept a wallet/signer handoff (for example an Algorand `TransactionSigner`) so the library performs signing through the caller's wallet rather than holding keys.
+- Be framework-agnostic and usable from any TypeScript/JavaScript environment: web frontends, Node.js backends, scripts, bots, and AI/MCP agents.
+- Hide AVM and ARC-56 implementation details behind typed methods, while still exposing the assembled transaction group for inspection.
+
+The library is the single source of truth for how to interact with an Algo Safe. Any third party can build their own UI, automation, or integration on top of it.
+
+### Frontend (`algo-safe-frontend`)
+
+The frontend is a **reference client** of the `algo-safe` npm library and nothing more.
+
+Hard requirements:
+
+- The frontend must interact with Algo Safe **exclusively through methods exported by the `algo-safe` npm library**.
+- The frontend must not import generated contract clients directly, hand-build transactions, hardcode ABI method selectors, or construct atomic groups on its own.
+- All safe reads, proposal building, signing, and execution must go through the library's public API.
+- Wallet connection (via `@txnlab/use-wallet`) only provides the active address and `TransactionSigner`, which are handed to the library; the library does the rest.
+- If the frontend needs a new capability, it must be added to the library's public API first, then consumed by the frontend.
+
+This boundary guarantees that the frontend, third-party apps, and automated agents all share identical, audited transaction-building and policy logic.
+
+---
+
 ## Transaction Builder UX
 
 The transaction builder is the most important part of the product.
@@ -144,6 +180,8 @@ Required builder capabilities:
 
 The frontend should be robust enough for real custody operations. It must not be just a connect-wallet button and contract-call demo.
 
+Every screen below is implemented strictly on top of the `algo-safe` npm library: each action maps to a library method, and the frontend never talks to the contract or builds transactions directly.
+
 ### 1. Landing / Safe Selector
 
 Purpose: Let users find or create a safe immediately.
@@ -165,6 +203,7 @@ Purpose: Provide dependable wallet onboarding.
 Requirements:
 
 - Use `@txnlab/use-wallet` as the wallet abstraction
+- Hand the active address and `TransactionSigner` to the `algo-safe` library; never sign or build transactions in the frontend directly
 - Support LocalNet/KMD for development
 - Support major Algorand wallets for public networks
 - Support WalletConnect-capable flows where the selected provider requires them
@@ -523,5 +562,6 @@ Algo Safe succeeds when an Algorand team can:
 6. Collect signatures across multiple people and wallets
 7. Execute only after policy and threshold requirements are met
 8. Audit every important custody event after execution
+9. Reuse the same `algo-safe` npm library that powers the frontend to build their own apps, scripts, and agents
 
 The end state is a secure, legible, and Algorand-native safe that works for people, organizations, validators, and AI agents.
