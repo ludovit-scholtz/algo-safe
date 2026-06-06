@@ -2,15 +2,20 @@
 import { useParams, useNavigate } from 'react-router-dom'
 import { useSnackbar } from 'notistack'
 import { useProposal, useApproveProposal, useRejectProposal, useExecuteProposal } from '../hooks'
-import { Button, Card, Icon, Skeleton, StatusBadge } from '../components/ui'
+import { Button } from '../components/ui/Button'
+import { Card } from '../components/ui/Card'
+import { Icon } from '../components/ui/Icon'
+import { Skeleton } from '../components/ui/Skeleton'
+import { StatusBadge } from '../components/ui/StatusBadge'
+import { TransactionPreview } from '../components/TransactionPreview'
 import { fmtEur, fmtNum } from '../lib/format'
 
 // Chip for transaction type: pay/axfer/appl/keyreg
 const TX_TYPE_STYLES: Record<string, string> = {
-  pay:    'bg-blue-50 text-blue-700 border-blue-100',
-  axfer:  'bg-brand-50 text-brand-600 border-brand-100',
-  appl:   'bg-amber-50 text-warn border-amber-100',
-  keyreg: 'bg-surface-muted text-ink-500 border-surface-border',
+  pay:    'bg-secondary-container/20 text-secondary border-secondary-container',
+  axfer:  'bg-on-primary-container/20 text-primary border-on-primary-container/30',
+  appl:   'bg-warn/15 text-warn border-warn/20',
+  keyreg: 'bg-surface-container-high text-on-surface-variant border-outline-variant',
 }
 const TxChip = ({ type }: { type: string }) => (
   <span className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide border ${TX_TYPE_STYLES[type] ?? TX_TYPE_STYLES.keyreg}`}>
@@ -19,7 +24,8 @@ const TxChip = ({ type }: { type: string }) => (
 )
 
 export const ProposalDetailPage = () => {
-  const { id } = useParams<{ id: string }>()
+  // New nested route: /safe/:safeId/proposals/:id
+  const { safeId, id } = useParams<{ safeId: string; id: string }>()
   const navigate = useNavigate()
   const { enqueueSnackbar } = useSnackbar()
 
@@ -27,6 +33,8 @@ export const ProposalDetailPage = () => {
   const approveProposal = useApproveProposal()
   const rejectProposal = useRejectProposal()
   const executeProposal = useExecuteProposal()
+
+  const backPath = `/safe/${safeId}/proposals`
 
   // ── Loading state ─────────────────────────────────────────────────────────
   if (isLoading) {
@@ -54,16 +62,16 @@ export const ProposalDetailPage = () => {
     return (
       <div className="max-w-[1440px] mx-auto">
         <div className="flex flex-col items-center justify-center py-24 text-center">
-          <div className="w-14 h-14 rounded-full bg-surface-muted flex items-center justify-center mb-4">
-            <Icon name="search_off" className="text-ink-400 text-[28px]" />
+          <div className="w-14 h-14 rounded-full bg-surface-container-high flex items-center justify-center mb-4">
+            <Icon name="search_off" className="text-on-surface-variant text-[28px]" />
           </div>
-          <h3 className="text-lg font-semibold text-ink-900 mb-1">Proposal not found</h3>
-          <p className="text-sm text-ink-500 mb-6">
-            No proposal with ID <span className="font-mono text-ink-700">#{id}</span> exists.
+          <h3 className="text-lg font-semibold text-on-surface mb-1">Proposal not found</h3>
+          <p className="text-sm text-on-surface-variant mb-6">
+            No proposal with ID <span className="font-mono text-on-surface">#{id}</span> exists.
           </p>
-          <Button variant="secondary" onClick={() => navigate('/')}>
+          <Button variant="secondary" onClick={() => navigate(backPath)}>
             <Icon name="arrow_back" className="text-[16px]" />
-            Back to Dashboard
+            Back to Proposals
           </Button>
         </div>
       </div>
@@ -102,32 +110,32 @@ export const ProposalDetailPage = () => {
       {/* ── Page header ─────────────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2 mb-1 text-sm text-ink-400">
+          <div className="flex items-center gap-2 mb-1 text-sm text-on-surface-variant">
             <button
-              onClick={() => navigate('/')}
-              className="hover:text-brand-600 transition-colors flex items-center gap-1 font-medium"
+              onClick={() => navigate(backPath)}
+              className="hover:text-primary transition-colors flex items-center gap-1 font-medium"
             >
               <Icon name="arrow_back" className="text-[14px]" />
-              Dashboard
+              Proposals
             </button>
             <Icon name="chevron_right" className="text-[14px]" />
             <span className="font-mono">#{proposal.id}</span>
           </div>
           <div className="flex items-center flex-wrap gap-3">
-            <h2 className="text-3xl font-bold text-ink-900 tracking-tight">{proposal.title}</h2>
+            <h2 className="text-3xl font-bold text-on-surface tracking-tight">{proposal.title}</h2>
             <StatusBadge status={proposal.status} />
           </div>
-          <p className="text-sm text-ink-400 mt-1">{proposal.date}</p>
+          <p className="text-sm text-on-surface-variant mt-1">{proposal.date}</p>
         </div>
       </div>
 
       {/* ── Blocked banner ──────────────────────────────────────────────── */}
       {proposal.status === 'blocked' && proposal.blockedReason && (
-        <div className="rounded-xl bg-red-50 border border-red-200 px-5 py-4 flex items-start gap-3">
-          <Icon name="block" className="text-danger text-[22px] flex-shrink-0 mt-0.5" />
+        <div className="rounded-md bg-error-container/40 border border-error-container px-5 py-4 flex items-start gap-3">
+          <Icon name="block" className="text-error text-[22px] flex-shrink-0 mt-0.5" />
           <div>
-            <p className="text-sm font-semibold text-danger mb-0.5">Blocked</p>
-            <p className="text-sm text-red-700 leading-relaxed">{proposal.blockedReason}</p>
+            <p className="text-sm font-semibold text-on-error-container mb-0.5">Blocked</p>
+            <p className="text-sm text-on-error-container/80 leading-relaxed">{proposal.blockedReason}</p>
           </div>
         </div>
       )}
@@ -140,33 +148,36 @@ export const ProposalDetailPage = () => {
 
           {/* Human summary */}
           <Card>
-            <div className="flex items-center gap-2 mb-4 pb-3 border-b border-surface-border">
-              <Icon name="description" className="text-brand-600 text-[20px]" />
-              <h3 className="text-base font-semibold text-ink-900">Summary</h3>
+            <div className="flex items-center gap-2 mb-4 pb-3 border-b border-outline-variant">
+              <Icon name="description" className="text-primary text-[20px]" />
+              <h3 className="text-base font-semibold text-on-surface">Summary</h3>
             </div>
-            <p className="text-sm text-ink-700 leading-relaxed">{proposal.description}</p>
+            <p className="text-sm text-on-surface-variant leading-relaxed">{proposal.description}</p>
           </Card>
 
           {/* Transaction group preview */}
           <Card>
-            <div className="flex items-center gap-2 mb-4 pb-3 border-b border-surface-border">
-              <Icon name="receipt_long" className="text-brand-600 text-[20px]" />
-              <h3 className="text-base font-semibold text-ink-900">Transaction Group Preview</h3>
-              <span className="ml-auto text-xs text-ink-400 font-medium">{proposal.txPreview.length} transaction{proposal.txPreview.length !== 1 ? 's' : ''}</span>
+            <div className="flex items-center gap-2 mb-4 pb-3 border-b border-outline-variant">
+              <Icon name="receipt_long" className="text-primary text-[20px]" />
+              <h3 className="text-base font-semibold text-on-surface">Transaction Group Preview</h3>
+              <span className="ml-auto text-xs text-on-surface-variant font-medium">
+                {proposal.txPreview.length} transaction{proposal.txPreview.length !== 1 ? 's' : ''}
+              </span>
             </div>
 
             {proposal.txPreview.length === 0 ? (
-              <p className="text-sm text-ink-400 italic">No transactions in preview.</p>
+              <p className="text-sm text-on-surface-variant italic">No transactions in preview.</p>
             ) : (
-              <div className="flex flex-col divide-y divide-surface-border">
+              <div className="space-y-2">
+                {/* TxChip row + TransactionPreview for each line */}
                 {proposal.txPreview.map((tx, i) => (
-                  <div key={i} className="flex items-start gap-3 py-3 first:pt-0 last:pb-0">
+                  <div key={i} className="flex items-start gap-3 rounded-md border border-outline-variant bg-surface-container-lowest p-3">
                     <div className="flex-shrink-0 pt-0.5">
                       <TxChip type={tx.type} />
                     </div>
                     <div className="min-w-0">
-                      <p className="text-sm font-semibold text-ink-900">{tx.summary}</p>
-                      <p className="text-xs text-ink-500 mt-0.5 font-mono leading-relaxed">{tx.detail}</p>
+                      <p className="text-sm font-medium text-on-surface">{tx.summary}</p>
+                      <p className="font-mono text-xs text-on-surface-variant mt-0.5 leading-relaxed">{tx.detail}</p>
                     </div>
                   </div>
                 ))}
@@ -177,33 +188,33 @@ export const ProposalDetailPage = () => {
           {/* Policy checks */}
           {proposal.policyChecks.length > 0 && (
             <Card>
-              <div className="flex items-center gap-2 mb-4 pb-3 border-b border-surface-border">
-                <Icon name="policy" className="text-brand-600 text-[20px]" />
-                <h3 className="text-base font-semibold text-ink-900">Policy Checks</h3>
+              <div className="flex items-center gap-2 mb-4 pb-3 border-b border-outline-variant">
+                <Icon name="policy" className="text-primary text-[20px]" />
+                <h3 className="text-base font-semibold text-on-surface">Policy Checks</h3>
               </div>
 
               <div className="flex flex-col gap-2">
                 {proposal.policyChecks.map((check, i) => (
                   <div
                     key={i}
-                    className={`flex items-center gap-3 rounded-lg px-4 py-3 border ${
+                    className={`flex items-center gap-3 rounded-md px-4 py-3 border ${
                       check.passed
-                        ? 'bg-green-50 border-green-100'
-                        : 'bg-red-50 border-red-200'
+                        ? 'bg-on-primary-container/20 border-on-primary-container/30'
+                        : 'bg-error-container/30 border-error-container/50'
                     }`}
                   >
                     <Icon
                       name={check.passed ? 'check_circle' : 'cancel'}
-                      className={`text-[20px] flex-shrink-0 ${check.passed ? 'text-ok' : 'text-danger'}`}
+                      className={`text-[20px] flex-shrink-0 ${check.passed ? 'text-primary' : 'text-error'}`}
                     />
-                    <span className={`text-sm font-medium ${check.passed ? 'text-green-800' : 'text-danger'}`}>
+                    <span className={`text-sm font-medium ${check.passed ? 'text-on-surface' : 'text-on-error-container'}`}>
                       {check.label}
                     </span>
-                    <span className="ml-auto text-xs font-semibold">
+                    <span className="ml-auto text-xs font-semibold font-mono">
                       {check.passed ? (
-                        <span className="text-ok">PASS</span>
+                        <span className="text-primary">PASS</span>
                       ) : (
-                        <span className="text-danger">FAIL</span>
+                        <span className="text-error">FAIL</span>
                       )}
                     </span>
                   </div>
@@ -220,22 +231,22 @@ export const ProposalDetailPage = () => {
               {/* Approval progress */}
               <div className="mb-5">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-semibold text-ink-900">Approvals</span>
-                  <span className="text-sm font-bold text-ink-900">
+                  <span className="text-sm font-semibold text-on-surface">Approvals</span>
+                  <span className="text-sm font-bold text-on-surface">
                     {proposal.approvals}
-                    <span className="text-ink-400 font-medium"> / {proposal.threshold}</span>
+                    <span className="text-on-surface-variant font-medium"> / {proposal.threshold}</span>
                   </span>
                 </div>
-                <div className="h-2 rounded-full bg-surface-muted overflow-hidden">
+                <div className="h-2 rounded-full bg-surface-container-lowest overflow-hidden">
                   <div
                     className={`h-full rounded-full transition-all duration-500 ${
-                      progressPct >= 100 ? 'bg-ok' : proposal.status === 'blocked' ? 'bg-danger' : 'bg-brand-600'
+                      progressPct >= 100 ? 'bg-primary' : proposal.status === 'blocked' ? 'bg-error' : 'bg-primary'
                     }`}
                     style={{ width: `${progressPct}%` }}
                   />
                 </div>
                 {canExecute && proposal.status !== 'executed' && (
-                  <p className="text-xs text-ok font-medium mt-1.5 flex items-center gap-1">
+                  <p className="text-xs text-primary font-medium mt-1.5 flex items-center gap-1">
                     <Icon name="check_circle" className="text-[12px]" />
                     Threshold reached — ready to execute
                   </p>
@@ -244,14 +255,14 @@ export const ProposalDetailPage = () => {
 
               {/* Asset / amount */}
               {proposal.amount != null && proposal.asset && (
-                <div className="rounded-lg bg-surface-muted border border-surface-border px-4 py-3 mb-5">
-                  <div className="text-xs text-ink-500 mb-0.5">Transaction Amount</div>
-                  <div className="text-xl font-bold text-ink-900">
+                <div className="rounded-md bg-surface-container-high border border-outline-variant px-4 py-3 mb-5">
+                  <div className="text-xs text-on-surface-variant mb-0.5">Transaction Amount</div>
+                  <div className="text-xl font-bold text-on-surface">
                     {proposal.asset === 'EURD' || proposal.asset === 'EUR'
                       ? fmtEur(proposal.amount)
                       : `${fmtNum(proposal.amount)} ${proposal.asset}`}
                   </div>
-                  <div className="text-xs text-ink-400 mt-0.5">Asset: {proposal.asset}</div>
+                  <div className="text-xs text-on-surface-variant mt-0.5">Asset: {proposal.asset}</div>
                 </div>
               )}
 
@@ -280,7 +291,7 @@ export const ProposalDetailPage = () => {
                 {canExecute && (
                   <Button
                     variant="secondary"
-                    className="w-full justify-center border-ok text-ok hover:bg-green-50"
+                    className="w-full justify-center"
                     disabled={executeProposal.isPending}
                     onClick={handleExecute}
                   >
@@ -291,30 +302,30 @@ export const ProposalDetailPage = () => {
               </div>
 
               {isTerminal && (
-                <p className="text-xs text-ink-400 text-center mt-3">
+                <p className="text-xs text-on-surface-variant text-center mt-3">
                   This proposal is {proposal.status} — no further actions available.
                 </p>
               )}
             </Card>
 
             {/* Status info card */}
-            <div className="rounded-xl border border-surface-border bg-white px-4 py-3">
+            <div className="rounded-md border border-outline-variant bg-surface-container px-4 py-3">
               <div className="flex items-center gap-2 mb-2">
-                <Icon name="info" className="text-ink-400 text-[16px]" />
-                <span className="text-xs font-semibold text-ink-700 uppercase tracking-wide">Status</span>
+                <Icon name="info" className="text-on-surface-variant text-[16px]" />
+                <span className="text-xs font-semibold text-on-surface uppercase tracking-wide">Status</span>
               </div>
               <div className="flex flex-wrap gap-y-2">
                 <div className="w-full flex justify-between text-xs">
-                  <span className="text-ink-500">Proposal ID</span>
-                  <span className="font-mono text-ink-700">#{proposal.id}</span>
+                  <span className="text-on-surface-variant">Proposal ID</span>
+                  <span className="font-mono text-on-surface">#{proposal.id}</span>
                 </div>
-                <div className="w-full flex justify-between text-xs">
-                  <span className="text-ink-500">Status</span>
+                <div className="w-full flex justify-between text-xs items-center">
+                  <span className="text-on-surface-variant">Status</span>
                   <StatusBadge status={proposal.status} />
                 </div>
                 <div className="w-full flex justify-between text-xs">
-                  <span className="text-ink-500">Threshold</span>
-                  <span className="text-ink-700">{proposal.threshold} signatures</span>
+                  <span className="text-on-surface-variant">Threshold</span>
+                  <span className="text-on-surface">{proposal.threshold} signatures</span>
                 </div>
               </div>
             </div>
