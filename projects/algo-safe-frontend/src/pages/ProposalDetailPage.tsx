@@ -7,7 +7,6 @@ import { Card } from '../components/ui/Card'
 import { Icon } from '../components/ui/Icon'
 import { Skeleton } from '../components/ui/Skeleton'
 import { StatusBadge } from '../components/ui/StatusBadge'
-import { TransactionPreview } from '../components/TransactionPreview'
 import { fmtEur, fmtNum } from '../lib/format'
 
 // Chip for transaction type: pay/axfer/appl/keyreg

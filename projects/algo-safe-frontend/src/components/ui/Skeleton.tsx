@@ -1,2 +1,2 @@
 export const Skeleton = ({ className = '' }: { className?: string }) =>
-  <div className={`animate-pulse rounded-md bg-surface-muted ${className}`} />
+  <div className={`animate-pulse rounded-md bg-surface-container-high ${className}`} />
