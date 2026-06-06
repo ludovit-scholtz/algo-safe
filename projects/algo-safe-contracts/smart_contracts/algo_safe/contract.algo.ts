@@ -2,6 +2,7 @@ import {
   Account,
   assert,
   BoxMap,
+  Bytes,
   bytes,
   clone,
   Contract,
@@ -9,6 +10,8 @@ import {
   Global,
   GlobalState,
   itxn,
+  itxnCompose,
+  TransactionType,
   Txn,
   uint64,
   Uint64,
@@ -42,11 +45,14 @@ const STATUS_EXECUTED: uint64 = Uint64(3)
 const STATUS_CANCELLED: uint64 = Uint64(4)
 
 // Proposal payload type discriminators.
-const PT_PAYMENT: uint64 = Uint64(1)
-const PT_ASSET: uint64 = Uint64(2)
-const PT_APP: uint64 = Uint64(3)
-const PT_KEYREG: uint64 = Uint64(4)
+const PT_TRANSACTION_GROUP: uint64 = Uint64(1)
 const PT_ADMIN: uint64 = Uint64(5)
+
+// Transaction entry type discriminators for transaction-group proposals.
+const TX_PAYMENT: uint64 = Uint64(1)
+const TX_ASSET: uint64 = Uint64(2)
+const TX_APP: uint64 = Uint64(3)
+const TX_KEYREG: uint64 = Uint64(4)
 
 // Allowed-action bitmask (SignerGroup.allowedActions).
 const ACT_PAY: uint64 = Uint64(1)
@@ -146,6 +152,40 @@ type KeyRegPayload = {
   voteKeyDilution: uint64
 }
 
+type SafeTxn = {
+  txType: uint64
+  receiver: Account
+  amount: uint64
+  hasClose: uint64
+  closeRemainderTo: Account
+  xferAsset: uint64
+  assetReceiver: Account
+  assetAmount: uint64
+  hasAssetClose: uint64
+  assetCloseTo: Account
+  appId: uint64
+  numArgs: uint64
+  arg0: bytes
+  arg1: bytes
+  arg2: bytes
+  arg3: bytes
+  online: uint64
+  voteKey: bytes
+  selectionKey: bytes
+  stateProofKey: bytes
+  voteFirst: uint64
+  voteLast: uint64
+  voteKeyDilution: uint64
+  note: string
+}
+
+type TransactionGroupPayload = {
+  count: uint64
+  tx0: SafeTxn
+  tx1: SafeTxn
+  tx2: SafeTxn
+}
+
 type AdminChange = {
   changeType: uint64
   targetGroupId: uint64
@@ -201,10 +241,7 @@ export class AlgoSafe extends Contract {
   members = BoxMap<{ groupId: uint64; account: Account }, Member>({ keyPrefix: 'm' })
   proposals = BoxMap<uint64, Proposal>({ keyPrefix: 'p' })
   approvals = BoxMap<{ proposalId: uint64; account: Account }, Approval>({ keyPrefix: 'a' })
-  paymentPayloads = BoxMap<uint64, PaymentPayload>({ keyPrefix: 'pp' })
-  assetPayloads = BoxMap<uint64, AssetPayload>({ keyPrefix: 'ap' })
-  appPayloads = BoxMap<uint64, AppCallPayload>({ keyPrefix: 'cp' })
-  keyRegPayloads = BoxMap<uint64, KeyRegPayload>({ keyPrefix: 'kp' })
+  transactionGroups = BoxMap<uint64, TransactionGroupPayload>({ keyPrefix: 'txg' })
   adminPayloads = BoxMap<uint64, AdminChange>({ keyPrefix: 'dp' })
 
   // -------------------------------------------------------------------------
@@ -278,43 +315,60 @@ export class AlgoSafe extends Contract {
 
   /** Create a payment (ALGO) proposal. */
   public proposePayment(groupId: uint64, payload: PaymentPayload, expiryRound: uint64): uint64 {
-    this._assertProposer(groupId, ACT_PAY)
+    this._assertActionAllowed(groupId, ACT_PAY)
     assert(payload.receiver !== Global.zeroAddress, 'receiver required')
     if (payload.hasClose !== Uint64(0)) {
       assert(payload.closeRemainderTo !== Global.zeroAddress, 'close target required')
     }
-    const pid = this._newProposal(groupId, PT_PAYMENT, expiryRound)
-    this.paymentPayloads(pid).value = clone(payload)
-    return pid
+    const tx = this._txnFromPayment(payload)
+    const group = this._singleTxnGroup(tx)
+    return this.proposeTransactionGroup(groupId, group, expiryRound)
   }
 
   /** Create an asset-transfer (ASA) proposal. Also used for opt-in (amount 0, receiver = safe). */
   public proposeAssetTransfer(groupId: uint64, payload: AssetPayload, expiryRound: uint64): uint64 {
-    this._assertProposer(groupId, ACT_AXFER)
+    this._assertActionAllowed(groupId, ACT_AXFER)
     assert(payload.assetReceiver !== Global.zeroAddress, 'receiver required')
     if (payload.hasClose !== Uint64(0)) {
       assert(payload.assetCloseTo !== Global.zeroAddress, 'close target required')
     }
-    const pid = this._newProposal(groupId, PT_ASSET, expiryRound)
-    this.assetPayloads(pid).value = clone(payload)
-    return pid
+    const tx = this._txnFromAsset(payload)
+    const group = this._singleTxnGroup(tx)
+    return this.proposeTransactionGroup(groupId, group, expiryRound)
   }
 
   /** Create a NoOp application-call proposal with up to 4 application args. */
   public proposeAppCall(groupId: uint64, payload: AppCallPayload, expiryRound: uint64): uint64 {
-    this._assertProposer(groupId, ACT_APPL)
+    this._assertActionAllowed(groupId, ACT_APPL)
     assert(payload.appId !== Uint64(0), 'appId required')
     assert(payload.numArgs <= Uint64(4), 'max 4 app args')
-    const pid = this._newProposal(groupId, PT_APP, expiryRound)
-    this.appPayloads(pid).value = clone(payload)
-    return pid
+    const tx = this._txnFromAppCall(payload)
+    const group = this._singleTxnGroup(tx)
+    return this.proposeTransactionGroup(groupId, group, expiryRound)
   }
 
   /** Create a key-registration proposal (online or offline). */
   public proposeKeyRegistration(groupId: uint64, payload: KeyRegPayload, expiryRound: uint64): uint64 {
-    this._assertProposer(groupId, ACT_KEYREG)
-    const pid = this._newProposal(groupId, PT_KEYREG, expiryRound)
-    this.keyRegPayloads(pid).value = clone(payload)
+    this._assertActionAllowed(groupId, ACT_KEYREG)
+    const tx = this._txnFromKeyReg(payload)
+    const group = this._singleTxnGroup(tx)
+    return this.proposeTransactionGroup(groupId, group, expiryRound)
+  }
+
+  /**
+   * Create an ordered transaction-group proposal. This is the canonical
+   * executable proposal form: signer approvals cover the complete ordered list
+   * of transactions and execution emits that list as one atomic inner group.
+   */
+  public proposeTransactionGroup(groupId: uint64, payload: TransactionGroupPayload, expiryRound: uint64): uint64 {
+    assert(this.paused.value === Uint64(0), 'safe paused')
+    this._assertMember(groupId)
+    assert(this.groups(groupId).value.active !== Uint64(0), 'group disabled')
+    assert(payload.count >= Uint64(1), 'empty tx group')
+    assert(payload.count <= Uint64(3), 'max 3 txs')
+
+    const pid = this._newProposal(groupId, PT_TRANSACTION_GROUP, expiryRound)
+    this.transactionGroups(pid).value = clone(payload)
     return pid
   }
 
@@ -358,17 +412,8 @@ export class AlgoSafe extends Contract {
     const group = clone(this.groups(proposal.groupId).value)
     assert(group.active !== Uint64(0), 'group disabled')
 
-    if (proposal.payloadType === PT_PAYMENT) {
-      this._executePayment(proposalId, proposal.groupId, group)
-    } else if (proposal.payloadType === PT_ASSET) {
-      assert((group.allowedActions & ACT_AXFER) !== Uint64(0), 'axfer not allowed')
-      this._executeAsset(proposalId)
-    } else if (proposal.payloadType === PT_APP) {
-      assert((group.allowedActions & ACT_APPL) !== Uint64(0), 'appl not allowed')
-      this._executeAppCall(proposalId)
-    } else if (proposal.payloadType === PT_KEYREG) {
-      assert((group.allowedActions & ACT_KEYREG) !== Uint64(0), 'keyreg not allowed')
-      this._executeKeyReg(proposalId)
+    if (proposal.payloadType === PT_TRANSACTION_GROUP) {
+      this._executeTransactionGroup(proposalId, proposal.groupId, group)
     } else {
       // Admin change: re-check privilege against current group state.
       const change = clone(this.adminPayloads(proposalId).value)
@@ -421,6 +466,11 @@ export class AlgoSafe extends Contract {
   }
 
   @abimethod({ readonly: true })
+  public getTransactionGroup(proposalId: uint64): TransactionGroupPayload {
+    return clone(this.transactionGroups(proposalId).value)
+  }
+
+  @abimethod({ readonly: true })
   public getMember(groupId: uint64, account: Account): Member {
     return clone(this.members({ groupId, account }).value)
   }
@@ -439,18 +489,17 @@ export class AlgoSafe extends Contract {
   // Internal: proposal helpers
   // -------------------------------------------------------------------------
 
-  /** Assert sender is a member of an active group that permits `action`. */
-  private _assertProposer(groupId: uint64, action: uint64): void {
+  private _assertMember(groupId: uint64): void {
+    assert(this.groups(groupId).exists, 'group not found')
+    assert(this.members({ groupId, account: Txn.sender }).exists, 'not a group member')
+  }
+
+  private _assertActionAllowed(groupId: uint64, action: uint64): void {
     assert(this.paused.value === Uint64(0), 'safe paused')
     this._assertMember(groupId)
     const group = clone(this.groups(groupId).value)
     assert(group.active !== Uint64(0), 'group disabled')
     assert((group.allowedActions & action) !== Uint64(0), 'action not allowed for group')
-  }
-
-  private _assertMember(groupId: uint64): void {
-    assert(this.groups(groupId).exists, 'group not found')
-    assert(this.members({ groupId, account: Txn.sender }).exists, 'not a group member')
   }
 
   /** Create a proposal record, auto-approving the proposer. Returns the proposal id. */
@@ -502,95 +551,282 @@ export class AlgoSafe extends Contract {
   // Internal: execution of typed payloads
   // -------------------------------------------------------------------------
 
-  private _executePayment(proposalId: uint64, groupId: uint64, groupIn: SignerGroup): void {
-    assert((groupIn.allowedActions & ACT_PAY) !== Uint64(0), 'pay not allowed')
-    const payload = clone(this.paymentPayloads(proposalId).value)
+  private _executeTransactionGroup(proposalId: uint64, groupId: uint64, groupIn: SignerGroup): void {
+    const payload = clone(this.transactionGroups(proposalId).value)
+    this._validateTransactionGroup(payload, groupIn)
 
-    // Enforce and account ALGO spending limits on the approving group.
-    const group = this._accountSpend(groupIn, payload.amount)
+    const spend = this._sumAlgoSpend(payload)
+    const group = this._accountSpend(groupIn, spend)
     this.groups(groupId).value = clone(group)
 
-    if (payload.hasClose !== Uint64(0)) {
-      itxn
-        .payment({
-          receiver: payload.receiver,
-          amount: payload.amount,
-          closeRemainderTo: payload.closeRemainderTo,
-          note: payload.note,
+    if (payload.tx0.txType === TX_KEYREG) {
+      this._executeKeyRegTx(payload.tx0)
+      return
+    }
+
+    this._stageSafeTxn(payload.tx0, true)
+    if (payload.count >= Uint64(2)) {
+      this._stageSafeTxn(payload.tx1, false)
+    }
+    if (payload.count >= Uint64(3)) {
+      this._stageSafeTxn(payload.tx2, false)
+    }
+    itxnCompose.submit()
+  }
+
+  private _stageSafeTxn(tx: SafeTxn, first: boolean): void {
+    if (tx.txType === TX_PAYMENT) {
+      if (tx.hasClose !== Uint64(0)) {
+        if (first) {
+          itxnCompose.begin({
+            type: TransactionType.Payment,
+            receiver: tx.receiver,
+            amount: tx.amount,
+            closeRemainderTo: tx.closeRemainderTo,
+            note: tx.note,
+            fee: Uint64(0),
+          })
+        } else {
+          itxnCompose.next({
+            type: TransactionType.Payment,
+            receiver: tx.receiver,
+            amount: tx.amount,
+            closeRemainderTo: tx.closeRemainderTo,
+            note: tx.note,
+            fee: Uint64(0),
+          })
+        }
+      } else if (first) {
+        itxnCompose.begin({ type: TransactionType.Payment, receiver: tx.receiver, amount: tx.amount, note: tx.note, fee: Uint64(0) })
+      } else {
+        itxnCompose.next({ type: TransactionType.Payment, receiver: tx.receiver, amount: tx.amount, note: tx.note, fee: Uint64(0) })
+      }
+    } else if (tx.txType === TX_ASSET) {
+      if (tx.hasAssetClose !== Uint64(0)) {
+        if (first) {
+          itxnCompose.begin({
+            type: TransactionType.AssetTransfer,
+            xferAsset: tx.xferAsset,
+            assetReceiver: tx.assetReceiver,
+            assetAmount: tx.assetAmount,
+            assetCloseTo: tx.assetCloseTo,
+            note: tx.note,
+            fee: Uint64(0),
+          })
+        } else {
+          itxnCompose.next({
+            type: TransactionType.AssetTransfer,
+            xferAsset: tx.xferAsset,
+            assetReceiver: tx.assetReceiver,
+            assetAmount: tx.assetAmount,
+            assetCloseTo: tx.assetCloseTo,
+            note: tx.note,
+            fee: Uint64(0),
+          })
+        }
+      } else if (first) {
+        itxnCompose.begin({
+          type: TransactionType.AssetTransfer,
+          xferAsset: tx.xferAsset,
+          assetReceiver: tx.assetReceiver,
+          assetAmount: tx.assetAmount,
+          note: tx.note,
           fee: Uint64(0),
         })
-        .submit()
+      } else {
+        itxnCompose.next({
+          type: TransactionType.AssetTransfer,
+          xferAsset: tx.xferAsset,
+          assetReceiver: tx.assetReceiver,
+          assetAmount: tx.assetAmount,
+          note: tx.note,
+          fee: Uint64(0),
+        })
+      }
+    } else if (tx.txType === TX_APP) {
+      this._stageAppCall(tx, first)
     } else {
-      itxn
-        .payment({
-          receiver: payload.receiver,
-          amount: payload.amount,
-          note: payload.note,
-          fee: Uint64(0),
-        })
-        .submit()
+      assert(false, 'keyreg must be single tx')
     }
   }
 
-  private _executeAsset(proposalId: uint64): void {
-    const payload = clone(this.assetPayloads(proposalId).value)
-    if (payload.hasClose !== Uint64(0)) {
-      itxn
-        .assetTransfer({
-          xferAsset: payload.xferAsset,
-          assetReceiver: payload.assetReceiver,
-          assetAmount: payload.assetAmount,
-          assetCloseTo: payload.assetCloseTo,
-          note: payload.note,
-          fee: Uint64(0),
-        })
-        .submit()
+  private _stageAppCall(tx: SafeTxn, first: boolean): void {
+    if (tx.numArgs === Uint64(0)) {
+      if (first) itxnCompose.begin({ type: TransactionType.ApplicationCall, appId: tx.appId, fee: Uint64(0) })
+      else itxnCompose.next({ type: TransactionType.ApplicationCall, appId: tx.appId, fee: Uint64(0) })
+    } else if (tx.numArgs === Uint64(1)) {
+      if (first) itxnCompose.begin({ type: TransactionType.ApplicationCall, appId: tx.appId, appArgs: [tx.arg0], fee: Uint64(0) })
+      else itxnCompose.next({ type: TransactionType.ApplicationCall, appId: tx.appId, appArgs: [tx.arg0], fee: Uint64(0) })
+    } else if (tx.numArgs === Uint64(2)) {
+      if (first) itxnCompose.begin({ type: TransactionType.ApplicationCall, appId: tx.appId, appArgs: [tx.arg0, tx.arg1], fee: Uint64(0) })
+      else itxnCompose.next({ type: TransactionType.ApplicationCall, appId: tx.appId, appArgs: [tx.arg0, tx.arg1], fee: Uint64(0) })
+    } else if (tx.numArgs === Uint64(3)) {
+      if (first) itxnCompose.begin({ type: TransactionType.ApplicationCall, appId: tx.appId, appArgs: [tx.arg0, tx.arg1, tx.arg2], fee: Uint64(0) })
+      else itxnCompose.next({ type: TransactionType.ApplicationCall, appId: tx.appId, appArgs: [tx.arg0, tx.arg1, tx.arg2], fee: Uint64(0) })
+    } else if (first) {
+      itxnCompose.begin({ type: TransactionType.ApplicationCall, appId: tx.appId, appArgs: [tx.arg0, tx.arg1, tx.arg2, tx.arg3], fee: Uint64(0) })
     } else {
-      itxn
-        .assetTransfer({
-          xferAsset: payload.xferAsset,
-          assetReceiver: payload.assetReceiver,
-          assetAmount: payload.assetAmount,
-          note: payload.note,
-          fee: Uint64(0),
-        })
-        .submit()
+      itxnCompose.next({ type: TransactionType.ApplicationCall, appId: tx.appId, appArgs: [tx.arg0, tx.arg1, tx.arg2, tx.arg3], fee: Uint64(0) })
     }
   }
 
-  private _executeAppCall(proposalId: uint64): void {
-    const p = clone(this.appPayloads(proposalId).value)
-    if (p.numArgs === Uint64(0)) {
-      itxn.applicationCall({ appId: p.appId, fee: Uint64(0) }).submit()
-    } else if (p.numArgs === Uint64(1)) {
-      itxn.applicationCall({ appId: p.appId, appArgs: [p.arg0], fee: Uint64(0) }).submit()
-    } else if (p.numArgs === Uint64(2)) {
-      itxn.applicationCall({ appId: p.appId, appArgs: [p.arg0, p.arg1], fee: Uint64(0) }).submit()
-    } else if (p.numArgs === Uint64(3)) {
-      itxn.applicationCall({ appId: p.appId, appArgs: [p.arg0, p.arg1, p.arg2], fee: Uint64(0) }).submit()
-    } else {
-      itxn.applicationCall({ appId: p.appId, appArgs: [p.arg0, p.arg1, p.arg2, p.arg3], fee: Uint64(0) }).submit()
-    }
-  }
-
-  private _executeKeyReg(proposalId: uint64): void {
-    const p = clone(this.keyRegPayloads(proposalId).value)
-    if (p.online !== Uint64(0)) {
+  private _executeKeyRegTx(tx: SafeTxn): void {
+    if (tx.online !== Uint64(0)) {
       itxn
         .keyRegistration({
-          voteKey: p.voteKey,
-          selectionKey: p.selectionKey,
-          stateProofKey: p.stateProofKey,
-          voteFirst: p.voteFirst,
-          voteLast: p.voteLast,
-          voteKeyDilution: p.voteKeyDilution,
+          voteKey: Bytes(tx.voteKey, { length: 32 }),
+          selectionKey: Bytes(tx.selectionKey, { length: 32 }),
+          stateProofKey: Bytes(tx.stateProofKey, { length: 64 }),
+          voteFirst: tx.voteFirst,
+          voteLast: tx.voteLast,
+          voteKeyDilution: tx.voteKeyDilution,
           fee: Uint64(0),
         })
         .submit()
     } else {
-      // Empty registration goes offline.
       itxn.keyRegistration({ fee: Uint64(0) }).submit()
     }
+  }
+
+  private _validateTransactionGroup(payload: TransactionGroupPayload, group: SignerGroup): void {
+    assert(payload.count >= Uint64(1), 'empty tx group')
+    assert(payload.count <= Uint64(3), 'max 3 txs')
+    this._validateSafeTxn(payload.tx0, group)
+    if (payload.tx0.txType === TX_KEYREG) {
+      assert(payload.count === Uint64(1), 'keyreg must be single tx')
+    }
+    if (payload.count >= Uint64(2)) {
+      this._validateSafeTxn(payload.tx1, group)
+      assert(payload.tx1.txType !== TX_KEYREG, 'keyreg must be single tx')
+    }
+    if (payload.count >= Uint64(3)) {
+      this._validateSafeTxn(payload.tx2, group)
+      assert(payload.tx2.txType !== TX_KEYREG, 'keyreg must be single tx')
+    }
+  }
+
+  private _validateSafeTxn(tx: SafeTxn, group: SignerGroup): void {
+    if (tx.txType === TX_PAYMENT) {
+      assert((group.allowedActions & ACT_PAY) !== Uint64(0), 'pay not allowed')
+      assert(tx.receiver !== Global.zeroAddress, 'receiver required')
+      if (tx.hasClose !== Uint64(0)) {
+        assert(tx.closeRemainderTo !== Global.zeroAddress, 'close target required')
+      }
+    } else if (tx.txType === TX_ASSET) {
+      assert((group.allowedActions & ACT_AXFER) !== Uint64(0), 'axfer not allowed')
+      assert(tx.assetReceiver !== Global.zeroAddress, 'asset receiver required')
+      if (tx.hasAssetClose !== Uint64(0)) {
+        assert(tx.assetCloseTo !== Global.zeroAddress, 'asset close target required')
+      }
+    } else if (tx.txType === TX_APP) {
+      assert((group.allowedActions & ACT_APPL) !== Uint64(0), 'appl not allowed')
+      assert(tx.appId !== Uint64(0), 'appId required')
+      assert(tx.numArgs <= Uint64(4), 'max 4 app args')
+    } else if (tx.txType === TX_KEYREG) {
+      assert((group.allowedActions & ACT_KEYREG) !== Uint64(0), 'keyreg not allowed')
+    } else {
+      assert(false, 'unknown tx type')
+    }
+  }
+
+  private _sumAlgoSpend(payload: TransactionGroupPayload): uint64 {
+    let spend: uint64 = Uint64(0)
+    if (payload.tx0.txType === TX_PAYMENT) {
+      spend = spend + payload.tx0.amount
+    }
+    if (payload.count >= Uint64(2) && payload.tx1.txType === TX_PAYMENT) {
+      spend = spend + payload.tx1.amount
+    }
+    if (payload.count >= Uint64(3) && payload.tx2.txType === TX_PAYMENT) {
+      spend = spend + payload.tx2.amount
+    }
+    return spend
+  }
+
+  private _singleTxnGroup(tx: SafeTxn): TransactionGroupPayload {
+    return {
+      count: Uint64(1),
+      tx0: clone(tx),
+      tx1: this._emptyTxn(),
+      tx2: this._emptyTxn(),
+    }
+  }
+
+  private _emptyTxn(): SafeTxn {
+    return {
+      txType: TX_PAYMENT,
+      receiver: Global.zeroAddress,
+      amount: Uint64(0),
+      hasClose: Uint64(0),
+      closeRemainderTo: Global.zeroAddress,
+      xferAsset: Uint64(0),
+      assetReceiver: Global.zeroAddress,
+      assetAmount: Uint64(0),
+      hasAssetClose: Uint64(0),
+      assetCloseTo: Global.zeroAddress,
+      appId: Uint64(0),
+      numArgs: Uint64(0),
+      arg0: Bytes(''),
+      arg1: Bytes(''),
+      arg2: Bytes(''),
+      arg3: Bytes(''),
+      online: Uint64(0),
+      voteKey: Bytes(''),
+      selectionKey: Bytes(''),
+      stateProofKey: Bytes(''),
+      voteFirst: Uint64(0),
+      voteLast: Uint64(0),
+      voteKeyDilution: Uint64(0),
+      note: '',
+    }
+  }
+
+  private _txnFromPayment(payload: PaymentPayload): SafeTxn {
+    const tx = this._emptyTxn()
+    tx.txType = TX_PAYMENT
+    tx.receiver = payload.receiver
+    tx.amount = payload.amount
+    tx.hasClose = payload.hasClose
+    tx.closeRemainderTo = payload.closeRemainderTo
+    tx.note = payload.note
+    return tx
+  }
+
+  private _txnFromAsset(payload: AssetPayload): SafeTxn {
+    const tx = this._emptyTxn()
+    tx.txType = TX_ASSET
+    tx.xferAsset = payload.xferAsset
+    tx.assetReceiver = payload.assetReceiver
+    tx.assetAmount = payload.assetAmount
+    tx.hasAssetClose = payload.hasClose
+    tx.assetCloseTo = payload.assetCloseTo
+    tx.note = payload.note
+    return tx
+  }
+
+  private _txnFromAppCall(payload: AppCallPayload): SafeTxn {
+    const tx = this._emptyTxn()
+    tx.txType = TX_APP
+    tx.appId = payload.appId
+    tx.numArgs = payload.numArgs
+    tx.arg0 = payload.arg0
+    tx.arg1 = payload.arg1
+    tx.arg2 = payload.arg2
+    tx.arg3 = payload.arg3
+    return tx
+  }
+
+  private _txnFromKeyReg(payload: KeyRegPayload): SafeTxn {
+    const tx = this._emptyTxn()
+    tx.txType = TX_KEYREG
+    tx.online = payload.online
+    tx.voteKey = payload.voteKey
+    tx.selectionKey = payload.selectionKey
+    tx.stateProofKey = payload.stateProofKey
+    tx.voteFirst = payload.voteFirst
+    tx.voteLast = payload.voteLast
+    tx.voteKeyDilution = payload.voteKeyDilution
+    return tx
   }
 
   /**

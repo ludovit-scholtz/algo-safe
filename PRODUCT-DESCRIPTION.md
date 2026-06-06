@@ -131,7 +131,7 @@ Every proposal must show:
 - Expiration round or time
 - Network and genesis hash
 
-Proposals do not store a `groupTxnHash`. The approved content is the typed proposal payload itself: payment, asset transfer, application call, key registration, or signer-group administration. On execution, the contract emits the approved payload as an AVM inner transaction group from the application account.
+Proposals do not store a `groupTxnHash`. The approved content for executable actions is always the canonical ordered transaction list itself, stored as a typed `TransactionGroupPayload`. A single payment, asset transfer, or app call is represented as a one-item transaction group. Mixed groups such as `pay + appl` or several `appl` calls are first-class proposals. On execution, the contract emits the approved ordered list as one AVM inner transaction group from the application account. Signer-group administration remains a separate governed admin payload.
 
 ---
 
@@ -144,7 +144,7 @@ Algo Safe should support the actions Algorand users actually need, starting with
 - **Application call (`appl`)**: Call dApps, governance contracts, DeFi protocols, and the Algo Safe contract itself.
 - **Key registration (`keyreg`)**: Register participation keys, go online/offline, and manage validator participation workflows.
 
-Algorand atomic groups may contain a mix of transaction types. The frontend must make that power understandable instead of hiding it.
+Algorand atomic groups may contain a mix of transaction types. The frontend must make that power understandable instead of hiding it: signers approve the exact ordered list, not a vague action label.
 
 ---
 
@@ -406,7 +406,7 @@ The contract is written in **Algorand TypeScript** (PuyaTs) and compiled to **TE
 - **Two fundamental types.** At the AVM level everything is `uint64` or `bytes` (≤ 4096 bytes). Higher-level shapes (structs, addresses, ABI tuples) are ARC-4 encodings over `bytes`.
 - **The safe address is the application account.** The smart account that holds ALGO and ASAs (including EURD) is the **application's account**. All payments, ASA transfers, app calls, and key registrations are executed as **inner transactions** signed by the application, each with `fee: 0` (the caller covers fees via fee pooling).
 - **No re-entrancy.** An application cannot call itself, even indirectly through inner transactions; the AVM enforces this.
-- **Hard limits drive storage choices.** Global state is capped (64 KV pairs, key+value <= 128 bytes), so per-group, per-member, per-proposal, and per-approval records live in **box storage** (`Box` / `BoxMap`), whose MBR is funded by the app account. A transaction group is at most 16 transactions; the opcode budget is 700 per app call, pooled across the group and inner app calls.
+- **Hard limits drive storage choices.** Global state is capped (64 KV pairs, key+value <= 128 bytes), so per-group, per-member, per-proposal, and per-approval records live in **box storage** (`Box` / `BoxMap`), whose MBR is funded by the app account. Algorand protocol transaction groups can contain up to 16 transactions; the current Algo Safe contract stores up to three executable inner transactions per transaction-group proposal to stay within AVM app page and opcode-budget limits. The opcode budget is 700 per app call, pooled across the group and inner app calls.
 - **Approval authentication comes from the signed app call.** A standard approval is an `approveProposal` application call signed by the signer account. The AVM has already verified the transaction signature before the approval program runs, so the contract checks `Txn.sender` against the signer group and records only the approval fact. The `Approval` box never stores a signature. Explicit opcodes such as `falcon_verify` are used only for signer types that cannot be authenticated directly as the transaction sender.
 
 ### Storage Layout
@@ -458,57 +458,33 @@ classDiagram
         «BoxMap key: proposalId»
         +groupId : uint64
         +status : uint8
-        +payloadType : uint8 (payment/asset/app/keyreg/adminChange)
+        +payloadType : uint8 (transactionGroup/adminChange)
         +approvalsCount : uint64
         +threshold : uint64
         +expiryRound : uint64
         +proposer : Account
     }
 
-    class PaymentGroup {
+    class TransactionGroupPayload {
         «BoxMap key: proposalId»
         +count : uint64
-        +type[] : bytes (payment/asset/app/keyreg)
-        +payTxs[] : PaymentTx
-        +assetTxs[] : AssetTx
-        +appTxs[] : AppCallTx
-        +keyRegTxs[] : KeyRegTx
+        +tx0 : SafeTxn
+        +tx1 : SafeTxn
+        +tx2 : SafeTxn
     }
 
-    class PaymentTx {
+    class SafeTxn {
+        +txType : uint64 (pay/axfer/appl/keyreg)
         +receiver : Account
         +amount : uint64
-        +closeRemainderTo : Account optional
-        +note : bytes
-    }
-
-    class AssetTx {
+        +xferAsset : uint64
         +assetReceiver : Account
         +assetAmount : uint64
-        +xferAsset : uint64
-        +assetCloseTo : Account optional
-        +assetSender : Account optional
+        +appId : uint64
+        +arg0..arg3 : bytes
+        +voteKey/selectionKey/stateProofKey : bytes
+        +closeRemainderTo : Account optional
         +note : bytes
-    }
-
-    class AppCallTx {
-        +applicationId : uint64
-        +onCompletion : uint64
-        +applicationArgs : bytes[]
-        +accounts : Account[]
-        +apps : uint64[]
-        +assets : uint64[]
-        +boxes : bytes[]
-    }
-
-    class KeyRegTx {
-        +voteKey : bytes
-        +selectionKey : bytes
-        +stateProofKey : bytes
-        +voteFirst : uint64
-        +voteLast : uint64
-        +voteKeyDilution : uint64
-        +nonParticipation : bool
     }
 
     class SignerGroupChange {
@@ -532,12 +508,12 @@ classDiagram
     Application "1" --> "*" SignerGroup : BoxMap
     SignerGroup "1" --> "*" Member : BoxMap
     Application "1" --> "*" Proposal : BoxMap
-    Proposal "1" --> "0..1" PaymentGroup : BoxMap
+    Proposal "1" --> "0..1" TransactionGroupPayload : BoxMap
     Proposal "1" --> "0..1" SignerGroupChange : BoxMap
     Proposal "1" --> "*" Approval : BoxMap
 ```
 
-`PaymentGroup` is intentionally named for the executable group shape used by the contract, even though it can contain payment, asset transfer, application call, and key registration entries. The arrays are parallel by index: `type[i]` selects which typed transaction array is read at position `i`, and execution composes the matching inner transaction fields with the correct `TransactionType`.
+`TransactionGroupPayload` is the executable payload shape used by the contract. It is an ordered list of typed `SafeTxn` entries. `txType` selects whether an entry is emitted as `pay`, `axfer`, `appl`, or `keyreg`. A one-action proposal is still a transaction group with `count = 1`. Current implementation supports up to three entries per executable proposal; key-registration is constrained to a one-entry group, while payment, asset transfer, and app-call entries can be mixed and executed as one atomic inner group.
 
 ### ABI Method Surface
 
@@ -560,8 +536,9 @@ flowchart TB
     end
 
     subgraph Proposals["Proposal lifecycle"]
-        P1["createTransactionProposal(groupId, txs, expiry)"]
-        P1A["createSignerGroupChangeProposal(groupId, change, expiry)"]
+        P1["proposeTransactionGroup(groupId, txs, expiry)"]
+        P1A["proposeAdminChange(groupId, change, expiry)"]
+        P1B["proposePayment / proposeAssetTransfer / proposeAppCall / proposeKeyRegistration wrappers"]
         P2["approveProposal(proposalId)"]
         P3["executeProposal(proposalId) → inner txns"]
         P4["cancelProposal(proposalId)"]
@@ -577,7 +554,7 @@ flowchart TB
         R1["getSafeConfig()"]
         R2["getSignerGroup(groupId)"]
         R3["getProposal(proposalId)"]
-        R4["getProposalPayload(proposalId)"]
+        R4["getTransactionGroup(proposalId)"]
     end
 
     P2 --> V1
@@ -594,7 +571,7 @@ Every administrative change (`createSignerGroup`, `addSigner`, `removeSigner`, `
 
 ### Proposal State Machine
 
-A proposal carries the **exact typed payload** it authorizes. A signer approves by submitting a signed `approveProposal(proposalId)` app call from the signer account. The blockchain validates that transaction signature before contract logic runs; the contract then checks that `Txn.sender` is a member of the requested signer group and records the approval. If the payload changes, the proposal must be recreated and approvals collected again. For executable transactions, the approved payload is converted into an inner transaction group during `executeProposal`. For signer-group changes, the approved payload mutates the group, member, threshold, policy, or admin-privilege boxes.
+A proposal carries the **exact typed payload** it authorizes. For executable actions, that payload is always an ordered `TransactionGroupPayload`; a single transaction is just a one-entry group. A signer approves by submitting a signed `approveProposal(proposalId)` app call from the signer account. The blockchain validates that transaction signature before contract logic runs; the contract then checks that `Txn.sender` is a member of the requested signer group and records the approval. If the ordered payload changes, the proposal must be recreated and approvals collected again. During `executeProposal`, the approved transaction list is converted into one atomic inner transaction group. For signer-group changes, the approved admin payload mutates the group, member, threshold, policy, or admin-privilege boxes.
 
 ```mermaid
 stateDiagram-v2
@@ -646,57 +623,15 @@ sequenceDiagram
 For transaction proposals, execution follows the same shape as the contract implementation:
 
 ```ts
-private _executeTransactions(txs: PaymentGroup): arc4.Bool {
-    for (const i of urange(txs.count)) {
-        switch (txs.type[i]) {
-            case 'payment':
-                const paymentComposeFields = {
-                    ...txs.payTxs[i],
-                    type: TransactionType.Payment,
-                } satisfies PaymentComposeFields
-                if (i === 0) {
-                    itxnCompose.begin(paymentComposeFields)
-                } else {
-                    itxnCompose.next(paymentComposeFields)
-                }
-                break
-            case 'asset':
-                const assetComposeFields = {
-                    ...txs.assetTxs[i],
-                    type: TransactionType.AssetTransfer,
-                } satisfies AssetTransferComposeFields
-                if (i === 0) {
-                    itxnCompose.begin(assetComposeFields)
-                } else {
-                    itxnCompose.next(assetComposeFields)
-                }
-                break
-            case 'app':
-                const appComposeFields = {
-                    ...txs.appTxs[i],
-                    type: TransactionType.ApplicationCall,
-                } satisfies ApplicationCallComposeFields
-                if (i === 0) {
-                    itxnCompose.begin(appComposeFields)
-                } else {
-                    itxnCompose.next(appComposeFields)
-                }
-                break
-            case 'keyreg':
-                const keyComposeFields = {
-                    ...txs.keyRegTxs[i],
-                    type: TransactionType.KeyRegistration,
-                } satisfies KeyRegistrationComposeFields
-                if (i === 0) {
-                    itxnCompose.begin(keyComposeFields)
-                } else {
-                    itxnCompose.next(keyComposeFields)
-                }
-                break
-        }
-    }
-    itxnCompose.submit()
-    return true
+private _executeTransactionGroup(proposalId: uint64, groupId: uint64, group: SignerGroup): void {
+  const txs = clone(this.transactionGroups(proposalId).value)
+  this._validateTransactionGroup(txs, group)
+  this.groups(groupId).value = clone(this._accountSpend(group, this._sumAlgoSpend(txs)))
+
+  this._stageSafeTxn(txs.tx0, true)
+  if (txs.count >= Uint64(2)) this._stageSafeTxn(txs.tx1, false)
+  if (txs.count >= Uint64(3)) this._stageSafeTxn(txs.tx2, false)
+  itxnCompose.submit()
 }
 ```
 
@@ -727,6 +662,8 @@ The transaction builder is the most important part of the product.
 
 Users should be able to prepare a single high-level safe action, then have the frontend assemble and display the exact typed payload that the contract will later execute as an inner transaction group.
 
+This is especially valuable for users who would otherwise need to approve many separate dApp calls on a hardware wallet. For example, a Ledger user may need to authorize several application calls for a DeFi, governance, or operational workflow. Instead of signing each underlying app call one by one, the builder packages the ordered app-call list into one Algo Safe transaction-group proposal. Each signer reviews the canonical list and signs one Algo Safe app-call approval. After the threshold is met, `executeProposal` emits the approved list as one atomic inner transaction group from the safe account.
+
 For example, a dApp or operator may prepare one safe execution request that results in a grouped transaction set containing:
 
 1. A `pay` transaction funding or paying a target account
@@ -740,6 +677,7 @@ Required builder capabilities:
 
 - Compose single-transaction and multi-transaction proposals
 - Support `pay`, `axfer`, `appl`, and `keyreg` from guided forms
+- Bundle several app calls into one ordered Algo Safe approval flow for Ledger and other slow/manual signing devices
 - Import unsigned transactions from JSON/base64 for advanced users
 - Decode and display application arguments, accounts, apps, assets, and boxes where possible
 - Simulate or dry-run proposals before approval collection where supported

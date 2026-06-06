@@ -2,14 +2,24 @@ import { Config } from '@algorandfoundation/algokit-utils'
 import { algorandFixture } from '@algorandfoundation/algokit-utils/testing'
 import algosdk from 'algosdk'
 import { beforeAll, beforeEach, describe, expect, test } from 'vitest'
-import { AdminChange, AlgoSafeClient, AlgoSafeFactory } from '../artifacts/algo_safe/AlgoSafeClient'
+import {
+  AdminChange,
+  AlgoSafeClient,
+  AlgoSafeFactory,
+  SafeTxn,
+  TransactionGroupPayload,
+} from '../artifacts/algo_safe/AlgoSafeClient'
 
 // Contract constants mirrored for the tests.
 const ACT_PAY = 1n
 const ACT_AXFER = 2n
+const ACT_APPL = 4n
 const ACT_ALL = 15n
 const PRIV_GROUP = 1n
 const PRIV_ALL = 7n
+
+const TX_PAYMENT = 1n
+const TX_APP = 3n
 
 const ADM_CREATE_GROUP = 1n
 const ADM_ADD_MEMBER = 2n
@@ -42,11 +52,68 @@ function mkPayment(receiver: string, amount: bigint) {
   return { receiver, amount, hasClose: 0n, closeRemainderTo: ZERO_ADDR, note: '' }
 }
 
+const EMPTY_BYTES = new Uint8Array()
+
+function emptySafeTxn(): SafeTxn {
+  return {
+    txType: TX_PAYMENT,
+    receiver: ZERO_ADDR,
+    amount: 0n,
+    hasClose: 0n,
+    closeRemainderTo: ZERO_ADDR,
+    xferAsset: 0n,
+    assetReceiver: ZERO_ADDR,
+    assetAmount: 0n,
+    hasAssetClose: 0n,
+    assetCloseTo: ZERO_ADDR,
+    appId: 0n,
+    numArgs: 0n,
+    arg0: EMPTY_BYTES,
+    arg1: EMPTY_BYTES,
+    arg2: EMPTY_BYTES,
+    arg3: EMPTY_BYTES,
+    online: 0n,
+    voteKey: EMPTY_BYTES,
+    selectionKey: EMPTY_BYTES,
+    stateProofKey: EMPTY_BYTES,
+    voteFirst: 0n,
+    voteLast: 0n,
+    voteKeyDilution: 0n,
+    note: '',
+  }
+}
+
+function safePayment(receiver: string, amount: bigint, note = ''): SafeTxn {
+  return { ...emptySafeTxn(), txType: TX_PAYMENT, receiver, amount, note }
+}
+
+function safeAppCall(appId: bigint, args: Uint8Array[] = []): SafeTxn {
+  return {
+    ...emptySafeTxn(),
+    txType: TX_APP,
+    appId,
+    numArgs: BigInt(args.length),
+    arg0: args[0] ?? EMPTY_BYTES,
+    arg1: args[1] ?? EMPTY_BYTES,
+    arg2: args[2] ?? EMPTY_BYTES,
+    arg3: args[3] ?? EMPTY_BYTES,
+  }
+}
+
+function txGroup(txs: SafeTxn[]): TransactionGroupPayload {
+  return {
+    count: BigInt(txs.length),
+    tx0: txs[0],
+    tx1: txs[1] ?? emptySafeTxn(),
+    tx2: txs[2] ?? emptySafeTxn(),
+  }
+}
+
 describe('AlgoSafe contract', () => {
   const localnet = algorandFixture()
 
   beforeAll(() => {
-    Config.configure({ debug: true, populateAppCallResources: true })
+    Config.configure({ debug: false, populateAppCallResources: true })
   })
   beforeEach(localnet.newScope)
 
@@ -89,6 +156,28 @@ describe('AlgoSafe contract', () => {
   }
 
   const currentRound = async () => (await localnet.algorand.client.algod.status().do()).lastRound
+
+  const createBareNoOpApp = async (sender: algosdk.Account) => {
+    const algod = localnet.algorand.client.algod
+    const approval = await algod.compile(Buffer.from('#pragma version 10\nint 1')).do()
+    const clear = await algod.compile(Buffer.from('#pragma version 10\nint 1')).do()
+    const suggestedParams = await algod.getTransactionParams().do()
+    const createTxn = algosdk.makeApplicationCreateTxnFromObject({
+      sender: sender.addr,
+      suggestedParams,
+      onComplete: algosdk.OnApplicationComplete.NoOpOC,
+      approvalProgram: new Uint8Array(Buffer.from(approval.result, 'base64')),
+      clearProgram: new Uint8Array(Buffer.from(clear.result, 'base64')),
+      numLocalInts: 0,
+      numLocalByteSlices: 0,
+      numGlobalInts: 0,
+      numGlobalByteSlices: 0,
+    })
+    const signed = algosdk.signTransaction(createTxn, sender.sk)
+    await algod.sendRawTransaction(signed.blob).do()
+    const confirmed = await algosdk.waitForConfirmation(algod, signed.txID, 4)
+    return BigInt(confirmed.applicationIndex!)
+  }
 
   // -------------------------------------------------------------------------
 
@@ -146,6 +235,62 @@ describe('AlgoSafe contract', () => {
 
     const recipInfo = await localnet.algorand.account.getInformation(recipient)
     expect(recipInfo.balance.microAlgo).toBe((1).algo().microAlgo)
+
+    const after = await client.send.getProposal({ args: { proposalId: pid! }, suppressLog: true })
+    expect(after.return!.status).toBe(3n) // EXECUTED
+  })
+
+  test('approves and executes a mixed ordered payment plus app-call transaction group', async () => {
+    const { client, deployer } = await deployAndBootstrap()
+    const targetAppId = await createBareNoOpApp(deployer)
+    const recipient = await localnet.context.generateAccount({ initialFunds: (0).algo() })
+
+    const payload = txGroup([
+      safePayment(recipient.toString(), (0.25).algo().microAlgo, 'first'),
+      safeAppCall(targetAppId, [new TextEncoder().encode('second')]),
+    ])
+
+    const { return: pid } = await client.send.proposeTransactionGroup({
+      args: { groupId: 1n, payload, expiryRound: FAR_EXPIRY },
+      suppressLog: true,
+    })
+
+    const stored = await client.send.getTransactionGroup({ args: { proposalId: pid! }, suppressLog: true })
+    expect(stored.return!.count).toBe(2n)
+    expect(stored.return!.tx0.txType).toBe(TX_PAYMENT)
+    expect(stored.return!.tx1.txType).toBe(TX_APP)
+
+    await client.send.executeProposal({ args: { proposalId: pid! }, ...execParams })
+
+    const recipInfo = await localnet.algorand.account.getInformation(recipient)
+    expect(recipInfo.balance.microAlgo).toBe((0.25).algo().microAlgo)
+  })
+
+  test('groups several app calls into one safe approval and execution transaction', async () => {
+    const { client, deployer } = await deployAndBootstrap()
+    const targetAppId = await createBareNoOpApp(deployer)
+    const encoder = new TextEncoder()
+
+    const { return: pid } = await client.send.proposeTransactionGroup({
+      args: {
+        groupId: 1n,
+        payload: txGroup([
+          safeAppCall(targetAppId, [encoder.encode('app-call-1')]),
+          safeAppCall(targetAppId, [encoder.encode('app-call-2')]),
+          safeAppCall(targetAppId, [encoder.encode('app-call-3')]),
+        ]),
+        expiryRound: FAR_EXPIRY,
+      },
+      suppressLog: true,
+    })
+
+    const stored = await client.send.getTransactionGroup({ args: { proposalId: pid! }, suppressLog: true })
+    expect(stored.return!.count).toBe(3n)
+    expect(stored.return!.tx0.appId).toBe(targetAppId)
+    expect(stored.return!.tx1.appId).toBe(targetAppId)
+    expect(stored.return!.tx2.appId).toBe(targetAppId)
+
+    await client.send.executeProposal({ args: { proposalId: pid! }, ...execParams })
 
     const after = await client.send.getProposal({ args: { proposalId: pid! }, suppressLog: true })
     expect(after.return!.status).toBe(3n) // EXECUTED
