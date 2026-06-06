@@ -597,9 +597,21 @@ export class AlgoSafe extends Contract {
           })
         }
       } else if (first) {
-        itxnCompose.begin({ type: TransactionType.Payment, receiver: tx.receiver, amount: tx.amount, note: tx.note, fee: Uint64(0) })
+        itxnCompose.begin({
+          type: TransactionType.Payment,
+          receiver: tx.receiver,
+          amount: tx.amount,
+          note: tx.note,
+          fee: Uint64(0),
+        })
       } else {
-        itxnCompose.next({ type: TransactionType.Payment, receiver: tx.receiver, amount: tx.amount, note: tx.note, fee: Uint64(0) })
+        itxnCompose.next({
+          type: TransactionType.Payment,
+          receiver: tx.receiver,
+          amount: tx.amount,
+          note: tx.note,
+          fee: Uint64(0),
+        })
       }
     } else if (tx.txType === TX_ASSET) {
       if (tx.hasAssetClose !== Uint64(0)) {
@@ -655,18 +667,59 @@ export class AlgoSafe extends Contract {
       if (first) itxnCompose.begin({ type: TransactionType.ApplicationCall, appId: tx.appId, fee: Uint64(0) })
       else itxnCompose.next({ type: TransactionType.ApplicationCall, appId: tx.appId, fee: Uint64(0) })
     } else if (tx.numArgs === Uint64(1)) {
-      if (first) itxnCompose.begin({ type: TransactionType.ApplicationCall, appId: tx.appId, appArgs: [tx.arg0], fee: Uint64(0) })
-      else itxnCompose.next({ type: TransactionType.ApplicationCall, appId: tx.appId, appArgs: [tx.arg0], fee: Uint64(0) })
+      if (first)
+        itxnCompose.begin({
+          type: TransactionType.ApplicationCall,
+          appId: tx.appId,
+          appArgs: [tx.arg0],
+          fee: Uint64(0),
+        })
+      else
+        itxnCompose.next({ type: TransactionType.ApplicationCall, appId: tx.appId, appArgs: [tx.arg0], fee: Uint64(0) })
     } else if (tx.numArgs === Uint64(2)) {
-      if (first) itxnCompose.begin({ type: TransactionType.ApplicationCall, appId: tx.appId, appArgs: [tx.arg0, tx.arg1], fee: Uint64(0) })
-      else itxnCompose.next({ type: TransactionType.ApplicationCall, appId: tx.appId, appArgs: [tx.arg0, tx.arg1], fee: Uint64(0) })
+      if (first)
+        itxnCompose.begin({
+          type: TransactionType.ApplicationCall,
+          appId: tx.appId,
+          appArgs: [tx.arg0, tx.arg1],
+          fee: Uint64(0),
+        })
+      else
+        itxnCompose.next({
+          type: TransactionType.ApplicationCall,
+          appId: tx.appId,
+          appArgs: [tx.arg0, tx.arg1],
+          fee: Uint64(0),
+        })
     } else if (tx.numArgs === Uint64(3)) {
-      if (first) itxnCompose.begin({ type: TransactionType.ApplicationCall, appId: tx.appId, appArgs: [tx.arg0, tx.arg1, tx.arg2], fee: Uint64(0) })
-      else itxnCompose.next({ type: TransactionType.ApplicationCall, appId: tx.appId, appArgs: [tx.arg0, tx.arg1, tx.arg2], fee: Uint64(0) })
+      if (first)
+        itxnCompose.begin({
+          type: TransactionType.ApplicationCall,
+          appId: tx.appId,
+          appArgs: [tx.arg0, tx.arg1, tx.arg2],
+          fee: Uint64(0),
+        })
+      else
+        itxnCompose.next({
+          type: TransactionType.ApplicationCall,
+          appId: tx.appId,
+          appArgs: [tx.arg0, tx.arg1, tx.arg2],
+          fee: Uint64(0),
+        })
     } else if (first) {
-      itxnCompose.begin({ type: TransactionType.ApplicationCall, appId: tx.appId, appArgs: [tx.arg0, tx.arg1, tx.arg2, tx.arg3], fee: Uint64(0) })
+      itxnCompose.begin({
+        type: TransactionType.ApplicationCall,
+        appId: tx.appId,
+        appArgs: [tx.arg0, tx.arg1, tx.arg2, tx.arg3],
+        fee: Uint64(0),
+      })
     } else {
-      itxnCompose.next({ type: TransactionType.ApplicationCall, appId: tx.appId, appArgs: [tx.arg0, tx.arg1, tx.arg2, tx.arg3], fee: Uint64(0) })
+      itxnCompose.next({
+        type: TransactionType.ApplicationCall,
+        appId: tx.appId,
+        appArgs: [tx.arg0, tx.arg1, tx.arg2, tx.arg3],
+        fee: Uint64(0),
+      })
     }
   }
 
