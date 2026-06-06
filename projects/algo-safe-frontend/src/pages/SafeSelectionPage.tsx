@@ -1,4 +1,8 @@
+import { AlgorandClient } from '@algorandfoundation/algokit-utils'
+import { useQueryClient } from '@tanstack/react-query'
 import { useNetwork, useWallet, WalletId, type Wallet } from '@txnlab/use-wallet-react'
+import { AlgoSafeClient } from 'algo-safe'
+import algosdk from 'algosdk'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { SafeCard } from '../components/SafeCard'
@@ -7,6 +11,7 @@ import { Card } from '../components/ui/Card'
 import { FormField, inputCls } from '../components/ui/FormField'
 import { Icon } from '../components/ui/Icon'
 import { useSafes } from '../hooks'
+import { normalizeNetworkId, upsertSafeRegistryEntry } from '../lib/safeRegistry'
 
 const browserWalletKeys = new Set([WalletId.PERA, WalletId.DEFLY, WalletId.WALLETCONNECT, 'walletconnect:biatec'])
 
@@ -45,7 +50,66 @@ export function SafeSelectionPage() {
 
 function AuthenticatedSafeSelection() {
   const nav = useNavigate()
+  const queryClient = useQueryClient()
+  const { activeAddress, algodClient } = useWallet()
+  const { activeNetwork } = useNetwork()
   const { data: safes, isLoading } = useSafes()
+  const [recoverAppId, setRecoverAppId] = useState('')
+  const [recoverError, setRecoverError] = useState<string | null>(null)
+  const [recoverSuccess, setRecoverSuccess] = useState<string | null>(null)
+  const [isRecovering, setIsRecovering] = useState(false)
+
+  async function handleRecoverSafe(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setRecoverError(null)
+    setRecoverSuccess(null)
+
+    if (!activeAddress) {
+      setRecoverError('Connect a wallet before recovering an existing safe.')
+      return
+    }
+
+    const parsedAppId = Number(recoverAppId.trim())
+    if (!Number.isSafeInteger(parsedAppId) || parsedAppId <= 0) {
+      setRecoverError('Enter a valid Algorand application ID.')
+      return
+    }
+
+    try {
+      setIsRecovering(true)
+
+      const senderAddress = algosdk.Address.fromString(activeAddress)
+      const algorand = AlgorandClient.fromClients({ algod: algodClient })
+      const appClient = algorand.client.getTypedAppClientById(AlgoSafeClient, {
+        appId: BigInt(parsedAppId),
+        defaultSender: senderAddress,
+      })
+
+      const configResult = await appClient.send.getConfig({ args: {}, suppressLog: true })
+      const safeName = extractRecoveredSafeName(configResult.return)
+      if (!safeName) {
+        throw new Error('The selected app did not return a valid Algo Safe name.')
+      }
+
+      upsertSafeRegistryEntry({
+        appId: parsedAppId,
+        address: algosdk.getApplicationAddress(parsedAppId).toString(),
+        name: safeName,
+        network: normalizeNetworkId(activeNetwork),
+      })
+
+      setRecoverAppId('')
+      setRecoverSuccess(`Recovered ${safeName} and saved it to this browser.`)
+      await queryClient.invalidateQueries({ queryKey: ['safes'] })
+    } catch (error) {
+      const message = error instanceof Error && error.message.trim()
+        ? error.message
+        : 'Unable to load that application on the selected network.'
+      setRecoverError(message)
+    } finally {
+      setIsRecovering(false)
+    }
+  }
 
   return (
     <div className="grid gap-8 lg:grid-cols-12">
@@ -92,11 +156,38 @@ function AuthenticatedSafeSelection() {
             <div className="flex-1">
               <h3 className="mb-1 text-lg font-bold text-on-surface">Import Existing Account</h3>
               <p className="mb-3 text-sm text-on-surface-variant">
-                Already have a multi-sig or smart account? Sync it with the Algo Safe dashboard.
+                Enter an on-chain Algo Safe application ID. The dashboard reads the contract name first and only then stores it in your local registry.
               </p>
-              <Button variant="ghost" onClick={() => alert('Import is not available in the demo')}>
-                Import Account
-              </Button>
+              <form className="space-y-3" onSubmit={(event) => void handleRecoverSafe(event)}>
+                <FormField label="Application ID" hint="Use the ID of an already deployed Algo Safe on the currently selected network.">
+                  <input
+                    className={inputCls}
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    placeholder="e.g. 123456789"
+                    value={recoverAppId}
+                    onChange={(event) => setRecoverAppId(event.target.value)}
+                    disabled={isRecovering}
+                  />
+                </FormField>
+                <div className="flex items-center gap-3">
+                  <Button type="submit" variant="ghost" disabled={isRecovering || !recoverAppId.trim()}>
+                    {isRecovering ? <Icon name="sync" className="animate-spin text-lg" /> : <Icon name="download" className="text-lg" />}
+                    {isRecovering ? 'Reading contract...' : 'Recover Account'}
+                  </Button>
+                  <span className="text-xs text-on-surface-variant">Network: {activeNetwork ?? 'mainnet'}</span>
+                </div>
+              </form>
+              {recoverSuccess && (
+                <div className="mt-3 rounded-sm border border-primary/30 bg-primary/10 px-3 py-2 text-sm text-on-surface">
+                  {recoverSuccess}
+                </div>
+              )}
+              {recoverError && (
+                <div className="mt-3 rounded-sm border border-error/40 bg-error-container/40 px-3 py-2 text-sm text-on-error-container">
+                  {recoverError}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -169,6 +260,19 @@ function AuthenticatedSafeSelection() {
       </div>
     </div>
   )
+}
+
+function extractRecoveredSafeName(value: unknown) {
+  if (typeof value === 'object' && value !== null && 'name' in value) {
+    const name = (value as { name?: unknown }).name
+    if (typeof name === 'string' && name.trim()) return name.trim()
+  }
+
+  if (Array.isArray(value) && typeof value[0] === 'string' && value[0].trim()) {
+    return value[0].trim()
+  }
+
+  return ''
 }
 
 function UnauthenticatedSafeSelection() {

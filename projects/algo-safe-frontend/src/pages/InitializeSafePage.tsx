@@ -8,11 +8,12 @@ import { Card } from '../components/ui/Card'
 import { FormField, inputCls } from '../components/ui/FormField'
 import { Icon } from '../components/ui/Icon'
 import { Stepper } from '../components/ui/Stepper'
+import { normalizeNetworkId, upsertSafeRegistryEntry } from '../lib/safeRegistry'
 
 const STEPS = ['Contract Deployment', 'MBR Funding']
 const TX_VALIDITY_WINDOW = 200
 
-type FlowStage = 'idle' | 'deploying' | 'funding' | 'bootstrapping' | 'success' | 'error'
+type FlowStage = 'idle' | 'deploying' | 'funding' | 'success' | 'error'
 
 type DeploymentDetails = {
   appId: string
@@ -66,7 +67,7 @@ export function InitializeSafePage() {
   const [deployment, setDeployment] = useState<DeploymentDetails | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
-  const isBusy = stage === 'deploying' || stage === 'funding' || stage === 'bootstrapping'
+  const isBusy = stage === 'deploying' || stage === 'funding'
   const currentStep = getCurrentStep(stage)
   const networkLabel = formatNetworkLabel(activeNetwork ?? import.meta.env.VITE_ALGOD_NETWORK ?? 'mainnet')
   const buttonLabel = useMemo(() => {
@@ -74,9 +75,7 @@ export function InitializeSafePage() {
       case 'deploying':
         return 'Deploying contract...'
       case 'funding':
-        return 'Requesting MBR funding...'
-      case 'bootstrapping':
-        return 'Finalizing safe setup...'
+        return 'Funding and bootstrapping...'
       case 'success':
         return 'Safe Ready'
       default:
@@ -133,19 +132,25 @@ export function InitializeSafePage() {
       setStage('funding')
       failedStage = 'funding'
 
-      await algorand.send.payment({
-        amount: algo(depositAlgo),
-        sender: senderAddress,
-        receiver: nextDeployment.address,
-        suppressLog: true,
+      const bootstrapCall = await appClient.params.bootstrap({
+        args: { groupName: 'Admins' },
       })
 
-      setStage('bootstrapping')
-      failedStage = 'bootstrapping'
+      await algorand
+        .newGroup()
+        .addPayment({
+          amount: algo(depositAlgo),
+          sender: senderAddress,
+          receiver: nextDeployment.address,
+        })
+        .addAppCallMethodCall(bootstrapCall)
+        .send({ suppressLog: true })
 
-      await appClient.send.bootstrap({
-        args: { groupName: 'Admins' },
-        suppressLog: true,
+      upsertSafeRegistryEntry({
+        appId: Number(result.appId),
+        address: appAddress,
+        name: safeName,
+        network: normalizeNetworkId(activeNetwork ?? import.meta.env.VITE_ALGOD_NETWORK),
       })
 
       setStage('success')
@@ -235,7 +240,7 @@ export function InitializeSafePage() {
               <span className="font-mono text-xs text-primary">Live</span>
             </div>
             <div className="text-sm text-on-surface-variant">
-              The wallet will first sign the app deployment, then approve the ALGO funding needed for the new contract account.
+              The wallet will first sign the app deployment, then approve one grouped request that funds the app account and bootstraps it.
             </div>
           </div>
         </div>
@@ -264,7 +269,7 @@ export function InitializeSafePage() {
             <div className="space-y-1 text-sm">
               {stage === 'idle' && (
                 <>
-                  <p className="font-semibold text-on-surface">Start will deploy first, then request ALGO MBR funding.</p>
+                  <p className="font-semibold text-on-surface">Start will deploy first, then request one grouped ALGO funding plus bootstrap transaction.</p>
                   <p className="text-on-surface-variant">
                     The genesis admin group is created during bootstrap after the app account is funded.
                   </p>
@@ -282,22 +287,14 @@ export function InitializeSafePage() {
                 <>
                   <p className="font-semibold text-on-surface">Contract deployed. Step 02 is now in progress.</p>
                   <p className="text-on-surface-variant">
-                    Check your wallet for the signature request that funds the new app account with ALGO for MBR.
-                  </p>
-                </>
-              )}
-              {stage === 'bootstrapping' && (
-                <>
-                  <p className="font-semibold text-on-surface">MBR funded. Finalizing bootstrap.</p>
-                  <p className="text-on-surface-variant">
-                    A final app call may appear in the wallet so the first admin group can be created.
+                    Check your wallet for the grouped signature request that funds the new app account with ALGO and bootstraps the safe.
                   </p>
                 </>
               )}
               {stage === 'success' && (
                 <>
                   <p className="font-semibold text-on-surface">Safe initialization completed.</p>
-                  <p className="text-on-surface-variant">The contract is deployed, funded with ALGO, and bootstrapped for governance.</p>
+                  <p className="text-on-surface-variant">The contract is deployed, funded with ALGO, bootstrapped for governance, and stored in your local safe registry.</p>
                 </>
               )}
               {stage === 'error' && (

@@ -1,14 +1,21 @@
 // src/services/mock/safeMock.ts
 import type { SafeService } from '../SafeService'
 import type { Agent, CreateSafeInput, Proposal } from '../types'
+import { getSafeRegistryEntryBySafeId, listSafeRegistryEntries, safeRegistryEntryToSafe, safeRegistryEntryToSummary } from '../../lib/safeRegistry'
 import { store } from '../../lib/store'
 
 const delay = <T>(v: T) => new Promise<T>(r => setTimeout(() => r(v), 150))
 const wait = (ms = 250) => new Promise<void>(r => setTimeout(r, ms))
 
 export const safeMock: SafeService = {
-  async listSafes() { await wait(); return [...store.safes] },
+  async listSafes() {
+    await wait()
+    return [...listSafeRegistryEntries().map(safeRegistryEntryToSummary), ...store.safes]
+  },
   async getSafe(safeId: string) {
+    const registrySafe = getSafeRegistryEntryBySafeId(safeId)
+    if (registrySafe) return safeRegistryEntryToSafe(registrySafe)
+
     const s = store.safes.find(x => x.safeId === safeId) ?? store.safes[0]
     return { name: s.name, appId: s.appId, address: s.address, network: 'mainnet' as const }
   },
