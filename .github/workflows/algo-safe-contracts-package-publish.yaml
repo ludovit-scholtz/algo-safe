@@ -12,6 +12,9 @@ on:
 permissions:
   contents: read
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
 jobs:
   validate:
     uses: ./.github/workflows/algo-safe-contracts-ci.yaml
@@ -28,6 +31,11 @@ jobs:
     steps:
       - name: Checkout source code
         uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.5.2
 
       - name: Use Node.js 22.x
         uses: actions/setup-node@v4
