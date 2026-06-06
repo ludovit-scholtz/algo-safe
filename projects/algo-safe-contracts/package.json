@@ -52,6 +52,7 @@
     "prettier": "^3.4.2",
     "@types/node": "22.15.30",
     "tsup": "^8.3.5",
+    "ts-node": "^10.9.2",
     "ts-node-dev": "^2.0.0",
     "@algorandfoundation/algorand-typescript-testing": "^1.0.1",
     "vitest": "^4.1.8",
