@@ -193,7 +193,7 @@ function AuthenticatedSafeSelection() {
         </div>
       </div>
 
-      {/* ── Safe List + Protocol Preview Column ── */}
+      {/* ── Safe List Column ── */}
       <div className="flex flex-col gap-5 lg:col-span-5">
         {/* Section header */}
         <div className="flex items-center justify-between">
@@ -220,29 +220,12 @@ function AuthenticatedSafeSelection() {
           )}
         </div>
 
-        {/* Active Protocol Preview */}
         <div className="relative overflow-hidden rounded-md border border-outline-variant bg-surface-container-high p-5">
-          {/* Decorative glow */}
           <div className="pointer-events-none absolute -right-8 -top-8 h-32 w-32 rounded-full bg-primary/5 blur-3xl" />
-
-          <h4 className="mb-4 font-mono text-xs font-medium uppercase tracking-widest text-primary">Active Protocol Preview</h4>
-          <div className="space-y-2">
-            <div className="rounded border-l-4 border-primary bg-surface-container-lowest px-3 py-2">
-              <p className="font-mono text-xs text-on-surface">
-                IF <span className="text-primary">TX_AMOUNT &gt; 50,000</span>
-              </p>
-              <p className="font-mono text-xs text-on-surface-variant">
-                THEN <span className="text-primary">REQUIRE_HARDWARE_MFA</span>
-              </p>
-            </div>
-            <div className="rounded border-l-4 border-primary bg-surface-container-lowest px-3 py-2 opacity-60">
-              <p className="font-mono text-xs text-on-surface">
-                IF <span className="text-primary">BLOCK_HEIGHT_DELAY</span>
-              </p>
-              <p className="font-mono text-xs text-on-surface-variant">
-                THEN <span className="text-primary">AUTO_APPROVE_REBALANCING</span>
-              </p>
-            </div>
+          <h4 className="mb-3 font-mono text-xs font-medium uppercase tracking-widest text-primary">Local Safe Registry</h4>
+          <div className="space-y-2 text-sm text-on-surface-variant">
+            <p>Only safes you deploy or recover in this browser are shown here.</p>
+            <p>Import an existing Algo Safe by app ID, or create a new one to populate the list.</p>
           </div>
         </div>
 

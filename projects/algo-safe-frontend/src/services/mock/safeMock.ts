@@ -15,14 +15,13 @@ const wait = (ms = 250) => new Promise<void>((r) => setTimeout(r, ms))
 export const safeMock: SafeService = {
   async listSafes() {
     await wait()
-    return [...listSafeRegistryEntries().map(safeRegistryEntryToSummary), ...store.safes]
+    return listSafeRegistryEntries().map(safeRegistryEntryToSummary)
   },
   async getSafe(safeId: string) {
     const registrySafe = getSafeRegistryEntryBySafeId(safeId)
     if (registrySafe) return safeRegistryEntryToSafe(registrySafe)
 
-    const s = store.safes.find((x) => x.safeId === safeId) ?? store.safes[0]
-    return { name: s.name, appId: s.appId, address: s.address, network: 'mainnet' as const }
+    throw new Error(`Safe ${safeId} was not found in the local registry.`)
   },
   async createSafe(input: CreateSafeInput) {
     await wait()
