@@ -19,13 +19,12 @@ export function InitializeSafePage() {
   const [deposit, setDeposit] = useState(100)
 
   async function finish() {
-    const safe = await createSafe.mutateAsync({
-      name,
-      threshold,
-      signerCount,
-      initialDepositEurd: deposit,
-    })
-    nav(`/safe/${safe.safeId}`)
+    try {
+      const safe = await createSafe.mutateAsync({ name, threshold, signerCount, initialDepositEurd: deposit })
+      nav(`/safe/${safe.safeId}`)
+    } catch {
+      /* error surfaced below via createSafe.isError */
+    }
   }
 
   return (
@@ -130,7 +129,7 @@ export function InitializeSafePage() {
                 min={1}
                 className={inputCls}
                 value={threshold}
-                onChange={e => setThreshold(+e.target.value)}
+                onChange={e => setThreshold(Number(e.target.value) || 0)}
               />
             </FormField>
             <FormField label="Total Signers" hint="Total members in the signer group">
@@ -139,7 +138,7 @@ export function InitializeSafePage() {
                 min={1}
                 className={inputCls}
                 value={signerCount}
-                onChange={e => setSignerCount(+e.target.value)}
+                onChange={e => setSignerCount(Number(e.target.value) || 0)}
               />
             </FormField>
           </div>
@@ -208,7 +207,7 @@ export function InitializeSafePage() {
               min={0}
               className={inputCls}
               value={deposit}
-              onChange={e => setDeposit(+e.target.value)}
+              onChange={e => setDeposit(Number(e.target.value) || 0)}
             />
           </FormField>
 
@@ -221,6 +220,12 @@ export function InitializeSafePage() {
             <span className="mx-2 text-outline-variant">·</span>
             <span className="font-semibold text-primary">Mainnet</span>
           </div>
+
+          {createSafe.isError && (
+            <div className="rounded-sm border border-error/40 bg-error-container/40 px-3 py-2 text-sm text-on-error-container">
+              Failed to initialize safe. Please try again.
+            </div>
+          )}
 
           <div className="flex gap-3">
             <Button variant="ghost" onClick={() => setStep(1)}>
