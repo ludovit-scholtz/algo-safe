@@ -1,0 +1,14 @@
+name: Pull Request validation
+
+on: [pull_request]
+
+
+jobs:
+  algo-safe-contracts-ci:
+    name: Run algo-safe-contracts validation
+    uses: ./.github/workflows/algo-safe-contracts-ci.yaml
+
+  algo-safe-frontend-ci:
+    name: Run algo-safe-frontend validation
+    uses: ./.github/workflows/algo-safe-frontend-ci.yaml
+

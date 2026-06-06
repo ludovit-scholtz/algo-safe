@@ -1,0 +1,9 @@
+# Changes here will be overwritten by Copier; NEVER EDIT MANUALLY
+_commit: 0.3.7
+_src_path: gh:algorandfoundation/algokit-typescript-template
+author_email: ludko2@gmail.com
+author_name: Scholtz
+contract_name: algo_safe
+preset_name: production
+project_name: algo-safe-contracts
+
