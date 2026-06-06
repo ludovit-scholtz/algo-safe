@@ -24,7 +24,7 @@ Common needs:
 
 - **Shared custody without operational chaos**: Teams need M-of-N approval, clear roles, and a reliable way to rotate members without moving funds to a new account each time.
 - **Wallet compatibility**: Users should connect with familiar Algorand wallets through `@txnlab/use-wallet`, including Pera, Defly, Exodus, Daffi, LocalNet/KMD, and WalletConnect-capable providers where supported.
-- **Atomic transaction clarity**: Algorand transaction groups are all-or-nothing. Users need to see the exact ordered group before signing, including payments, ASA transfers, application calls, and key registration transactions.
+- **Atomic transaction clarity**: Algorand transaction groups are all-or-nothing. Users need to see the exact ordered payload and inner transaction group preview before signing, including payments, ASA transfers, application calls, and key registration transactions.
 - **Application-call-first UX**: dApps often need the safe to authorize a single high-level action that expands into a complete atomic group. The UI should let a user prepare one safe execution request, then review the resulting group before collecting signatures.
 - **ASA-aware treasury management**: Teams hold ALGO and many ASAs. The safe must show asset balances, opt-in requirements, decimals, metadata, and receiver readiness.
 - **Validator and governance operations**: Algorand accounts may need key registration (`keyreg`) and governance-related actions. These should be approvable through the same policy flow as payments.
@@ -60,7 +60,7 @@ Each safe has:
 
 ### Signer Groups
 
-A signer group is a named set of accounts with an approval threshold.
+A signer group is a named set of accounts with an approval threshold. A safe can have multiple signer groups with administrative privileges; admin power is not limited to a single hardcoded group. Each group declares the actions it can approve, whether it can administer safe configuration, and the spending limits that apply to actions executed through that group.
 
 Examples:
 
@@ -71,7 +71,7 @@ Examples:
 | Validator Ops | 2 operators | 2-of-2 | Key registration and participation-key actions |
 | Agent | 1 automation account | 1-of-1 | Low-value automated payments within daily limits |
 
-Signer groups must be first-class objects in both the contract model and the frontend. Users should never have to infer group state from raw addresses.
+Signer groups must be first-class objects in both the contract model and the frontend. Users should never have to infer group state from raw addresses. Any change to signer groups, thresholds, admin privileges, or policies must itself be represented as a co-signed governed proposal so the contract can enforce administrative changes with the same threshold rules as fund movement.
 
 ### Account Types
 
@@ -112,9 +112,11 @@ Policy examples:
 - Required admin approval for `keyreg`, application update/delete, close-out, or large ASA transfers
 - Cooldown period for signer removal or threshold changes
 
+Daily and monthly limits store their current usage directly in the signer group record. The contract must update the group's current daily and monthly usage whenever a proposal executes a movement of value, including ALGO payments and ASA transfers that are counted by policy. Limit usage is not stored in a separate box.
+
 ### Transaction Proposals
 
-A proposal is a human-readable request to execute one or more Algorand transactions.
+A proposal is a human-readable request to execute one or more Algorand transactions or one administrative safe change.
 
 Every proposal must show:
 
@@ -122,56 +124,57 @@ Every proposal must show:
 - Requested signer group
 - Current approval progress
 - Required threshold
-- Exact transaction group preview
-- Human-readable effects
-- Raw transaction details for advanced users
-- Simulation result where available
-- Expiration round or time
-- Network and genesis hash
-
----
-
-## Supported Algorand Actions
-
-Algo Safe should support the actions Algorand users actually need, starting with these core transaction types:
-
-- **Payment (`pay`)**: Send ALGO, fund accounts, pay service providers, close accounts only when explicitly allowed.
-- **Asset transfer (`axfer`)**: Send ASAs, opt in to assets, opt out of assets, and handle ASA decimals safely.
-- **Application call (`appl`)**: Call dApps, governance contracts, DeFi protocols, and the Algo Safe contract itself.
-- **Key registration (`keyreg`)**: Register participation keys, go online/offline, and manage validator participation workflows.
-
-Algorand atomic groups may contain a mix of transaction types. The frontend must make that power understandable instead of hiding it.
-
----
-
-## EURD Onramp And Offramp (Quantoz)
-
-Algo Safe integrates **EURD**, the regulated euro stablecoin issued by **Quantoz Payments B.V.** (Netherlands), so teams can fund and defund their safe with real euros without leaving the custody workflow. EURD is electronic money compliant with the European **Electronic Money Directive (EMD)** and, when issued as an e-money token (EMT), with the **Markets in Crypto-Assets Regulation (MiCAR)**. Holders have a right of redemption against the issuer at any time and at par value. On Algorand, EURD is an Algorand Standard Asset (ASA ID `1221682136`), so it behaves like any other ASA inside the safe while remaining fully fiat-backed (1:1 reserves held in segregated accounts with Tier 1 banks and AAA EU government bonds).
-
-This makes EURD a natural treasury asset for an Algorand safe: an **onramp** converts incoming EUR (via SEPA/bank transfer) into EURD delivered to the safe's controlled address, and an **offramp** redeems EURD held by the safe back into EUR paid out to a bank account.
-
-### Integration Model
-
-Algo Safe consumes the **Quantoz Payments API** documented at `https://portal.quantozpay.com/documentation`. Quantoz exposes three integration models; Algo Safe targets the **blockchain-based EUR accounts on Algorand** model (self-hosted wallets), with optional support for the **embedded payments** model where a partner acts on behalf of end users.
-
-As with every other capability, the frontend never calls the Quantoz API or constructs EURD transfers directly. EURD onramp/offramp is exposed **only through the `algo-safe` npm library**, which:
-
-- Wraps the Quantoz Payments REST API behind typed, documented methods.
-- Builds and previews the resulting Algorand atomic groups (for example the ASA opt-in to EURD and any required application calls) so they pass through the same proposal, policy, and approval flow as any other safe action.
-- Hands wallet signing back to the caller's `TransactionSigner`; the library never holds keys or banking credentials.
-- Keeps Quantoz API keys/secrets server-side, never embedded in the reference frontend bundle.
-
-### Onramp (Buy / Mint EURD Into The Safe)
-
-Purpose: turn EUR into EURD credited to the safe's controlled Algorand address.
-
-Flow:
-
+- Exact typed payload and inner transaction group preview
+    for (const i of urange(txs.count)) {
+        switch (txs.type[i]) {
+            case 'payment':
+                const paymentComposeFields = {
+                    ...txs.payTxs[i],
+                    type: TransactionType.Payment,
+                } satisfies PaymentComposeFields
+                if (i === 0) {
+                    itxnCompose.begin(paymentComposeFields)
+                } else {
+                    itxnCompose.next(paymentComposeFields)
 1. Operator chooses **Add funds (EURD)** and enters a target amount.
+                break
+            case 'asset':
+                const assetComposeFields = {
+                    ...txs.assetTxs[i],
+                    type: TransactionType.AssetTransfer,
+                } satisfies AssetTransferComposeFields
+                if (i === 0) {
+                    itxnCompose.begin(assetComposeFields)
+                } else {
+                    itxnCompose.next(assetComposeFields)
+                }
+                break
+            case 'app':
+                const appComposeFields = {
+                    ...txs.appTxs[i],
+                    type: TransactionType.ApplicationCall,
+                } satisfies ApplicationCallComposeFields
+                if (i === 0) {
+                    itxnCompose.begin(appComposeFields)
+                } else {
+                    itxnCompose.next(appComposeFields)
+                }
+                break
+            case 'keyreg':
+                const keyComposeFields = {
+                    ...txs.keyRegTxs[i],
+                    type: TransactionType.KeyRegistration,
+                } satisfies KeyRegistrationComposeFields
+                if (i === 0) {
+                    itxnCompose.begin(keyComposeFields)
+                } else {
+                    itxnCompose.next(keyComposeFields)
+                }
+                break
 2. The library ensures the safe is **opted in** to the EURD ASA, proposing an `axfer` opt-in transaction through the normal governed flow if needed.
-3. The library requests onramp instructions from Quantoz (deposit reference / SEPA details, or an embedded-payment authorization, depending on the integration model).
-4. The operator (or partner) completes the EUR deposit.
-5. Quantoz mints/issues EURD and transfers it to the safe's controlled address on Algorand.
+    }
+    itxnCompose.submit()
+    return true
 6. The dashboard reflects the new EURD balance once on-chain and Quantoz settlement confirm.
 
 Requirements:
@@ -254,7 +257,7 @@ flowchart TB
 
     API -- "active address + TransactionSigner" --> W
     API -- "post-quantum signature" --> PQ
-    W -- "signs exact group ID" --> BUILD
+    W -- "signs proposal approval payload" --> BUILD
     PQ -- "post-quantum signature" --> POLICY
 
     CLIENT -- "atomic transaction group" --> ALGOD
@@ -319,7 +322,7 @@ The contract is written in **Algorand TypeScript** (PuyaTs) and compiled to **TE
 
 ### Storage Layout
 
-The application keeps a small fixed **global state** for configuration and counters, and uses **box storage** for the unbounded, per-entity records (signer groups, members, proposals, approvals, and limit usage). Composite box keys give O(1) lookups without account opt-in.
+The application keeps a small fixed **global state** for configuration and counters, and uses **box storage** for the unbounded, per-entity records (signer groups, members, proposals, approvals, typed transaction payloads, and signer-group change payloads). Composite box keys give O(1) lookups without account opt-in. Daily and monthly usage counters live inside each signer group's box value; there is no separate `LimitUsage` box.
 
 ```mermaid
 classDiagram
@@ -331,7 +334,6 @@ classDiagram
 
     class GlobalState {
         +name : bytes
-        +adminGroupId : uint64
         +groupCount : uint64
         +nextGroupId : uint64
         +nextProposalId : uint64
@@ -344,9 +346,14 @@ classDiagram
         +name : bytes
         +threshold : uint64
         +memberCount : uint64
+        +adminPrivileges : uint64 (bitmask group/policy/app admin)
         +allowedActions : uint64 (bitmask pay/axfer/appl/keyreg)
         +dailyLimit : uint64
+        +dailyUsage : uint64
+        +dailyPeriodStart : uint64
         +monthlyLimit : uint64
+        +monthlyUsage : uint64
+        +monthlyPeriodStart : uint64
         +cooldownRounds : uint64
     }
 
@@ -354,20 +361,76 @@ classDiagram
         «BoxMap key: groupId+identity»
         +accountType : uint8 (standard/multisig/rekeyed/agent/quantum)
         +label : bytes
-        +ed25519Key : bytes (Account / multisig descriptor)
-        +falconKey : bytes (post-quantum public key)
+        +ed25519Address : Account (native Algorand address)
+        +falconAddress : Account (native Algorand address representing Falcon identity)
     }
 
     class Proposal {
         «BoxMap key: proposalId»
         +groupId : uint64
         +status : uint8
-        +groupTxnHash : bytes (exact atomic group ID)
-        +actionType : uint64 (bitmask)
+        +payloadType : uint8 (payment/asset/app/keyreg/adminChange)
         +approvalsCount : uint64
         +threshold : uint64
         +expiryRound : uint64
         +proposer : Account
+    }
+
+    class PaymentGroup {
+        «BoxMap key: proposalId»
+        +count : uint64
+        +type[] : bytes (payment/asset/app/keyreg)
+        +payTxs[] : PaymentTx
+        +assetTxs[] : AssetTx
+        +appTxs[] : AppCallTx
+        +keyRegTxs[] : KeyRegTx
+    }
+
+    class PaymentTx {
+        +receiver : Account
+        +amount : uint64
+        +closeRemainderTo : Account optional
+        +note : bytes
+    }
+
+    class AssetTx {
+        +assetReceiver : Account
+        +assetAmount : uint64
+        +xferAsset : uint64
+        +assetCloseTo : Account optional
+        +assetSender : Account optional
+        +note : bytes
+    }
+
+    class AppCallTx {
+        +applicationId : uint64
+        +onCompletion : uint64
+        +applicationArgs : bytes[]
+        +accounts : Account[]
+        +apps : uint64[]
+        +assets : uint64[]
+        +boxes : bytes[]
+    }
+
+    class KeyRegTx {
+        +voteKey : bytes
+        +selectionKey : bytes
+        +stateProofKey : bytes
+        +voteFirst : uint64
+        +voteLast : uint64
+        +voteKeyDilution : uint64
+        +nonParticipation : bool
+    }
+
+    class SignerGroupChange {
+        «BoxMap key: proposalId»
+        +changeType : uint8 (createGroup/addMember/removeMember/changeThreshold/setPolicy/setAdminPrivileges)
+        +targetGroupId : uint64
+        +newGroup : SignerGroup optional
+        +member : Member optional
+        +newThreshold : uint64 optional
+        +newPolicy : bytes optional
+        +newAdminPrivileges : uint64 optional
     }
 
     class Approval {
@@ -377,20 +440,16 @@ classDiagram
         +round : uint64
     }
 
-    class LimitUsage {
-        «BoxMap key: groupId+period»
-        +periodStart : uint64
-        +spentAlgo : uint64
-        +spentByAsset : bytes
-    }
-
     Application "1" --> "1" GlobalState : holds
     Application "1" --> "*" SignerGroup : BoxMap
     SignerGroup "1" --> "*" Member : BoxMap
     Application "1" --> "*" Proposal : BoxMap
+    Proposal "1" --> "0..1" PaymentGroup : BoxMap
+    Proposal "1" --> "0..1" SignerGroupChange : BoxMap
     Proposal "1" --> "*" Approval : BoxMap
-    SignerGroup "1" --> "*" LimitUsage : BoxMap
 ```
+
+`PaymentGroup` is intentionally named for the executable group shape used by the contract, even though it can contain payment, asset transfer, application call, and key registration entries. The arrays are parallel by index: `type[i]` selects which typed transaction array is read at position `i`, and execution composes the matching inner transaction fields with the correct `TransactionType`.
 
 ### ABI Method Surface
 
@@ -399,21 +458,22 @@ Convention-based lifecycle methods handle create/update/delete; the rest are ARC
 ```mermaid
 flowchart TB
     subgraph Lifecycle["Lifecycle (convention-routed)"]
-        C1["createApplication() — init safe + admin group"]
+        C1["createApplication() — init safe + initial admin groups"]
         C2["updateApplication() — admin-governed upgrade"]
         C3["deleteApplication() — admin-governed teardown"]
     end
 
     subgraph Admin["Signer-group administration (governed)"]
         A1["createSignerGroup(name, threshold, policy)"]
-        A2["addSigner(groupId, accountType, key, label)"]
+        A2["addSigner(groupId, accountType, address, label)"]
         A3["removeSigner(groupId, identity)"]
         A4["changeThreshold(groupId, threshold)"]
         A5["setPolicy(groupId, limits, allowedActions)"]
     end
 
     subgraph Proposals["Proposal lifecycle"]
-        P1["createProposal(groupId, groupTxnHash, actionType, expiry)"]
+        P1["createTransactionProposal(groupId, txs, expiry)"]
+        P1A["createSignerGroupChangeProposal(groupId, change, expiry)"]
         P2["approveProposal(proposalId, signer, signature)"]
         P3["executeProposal(proposalId) → inner txns"]
         P4["cancelProposal(proposalId)"]
@@ -429,24 +489,24 @@ flowchart TB
         R1["getSafeConfig()"]
         R2["getSignerGroup(groupId)"]
         R3["getProposal(proposalId)"]
-        R4["getLimitUsage(groupId)"]
+        R4["getProposalPayload(proposalId)"]
     end
 
     P2 --> V1
     P2 --> V2
     P3 --> V3
-    A1 --> P1
-    A2 --> P1
-    A3 --> P1
-    A4 --> P1
-    A5 --> P1
+    A1 --> P1A
+    A2 --> P1A
+    A3 --> P1A
+    A4 --> P1A
+    A5 --> P1A
 ```
 
-Every administrative change (`addSigner`, `removeSigner`, `changeThreshold`, `setPolicy`, update/delete) is itself a **governed action**: it is created as a proposal, approved by the admin group under M-of-N, and only then executed. The contract never trusts a single caller for privileged changes.
+Every administrative change (`createSignerGroup`, `addSigner`, `removeSigner`, `changeThreshold`, `setPolicy`, `setAdminPrivileges`, update/delete) is itself a **governed action**: it is created as a signer-group change proposal, approved by any signer group that has the required admin privilege under M-of-N, and only then executed. The contract never trusts a single caller for privileged changes, and it supports more than one admin-capable signer group.
 
 ### Proposal State Machine
 
-A proposal carries the **exact group ID** of the atomic transaction set it authorizes. Signers approve that group ID; if the group changes, prior approvals are invalid and signatures must be recollected. This mirrors how Algorand signing actually works (signature binds to the ordered group).
+A proposal carries the **exact typed payload** it authorizes. Signers approve the canonical ARC-4 encoding of that payload plus the proposal metadata; if the payload changes, prior approvals are invalid and signatures must be recollected. For executable transactions, the approved payload is converted into an inner transaction group during `executeProposal`. For signer-group changes, the approved payload mutates the group, member, threshold, policy, or admin-privilege boxes.
 
 ```mermaid
 stateDiagram-v2
@@ -472,7 +532,7 @@ stateDiagram-v2
 
 ### Execution Flow (Approval to Inner Transactions)
 
-When the threshold is met, `executeProposal` re-checks policy, confirms the requested group matches the approved `groupTxnHash`, and emits the authorized actions as **inner transactions** from the application account. The group is atomic — all inner transactions succeed or all roll back.
+When the threshold is met, `executeProposal` re-checks policy, loads the approved typed payload, and either applies a signer-group administration change or emits the authorized actions as **inner transactions** from the application account. The inner group is atomic — all inner transactions succeed or all roll back.
 
 ```mermaid
 sequenceDiagram
@@ -483,18 +543,76 @@ sequenceDiagram
     participant Chain as Algorand (algod)
 
     Caller->>App: executeProposal(proposalId)
-    App->>Box: load Proposal + SignerGroup + LimitUsage
+    App->>Box: load Proposal + SignerGroup + typed payload
     App->>App: assert status == ReadyToExecute
     App->>App: assert approvalsCount >= threshold
     App->>App: assert round <= expiryRound
     App->>App: checkPolicy(limits, allowlist, allowedActions)
-    App->>App: assert requested group == groupTxnHash
-    App->>Inner: pay / axfer / appl / keyreg (fee = 0)
+    App->>Inner: compose pay / axfer / appl / keyreg inner group (fee = 0)
     Inner->>Chain: atomic inner group
     Chain-->>App: success or rollback
-    App->>Box: update LimitUsage + status = Executed
+    App->>Box: update SignerGroup daily/monthly usage + status = Executed
     App-->>Caller: emit Executed event (ARC-28) + txn ids
 ```
+
+For transaction proposals, execution follows the same shape as the contract implementation:
+
+```ts
+private _executeTransactions(txs: PaymentGroup): arc4.Bool {
+    for (const i of urange(txs.count)) {
+        switch (txs.type[i]) {
+            case 'payment':
+                const paymentComposeFields = {
+                    ...txs.payTxs[i],
+                    type: TransactionType.Payment,
+                } satisfies PaymentComposeFields
+                if (i === 0) {
+                    itxnCompose.begin(paymentComposeFields)
+                } else {
+                    itxnCompose.next(paymentComposeFields)
+                }
+                break
+            case 'asset':
+                const assetComposeFields = {
+                    ...txs.assetTxs[i],
+                    type: TransactionType.AssetTransfer,
+                } satisfies AssetTransferComposeFields
+                if (i === 0) {
+                    itxnCompose.begin(assetComposeFields)
+                } else {
+                    itxnCompose.next(assetComposeFields)
+                }
+                break
+            case 'app':
+                const appComposeFields = {
+                    ...txs.appTxs[i],
+                    type: TransactionType.ApplicationCall,
+                } satisfies ApplicationCallComposeFields
+                if (i === 0) {
+                    itxnCompose.begin(appComposeFields)
+                } else {
+                    itxnCompose.next(appComposeFields)
+                }
+                break
+            case 'keyreg':
+                const keyComposeFields = {
+                    ...txs.keyRegTxs[i],
+                    type: TransactionType.KeyRegistration,
+                } satisfies KeyRegistrationComposeFields
+                if (i === 0) {
+                    itxnCompose.begin(keyComposeFields)
+                } else {
+                    itxnCompose.next(keyComposeFields)
+                }
+                break
+        }
+    }
+    itxnCompose.submit()
+    return true
+}
+```
+
+After a successful value-moving execution, the contract increments `dailyUsage` and `monthlyUsage` on the approving `SignerGroup` box, resetting the current period first when `dailyPeriodStart` or `monthlyPeriodStart` has expired. The policy check and the final usage write happen in the same app call so limit accounting cannot drift from execution.
 
 ### How EURD Maps Onto This Model
 
@@ -519,7 +637,7 @@ EURD is an Algorand Standard Asset, so onramp/offramp reuse the same primitives 
 
 The transaction builder is the most important part of the product.
 
-Users should be able to prepare a single high-level safe action, then have the frontend assemble and display the exact Algorand atomic group that will be signed and submitted.
+Users should be able to prepare a single high-level safe action, then have the frontend assemble and display the exact typed payload that the contract will later execute as an inner transaction group.
 
 For example, a dApp or operator may prepare one safe execution request that results in a grouped transaction set containing:
 
@@ -528,7 +646,7 @@ For example, a dApp or operator may prepare one safe execution request that resu
 3. An `appl` transaction calling a target application or the Algo Safe approval method
 4. A `keyreg` transaction registering or updating participation status
 
-Before any wallet signature is requested, the frontend must show the exact ordered group. This matters because Algorand signers approve a group ID derived from the ordered transaction set. If the group changes, signatures must be collected again.
+Before any approval signature is requested, the frontend must show the exact ordered payload. This matters because signers approve the canonical payload that will be converted into inner transactions. If the payload changes, signatures must be collected again.
 
 Required builder capabilities:
 
@@ -615,7 +733,7 @@ Validation:
 - Threshold must be between 1 and group member count
 - Duplicate accounts are blocked
 - Invalid Algorand addresses are blocked
-- Creator must understand whether they are part of the admin group
+- Creator must understand whether they are part of at least one admin-privileged signer group
 
 ### 5. Signer Groups List
 
@@ -691,7 +809,7 @@ Steps:
 1. Open signer group detail
 2. Choose **Add account**
 3. Select the account type (standard, multisig, rekeyed, agent, or quantum-secure)
-4. Enter the Algorand address (or post-quantum public key for a quantum-secure account) and optional label
+4. Enter the Algorand address for the signer, including the native Algorand address representing a Falcon identity for a quantum-secure account, and optional label
 5. Validate address/key format and duplicates
 6. Show impact on threshold, quorum, and policy
 7. Submit change as a proposal
@@ -704,7 +822,7 @@ Safety requirements:
 - Do not silently add an account with admin power
 - Warn if adding the account makes a low-threshold group too powerful
 - Show whether the new account needs to connect once to verify ownership, if that verification is required by the product policy
-- For a quantum-secure account, capture and verify the post-quantum public key so future approvals can be checked on-chain
+- For a quantum-secure account, capture and verify the native Algorand address that represents the Falcon identity so future approvals can be checked on-chain
 
 ### 9. Remove Account From Signer Group Flow
 
@@ -917,7 +1035,7 @@ Because account type is captured as metadata and a verification rule, a single s
 
 This product direction follows Algorand-native patterns:
 
-- Algorand atomic transaction groups are protocol-level all-or-nothing groups where order matters and signers approve the exact group ID.
+- Algorand atomic transaction groups are protocol-level all-or-nothing groups where order matters; Algo Safe stores an ordered typed payload and executes it as an atomic inner transaction group.
 - Algorand transaction types include payments, asset transfers, application calls, and key registration transactions, all of which matter for treasury and validator operations.
 - Algorand applications are invoked through application call transactions and can expose ABI methods for frontend clients.
 - `@txnlab/use-wallet` is the standard frontend wallet abstraction for Algorand dApps and supports modern React wallet integration patterns.
@@ -932,7 +1050,7 @@ Algo Safe succeeds when an Algorand team can:
 2. Connect with their preferred wallet
 3. Add signer groups and members through governed proposals
 4. Prepare payment, ASA, app-call, and key-registration actions without hand-writing transaction JSON
-5. Review the exact atomic group before signing
+5. Review the exact typed payload and inner transaction group preview before signing
 6. Collect signatures across multiple people and wallets
 7. Execute only after policy and threshold requirements are met
 8. Audit every important custody event after execution
