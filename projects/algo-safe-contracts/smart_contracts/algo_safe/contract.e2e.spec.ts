@@ -3,186 +3,56 @@ import { algorandFixture } from '@algorandfoundation/algokit-utils/testing'
 import algosdk from 'algosdk'
 import { beforeAll, beforeEach, describe, expect, test } from 'vitest'
 import { AdminChange, AlgoSafeClient, AlgoSafeFactory } from '../artifacts/algo_safe/AlgoSafeClient'
-
-// The transaction-group payload is an ABI dynamic array of SafeTxn tuples. The
-// generated client expands each SafeTxn to a positional tuple, so the tests use
-// an object-shaped helper type and convert to tuples when calling the contract.
-type SafeTxn = {
-  txType: bigint
-  receiver: string
-  amount: bigint
-  hasClose: bigint
-  closeRemainderTo: string
-  xferAsset: bigint
-  assetReceiver: string
-  assetAmount: bigint
-  hasAssetClose: bigint
-  assetCloseTo: string
-  appId: bigint
-  numArgs: bigint
-  arg0: Uint8Array
-  arg1: Uint8Array
-  arg2: Uint8Array
-  arg3: Uint8Array
-  online: bigint
-  voteKey: Uint8Array
-  selectionKey: Uint8Array
-  stateProofKey: Uint8Array
-  voteFirst: bigint
-  voteLast: bigint
-  voteKeyDilution: bigint
-  note: string
-}
-
-// Positional tuple matching the ABI encoding of a single SafeTxn.
-type SafeTxnTuple = [
-  bigint | number,
-  string,
-  bigint | number,
-  bigint | number,
-  string,
-  bigint | number,
-  string,
-  bigint | number,
-  bigint | number,
-  string,
-  bigint | number,
-  bigint | number,
-  Uint8Array,
-  Uint8Array,
-  Uint8Array,
-  Uint8Array,
-  bigint | number,
-  Uint8Array,
-  Uint8Array,
-  Uint8Array,
-  bigint | number,
-  bigint | number,
-  bigint | number,
-  string,
-]
-
-function toTuple(t: SafeTxn): SafeTxnTuple {
-  return [
-    t.txType,
-    t.receiver,
-    t.amount,
-    t.hasClose,
-    t.closeRemainderTo,
-    t.xferAsset,
-    t.assetReceiver,
-    t.assetAmount,
-    t.hasAssetClose,
-    t.assetCloseTo,
-    t.appId,
-    t.numArgs,
-    t.arg0,
-    t.arg1,
-    t.arg2,
-    t.arg3,
-    t.online,
-    t.voteKey,
-    t.selectionKey,
-    t.stateProofKey,
-    t.voteFirst,
-    t.voteLast,
-    t.voteKeyDilution,
-    t.note,
-  ]
-}
-
-// Contract constants mirrored for the tests.
-const ACT_PAY = 1n
-const ACT_AXFER = 2n
-const ACT_APPL = 4n
-const ACT_ALL = 15n
-const PRIV_GROUP = 1n
-const PRIV_ALL = 7n
-
-const TX_PAYMENT = 1n
-const TX_APP = 3n
-
-const ADM_CREATE_GROUP = 1n
-const ADM_ADD_MEMBER = 2n
-const ADM_REMOVE_MEMBER = 3n
-const ADM_CHANGE_THRESHOLD = 4n
-
-const ZERO_ADDR = algosdk.encodeAddress(new Uint8Array(32))
-const FAR_EXPIRY = 4_000_000_000n
+import {
+  ACT_ALL,
+  ACT_APPL,
+  ACT_AXFER,
+  ACT_PAY,
+  ADM_ADD_MEMBER,
+  ADM_CHANGE_THRESHOLD,
+  ADM_CREATE_GROUP,
+  ADM_REMOVE_MEMBER,
+  FAR_EXPIRY,
+  PRIV_ALL,
+  PRIV_GROUP,
+  TX_APP,
+  TX_PAYMENT,
+  ZERO_ADDR,
+  createAdminChange,
+  createAppCallPayload,
+  createEmptySafeTxn,
+  createPaymentPayload,
+  createPaymentSafeTxn,
+  toSafeTxnGroup,
+  type SafeTxn,
+} from '../../src'
 
 function mkAdminChange(partial: Partial<AdminChange>): AdminChange {
-  return {
-    changeType: 0n,
-    targetGroupId: 0n,
-    groupName: '',
-    memberAddr: ZERO_ADDR,
-    memberType: 1n,
-    memberLabel: '',
-    threshold: 0n,
-    adminPrivileges: 0n,
-    allowedActions: 0n,
-    dailyLimit: 0n,
-    monthlyLimit: 0n,
-    cooldownRounds: 0n,
-    activeFlag: 0n,
-    ...partial,
-  }
+  return createAdminChange(partial)
 }
 
 function mkPayment(receiver: string, amount: bigint) {
-  return { receiver, amount, hasClose: 0n, closeRemainderTo: ZERO_ADDR, note: '' }
+  return createPaymentPayload(receiver, amount)
 }
 
-const EMPTY_BYTES = new Uint8Array()
-
 function emptySafeTxn(): SafeTxn {
-  return {
-    txType: TX_PAYMENT,
-    receiver: ZERO_ADDR,
-    amount: 0n,
-    hasClose: 0n,
-    closeRemainderTo: ZERO_ADDR,
-    xferAsset: 0n,
-    assetReceiver: ZERO_ADDR,
-    assetAmount: 0n,
-    hasAssetClose: 0n,
-    assetCloseTo: ZERO_ADDR,
-    appId: 0n,
-    numArgs: 0n,
-    arg0: EMPTY_BYTES,
-    arg1: EMPTY_BYTES,
-    arg2: EMPTY_BYTES,
-    arg3: EMPTY_BYTES,
-    online: 0n,
-    voteKey: EMPTY_BYTES,
-    selectionKey: EMPTY_BYTES,
-    stateProofKey: EMPTY_BYTES,
-    voteFirst: 0n,
-    voteLast: 0n,
-    voteKeyDilution: 0n,
-    note: '',
-  }
+  return createEmptySafeTxn()
 }
 
 function safePayment(receiver: string, amount: bigint, note = ''): SafeTxn {
-  return { ...emptySafeTxn(), txType: TX_PAYMENT, receiver, amount, note }
+  return createPaymentSafeTxn(createPaymentPayload(receiver, amount, note))
 }
 
 function safeAppCall(appId: bigint, args: Uint8Array[] = []): SafeTxn {
   return {
-    ...emptySafeTxn(),
+    ...createEmptySafeTxn(),
     txType: TX_APP,
-    appId,
-    numArgs: BigInt(args.length),
-    arg0: args[0] ?? EMPTY_BYTES,
-    arg1: args[1] ?? EMPTY_BYTES,
-    arg2: args[2] ?? EMPTY_BYTES,
-    arg3: args[3] ?? EMPTY_BYTES,
+    ...createAppCallPayload(appId, args),
   }
 }
 
-function txGroup(txs: SafeTxn[]): SafeTxnTuple[] {
-  return txs.map(toTuple)
+function txGroup(txs: SafeTxn[]) {
+  return toSafeTxnGroup(txs)
 }
 
 describe('AlgoSafe contract', () => {

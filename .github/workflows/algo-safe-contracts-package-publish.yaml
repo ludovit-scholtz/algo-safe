@@ -1,0 +1,71 @@
+name: Publish algo-safe npm package
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'projects/algo-safe-contracts/**'
+      - '.github/workflows/algo-safe-contracts-ci.yaml'
+      - '.github/workflows/algo-safe-contracts-package-publish.yaml'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    uses: ./.github/workflows/algo-safe-contracts-ci.yaml
+    secrets: inherit
+
+  publish:
+    name: Publish npm package
+    runs-on: ubuntu-latest
+    needs: validate
+    environment: npm
+    defaults:
+      run:
+        working-directory: projects/algo-safe-contracts
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 22.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+          registry-url: 'https://registry.npmjs.org'
+          cache: 'pnpm'
+          cache-dependency-path: 'projects/algo-safe-contracts/pnpm-lock.yaml'
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install algokit
+        run: pipx install algokit
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Bootstrap dependencies
+        run: algokit project bootstrap all --project-name 'algo-safe-contracts'
+        working-directory: ../..
+
+      - name: Build smart contracts
+        run: corepack pnpm run build
+
+      - name: Build npm package
+        run: corepack pnpm run build-package
+
+      - name: Stamp CI prerelease version
+        shell: bash
+        run: |
+          BASE_VERSION=$(node -p "require('./package.json').version")
+          PUBLISH_VERSION="${BASE_VERSION}-build.${GITHUB_RUN_NUMBER}"
+          npm version "$PUBLISH_VERSION" --no-git-tag-version
+
+      - name: Publish package to npm
+        run: npm run publish-package -- --tag next
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

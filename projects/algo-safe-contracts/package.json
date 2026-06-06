@@ -1,16 +1,30 @@
 {
-  "name": "smart_contracts",
+  "name": "algo-safe",
   "version": "1.0.0",
-  "description": "Smart contract deployer",
-  "main": "smart_contracts/index.ts",
+  "description": "Algo Safe smart contracts and client utilities",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "require": "./dist/index.js",
+      "import": "./dist/index.mjs"
+    }
+  },
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "algokit compile ts smart_contracts --output-source-map --out-dir artifacts && algokit generate client smart_contracts/artifacts --output {app_spec_dir}/{contract_name}Client.ts",
+    "build-package": "tsup src/index.ts --format cjs,esm --clean --sourcemap && tsc -p tsconfig.package.json",
     "deploy": "ts-node-dev --transpile-only --watch .env -r dotenv/config smart_contracts/index.ts",
     "deploy:ci": "ts-node --transpile-only -r dotenv/config smart_contracts/index.ts",
     "lint": "eslint smart_contracts",
     "lint:fix": "eslint smart_contracts --fix",
     "audit": "better-npm-audit audit",
     "format": "prettier --write .",
+    "publish-package": "npm publish",
     "test": "vitest run --coverage",
     "test:watch": "vitest watch",
     "check-types": "tsc --noEmit"
@@ -36,6 +50,8 @@
     "@eslint/js": "^9.18.0",
     "typescript-eslint": "^8.19.1",
     "prettier": "^3.4.2",
+    "@types/node": "^22.15.30",
+    "tsup": "^8.3.5",
     "ts-node-dev": "^2.0.0",
     "@algorandfoundation/algorand-typescript-testing": "^1.0.1",
     "vitest": "^2.1.8",
@@ -44,5 +60,6 @@
   },
   "overrides": {
     "esbuild": "0.25.0"
-  }
+  },
+  "packageManager": "pnpm@11.5.2+sha512.71c631e382066efc25625d5cf029075de07b61b37f6e27350fbd84b1bda5864c8c1967adc280776b45c30a715c0359a3be08fef42d5bb09e2b99029979692916"
 }

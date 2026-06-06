@@ -16,8 +16,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22.x'
-          cache: 'npm'
-          cache-dependency-path: '**/package-lock.json'
+          cache: 'pnpm'
+          cache-dependency-path: 'projects/algo-safe-contracts/pnpm-lock.yaml'
 
       - name: Set up Python 3.12
         uses: actions/setup-python@v5
@@ -26,6 +26,9 @@ jobs:
 
       - name: Install algokit
         run: pipx install algokit
+
+      - name: Enable Corepack
+        run: corepack enable
 
       - name: Bootstrap dependencies
         run: algokit project bootstrap all --project-name 'algo-safe-contracts'
