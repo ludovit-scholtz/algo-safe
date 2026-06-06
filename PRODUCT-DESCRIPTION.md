@@ -65,6 +65,31 @@ Examples:
 
 Signer groups must be first-class objects in both the contract model and the frontend. Users should never have to infer group state from raw addresses.
 
+### Account Types
+
+When a user adds an account to a signer group, they choose an account type. The safe treats account type as metadata plus a verification rule, so different cryptographic schemes can coexist in the same safe.
+
+Supported account types:
+
+- **Standard account**: A normal Ed25519 Algorand account controlled by a single key (Pera, Defly, Exodus, Daffi, Ledger, KMD, etc.).
+- **Multisig account**: An Algorand multisignature account with its own ordered addresses, threshold, and version.
+- **Rekeyed / operational account**: An account whose authorization address has been rekeyed for operational control.
+- **Agent account**: An automation/MCP-controlled account constrained by strict policy limits.
+- **Quantum-secure account**: A post-quantum account whose signatures are verified against a quantum-resistant scheme.
+
+#### Quantum-Secure Accounts
+
+Algorand is designed with post-quantum security in mind. The network already uses **Falcon** (a NIST-selected post-quantum signature scheme) to secure **State Proofs**, and the AVM exposes a **`falcon_verify`** opcode that lets smart contracts and logic signatures verify FALCON-1024 post-quantum signatures on-chain.
+
+Algo Safe makes the **quantum-secure account a first-class account type** that users can add to any signer group:
+
+- A quantum-secure signer is authorized by a post-quantum (Falcon) key, not only by a classical Ed25519 key.
+- Approval of that signer's portion of a proposal is verified on-chain via post-quantum signature verification (for example through `falcon_verify` in the safe's logic).
+- A quantum-secure account can be a sole signer, or combined with standard, multisig, and agent accounts in the same group for hybrid classical + post-quantum security.
+- The frontend collects and submits the post-quantum signature through the `algo-safe` library, exactly like any other account type, so the UX of adding, approving, and removing a quantum-secure signer matches the standard flow.
+
+This lets teams future-proof high-value safes against quantum attacks while keeping the same approval, policy, and audit experience.
+
 ### Spending And Action Policies
 
 Policies determine what a signer group can approve.
@@ -322,19 +347,21 @@ Steps:
 
 1. Open signer group detail
 2. Choose **Add account**
-3. Enter Algorand address and optional label
-4. Validate address format and duplicates
-5. Show impact on threshold, quorum, and policy
-6. Submit change as a proposal
-7. Collect required admin signatures
-8. Execute change
-9. Show updated group state
+3. Select the account type (standard, multisig, rekeyed, agent, or quantum-secure)
+4. Enter the Algorand address (or post-quantum public key for a quantum-secure account) and optional label
+5. Validate address/key format and duplicates
+6. Show impact on threshold, quorum, and policy
+7. Submit change as a proposal
+8. Collect required admin signatures
+9. Execute change
+10. Show updated group state
 
 Safety requirements:
 
 - Do not silently add an account with admin power
 - Warn if adding the account makes a low-threshold group too powerful
 - Show whether the new account needs to connect once to verify ownership, if that verification is required by the product policy
+- For a quantum-secure account, capture and verify the post-quantum public key so future approvals can be checked on-chain
 
 ### 9. Remove Account From Signer Group Flow
 
@@ -528,14 +555,16 @@ Agent rules should be visible and enforceable:
 
 ## Quantum-Secure Direction
 
-The long-term design should keep room for post-quantum signer support. The frontend should treat signer type as metadata and policy input so future signer schemes can fit into the same safe experience.
+Quantum-secure signing is a first-class capability, not just a roadmap item. Users can add a **quantum-secure account** to any signer group today (see Account Types), and the frontend treats signer type as metadata plus an on-chain verification rule so post-quantum and classical signers share the same safe experience.
 
-Potential signer types:
+Supported signer types:
 
-- Normal Algorand wallet signer
+- Normal Algorand (Ed25519) wallet signer
 - Multisig or rekeyed operational account
 - Agent-controlled account with strict policy limits
-- Future post-quantum account or verification scheme
+- Quantum-secure (Falcon / post-quantum) account verified on-chain (for example via the AVM `falcon_verify` opcode)
+
+Because account type is captured as metadata and a verification rule, a single safe can mix classical and post-quantum signers, and future post-quantum schemes can be added without changing the core safe UX.
 
 ---
 
