@@ -117,7 +117,7 @@ To define custom `algokit project run` commands refer to [documentation](https:/
 #### Continuous Integration
 
 For pull requests and pushes to `main` branch against this repository the following checks are automatically performed by GitHub Actions:
- - NPM dependencies are audited using [better-npm-audit](https://github.com/jeemok/better-npm-audit#readme)
+ - Dependencies are audited using `pnpm audit --audit-level high`
  - Code formatting is performed using [Prettier](https://prettier.io/)
  - Linting is checked using [ESLint](https://eslint.org/)
 - The base framework for testing is [vitest](https://vitest.dev/), and the project includes two separate kinds of tests:
@@ -148,7 +148,7 @@ This project makes use of Algorand TypeScript to build Algorand smart contracts.
 - [TypeScript](https://www.typescriptlang.org/): Strongly typed programming language that builds on JavaScript
 - [ts-node-dev](https://github.com/wclr/ts-node-dev): TypeScript development execution environment- [Prettier](https://prettier.io/): A code formatter.- [ESLint](https://eslint.org/): A JavaScript / TypeScript linter.
 - [vitest](https://vitest.dev/): Automated testing.
-- [better-npm-audit](https://github.com/jeemok/better-npm-audit#readme): Tool for scanning JavaScript / TypeScript environments for packages with known vulnerabilities.
+- [pnpm](https://pnpm.io/cli/audit): Package manager used for dependency installation and vulnerability auditing.
 
 
 It has also been configured to have a productive dev experience out of the box in [VS Code](https://code.visualstudio.com/), see the [.vscode](./.vscode) folder.
