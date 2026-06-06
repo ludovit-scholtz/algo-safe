@@ -1,3 +1,6 @@
+# Temporary cloned reference repos (not part of this project)
+resources/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
