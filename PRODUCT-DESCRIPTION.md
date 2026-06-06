@@ -125,56 +125,145 @@ Every proposal must show:
 - Current approval progress
 - Required threshold
 - Exact typed payload and inner transaction group preview
-    for (const i of urange(txs.count)) {
-        switch (txs.type[i]) {
-            case 'payment':
-                const paymentComposeFields = {
-                    ...txs.payTxs[i],
-                    type: TransactionType.Payment,
-                } satisfies PaymentComposeFields
-                if (i === 0) {
-                    itxnCompose.begin(paymentComposeFields)
-                } else {
-                    itxnCompose.next(paymentComposeFields)
+- Human-readable effects
+- Raw transaction details for advanced users
+- Simulation result where available
+- Expiration round or time
+- Network and genesis hash
+
+Proposals do not store a `groupTxnHash`. The approved content is the typed proposal payload itself: payment, asset transfer, application call, key registration, or signer-group administration. On execution, the contract emits the approved payload as an AVM inner transaction group from the application account.
+
+---
+
+## Supported Algorand Actions
+
+Algo Safe should support the actions Algorand users actually need, starting with these core transaction types:
+
+- **Payment (`pay`)**: Send ALGO, fund accounts, pay service providers, close accounts only when explicitly allowed.
+- **Asset transfer (`axfer`)**: Send ASAs, opt in to assets, opt out of assets, and handle ASA decimals safely.
+- **Application call (`appl`)**: Call dApps, governance contracts, DeFi protocols, and the Algo Safe contract itself.
+- **Key registration (`keyreg`)**: Register participation keys, go online/offline, and manage validator participation workflows.
+
+Algorand atomic groups may contain a mix of transaction types. The frontend must make that power understandable instead of hiding it.
+
+---
+
+## x402 Agent Payment Flow
+
+x402 is an HTTP-native payment protocol built around `402 Payment Required`. A service provider protects a resource, the AI agent requests it, the provider returns payment requirements, and the agent retries the request with a signed payment payload. The important correction is that the agent normally sends the signed `PAYMENT-SIGNATURE` back to the resource server, not directly to the facilitator. The resource server then asks the facilitator to verify and settle the payment, and the facilitator returns settlement confirmation to the resource server.
+
+For Algo Safe, the agent does not hand-build the Algorand payment. It calls the `algo-safe` npm library, which builds an app-call-based safe execution request, checks the signer-group policy, obtains the required safe approval/signature, and returns the x402 payment payload that can be sent with the retried HTTP request.
+
+### Standard x402 Flow
+
+```mermaid
+sequenceDiagram
+    participant Agent as AI agent / x402 client
+    participant Provider as Resource server / service provider
+    participant Facilitator as x402 facilitator
+    participant Chain as Algorand network
+
+    Agent->>Provider: GET protected resource
+    Provider-->>Agent: 402 Payment Required + PAYMENT-REQUIRED header
+    Agent->>Agent: select PaymentRequirements
+    Agent->>Provider: Retry request + PAYMENT-SIGNATURE header
+    Provider->>Facilitator: POST /verify PaymentPayload + PaymentRequirements
+    Facilitator->>Chain: verify payment can settle
+    Chain-->>Facilitator: verification result
+    Facilitator-->>Provider: VerificationResponse valid
+    Provider->>Facilitator: POST /settle PaymentPayload + PaymentRequirements
+    Facilitator->>Chain: submit/confirm payment
+    Chain-->>Facilitator: confirmed transaction
+    Facilitator-->>Provider: PaymentExecutionResponse
+    Provider-->>Agent: 200 OK + resource + PAYMENT-RESPONSE header
+```
+
+### Algo Safe x402 Flow
+
+```mermaid
+sequenceDiagram
+    participant Agent as AI agent
+    participant Library as algo-safe npm library
+    participant Safe as Algo Safe app
+    participant Provider as Resource server
+    participant Facilitator as x402 facilitator
+    participant Chain as Algorand network
+
+    Agent->>Provider: GET protected resource
+    Provider-->>Agent: 402 Payment Required + accepted schemes/networks/assets
+    Agent->>Library: buildX402Payment(requirements, signerGroupId)
+    Library->>Safe: create or load app-call payment proposal
+    Safe-->>Library: policy result + typed app call payload
+    Library->>Agent: request safe signer approval
+    Agent->>Library: signer approval / wallet signature
+    Library->>Agent: PaymentPayload for PAYMENT-SIGNATURE
+    Agent->>Provider: Retry request + PAYMENT-SIGNATURE header
+    Provider->>Facilitator: POST /verify payload + requirements
+    Facilitator->>Chain: simulate/verify app call payment
+    Chain-->>Facilitator: valid or invalid
+    Facilitator-->>Provider: VerificationResponse
+    Provider->>Facilitator: POST /settle payload + requirements
+    Facilitator->>Chain: submit signed app call / payment group
+    Chain-->>Facilitator: confirmed transaction id
+    Facilitator-->>Provider: PaymentExecutionResponse
+    Provider-->>Agent: 200 OK + resource + PAYMENT-RESPONSE header
+```
+
+### Component Responsibilities
+
+```mermaid
+flowchart LR
+    Agent[AI agent] -->|HTTP request| Provider[Service provider]
+    Provider -->|402 + requirements| Agent
+    Agent -->|requirements + signer group| Library[algo-safe npm library]
+    Library -->|policy checked app call payload| Safe[Algo Safe app]
+    Library -->|PAYMENT-SIGNATURE payload| Agent
+    Agent -->|retry with payment header| Provider
+    Provider -->|verify and settle| Facilitator[x402 facilitator]
+    Facilitator -->|simulate submit confirm| Chain[Algorand]
+    Chain -->|tx confirmation| Facilitator
+    Facilitator -->|execution response| Provider
+    Provider -->|paid resource| Agent
+```
+
+### Protocol Notes
+
+- The service provider advertises price, network, scheme, recipient, asset, and any facilitator details in the `402 Payment Required` response.
+- The agent retries the original request with `PAYMENT-SIGNATURE`; the resource server remains the HTTP counterparty for the paid resource.
+- The facilitator verifies and settles payments for the resource server. This keeps the provider from running its own Algorand infrastructure.
+- On Algorand, the x402 payment payload can represent the safe-approved app call or transaction group needed to transfer value under the selected x402 scheme and network.
+- The `algo-safe` library is responsible for turning the x402 payment requirements into a governed safe proposal/app call, enforcing daily and monthly signer-group usage, collecting the safe signer approval, and exposing the final payload to the agent.
+
+---
+
+## EURD Onramp And Offramp (Quantoz)
+
+Algo Safe integrates **EURD**, the regulated euro stablecoin issued by **Quantoz Payments B.V.** (Netherlands), so teams can fund and defund their safe with real euros without leaving the custody workflow. EURD is electronic money compliant with the European **Electronic Money Directive (EMD)** and, when issued as an e-money token (EMT), with the **Markets in Crypto-Assets Regulation (MiCAR)**. Holders have a right of redemption against the issuer at any time and at par value. On Algorand, EURD is an Algorand Standard Asset (ASA ID `1221682136`), so it behaves like any other ASA inside the safe while remaining fully fiat-backed (1:1 reserves held in segregated accounts with Tier 1 banks and AAA EU government bonds).
+
+This makes EURD a natural treasury asset for an Algorand safe: an **onramp** converts incoming EUR (via SEPA/bank transfer) into EURD delivered to the safe's controlled address, and an **offramp** redeems EURD held by the safe back into EUR paid out to a bank account.
+
+### Integration Model
+
+Algo Safe consumes the **Quantoz Payments API** documented at `https://portal.quantozpay.com/documentation`. Quantoz exposes three integration models; Algo Safe targets the **blockchain-based EUR accounts on Algorand** model (self-hosted wallets), with optional support for the **embedded payments** model where a partner acts on behalf of end users.
+
+As with every other capability, the frontend never calls the Quantoz API or constructs EURD transfers directly. EURD onramp/offramp is exposed **only through the `algo-safe` npm library**, which:
+
+- Wraps the Quantoz Payments REST API behind typed, documented methods.
+- Builds and previews the resulting Algorand atomic groups (for example the ASA opt-in to EURD and any required application calls) so they pass through the same proposal, policy, and approval flow as any other safe action.
+- Hands wallet signing back to the caller's `TransactionSigner`; the library never holds keys or banking credentials.
+- Keeps Quantoz API keys/secrets server-side, never embedded in the reference frontend bundle.
+
+### Onramp (Buy / Mint EURD Into The Safe)
+
+Purpose: turn EUR into EURD credited to the safe's controlled Algorand address.
+
+Flow:
+
 1. Operator chooses **Add funds (EURD)** and enters a target amount.
-                break
-            case 'asset':
-                const assetComposeFields = {
-                    ...txs.assetTxs[i],
-                    type: TransactionType.AssetTransfer,
-                } satisfies AssetTransferComposeFields
-                if (i === 0) {
-                    itxnCompose.begin(assetComposeFields)
-                } else {
-                    itxnCompose.next(assetComposeFields)
-                }
-                break
-            case 'app':
-                const appComposeFields = {
-                    ...txs.appTxs[i],
-                    type: TransactionType.ApplicationCall,
-                } satisfies ApplicationCallComposeFields
-                if (i === 0) {
-                    itxnCompose.begin(appComposeFields)
-                } else {
-                    itxnCompose.next(appComposeFields)
-                }
-                break
-            case 'keyreg':
-                const keyComposeFields = {
-                    ...txs.keyRegTxs[i],
-                    type: TransactionType.KeyRegistration,
-                } satisfies KeyRegistrationComposeFields
-                if (i === 0) {
-                    itxnCompose.begin(keyComposeFields)
-                } else {
-                    itxnCompose.next(keyComposeFields)
-                }
-                break
 2. The library ensures the safe is **opted in** to the EURD ASA, proposing an `axfer` opt-in transaction through the normal governed flow if needed.
-    }
-    itxnCompose.submit()
-    return true
+3. The library requests onramp instructions from Quantoz (deposit reference / SEPA details, or an embedded-payment authorization, depending on the integration model).
+4. The operator (or partner) completes the EUR deposit.
+5. Quantoz mints/issues EURD and transfers it to the safe's controlled address on Algorand.
 6. The dashboard reflects the new EURD balance once on-chain and Quantoz settlement confirm.
 
 Requirements:
