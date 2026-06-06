@@ -294,6 +294,219 @@ This boundary guarantees that the frontend, third-party apps, and automated agen
 
 ---
 
+## Smart Contract Model
+
+This section is the on-chain model from which the Algo Safe Algorand smart contract is constructed. It reflects how the Algorand Virtual Machine (AVM) actually works, so the contract maps cleanly onto AVM primitives instead of fighting them.
+
+### AVM Grounding
+
+The contract is written in **Algorand TypeScript** (PuyaTs) and compiled to **TEAL / AVM bytecode**; it is not normal TypeScript. The model is constrained by AVM realities:
+
+- **One application, two programs.** Every Algorand app is an **Approval Program** (all app calls except ClearState) plus a **Clear State Program** (cleanup only). No critical authorization logic lives in Clear State, because users can always clear their local state.
+- **Two fundamental types.** At the AVM level everything is `uint64` or `bytes` (≤ 4096 bytes). Higher-level shapes (structs, addresses, ABI tuples) are ARC-4 encodings over `bytes`.
+- **The safe address is the application account.** The smart account that holds ALGO and ASAs (including EURD) is the **application's account**. All payments, ASA transfers, app calls, and key registrations are executed as **inner transactions** signed by the application, each with `fee: 0` (the caller covers fees via fee pooling).
+- **No re-entrancy.** An application cannot call itself, even indirectly through inner transactions; the AVM enforces this.
+- **Hard limits drive storage choices.** Global state is capped (64 KV pairs, key+value ≤ 128 bytes), so per-group, per-member, per-proposal, and per-approval records live in **box storage** (`Box` / `BoxMap`), whose MBR is funded by the app account. A transaction group is at most 16 transactions; the opcode budget is 700 per app call, pooled across the group and inner app calls.
+- **Signature verification is explicit and costed.** Approvals are verified on-chain with `ed25519verify_bare` (standard / multisig signers, 1900 budget each) or `falcon_verify` (quantum-secure signers, 1700 budget each). Because each verification far exceeds the 700 base budget, approval/execute calls pool budget across multiple app calls in the group.
+
+### Storage Layout
+
+The application keeps a small fixed **global state** for configuration and counters, and uses **box storage** for the unbounded, per-entity records (signer groups, members, proposals, approvals, and limit usage). Composite box keys give O(1) lookups without account opt-in.
+
+```mermaid
+classDiagram
+    class Application {
+        +ApprovalProgram
+        +ClearStateProgram
+        +appAccount : controlled safe address (ALGO + ASA + EURD)
+    }
+
+    class GlobalState {
+        +name : bytes
+        +adminGroupId : uint64
+        +groupCount : uint64
+        +nextGroupId : uint64
+        +nextProposalId : uint64
+        +paused : bool
+        +version : uint64
+    }
+
+    class SignerGroup {
+        «BoxMap key: groupId»
+        +name : bytes
+        +threshold : uint64
+        +memberCount : uint64
+        +allowedActions : uint64 (bitmask pay/axfer/appl/keyreg)
+        +dailyLimit : uint64
+        +monthlyLimit : uint64
+        +cooldownRounds : uint64
+    }
+
+    class Member {
+        «BoxMap key: groupId+identity»
+        +accountType : uint8 (standard/multisig/rekeyed/agent/quantum)
+        +label : bytes
+        +ed25519Key : bytes (Account / multisig descriptor)
+        +falconKey : bytes (post-quantum public key)
+    }
+
+    class Proposal {
+        «BoxMap key: proposalId»
+        +groupId : uint64
+        +status : uint8
+        +groupTxnHash : bytes (exact atomic group ID)
+        +actionType : uint64 (bitmask)
+        +approvalsCount : uint64
+        +threshold : uint64
+        +expiryRound : uint64
+        +proposer : Account
+    }
+
+    class Approval {
+        «BoxMap key: proposalId+identity»
+        +signer : bytes
+        +signature : bytes
+        +round : uint64
+    }
+
+    class LimitUsage {
+        «BoxMap key: groupId+period»
+        +periodStart : uint64
+        +spentAlgo : uint64
+        +spentByAsset : bytes
+    }
+
+    Application "1" --> "1" GlobalState : holds
+    Application "1" --> "*" SignerGroup : BoxMap
+    SignerGroup "1" --> "*" Member : BoxMap
+    Application "1" --> "*" Proposal : BoxMap
+    Proposal "1" --> "*" Approval : BoxMap
+    SignerGroup "1" --> "*" LimitUsage : BoxMap
+```
+
+### ABI Method Surface
+
+Convention-based lifecycle methods handle create/update/delete; the rest are ARC-4 ABI methods grouped by responsibility. Read-only getters use `@abimethod({ readonly: true })` so clients can query without a state-changing call.
+
+```mermaid
+flowchart TB
+    subgraph Lifecycle["Lifecycle (convention-routed)"]
+        C1["createApplication() — init safe + admin group"]
+        C2["updateApplication() — admin-governed upgrade"]
+        C3["deleteApplication() — admin-governed teardown"]
+    end
+
+    subgraph Admin["Signer-group administration (governed)"]
+        A1["createSignerGroup(name, threshold, policy)"]
+        A2["addSigner(groupId, accountType, key, label)"]
+        A3["removeSigner(groupId, identity)"]
+        A4["changeThreshold(groupId, threshold)"]
+        A5["setPolicy(groupId, limits, allowedActions)"]
+    end
+
+    subgraph Proposals["Proposal lifecycle"]
+        P1["createProposal(groupId, groupTxnHash, actionType, expiry)"]
+        P2["approveProposal(proposalId, signer, signature)"]
+        P3["executeProposal(proposalId) → inner txns"]
+        P4["cancelProposal(proposalId)"]
+    end
+
+    subgraph Verify["On-chain verification (private subroutines)"]
+        V1["verifyEd25519() — standard / multisig"]
+        V2["verifyFalcon() — quantum-secure (falcon_verify)"]
+        V3["checkPolicy() — threshold + limits + allowlist"]
+    end
+
+    subgraph Reads["Read-only getters"]
+        R1["getSafeConfig()"]
+        R2["getSignerGroup(groupId)"]
+        R3["getProposal(proposalId)"]
+        R4["getLimitUsage(groupId)"]
+    end
+
+    P2 --> V1
+    P2 --> V2
+    P3 --> V3
+    A1 --> P1
+    A2 --> P1
+    A3 --> P1
+    A4 --> P1
+    A5 --> P1
+```
+
+Every administrative change (`addSigner`, `removeSigner`, `changeThreshold`, `setPolicy`, update/delete) is itself a **governed action**: it is created as a proposal, approved by the admin group under M-of-N, and only then executed. The contract never trusts a single caller for privileged changes.
+
+### Proposal State Machine
+
+A proposal carries the **exact group ID** of the atomic transaction set it authorizes. Signers approve that group ID; if the group changes, prior approvals are invalid and signatures must be recollected. This mirrors how Algorand signing actually works (signature binds to the ordered group).
+
+```mermaid
+stateDiagram-v2
+    [*] --> Draft
+    Draft --> SimulationPending : submit for dry-run
+    SimulationPending --> SimulationFailed : simulate rejects
+    SimulationPending --> ReadyForSignatures : simulate ok
+    SimulationFailed --> Draft : rebuild group
+    ReadyForSignatures --> WaitingForApprovals : first valid approval
+    WaitingForApprovals --> WaitingForApprovals : approval (threshold not met)
+    WaitingForApprovals --> ReadyToExecute : threshold met
+    ReadyToExecute --> Executed : executeProposal() inner txns succeed
+    ReadyToExecute --> FailedOnChain : inner group fails (atomic rollback)
+    WaitingForApprovals --> Expired : past expiryRound
+    ReadyForSignatures --> Expired : past expiryRound
+    WaitingForApprovals --> Cancelled : cancelProposal()
+    Draft --> Cancelled : cancelProposal()
+    Executed --> [*]
+    Expired --> [*]
+    Cancelled --> [*]
+    FailedOnChain --> [*]
+```
+
+### Execution Flow (Approval to Inner Transactions)
+
+When the threshold is met, `executeProposal` re-checks policy, confirms the requested group matches the approved `groupTxnHash`, and emits the authorized actions as **inner transactions** from the application account. The group is atomic — all inner transactions succeed or all roll back.
+
+```mermaid
+sequenceDiagram
+    participant Caller as Caller (library + signer)
+    participant App as Algo Safe Application
+    participant Box as Box storage
+    participant Inner as Inner transactions
+    participant Chain as Algorand (algod)
+
+    Caller->>App: executeProposal(proposalId)
+    App->>Box: load Proposal + SignerGroup + LimitUsage
+    App->>App: assert status == ReadyToExecute
+    App->>App: assert approvalsCount >= threshold
+    App->>App: assert round <= expiryRound
+    App->>App: checkPolicy(limits, allowlist, allowedActions)
+    App->>App: assert requested group == groupTxnHash
+    App->>Inner: pay / axfer / appl / keyreg (fee = 0)
+    Inner->>Chain: atomic inner group
+    Chain-->>App: success or rollback
+    App->>Box: update LimitUsage + status = Executed
+    App-->>Caller: emit Executed event (ARC-28) + txn ids
+```
+
+### How EURD Maps Onto This Model
+
+EURD is an Algorand Standard Asset, so onramp/offramp reuse the same primitives with no special contract path:
+
+- **Opt-in**: an `axfer` opt-in inner transaction adds EURD to the application account, governed like any ASA opt-in.
+- **Offramp redemption**: redeeming EURD to the Quantoz address is a standard `axfer` inner transaction inside a governed proposal, subject to the group's limits and allowlist (the Quantoz payout address is treated as an allowlisted receiver).
+- **Onramp**: minting/issuing EURD is performed by Quantoz off-chain; the contract simply receives the resulting ASA into the application account and the balance appears through normal indexer reads.
+
+### Construction Notes (Implementation Guidance)
+
+- Use **`uint64`/`bytes`** and `Uint64()` everywhere in contract code — never JS `number`.
+- Store records as plain TS types in `BoxMap`; `clone()` on every box read/write to respect AVM value semantics.
+- Fund the application account for **box MBR** before creating groups/proposals (2,500 + 400 × (key + value length) µAlgo per box).
+- Set **`fee: 0`** on all inner transactions; the caller covers fees via fee pooling.
+- Reserve enough **app calls in the group** to cover signature-verification opcode costs (`ed25519verify_bare` = 1900, `falcon_verify` = 1700, vs. 700 base budget each call).
+- Emit **ARC-28 events** for created/approved/executed/cancelled so indexers and the activity log can reconstruct full custody history.
+
+---
+
 ## Transaction Builder UX
 
 The transaction builder is the most important part of the product.
