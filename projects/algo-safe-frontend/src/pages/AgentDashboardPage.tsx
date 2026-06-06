@@ -1,5 +1,6 @@
 // src/pages/AgentDashboardPage.tsx
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useSafeId } from '../lib/SafeContext'
 import { useAgents, useTreasury, useProposals } from '../hooks'
 import { StatCard } from '../components/ui/StatCard'
@@ -11,6 +12,7 @@ import { store } from '../lib/store'
 
 export function AgentDashboardPage() {
   const safeId = useSafeId()
+  const navigate = useNavigate()
   const { data: treasury } = useTreasury(safeId)
   const { data: agents } = useAgents()
   const { data: proposals } = useProposals()
@@ -127,7 +129,10 @@ export function AgentDashboardPage() {
           <h2 className="font-mono text-xs uppercase tracking-wide text-on-surface-variant">
             Activity Log
           </h2>
-          <button className="font-mono text-xs text-primary hover:underline">
+          <button
+            className="font-mono text-xs text-primary hover:underline"
+            onClick={() => navigate(`/safe/${safeId}/proposals`)}
+          >
             View All Transactions
           </button>
         </div>
