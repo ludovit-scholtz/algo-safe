@@ -1,16 +1,32 @@
 // src/lib/store.ts
-import type { Agent, Policy, Proposal, Safe } from '../services/types'
+import type { Agent, AssetHolding, Policy, Proposal, Safe, SafeSummary, TreasurySummary } from '../services/types'
 
 let nextAgentSeq = 4
 let nextPropSeq = 44
+let nextSafeSeq = 3
 
 export const store = {
+  safes: [
+    { safeId: 'safe_1', name: 'Cold Storage A', appId: 109847265, address: 'A3B7...X9Z2', tier: '3-of-5 Multisig', totalValueEur: 2485920.42, agentCount: 3, status: 'active' },
+    { safeId: 'safe_2', name: 'Governance Treasury', appId: 109847266, address: 'GOV4...K1M8', tier: '2-of-3 Multisig', totalValueEur: 812340.10, agentCount: 1, status: 'active' },
+  ] as SafeSummary[],
+
+  currentSafeId: 'safe_1',
+
   safe: {
-    name: 'Alpha Fund Multisig',
+    name: 'Cold Storage A',
     appId: 109847265,
-    address: 'A3B...X9Z',
+    address: 'A3B7...X9Z2',
     network: 'mainnet',
   } as Safe,
+
+  assets: [
+    { symbol: 'ALGO', name: 'Algorand Native', assetId: 0, amount: 1250000, valueEur: 287500, type: 'native' },
+    { symbol: 'EURD', name: 'EURD Stablecoin', assetId: 1221682136, amount: 2100000, valueEur: 2100000, type: 'stablecoin' },
+    { symbol: 'EURD', name: 'EURD — Active Lending', assetId: 1221682136, amount: 98420.42, valueEur: 98420.42, type: 'lending', apy: 4.2 },
+  ] as AssetHolding[],
+
+  treasury: { totalValueEur: 2485920.42, availableAlgo: 1250000, availableEurd: 2100000 } as TreasurySummary,
 
   agents: [
     { id: 'agt_1', alias: 'Arbitrage Bot Alpha', address: 'ARBX...A1B2', purpose: 'Algorithmic Trading', primaryAsset: 'ALGO', dailyLimit: 10000, status: 'active', groupTier: 'Tier 3 - Automated Execution (1/1)' },
@@ -32,7 +48,6 @@ export const store = {
       txPreview: [{ type: 'axfer', summary: 'Transfer 15,000 EURD', detail: 'to vendor' }], policyChecks: [{ label: 'Within daily limit', passed: true }] },
     { id: '0040', title: 'Agent Registration: Yield Farmer V2', description: 'Register a new automated agent.', status: 'draft', approvals: 0, threshold: 3, date: 'Oct 24, 2023',
       txPreview: [{ type: 'appl', summary: 'Initialize agent contract', detail: 'register signer in Tier 3' }], policyChecks: [] },
-    // The demo "blocked" proposal (Beat 4)
     { id: '0043', title: 'Agent Payment — SkipperBrief Forecast', description: 'Arbitrage Bot Alpha attempted an autonomous payment that exceeds its daily limit.', status: 'blocked', approvals: 0, threshold: 2, amount: 12000, asset: 'EURD', date: 'Today, 15:02',
       txPreview: [{ type: 'axfer', summary: 'Transfer 12,000 EURD', detail: 'to merchant skipper.ever-online.com' }],
       policyChecks: [{ label: 'Within daily limit (10,000 EURD)', passed: false }, { label: 'Receiver allowlisted', passed: false }],
@@ -41,4 +56,5 @@ export const store = {
 
   newAgentId() { return `agt_${nextAgentSeq++}` },
   newProposalId() { return String(nextPropSeq++).padStart(4, '0') },
+  newSafeId() { return `safe_${nextSafeSeq++}` },
 }
