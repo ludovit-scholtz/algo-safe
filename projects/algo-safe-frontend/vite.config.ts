@@ -12,7 +12,10 @@ export default defineConfig({
       },
     }),
   ],
+  resolve: {
+    dedupe: ['algosdk'],
+  },
   optimizeDeps: {
-    include: ['@walletconnect/sign-client', '@walletconnect/modal'],
+    include: ['@walletconnect/sign-client', '@walletconnect/modal', 'algosdk'],
   },
 })

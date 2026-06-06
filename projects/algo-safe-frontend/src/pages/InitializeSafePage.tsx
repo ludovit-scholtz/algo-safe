@@ -49,6 +49,10 @@ function getErrorMessage(error: unknown) {
   return 'The transaction was rejected or could not be submitted.'
 }
 
+function getCanonicalAppAddress(appId: bigint) {
+  return algosdk.getApplicationAddress(appId).toString()
+}
+
 export function InitializeSafePage() {
   const { activeNetwork } = useNetwork()
   const { activeAddress, isReady, transactionSigner } = useWallet()
@@ -78,6 +82,7 @@ export function InitializeSafePage() {
 
   async function handleStart() {
     const safeName = name.trim()
+    let failedStage: FlowStage = 'deploying'
 
     if (!safeName) {
       setErrorMessage('Enter a safe name before starting the deployment.')
@@ -113,14 +118,17 @@ export function InitializeSafePage() {
         suppressLog: true,
       })
 
+      const appAddress = getCanonicalAppAddress(result.appId)
+
       const nextDeployment = {
         appId: result.appId.toString(),
-        address: result.appAddress.toString(),
+        address: appAddress,
         txId: result.txIds[0] ?? '',
       }
 
       setDeployment(nextDeployment)
       setStage('funding')
+      failedStage = 'funding'
 
       await algorand.send.payment({
         amount: algo(depositAlgo),
@@ -130,6 +138,7 @@ export function InitializeSafePage() {
       })
 
       setStage('bootstrapping')
+      failedStage = 'bootstrapping'
 
       await appClient.send.bootstrap({
         args: { groupName: 'Admins' },
@@ -138,6 +147,13 @@ export function InitializeSafePage() {
 
       setStage('success')
     } catch (error) {
+      console.error('Initialize safe failed', {
+        error,
+        failedStage,
+        activeAddress,
+        deployment,
+        safeName,
+      })
       setStage('error')
       setErrorMessage(getErrorMessage(error))
     }
