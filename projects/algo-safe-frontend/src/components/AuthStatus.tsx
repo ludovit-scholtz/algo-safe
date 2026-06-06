@@ -1,5 +1,5 @@
-import { useState } from 'react'
 import { useWallet } from '@txnlab/use-wallet-react'
+import { useState } from 'react'
 import { Button } from './ui/Button'
 import { Icon } from './ui/Icon'
 
@@ -48,9 +48,7 @@ export function AuthStatus() {
         </span>
         <div className="leading-tight">
           <div className="text-sm font-medium text-on-surface">{shortenAddress(activeAddress)}</div>
-          <div className="font-mono text-[11px] uppercase tracking-wide text-on-surface-variant">
-            {activeWallet.metadata.name}
-          </div>
+          <div className="font-mono text-[11px] uppercase tracking-wide text-on-surface-variant">{activeWallet.metadata.name}</div>
         </div>
       </div>
       <Button variant="ghost" onClick={handleLogout} disabled={isDisconnecting}>
