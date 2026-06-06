@@ -42,3 +42,10 @@ ALGO (fees) + testnet USDC (ASA `10458941`). Faucets: ALGO
 `bank.testnet.algorand.network`, USDC `faucet.circle.com` (select Algorand
 Testnet). Expect `402 -> sign -> settle -> 200 + weather`, with the txid in
 `logs/payments.jsonl`.
+
+Verified (full loop B) on 2026-06-06: an autonomous buyer paid for `GET /weather`
+and received the data with no human in the loop. On-chain settlement
+`UUWE7A3LHCFQAUCKBAEYCUDGWXMIPJ5QXCKI3SXGR5C2LHRFOAPA` — an `axfer` of USDC
+(ASA `10458941`), amount `1000` micro (=$0.001), confirmed round `64103285` on
+Algorand testnet. Buyer USDC 20 -> 19.999, seller USDC 0 -> 0.001.
+Explorer: https://lora.algokit.io/testnet/tx/UUWE7A3LHCFQAUCKBAEYCUDGWXMIPJ5QXCKI3SXGR5C2LHRFOAPA
