@@ -36,3 +36,6 @@ yarn-error.log*
 
 .vercel
 .netlify
+
+# Standardized on npm for this project (Vercel uses npm install)
+pnpm-lock.yaml
