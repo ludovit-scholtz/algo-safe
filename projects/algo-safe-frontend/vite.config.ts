@@ -12,4 +12,7 @@ export default defineConfig({
       },
     }),
   ],
+  optimizeDeps: {
+    include: ['@walletconnect/sign-client', '@walletconnect/modal'],
+  },
 })

@@ -1,7 +1,7 @@
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Icon } from '../components/ui/Icon'
 import { Button } from '../components/ui/Button'
-import { DemoDataChip } from '../components/ui/DemoDataChip'
+import { AuthStatus } from '../components/AuthStatus'
 import { useSafe } from '../hooks'
 
 export function TopBar() {
@@ -14,7 +14,7 @@ export function TopBar() {
         <Icon name="unfold_more" className="text-lg" /><span className="font-medium text-on-surface">{safe?.name ?? 'Select safe'}</span>
       </button>
       <div className="flex items-center gap-3">
-        <DemoDataChip />
+        <AuthStatus />
         <Link to={`/safe/${safeId}/agents/register`}><Button><Icon name="add" className="text-lg" />Register Agent</Button></Link>
       </div>
     </header>
