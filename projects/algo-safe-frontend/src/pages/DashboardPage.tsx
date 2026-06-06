@@ -73,12 +73,9 @@ export const DashboardPage = () => {
               </div>
               <span className="text-xs font-semibold uppercase tracking-widest text-ink-500">EURD Balance</span>
             </div>
-            <div className="flex items-center gap-2">
-              {!quantozLive && <DemoDataChip />}
-              <span className="bg-surface-muted text-ink-500 px-2 py-1 rounded text-xs font-medium">
-                Asset ID: {safe?.appId ?? '12345'}
-              </span>
-            </div>
+            <span className="bg-surface-muted text-ink-500 px-2 py-1 rounded text-xs font-medium">
+              Asset ID: {safe?.appId ?? '12345'}
+            </span>
           </div>
           <div>
             {eurdLoading ? (
@@ -88,9 +85,10 @@ export const DashboardPage = () => {
                 {eurdBal != null ? fmtEur(eurdBal.amount) : '€—'}
               </div>
             )}
-            <div className="text-sm text-ink-500 mt-2 flex items-center gap-1">
+            <div className="text-sm text-ink-500 mt-2 flex items-center gap-2">
               <Icon name="trending_up" className="text-[16px] text-ok" />
               +5.2% from last month
+              {!quantozLive && <DemoDataChip />}
             </div>
           </div>
         </div>

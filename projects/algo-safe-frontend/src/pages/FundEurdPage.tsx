@@ -210,6 +210,22 @@ export const FundEurdPage = () => {
               </div>
             )}
 
+            {/* Settlement summary box */}
+            <div className="rounded-lg bg-surface-muted border border-surface-border px-4 py-3 flex flex-col gap-2">
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-ink-500">Processing Fee</span>
+                <span className="font-semibold text-ink-900">0.00 EUR</span>
+              </div>
+              <div className="h-px bg-surface-border" />
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-ink-500">Expected Settlement</span>
+                <span className="font-semibold text-ink-900 flex items-center gap-1">
+                  <Icon name="schedule" className="text-[14px] text-brand-600" />
+                  1–2 Business Days
+                </span>
+              </div>
+            </div>
+
             {/* Regulated footer */}
             <div className="flex items-center gap-2 text-xs text-ink-400 pt-1">
               <Icon name="verified" className="text-[14px] text-ok" />
