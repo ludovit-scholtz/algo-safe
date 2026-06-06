@@ -33,7 +33,7 @@ function toSupportedChainId(network: string): SupportedChainId {
     return network
   }
 
-  return NetworkId.TESTNET
+  return NetworkId.MAINNET
 }
 
 function getWalletNetworks(algodConfig: ReturnType<typeof getAlgodConfigFromViteEnvironment>) {
@@ -75,7 +75,7 @@ export default function App() {
   const algodConfig = getAlgodConfigFromViteEnvironment()
   const walletManager = new WalletManager({
     wallets: supportedWallets,
-    defaultNetwork: algodConfig.network,
+    defaultNetwork: NetworkId.MAINNET,
     networks: getWalletNetworks(algodConfig),
     options: { resetNetwork: true },
   })
