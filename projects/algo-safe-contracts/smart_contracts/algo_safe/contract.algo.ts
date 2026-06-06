@@ -7,6 +7,7 @@ import {
   clone,
   Contract,
   emit,
+  ensureBudget,
   Global,
   GlobalState,
   itxn,
@@ -53,6 +54,11 @@ const TX_PAYMENT: uint64 = Uint64(1)
 const TX_ASSET: uint64 = Uint64(2)
 const TX_APP: uint64 = Uint64(3)
 const TX_KEYREG: uint64 = Uint64(4)
+
+// Maximum executable transactions in one transaction-group proposal. Algorand
+// protocol transaction groups currently allow up to 16 transactions; this cap
+// tracks that limit and can be raised if the protocol limit changes.
+const MAX_GROUP_TXNS: uint64 = Uint64(16)
 
 // Allowed-action bitmask (SignerGroup.allowedActions).
 const ACT_PAY: uint64 = Uint64(1)
@@ -179,12 +185,10 @@ type SafeTxn = {
   note: string
 }
 
-type TransactionGroupPayload = {
-  count: uint64
-  tx0: SafeTxn
-  tx1: SafeTxn
-  tx2: SafeTxn
-}
+// An ordered, dynamically sized list of transactions. A single-action proposal
+// is just a one-element list. This mirrors Algorand atomic transaction groups,
+// where order matters and the group is all-or-nothing.
+type TransactionGroupPayload = SafeTxn[]
 
 type AdminChange = {
   changeType: uint64
@@ -361,11 +365,13 @@ export class AlgoSafe extends Contract {
    * of transactions and execution emits that list as one atomic inner group.
    */
   public proposeTransactionGroup(groupId: uint64, payload: TransactionGroupPayload, expiryRound: uint64): uint64 {
+    ensureBudget(Uint64(700)) // rough estimate; each inner transaction adds to execution cost
+
     assert(this.paused.value === Uint64(0), 'safe paused')
     this._assertMember(groupId)
     assert(this.groups(groupId).value.active !== Uint64(0), 'group disabled')
-    assert(payload.count >= Uint64(1), 'empty tx group')
-    assert(payload.count <= Uint64(3), 'max 3 txs')
+    assert(payload.length >= Uint64(1), 'empty tx group')
+    assert(payload.length <= MAX_GROUP_TXNS, 'too many txs')
 
     const pid = this._newProposal(groupId, PT_TRANSACTION_GROUP, expiryRound)
     this.transactionGroups(pid).value = clone(payload)
@@ -552,25 +558,40 @@ export class AlgoSafe extends Contract {
   // -------------------------------------------------------------------------
 
   private _executeTransactionGroup(proposalId: uint64, groupId: uint64, groupIn: SignerGroup): void {
+    // Read just the group length first (cheap header read) and raise the opcode
+    // budget before fully decoding the box. Decoding and staging scale with the
+    // group length, so each entry gets roughly one app-call worth of budget.
+    const count: uint64 = this.transactionGroups(proposalId).value.length
+    assert(count >= Uint64(1), 'empty tx group')
+    assert(count <= MAX_GROUP_TXNS, 'too many txs')
+    ensureBudget((count + Uint64(1)) * Uint64(700))
+
     const payload = clone(this.transactionGroups(proposalId).value)
-    this._validateTransactionGroup(payload, groupIn)
 
-    const spend = this._sumAlgoSpend(payload)
-    const group = this._accountSpend(groupIn, spend)
-    this.groups(groupId).value = clone(group)
-
-    if (payload.tx0.txType === TX_KEYREG) {
-      this._executeKeyRegTx(payload.tx0)
+    // Key registration cannot be composed into a mixed inner group; it must be
+    // proposed and executed on its own.
+    const firstTx = clone(payload[0])
+    if (count === Uint64(1) && firstTx.txType === TX_KEYREG) {
+      assert((groupIn.allowedActions & ACT_KEYREG) !== Uint64(0), 'keyreg not allowed')
+      this._executeKeyRegTx(firstTx)
       return
     }
 
-    this._stageSafeTxn(payload.tx0, true)
-    if (payload.count >= Uint64(2)) {
-      this._stageSafeTxn(payload.tx1, false)
+    // Single pass over the group: decode each entry once, validate it, tally the
+    // ALGO spend, and stage it into the inner-transaction group.
+    let spend: uint64 = Uint64(0)
+    for (let i: uint64 = Uint64(0); i < count; i = i + Uint64(1)) {
+      const tx = clone(payload[i])
+      this._validateSafeTxn(tx, groupIn)
+      assert(tx.txType !== TX_KEYREG, 'keyreg must be single tx')
+      if (tx.txType === TX_PAYMENT) {
+        spend = spend + tx.amount
+      }
+      this._stageSafeTxn(tx, i === Uint64(0))
     }
-    if (payload.count >= Uint64(3)) {
-      this._stageSafeTxn(payload.tx2, false)
-    }
+
+    const group = this._accountSpend(groupIn, spend)
+    this.groups(groupId).value = clone(group)
     itxnCompose.submit()
   }
 
@@ -741,23 +762,6 @@ export class AlgoSafe extends Contract {
     }
   }
 
-  private _validateTransactionGroup(payload: TransactionGroupPayload, group: SignerGroup): void {
-    assert(payload.count >= Uint64(1), 'empty tx group')
-    assert(payload.count <= Uint64(3), 'max 3 txs')
-    this._validateSafeTxn(payload.tx0, group)
-    if (payload.tx0.txType === TX_KEYREG) {
-      assert(payload.count === Uint64(1), 'keyreg must be single tx')
-    }
-    if (payload.count >= Uint64(2)) {
-      this._validateSafeTxn(payload.tx1, group)
-      assert(payload.tx1.txType !== TX_KEYREG, 'keyreg must be single tx')
-    }
-    if (payload.count >= Uint64(3)) {
-      this._validateSafeTxn(payload.tx2, group)
-      assert(payload.tx2.txType !== TX_KEYREG, 'keyreg must be single tx')
-    }
-  }
-
   private _validateSafeTxn(tx: SafeTxn, group: SignerGroup): void {
     if (tx.txType === TX_PAYMENT) {
       assert((group.allowedActions & ACT_PAY) !== Uint64(0), 'pay not allowed')
@@ -782,27 +786,9 @@ export class AlgoSafe extends Contract {
     }
   }
 
-  private _sumAlgoSpend(payload: TransactionGroupPayload): uint64 {
-    let spend: uint64 = Uint64(0)
-    if (payload.tx0.txType === TX_PAYMENT) {
-      spend = spend + payload.tx0.amount
-    }
-    if (payload.count >= Uint64(2) && payload.tx1.txType === TX_PAYMENT) {
-      spend = spend + payload.tx1.amount
-    }
-    if (payload.count >= Uint64(3) && payload.tx2.txType === TX_PAYMENT) {
-      spend = spend + payload.tx2.amount
-    }
-    return spend
-  }
-
   private _singleTxnGroup(tx: SafeTxn): TransactionGroupPayload {
-    return {
-      count: Uint64(1),
-      tx0: clone(tx),
-      tx1: this._emptyTxn(),
-      tx2: this._emptyTxn(),
-    }
+    const txns: TransactionGroupPayload = [clone(tx)]
+    return txns
   }
 
   private _emptyTxn(): SafeTxn {

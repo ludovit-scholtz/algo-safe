@@ -2,13 +2,94 @@ import { Config } from '@algorandfoundation/algokit-utils'
 import { algorandFixture } from '@algorandfoundation/algokit-utils/testing'
 import algosdk from 'algosdk'
 import { beforeAll, beforeEach, describe, expect, test } from 'vitest'
-import {
-  AdminChange,
-  AlgoSafeClient,
-  AlgoSafeFactory,
-  SafeTxn,
-  TransactionGroupPayload,
-} from '../artifacts/algo_safe/AlgoSafeClient'
+import { AdminChange, AlgoSafeClient, AlgoSafeFactory } from '../artifacts/algo_safe/AlgoSafeClient'
+
+// The transaction-group payload is an ABI dynamic array of SafeTxn tuples. The
+// generated client expands each SafeTxn to a positional tuple, so the tests use
+// an object-shaped helper type and convert to tuples when calling the contract.
+type SafeTxn = {
+  txType: bigint
+  receiver: string
+  amount: bigint
+  hasClose: bigint
+  closeRemainderTo: string
+  xferAsset: bigint
+  assetReceiver: string
+  assetAmount: bigint
+  hasAssetClose: bigint
+  assetCloseTo: string
+  appId: bigint
+  numArgs: bigint
+  arg0: Uint8Array
+  arg1: Uint8Array
+  arg2: Uint8Array
+  arg3: Uint8Array
+  online: bigint
+  voteKey: Uint8Array
+  selectionKey: Uint8Array
+  stateProofKey: Uint8Array
+  voteFirst: bigint
+  voteLast: bigint
+  voteKeyDilution: bigint
+  note: string
+}
+
+// Positional tuple matching the ABI encoding of a single SafeTxn.
+type SafeTxnTuple = [
+  bigint | number,
+  string,
+  bigint | number,
+  bigint | number,
+  string,
+  bigint | number,
+  string,
+  bigint | number,
+  bigint | number,
+  string,
+  bigint | number,
+  bigint | number,
+  Uint8Array,
+  Uint8Array,
+  Uint8Array,
+  Uint8Array,
+  bigint | number,
+  Uint8Array,
+  Uint8Array,
+  Uint8Array,
+  bigint | number,
+  bigint | number,
+  bigint | number,
+  string,
+]
+
+function toTuple(t: SafeTxn): SafeTxnTuple {
+  return [
+    t.txType,
+    t.receiver,
+    t.amount,
+    t.hasClose,
+    t.closeRemainderTo,
+    t.xferAsset,
+    t.assetReceiver,
+    t.assetAmount,
+    t.hasAssetClose,
+    t.assetCloseTo,
+    t.appId,
+    t.numArgs,
+    t.arg0,
+    t.arg1,
+    t.arg2,
+    t.arg3,
+    t.online,
+    t.voteKey,
+    t.selectionKey,
+    t.stateProofKey,
+    t.voteFirst,
+    t.voteLast,
+    t.voteKeyDilution,
+    t.note,
+  ]
+}
 
 // Contract constants mirrored for the tests.
 const ACT_PAY = 1n
@@ -100,13 +181,8 @@ function safeAppCall(appId: bigint, args: Uint8Array[] = []): SafeTxn {
   }
 }
 
-function txGroup(txs: SafeTxn[]): TransactionGroupPayload {
-  return {
-    count: BigInt(txs.length),
-    tx0: txs[0],
-    tx1: txs[1] ?? emptySafeTxn(),
-    tx2: txs[2] ?? emptySafeTxn(),
-  }
+function txGroup(txs: SafeTxn[]): SafeTxnTuple[] {
+  return txs.map(toTuple)
 }
 
 describe('AlgoSafe contract', () => {
@@ -150,6 +226,7 @@ describe('AlgoSafe contract', () => {
     const { return: pid } = await client.send.proposeAdminChange({
       args: { groupId: adminGroupId, change, expiryRound: FAR_EXPIRY },
       suppressLog: true,
+      staticFee: (0.2).algo(),
     })
     await client.send.executeProposal({ args: { proposalId: pid! }, ...execParams })
     return pid!
@@ -224,6 +301,7 @@ describe('AlgoSafe contract', () => {
     const { return: pid } = await client.send.proposePayment({
       args: { groupId: 1n, payload: mkPayment(recipient.toString(), (1).algo().microAlgo), expiryRound: FAR_EXPIRY },
       suppressLog: true,
+      staticFee: (0.2).algo(),
     })
 
     // Proposer auto-approves; 1-of-1 becomes ready immediately.
@@ -253,12 +331,13 @@ describe('AlgoSafe contract', () => {
     const { return: pid } = await client.send.proposeTransactionGroup({
       args: { groupId: 1n, payload, expiryRound: FAR_EXPIRY },
       suppressLog: true,
+      staticFee: (0.2).algo(),
     })
 
     const stored = await client.send.getTransactionGroup({ args: { proposalId: pid! }, suppressLog: true })
-    expect(stored.return!.count).toBe(2n)
-    expect(stored.return!.tx0.txType).toBe(TX_PAYMENT)
-    expect(stored.return!.tx1.txType).toBe(TX_APP)
+    expect(stored.return!.length).toBe(2)
+    expect(stored.return![0][0]).toBe(TX_PAYMENT) // tx0 txType
+    expect(stored.return![1][0]).toBe(TX_APP) // tx1 txType
 
     await client.send.executeProposal({ args: { proposalId: pid! }, ...execParams })
 
@@ -282,13 +361,39 @@ describe('AlgoSafe contract', () => {
         expiryRound: FAR_EXPIRY,
       },
       suppressLog: true,
+      staticFee: (0.2).algo(),
     })
 
     const stored = await client.send.getTransactionGroup({ args: { proposalId: pid! }, suppressLog: true })
-    expect(stored.return!.count).toBe(3n)
-    expect(stored.return!.tx0.appId).toBe(targetAppId)
-    expect(stored.return!.tx1.appId).toBe(targetAppId)
-    expect(stored.return!.tx2.appId).toBe(targetAppId)
+    expect(stored.return!.length).toBe(3)
+    expect(stored.return![0][10]).toBe(targetAppId) // tx0 appId
+    expect(stored.return![1][10]).toBe(targetAppId) // tx1 appId
+    expect(stored.return![2][10]).toBe(targetAppId) // tx2 appId
+
+    await client.send.executeProposal({ args: { proposalId: pid! }, ...execParams })
+
+    const after = await client.send.getProposal({ args: { proposalId: pid! }, suppressLog: true })
+    expect(after.return!.status).toBe(3n) // EXECUTED
+  })
+
+  test('supports a larger variable-length transaction group beyond the old fixed slots', async () => {
+    const { client, deployer } = await deployAndBootstrap()
+    const targetAppId = await createBareNoOpApp(deployer)
+    const encoder = new TextEncoder()
+
+    const calls = [1, 2, 3].map((n) => safeAppCall(targetAppId, [encoder.encode(`call-${n}`)]))
+
+    const { return: pid } = await client.send.proposeTransactionGroup({
+      args: { groupId: 1n, payload: txGroup(calls), expiryRound: FAR_EXPIRY },
+      suppressLog: true,
+      staticFee: (0.2).algo(), // more calls = more inner txns = higher fee
+    })
+
+    const stored = await client.send.getTransactionGroup({ args: { proposalId: pid! }, suppressLog: true })
+    expect(stored.return!.length).toBe(3)
+    for (let i = 0; i < 3; i++) {
+      expect(stored.return![i][10]).toBe(targetAppId) // each appId
+    }
 
     await client.send.executeProposal({ args: { proposalId: pid! }, ...execParams })
 
@@ -303,6 +408,7 @@ describe('AlgoSafe contract', () => {
     const { return: pid } = await client.send.proposePayment({
       args: { groupId: 1n, payload: mkPayment(recipient.toString(), (1).algo().microAlgo), expiryRound: FAR_EXPIRY },
       suppressLog: true,
+      staticFee: (0.2).algo(),
     })
     await client.send.executeProposal({ args: { proposalId: pid! }, ...execParams })
     await expect(client.send.executeProposal({ args: { proposalId: pid! }, ...execParams })).rejects.toThrow()
@@ -349,6 +455,7 @@ describe('AlgoSafe contract', () => {
       args: { groupId: 2n, payload: mkPayment(recipient.toString(), (1).algo().microAlgo), expiryRound: FAR_EXPIRY },
       sender: a,
       suppressLog: true,
+      staticFee: (0.2).algo(),
     })
 
     // Not enough approvals yet.
@@ -371,6 +478,7 @@ describe('AlgoSafe contract', () => {
     const { return: pid } = await client.send.proposePayment({
       args: { groupId: 1n, payload: mkPayment(recipient.toString(), (1).algo().microAlgo), expiryRound: FAR_EXPIRY },
       suppressLog: true,
+      staticFee: (0.2).algo(),
     })
 
     const stranger = await localnet.context.generateAccount({ initialFunds: (1).algo() })
@@ -392,6 +500,7 @@ describe('AlgoSafe contract', () => {
         args: { groupId: 1n, payload: mkPayment(recipient.toString(), (1).algo().microAlgo), expiryRound: FAR_EXPIRY },
         sender: stranger,
         suppressLog: true,
+        staticFee: (0.2).algo(),
       }),
     ).rejects.toThrow()
   })
@@ -425,6 +534,7 @@ describe('AlgoSafe contract', () => {
         expiryRound: FAR_EXPIRY,
       },
       suppressLog: true,
+      staticFee: (0.2).algo(),
     })
     await client.send.executeProposal({ args: { proposalId: optInPid! }, ...execParams })
 
@@ -455,6 +565,7 @@ describe('AlgoSafe contract', () => {
         expiryRound: FAR_EXPIRY,
       },
       suppressLog: true,
+      staticFee: (0.2).algo(),
     })
     await client.send.executeProposal({ args: { proposalId: xferPid! }, ...execParams })
 
@@ -489,6 +600,7 @@ describe('AlgoSafe contract', () => {
       args: { groupId: 2n, payload: mkPayment(recipient.toString(), (0.4).algo().microAlgo), expiryRound: FAR_EXPIRY },
       sender: agent,
       suppressLog: true,
+      staticFee: (0.2).algo(),
     })
     await client.send.executeProposal({ args: { proposalId: okPid! }, sender: agent, ...execParams })
 
@@ -500,6 +612,7 @@ describe('AlgoSafe contract', () => {
       args: { groupId: 2n, payload: mkPayment(recipient.toString(), (0.8).algo().microAlgo), expiryRound: FAR_EXPIRY },
       sender: agent,
       suppressLog: true,
+      staticFee: (0.2).algo(),
     })
     await expect(
       client.send.executeProposal({ args: { proposalId: badPid! }, sender: agent, ...execParams }),
@@ -530,6 +643,7 @@ describe('AlgoSafe contract', () => {
         args: { groupId: 2n, payload: mkPayment(recipient.toString(), (1).algo().microAlgo), expiryRound: FAR_EXPIRY },
         sender: agent,
         suppressLog: true,
+        staticFee: (0.2).algo(),
       }),
     ).rejects.toThrow()
   })
@@ -582,6 +696,7 @@ describe('AlgoSafe contract', () => {
     const { return: pid } = await client.send.proposePayment({
       args: { groupId: 1n, payload: mkPayment(recipient.toString(), (1).algo().microAlgo), expiryRound: FAR_EXPIRY },
       suppressLog: true,
+      staticFee: (0.2).algo(),
     })
     await client.send.cancelProposal({ args: { proposalId: pid! }, suppressLog: true })
 
@@ -601,6 +716,7 @@ describe('AlgoSafe contract', () => {
       client.send.proposePayment({
         args: { groupId: 1n, payload: mkPayment(recipient.toString(), (1).algo().microAlgo), expiryRound: round },
         suppressLog: true,
+        staticFee: (0.2).algo(),
       }),
     ).rejects.toThrow()
   })

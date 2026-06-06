@@ -406,7 +406,7 @@ The contract is written in **Algorand TypeScript** (PuyaTs) and compiled to **TE
 - **Two fundamental types.** At the AVM level everything is `uint64` or `bytes` (≤ 4096 bytes). Higher-level shapes (structs, addresses, ABI tuples) are ARC-4 encodings over `bytes`.
 - **The safe address is the application account.** The smart account that holds ALGO and ASAs (including EURD) is the **application's account**. All payments, ASA transfers, app calls, and key registrations are executed as **inner transactions** signed by the application, each with `fee: 0` (the caller covers fees via fee pooling).
 - **No re-entrancy.** An application cannot call itself, even indirectly through inner transactions; the AVM enforces this.
-- **Hard limits drive storage choices.** Global state is capped (64 KV pairs, key+value <= 128 bytes), so per-group, per-member, per-proposal, and per-approval records live in **box storage** (`Box` / `BoxMap`), whose MBR is funded by the app account. Algorand protocol transaction groups can contain up to 16 transactions; the current Algo Safe contract stores up to three executable inner transactions per transaction-group proposal to stay within AVM app page and opcode-budget limits. The opcode budget is 700 per app call, pooled across the group and inner app calls.
+- **Hard limits drive storage choices.** Global state is capped (64 KV pairs, key+value <= 128 bytes), so per-group, per-member, per-proposal, and per-approval records live in **box storage** (`Box` / `BoxMap`), whose MBR is funded by the app account. Algorand protocol transaction groups can contain up to 16 transactions; the Algo Safe contract stores a variable-length list of executable inner transactions per transaction-group proposal (bounded by `MAX_GROUP_TXNS`, currently 16, so it tracks the protocol limit). The opcode budget is 700 per app call; execution calls `ensureBudget` to raise the available budget in proportion to the group length, pooled across the group and inner app calls.
 - **Approval authentication comes from the signed app call.** A standard approval is an `approveProposal` application call signed by the signer account. The AVM has already verified the transaction signature before the approval program runs, so the contract checks `Txn.sender` against the signer group and records only the approval fact. The `Approval` box never stores a signature. Explicit opcodes such as `falcon_verify` are used only for signer types that cannot be authenticated directly as the transaction sender.
 
 ### Storage Layout
@@ -467,10 +467,7 @@ classDiagram
 
     class TransactionGroupPayload {
         «BoxMap key: proposalId»
-        +count : uint64
-        +tx0 : SafeTxn
-        +tx1 : SafeTxn
-        +tx2 : SafeTxn
+        +txns : SafeTxn[]  «ordered, 1..MAX_GROUP_TXNS»
     }
 
     class SafeTxn {
@@ -513,7 +510,7 @@ classDiagram
     Proposal "1" --> "*" Approval : BoxMap
 ```
 
-`TransactionGroupPayload` is the executable payload shape used by the contract. It is an ordered list of typed `SafeTxn` entries. `txType` selects whether an entry is emitted as `pay`, `axfer`, `appl`, or `keyreg`. A one-action proposal is still a transaction group with `count = 1`. Current implementation supports up to three entries per executable proposal; key-registration is constrained to a one-entry group, while payment, asset transfer, and app-call entries can be mixed and executed as one atomic inner group.
+`TransactionGroupPayload` is the executable payload shape used by the contract. It is an ordered, dynamically sized array of typed `SafeTxn` entries (`SafeTxn[]`). `txType` selects whether an entry is emitted as `pay`, `axfer`, `appl`, or `keyreg`. A one-action proposal is still a transaction group with a single entry. The group length is bounded by `MAX_GROUP_TXNS` (currently 16, matching the Algorand protocol group limit); key-registration is constrained to a one-entry group, while payment, asset transfer, and app-call entries can be mixed and executed as one atomic inner group.
 
 ### ABI Method Surface
 
@@ -624,13 +621,19 @@ For transaction proposals, execution follows the same shape as the contract impl
 
 ```ts
 private _executeTransactionGroup(proposalId: uint64, groupId: uint64, group: SignerGroup): void {
-  const txs = clone(this.transactionGroups(proposalId).value)
-  this._validateTransactionGroup(txs, group)
-  this.groups(groupId).value = clone(this._accountSpend(group, this._sumAlgoSpend(txs)))
+  const payload = clone(this.transactionGroups(proposalId).value)
+  const count: uint64 = payload.length
+  ensureBudget((count + Uint64(1)) * Uint64(700))
 
-  this._stageSafeTxn(txs.tx0, true)
-  if (txs.count >= Uint64(2)) this._stageSafeTxn(txs.tx1, false)
-  if (txs.count >= Uint64(3)) this._stageSafeTxn(txs.tx2, false)
+  let spend: uint64 = Uint64(0)
+  for (let i: uint64 = Uint64(0); i < count; i = i + Uint64(1)) {
+    const tx = clone(payload[i])
+    this._validateSafeTxn(tx, group)
+    if (tx.txType === TX_PAYMENT) spend = spend + tx.amount
+    this._stageSafeTxn(tx, i === Uint64(0))
+  }
+
+  this.groups(groupId).value = clone(this._accountSpend(group, spend))
   itxnCompose.submit()
 }
 ```
