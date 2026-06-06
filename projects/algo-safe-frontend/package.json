@@ -43,6 +43,7 @@
     "@tanstack/react-query": "^5.101.0",
     "@txnlab/use-wallet": "^4.0.0",
     "@txnlab/use-wallet-react": "^4.0.0",
+    "algo-safe": "file:../algo-safe-contracts",
     "algosdk": "^3.0.0",
     "notistack": "^3.0.1",
     "react": "^18.2.0",

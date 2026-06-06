@@ -1,29 +1,145 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { useCreateSafe } from '../hooks'
-import { Card } from '../components/ui/Card'
+import { algo, AlgorandClient } from '@algorandfoundation/algokit-utils'
+import { useNetwork, useWallet } from '@txnlab/use-wallet-react'
+import { AlgoSafeFactory } from 'algo-safe'
+import algosdk from 'algosdk'
+import { useMemo, useState } from 'react'
 import { Button } from '../components/ui/Button'
-import { Stepper } from '../components/ui/Stepper'
+import { Card } from '../components/ui/Card'
 import { FormField, inputCls } from '../components/ui/FormField'
 import { Icon } from '../components/ui/Icon'
+import { Stepper } from '../components/ui/Stepper'
+import { getAlgodConfigFromViteEnvironment } from '../utils/network/getAlgoClientConfigs'
 
-const STEPS = ['Connect Wallet', 'Contract Deployment', 'Initial Funding']
+const STEPS = ['Contract Deployment', 'MBR Funding']
+
+type FlowStage = 'idle' | 'deploying' | 'funding' | 'bootstrapping' | 'success' | 'error'
+
+type DeploymentDetails = {
+  appId: string
+  address: string
+  txId: string
+}
+
+function formatNetworkLabel(network: string) {
+  switch (network.toLowerCase()) {
+    case 'localnet':
+      return 'AlgoKit LocalNet'
+    case 'testnet':
+      return 'Algorand TestNet'
+    default:
+      return 'Algorand MainNet'
+  }
+}
+
+function formatAddress(address?: string | null) {
+  if (!address) return 'Wallet not connected'
+  if (address.length <= 12) return address
+  return `${address.slice(0, 6)}...${address.slice(-4)}`
+}
+
+function getCurrentStep(stage: FlowStage) {
+  return stage === 'idle' || stage === 'deploying' || stage === 'error' ? 0 : 1
+}
+
+function getErrorMessage(error: unknown) {
+  if (error instanceof Error && error.message.trim()) {
+    return error.message
+  }
+
+  return 'The transaction was rejected or could not be submitted.'
+}
 
 export function InitializeSafePage() {
-  const nav = useNavigate()
-  const createSafe = useCreateSafe()
-  const [step, setStep] = useState(0)
+  const { activeNetwork } = useNetwork()
+  const { activeAddress, isReady, transactionSigner } = useWallet()
   const [name, setName] = useState('New Treasury')
-  const [threshold, setThreshold] = useState(2)
-  const [signerCount, setSignerCount] = useState(3)
-  const [deposit, setDeposit] = useState(100)
+  const [depositAlgo, setDepositAlgo] = useState(5)
+  const [stage, setStage] = useState<FlowStage>('idle')
+  const [deployment, setDeployment] = useState<DeploymentDetails | null>(null)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
-  async function finish() {
+  const isBusy = stage === 'deploying' || stage === 'funding' || stage === 'bootstrapping'
+  const currentStep = getCurrentStep(stage)
+  const networkLabel = formatNetworkLabel(activeNetwork ?? import.meta.env.VITE_ALGOD_NETWORK ?? 'mainnet')
+  const buttonLabel = useMemo(() => {
+    switch (stage) {
+      case 'deploying':
+        return 'Deploying contract...'
+      case 'funding':
+        return 'Requesting MBR funding...'
+      case 'bootstrapping':
+        return 'Finalizing safe setup...'
+      case 'success':
+        return 'Safe Ready'
+      default:
+        return 'Start'
+    }
+  }, [stage])
+
+  async function handleStart() {
+    const safeName = name.trim()
+
+    if (!safeName) {
+      setErrorMessage('Enter a safe name before starting the deployment.')
+      return
+    }
+
+    if (!isReady || !activeAddress || !transactionSigner) {
+      setErrorMessage('A connected wallet is required to deploy and fund the safe.')
+      return
+    }
+
+    if (!Number.isFinite(depositAlgo) || depositAlgo <= 0) {
+      setErrorMessage('Enter a positive ALGO amount for the app account MBR funding.')
+      return
+    }
+
     try {
-      const safe = await createSafe.mutateAsync({ name, threshold, signerCount, initialDepositEurd: deposit })
-      nav(`/safe/${safe.safeId}`)
-    } catch {
-      /* error surfaced below via createSafe.isError */
+      setErrorMessage(null)
+      setDeployment(null)
+      setStage('deploying')
+
+      const algodConfig = getAlgodConfigFromViteEnvironment()
+      const algod = new algosdk.Algodv2(String(algodConfig.token ?? ''), algodConfig.server, algodConfig.port)
+      const algorand = AlgorandClient.fromClients({ algod })
+      algorand.setSigner(activeAddress, transactionSigner)
+
+      const factory = algorand.client.getTypedAppFactory(AlgoSafeFactory, {
+        defaultSender: activeAddress,
+      })
+
+      const { appClient, result } = await factory.send.create.createApplication({
+        args: { name: safeName },
+        suppressLog: true,
+      })
+
+      const nextDeployment = {
+        appId: result.appId.toString(),
+        address: result.appAddress.toString(),
+        txId: result.txIds[0] ?? '',
+      }
+
+      setDeployment(nextDeployment)
+      setStage('funding')
+
+      await algorand.send.payment({
+        amount: algo(depositAlgo),
+        sender: activeAddress,
+        receiver: nextDeployment.address,
+        suppressLog: true,
+      })
+
+      setStage('bootstrapping')
+
+      await appClient.send.bootstrap({
+        args: { groupName: 'Admins' },
+        suppressLog: true,
+      })
+
+      setStage('success')
+    } catch (error) {
+      setStage('error')
+      setErrorMessage(getErrorMessage(error))
     }
   }
 
@@ -39,232 +155,178 @@ export function InitializeSafePage() {
 
       {/* Page title */}
       <div className="text-center">
-        <h1 className="mb-2 text-3xl font-bold tracking-tight text-on-surface">
-          Initialize Smart Account
-        </h1>
+        <h1 className="mb-2 text-3xl font-bold tracking-tight text-on-surface">Initialize Smart Account</h1>
         <p className="mx-auto max-w-lg text-base text-on-surface-variant">
-          Finalize your institutional treasury by deploying the smart contract on Algorand
-          and funding it with its first operational balance.
+          Deploy the Algo Safe contract from your connected wallet, then fund the new app account with native ALGO for minimum balance
+          requirements.
         </p>
       </div>
 
       {/* Stepper */}
-      <Stepper steps={STEPS} current={step} />
+      <Stepper steps={STEPS} current={currentStep} />
 
-      {/* ── Step 0: Connect Wallet ── */}
-      {step === 0 && (
-        <Card className="space-y-6">
-          {/* Step visualization cards */}
-          <div className="relative grid grid-cols-1 gap-4 md:grid-cols-2">
-            {/* Contract Deployment */}
-            <div className="flex flex-col items-center rounded-md border border-outline-variant bg-surface-container-high p-4 text-center transition-colors hover:border-primary/50">
-              <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-surface-bright">
-                <Icon name="deployed_code" className="text-2xl text-primary" />
-              </div>
-              <span className="mb-1 font-mono text-xs text-primary">Step 01</span>
-              <h3 className="mb-1 text-base font-semibold text-on-surface">Contract Deployment</h3>
-              <p className="text-sm text-on-surface-variant">
-                Instantiate the multi-sig logic on the Algorand blockchain.
-              </p>
+      <Card className="space-y-6">
+        <div className="relative grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div
+            className={`flex flex-col items-center rounded-md border p-4 text-center transition-colors ${currentStep === 0 ? 'border-primary/60 bg-primary/5' : 'border-outline-variant bg-surface-container-high'}`}
+          >
+            <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-surface-bright">
+              <Icon name="deployed_code" className={`text-2xl ${currentStep === 0 ? 'text-primary' : 'text-on-surface-variant'}`} />
             </div>
-            {/* Initial Funding */}
-            <div className="flex flex-col items-center rounded-md border border-outline-variant bg-surface-container-high p-4 text-center transition-colors hover:border-primary/50">
-              <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-surface-bright">
-                <Icon name="account_balance_wallet" className="text-2xl text-primary" />
-              </div>
-              <span className="mb-1 font-mono text-xs text-primary">Step 02</span>
-              <h3 className="mb-1 text-base font-semibold text-on-surface">Initial Funding</h3>
-              <p className="text-sm text-on-surface-variant">
-                Transfer EURD to the new safe address to activate features.
-              </p>
-            </div>
-            {/* Connecting link icon — centered between the two cards */}
-            <div className="absolute left-1/2 top-1/2 z-10 hidden -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-primary/40 bg-primary/20 p-1.5 backdrop-blur-sm md:flex">
-              <Icon name="link" className="text-xl text-primary" />
-            </div>
+            <span className="mb-1 font-mono text-xs text-primary">Step 01</span>
+            <h3 className="mb-1 text-base font-semibold text-on-surface">Deploy smart contract</h3>
+            <p className="text-sm text-on-surface-variant">Create the Algo Safe application on-chain from the already connected wallet.</p>
           </div>
-
-          {/* Atomic group note */}
-          <div className="flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-4 py-2">
-            <Icon name="verified" className="animate-pulse text-sm text-primary" />
-            <span className="font-mono text-xs text-primary">
-              Atomic Transaction Group: Actions are executed together or not at all.
-            </span>
-          </div>
-
-          {/* Wallet connection */}
-          <p className="text-sm text-on-surface-variant">
-            Connect the funding wallet that will deploy and own this safe.
-          </p>
-          <Button onClick={() => setStep(1)}>
-            <Icon name="account_balance_wallet" className="text-lg" />
-            Connect Wallet (demo)
-          </Button>
-        </Card>
-      )}
-
-      {/* ── Step 1: Contract Deployment ── */}
-      {step === 1 && (
-        <Card className="space-y-5">
-          <div>
-            <h2 className="mb-1 text-lg font-semibold text-on-surface">Contract Deployment</h2>
-            <p className="text-sm text-on-surface-variant">
-              Configure your safe's name and multi-signature parameters.
-            </p>
-          </div>
-
-          <FormField label="Safe Name">
-            <input
-              className={inputCls}
-              value={name}
-              onChange={e => setName(e.target.value)}
-              placeholder="e.g. Governance Treasury"
-            />
-          </FormField>
-
-          <div className="grid grid-cols-2 gap-4">
-            <FormField label="Threshold (required signers)" hint="Min signatures to approve a tx">
-              <input
-                type="number"
-                min={1}
-                className={inputCls}
-                value={threshold}
-                onChange={e => setThreshold(Number(e.target.value) || 0)}
+          <div
+            className={`flex flex-col items-center rounded-md border p-4 text-center transition-colors ${currentStep === 1 ? 'border-primary/60 bg-primary/5' : 'border-outline-variant bg-surface-container-high'}`}
+          >
+            <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-surface-bright">
+              <Icon
+                name="account_balance_wallet"
+                className={`text-2xl ${currentStep === 1 ? 'text-primary' : 'text-on-surface-variant'}`}
               />
-            </FormField>
-            <FormField label="Total Signers" hint="Total members in the signer group">
-              <input
-                type="number"
-                min={1}
-                className={inputCls}
-                value={signerCount}
-                onChange={e => setSignerCount(Number(e.target.value) || 0)}
-              />
-            </FormField>
-          </div>
-
-          {/* Network / Gas info */}
-          <div className="flex items-center gap-1 font-mono text-xs text-on-surface-variant">
-            <Icon name="history_edu" className="text-sm" />
-            <span>
-              Estimated Gas: <span className="text-on-surface">~0.004 ALGO</span>
-            </span>
-            <span className="mx-2 text-outline-variant">·</span>
-            <span className="font-semibold text-primary">Mainnet</span>
-          </div>
-
-          <div className="flex gap-3">
-            <Button variant="ghost" onClick={() => setStep(0)}>
-              Back
-            </Button>
-            <Button onClick={() => setStep(2)}>
-              <Icon name="deployed_code" className="text-lg" />
-              Deploy
-            </Button>
-          </div>
-        </Card>
-      )}
-
-      {/* ── Step 2: Initial Funding ── */}
-      {step === 2 && (
-        <Card className="space-y-5">
-          <div>
-            <h2 className="mb-1 text-lg font-semibold text-on-surface">Initial Funding</h2>
-            <p className="text-sm text-on-surface-variant">
-              Transfer EURD to the new safe address to activate all features.
-            </p>
-          </div>
-
-          {/* Wallet / safe address info */}
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div className="rounded-md border border-outline-variant bg-surface-container-low p-4">
-              <div className="mb-1 flex items-center justify-between">
-                <span className="font-mono text-xs text-on-surface-variant">Funding Wallet</span>
-                <span className="font-mono text-xs text-primary">Active</span>
-              </div>
-              <div className="mb-2 truncate font-mono text-sm text-on-surface">ADDR...4X9R</div>
-              <div className="flex items-baseline justify-between">
-                <span className="text-sm text-on-surface-variant">EURD Balance</span>
-                <span className="font-semibold text-on-surface">1,450.00 EURD</span>
-              </div>
             </div>
-            <div className="rounded-md border border-outline-variant bg-surface-container-low p-4">
-              <div className="mb-1 flex items-center justify-between">
-                <span className="font-mono text-xs text-on-surface-variant">Target Safe Address</span>
-                <Icon name="info" className="text-sm text-on-surface-variant" />
-              </div>
-              <div className="mb-2 truncate font-mono text-sm text-on-surface">SAFE...8KL2</div>
-              <div className="flex items-baseline justify-between">
-                <span className="text-sm text-on-surface-variant">Initial Deposit</span>
-                <span className="font-semibold text-primary">{deposit.toLocaleString()} EURD</span>
-              </div>
+            <span className="mb-1 font-mono text-xs text-primary">Step 02</span>
+            <h3 className="mb-1 text-base font-semibold text-on-surface">Fund ALGO MBR</h3>
+            <p className="text-sm text-on-surface-variant">Send native ALGO to the new app account for box MBR and bootstrap setup.</p>
+          </div>
+          <div className="absolute left-1/2 top-1/2 z-10 hidden -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-primary/40 bg-primary/20 p-1.5 backdrop-blur-sm md:flex">
+            <Icon name="link" className="text-xl text-primary" />
+          </div>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="rounded-md border border-outline-variant bg-surface-container-low p-4">
+            <div className="mb-1 flex items-center justify-between">
+              <span className="font-mono text-xs text-on-surface-variant">Connected wallet</span>
+              <span className="font-mono text-xs text-primary">Ready</span>
+            </div>
+            <div className="truncate font-mono text-sm text-on-surface">{formatAddress(activeAddress)}</div>
+            <div className="mt-3 flex items-center justify-between text-sm">
+              <span className="text-on-surface-variant">Network</span>
+              <span className="font-semibold text-on-surface">{networkLabel}</span>
             </div>
           </div>
+          <div className="rounded-md border border-outline-variant bg-surface-container-low p-4">
+            <div className="mb-1 flex items-center justify-between">
+              <span className="font-mono text-xs text-on-surface-variant">Deploy flow</span>
+              <span className="font-mono text-xs text-primary">Live</span>
+            </div>
+            <div className="text-sm text-on-surface-variant">
+              The wallet will first sign the app deployment, then approve the ALGO funding needed for the new contract account.
+            </div>
+          </div>
+        </div>
 
-          <FormField label="Initial Deposit (EURD)" hint="Minimum 100 EURD to activate the safe">
-            <input
-              type="number"
-              min={0}
-              className={inputCls}
-              value={deposit}
-              onChange={e => setDeposit(Number(e.target.value) || 0)}
+        <FormField label="Safe Name" hint="This name is stored on-chain during application creation.">
+          <input className={inputCls} value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Governance Treasury" />
+        </FormField>
+
+        <FormField label="MBR Deposit (ALGO)" hint="Recommended 5 ALGO so the app can cover box minimum balance and bootstrap operations.">
+          <input
+            type="number"
+            min={0.1}
+            step={0.1}
+            className={inputCls}
+            value={depositAlgo}
+            onChange={(e) => setDepositAlgo(Number(e.target.value) || 0)}
+          />
+        </FormField>
+
+        <div className="rounded-md border border-primary/20 bg-primary/5 p-4">
+          <div className="flex items-start gap-3">
+            <Icon
+              name={isBusy ? 'sync' : stage === 'success' ? 'check_circle' : 'info'}
+              className={`mt-0.5 text-lg ${isBusy ? 'animate-spin text-primary' : stage === 'success' ? 'text-primary' : 'text-on-surface-variant'}`}
             />
-          </FormField>
-
-          {/* Gas note */}
-          <div className="flex items-center gap-1 font-mono text-xs text-on-surface-variant">
-            <Icon name="history_edu" className="text-sm" />
-            <span>
-              Estimated Gas: <span className="text-on-surface">0.004 ALGO</span>
-            </span>
-            <span className="mx-2 text-outline-variant">·</span>
-            <span className="font-semibold text-primary">Mainnet</span>
-          </div>
-
-          {createSafe.isError && (
-            <div className="rounded-sm border border-error/40 bg-error-container/40 px-3 py-2 text-sm text-on-error-container">
-              Failed to initialize safe. Please try again.
-            </div>
-          )}
-
-          <div className="flex gap-3">
-            <Button variant="ghost" onClick={() => setStep(1)}>
-              Back
-            </Button>
-            <Button
-              className="flex-1"
-              onClick={finish}
-              disabled={createSafe.isPending}
-            >
-              {createSafe.isPending ? (
+            <div className="space-y-1 text-sm">
+              {stage === 'idle' && (
                 <>
-                  <Icon name="sync" className="animate-spin text-lg" />
-                  Initializing…
-                </>
-              ) : (
-                <>
-                  <Icon name="check_circle" className="text-lg" />
-                  Initialize Smart Account
+                  <p className="font-semibold text-on-surface">Start will deploy first, then request ALGO MBR funding.</p>
+                  <p className="text-on-surface-variant">
+                    The genesis admin group is created during bootstrap after the app account is funded.
+                  </p>
                 </>
               )}
-            </Button>
+              {stage === 'deploying' && (
+                <>
+                  <p className="font-semibold text-on-surface">Deployment in progress.</p>
+                  <p className="text-on-surface-variant">
+                    Approve the smart contract deployment in your wallet. The button stays locked until the chain confirms creation.
+                  </p>
+                </>
+              )}
+              {stage === 'funding' && (
+                <>
+                  <p className="font-semibold text-on-surface">Contract deployed. Step 02 is now in progress.</p>
+                  <p className="text-on-surface-variant">
+                    Check your wallet for the signature request that funds the new app account with ALGO for MBR.
+                  </p>
+                </>
+              )}
+              {stage === 'bootstrapping' && (
+                <>
+                  <p className="font-semibold text-on-surface">MBR funded. Finalizing bootstrap.</p>
+                  <p className="text-on-surface-variant">
+                    A final app call may appear in the wallet so the first admin group can be created.
+                  </p>
+                </>
+              )}
+              {stage === 'success' && (
+                <>
+                  <p className="font-semibold text-on-surface">Safe initialization completed.</p>
+                  <p className="text-on-surface-variant">The contract is deployed, funded with ALGO, and bootstrapped for governance.</p>
+                </>
+              )}
+              {stage === 'error' && (
+                <>
+                  <p className="font-semibold text-on-surface">Initialization stopped.</p>
+                  <p className="text-on-surface-variant">Review the error below, then restart the flow when the wallet is ready.</p>
+                </>
+              )}
+            </div>
           </div>
-        </Card>
-      )}
+        </div>
+
+        {deployment && (
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="rounded-md border border-outline-variant bg-surface-container-low p-4">
+              <div className="mb-1 font-mono text-xs text-on-surface-variant">App ID</div>
+              <div className="font-semibold text-on-surface">{deployment.appId}</div>
+              {deployment.txId && <div className="mt-3 text-xs text-on-surface-variant">Create tx: {deployment.txId}</div>}
+            </div>
+            <div className="rounded-md border border-outline-variant bg-surface-container-low p-4">
+              <div className="mb-1 font-mono text-xs text-on-surface-variant">App address</div>
+              <div className="break-all font-mono text-sm text-on-surface">{deployment.address}</div>
+            </div>
+          </div>
+        )}
+
+        {errorMessage && (
+          <div className="rounded-sm border border-error/40 bg-error-container/40 px-3 py-2 text-sm text-on-error-container">
+            {errorMessage}
+          </div>
+        )}
+
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-1 font-mono text-xs text-on-surface-variant">
+            <Icon name="history_edu" className="text-sm" />
+            <span>Network fees are paid in ALGO and depend on wallet-confirmed transactions.</span>
+          </div>
+          <Button className="min-w-40" onClick={handleStart} disabled={isBusy || !activeAddress || !transactionSigner}>
+            {isBusy ? <Icon name="sync" className="animate-spin text-lg" /> : <Icon name="play_arrow" className="text-lg" />}
+            {buttonLabel}
+          </Button>
+        </div>
+      </Card>
 
       {/* Footer help links */}
       <div className="flex gap-5 pt-1">
-        <a
-          href="#"
-          className="flex items-center gap-1 font-mono text-xs text-on-surface-variant transition-colors hover:text-primary"
-        >
+        <a href="#" className="flex items-center gap-1 font-mono text-xs text-on-surface-variant transition-colors hover:text-primary">
           <Icon name="description" className="text-base" />
           Documentation
         </a>
-        <a
-          href="#"
-          className="flex items-center gap-1 font-mono text-xs text-on-surface-variant transition-colors hover:text-primary"
-        >
+        <a href="#" className="flex items-center gap-1 font-mono text-xs text-on-surface-variant transition-colors hover:text-primary">
           <Icon name="support_agent" className="text-base" />
           Institutional Support
         </a>
