@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Algo Safe - Assets</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        body {
+            background-color: #0b1326;
+            color: #dae2fd;
+            -webkit-font-smoothing: antialiased;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .asset-card-gradient {
+            background: linear-gradient(135deg, #171f33 0%, #0b1326 100%);
+        }
+        .logic-block-inner {
+            box-shadow: inset 0 0 10px rgba(113, 255, 236, 0.05);
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "primary-fixed": "#41fce7",
+                        "on-primary": "#003732",
+                        "on-secondary-fixed-variant": "#0036bb",
+                        "error": "#ffb4ab",
+                        "on-tertiary-container": "#565656",
+                        "tertiary-fixed-dim": "#c6c6c6",
+                        "primary-fixed-dim": "#00decb",
+                        "on-primary-fixed-variant": "#005048",
+                        "surface-tint": "#00decb",
+                        "inverse-primary": "#006a61",
+                        "on-secondary-fixed": "#001354",
+                        "surface-container-lowest": "#060e20",
+                        "outline-variant": "#3b4a47",
+                        "tertiary-fixed": "#e2e2e2",
+                        "error-container": "#93000a",
+                        "on-tertiary": "#303030",
+                        "secondary-fixed-dim": "#b8c4ff",
+                        "on-error-container": "#ffdad6",
+                        "on-tertiary-fixed": "#1b1b1b",
+                        "secondary": "#b8c4ff",
+                        "inverse-on-surface": "#283044",
+                        "on-secondary": "#002486",
+                        "surface-variant": "#2d3449",
+                        "surface-container-highest": "#2d3449",
+                        "on-surface-variant": "#b9cac6",
+                        "surface": "#0b1326",
+                        "tertiary-container": "#cccccc",
+                        "on-secondary-container": "#d5daff",
+                        "primary-container": "#00e5d1",
+                        "on-surface": "#dae2fd",
+                        "on-tertiary-fixed-variant": "#474747",
+                        "tertiary": "#e8e8e8",
+                        "background": "#0b1326",
+                        "surface-container": "#171f33",
+                        "surface-container-high": "#222a3d",
+                        "on-primary-fixed": "#00201c",
+                        "surface-bright": "#31394d",
+                        "inverse-surface": "#dae2fd",
+                        "secondary-fixed": "#dde1ff",
+                        "secondary-container": "#004bf9",
+                        "surface-container-low": "#131b2e",
+                        "on-primary-container": "#006258",
+                        "outline": "#849490",
+                        "surface-dim": "#0b1326",
+                        "on-error": "#690005",
+                        "on-background": "#dae2fd",
+                        "primary": "#71ffec"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "container-max": "1280px",
+                        "md": "16px",
+                        "xs": "4px",
+                        "gutter": "20px",
+                        "2xl": "48px",
+                        "xl": "32px",
+                        "unit": "4px",
+                        "sm": "8px",
+                        "lg": "24px"
+                    },
+                    "fontFamily": {
+                        "display-md": ["Inter"],
+                        "display-lg": ["Inter"],
+                        "body-md": ["Inter"],
+                        "code-sm": ["JetBrains Mono"],
+                        "headline-sm": ["Inter"],
+                        "label-md": ["JetBrains Mono"],
+                        "body-lg": ["Inter"]
+                    },
+                    "fontSize": {
+                        "display-md": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                        "display-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "600"}],
+                        "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                        "code-sm": ["12px", {"lineHeight": "16px", "fontWeight": "400"}],
+                        "headline-sm": ["18px", {"lineHeight": "28px", "fontWeight": "500"}],
+                        "label-md": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "500"}],
+                        "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}]
+                    }
+                },
+            },
+        }
+    </script>
+</head>
+<body class="font-body-md text-body-md">
+<!-- Side Navigation Shell -->
+<nav class="flex flex-col fixed left-0 top-0 h-full py-lg px-md bg-surface-container dark:bg-surface-container w-64 border-r border-outline-variant z-50">
+<div class="mb-xl flex items-center gap-sm">
+<div class="w-10 h-10 bg-primary flex items-center justify-center rounded-lg">
+<span class="material-symbols-outlined text-on-primary text-display-md" data-icon="account_balance">account_balance</span>
+</div>
+<div>
+<h1 class="font-display-md text-display-md font-bold text-primary dark:text-primary leading-none">Algo Safe</h1>
+<p class="font-label-md text-label-md text-on-surface-variant opacity-70">Institutional Treasury</p>
+</div>
+</div>
+<div class="flex flex-col gap-xs flex-grow">
+<a class="flex items-center gap-md p-sm rounded-lg transition-colors duration-200 text-on-surface-variant font-medium hover:bg-surface-bright hover:text-primary" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+<span class="font-label-md text-label-md">Dashboard</span>
+</a>
+<a class="flex items-center gap-md p-sm rounded-lg transition-colors duration-200 text-primary font-bold border-r-2 border-primary bg-surface-bright" href="#">
+<span class="material-symbols-outlined" data-icon="account_balance_wallet">account_balance_wallet</span>
+<span class="font-label-md text-label-md">Assets</span>
+</a>
+<a class="flex items-center gap-md p-sm rounded-lg transition-colors duration-200 text-on-surface-variant font-medium hover:bg-surface-bright hover:text-primary" href="#">
+<span class="material-symbols-outlined" data-icon="description">description</span>
+<span class="font-label-md text-label-md">Proposals</span>
+</a>
+<a class="flex items-center gap-md p-sm rounded-lg transition-colors duration-200 text-on-surface-variant font-medium hover:bg-surface-bright hover:text-primary" href="#">
+<span class="material-symbols-outlined" data-icon="group">group</span>
+<span class="font-label-md text-label-md">Signers</span>
+</a>
+<a class="flex items-center gap-md p-sm rounded-lg transition-colors duration-200 text-on-surface-variant font-medium hover:bg-surface-bright hover:text-primary" href="#">
+<span class="material-symbols-outlined" data-icon="smart_toy">smart_toy</span>
+<span class="font-label-md text-label-md">Agents</span>
+</a>
+<a class="flex items-center gap-md p-sm rounded-lg transition-colors duration-200 text-on-surface-variant font-medium hover:bg-surface-bright hover:text-primary" href="#">
+<span class="material-symbols-outlined" data-icon="history">history</span>
+<span class="font-label-md text-label-md">Activity</span>
+</a>
+</div>
+<div class="mt-auto flex flex-col gap-xs pt-lg border-t border-outline-variant">
+<button class="w-full bg-primary text-on-primary py-sm px-md rounded font-bold font-label-md text-label-md mb-md hover:opacity-90 active:scale-95 transition-all">
+                Create Proposal
+            </button>
+<a class="flex items-center gap-md p-sm rounded-lg text-on-surface-variant font-medium hover:bg-surface-bright hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+<span class="font-label-md text-label-md">Settings</span>
+</a>
+<a class="flex items-center gap-md p-sm rounded-lg text-on-surface-variant font-medium hover:bg-surface-bright hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="help">help</span>
+<span class="font-label-md text-label-md">Support</span>
+</a>
+</div>
+</nav>
+<!-- Top App Bar -->
+<header class="flex justify-between items-center w-full px-lg py-sm ml-64 fixed top-0 right-0 bg-background dark:bg-background border-b border-outline-variant z-40 bg-opacity-95 backdrop-blur-md">
+<div class="flex items-center gap-lg">
+<div class="relative w-64">
+<span class="material-symbols-outlined absolute left-sm top-1/2 -translate-y-1/2 text-on-surface-variant" data-icon="search">search</span>
+<input class="w-full bg-surface-container-lowest border border-outline rounded-lg pl-xl py-xs font-body-md text-on-surface focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="Search assets..." type="text"/>
+</div>
+<div class="flex gap-md">
+<span class="font-label-md text-label-md text-primary border-b-2 border-primary pb-1">Mainnet</span>
+<span class="font-label-md text-label-md text-on-surface-variant">v2.4.1</span>
+</div>
+</div>
+<div class="flex items-center gap-md">
+<span class="material-symbols-outlined text-on-surface-variant cursor-pointer hover:text-primary transition-colors" data-icon="notifications">notifications</span>
+<span class="material-symbols-outlined text-on-surface-variant cursor-pointer hover:text-primary transition-colors" data-icon="account_balance">account_balance</span>
+<div class="h-8 w-[1px] bg-outline-variant mx-xs"></div>
+<button class="bg-surface-container-high text-primary border border-primary px-md py-xs rounded font-bold font-label-md text-label-md active:scale-95 duration-150">
+                Connect Wallet
+            </button>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="ml-64 mt-16 p-lg max-w-[1280px]">
+<!-- Summary Dashboard -->
+<section class="grid grid-cols-12 gap-lg mb-2xl">
+<div class="col-span-8 asset-card-gradient border border-outline-variant rounded-xl p-lg flex flex-col justify-between">
+<div>
+<span class="font-label-md text-label-md text-on-surface-variant uppercase tracking-widest">Total Treasury Value</span>
+<div class="flex items-baseline gap-sm mt-xs">
+<h2 class="font-display-lg text-display-lg text-primary">€2,485,920.42</h2>
+<span class="text-primary-fixed-dim font-code-sm text-code-sm">+1.24% (24h)</span>
+</div>
+</div>
+<div class="flex gap-lg mt-xl">
+<div>
+<span class="font-label-md text-label-md text-on-surface-variant block mb-unit">Available ALGO</span>
+<span class="font-headline-sm text-headline-sm">450,230.00</span>
+</div>
+<div>
+<span class="font-label-md text-label-md text-on-surface-variant block mb-unit">Available EURD</span>
+<span class="font-headline-sm text-headline-sm">1,204,500.00</span>
+</div>
+</div>
+</div>
+<!-- Onramp/Offramp Quick Actions -->
+<div class="col-span-4 flex flex-col gap-md">
+<button class="flex-1 bg-primary text-on-primary flex items-center justify-between px-lg rounded-xl group transition-all hover:brightness-110 active:scale-[0.98]">
+<div class="text-left">
+<span class="block font-label-md text-label-md font-bold uppercase tracking-tight">Add Funds</span>
+<span class="block font-headline-sm text-headline-sm">Buy EURD</span>
+</div>
+<span class="material-symbols-outlined text-display-md group-hover:translate-x-1 transition-transform" data-icon="add_card">add_card</span>
+</button>
+<button class="flex-1 border border-outline text-on-surface flex items-center justify-between px-lg rounded-xl bg-surface-container-low hover:bg-surface-container transition-all active:scale-[0.98]">
+<div class="text-left">
+<span class="block font-label-md text-label-md font-medium text-on-surface-variant uppercase">Withdraw</span>
+<span class="block font-headline-sm text-headline-sm">EUR Offramp</span>
+</div>
+<span class="material-symbols-outlined text-display-md" data-icon="account_balance">account_balance</span>
+</button>
+</div>
+</section>
+<!-- Asset Table Header -->
+<div class="flex justify-between items-end mb-md">
+<div>
+<h3 class="font-display-md text-display-md text-on-surface">Asset Holdings</h3>
+<p class="font-body-md text-on-surface-variant">Institutional-grade sub-ledgers for Algorand Standard Assets (ASA).</p>
+</div>
+<div class="flex gap-sm">
+<button class="bg-surface-container-high p-sm rounded border border-outline-variant hover:border-primary transition-colors">
+<span class="material-symbols-outlined text-on-surface" data-icon="filter_list">filter_list</span>
+</button>
+<button class="bg-surface-container-high p-sm rounded border border-outline-variant hover:border-primary transition-colors">
+<span class="material-symbols-outlined text-on-surface" data-icon="download">download</span>
+</button>
+</div>
+</div>
+<!-- Asset Table -->
+<div class="bg-surface-container rounded-xl border border-outline-variant overflow-hidden">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-surface-container-high border-b border-outline-variant">
+<th class="px-lg py-md font-label-md text-label-md text-on-surface-variant">ASSET</th>
+<th class="px-lg py-md font-label-md text-label-md text-on-surface-variant text-right">ASSET ID</th>
+<th class="px-lg py-md font-label-md text-label-md text-on-surface-variant text-right">TOTAL BALANCE</th>
+<th class="px-lg py-md font-label-md text-label-md text-on-surface-variant text-right">VALUE (EUR)</th>
+<th class="px-lg py-md font-label-md text-label-md text-on-surface-variant text-right">ACTIONS</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant">
+<!-- EURD Asset -->
+<tr class="hover:bg-surface-bright transition-colors">
+<td class="px-lg py-lg">
+<div class="flex items-center gap-md">
+<div class="w-10 h-10 rounded-full bg-surface-container-lowest flex items-center justify-center border border-outline-variant">
+<span class="material-symbols-outlined text-primary" data-icon="euro">euro</span>
+</div>
+<div>
+<div class="font-headline-sm text-headline-sm text-on-surface">EURD</div>
+<div class="font-label-md text-label-md text-on-surface-variant">Quantoz Euro</div>
+</div>
+</div>
+</td>
+<td class="px-lg py-lg text-right font-code-sm text-code-sm text-on-surface-variant">1245651523</td>
+<td class="px-lg py-lg text-right">
+<div class="font-headline-sm text-headline-sm text-on-surface">1,204,500.00</div>
+<div class="font-label-md text-label-md text-on-surface-variant">0.00 Pending</div>
+</td>
+<td class="px-lg py-lg text-right">
+<div class="font-headline-sm text-headline-sm text-on-surface">€1,204,500.00</div>
+<div class="font-code-sm text-code-sm text-primary-fixed-dim">PEG: 1.0000</div>
+</td>
+<td class="px-lg py-lg text-right">
+<button class="bg-primary-container text-on-primary-container px-sm py-unit rounded font-label-md text-label-md hover:opacity-80 transition-opacity">Swap</button>
+</td>
+</tr>
+<!-- ALGO Asset -->
+<tr class="hover:bg-surface-bright transition-colors">
+<td class="px-lg py-lg">
+<div class="flex items-center gap-md">
+<div class="w-10 h-10 rounded-full bg-surface-container-lowest flex items-center justify-center border border-outline-variant overflow-hidden">
+<img alt="Algorand Logo" class="w-full h-full object-cover" data-alt="A clean, minimalist 3D rendering of the Algorand stylized A logo in a sleek metallic finish. The background is a dark deep navy with subtle cyan ambient lighting, reflecting the high-stakes financial security of the Algorand blockchain technology. Professional and institutional aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBi7IaGybwS0p833YERJOO6r8ncjwiXOWF6WKXtS64kLjn56uybWAYJOd_gD9xWf2MTpLun-HmSR4J14doRBOqlFREODrLWYyDFVyczkLuFxwTQshOIig1VJVNlPWpP8BMtApCRRtYB3m_p1QOYbgzbQGDqjYBcmaCmcQ0I_R_d_khsTusT3o9fSw3F-7yDaxJy7Iv6Jiv9ImXojsStpq-3QqUZQqh9RnJfKZQps-V6R5klTTh_dU4XnPdbEc3nhJN4MxnycpQS5wyX"/>
+</div>
+<div>
+<div class="font-headline-sm text-headline-sm text-on-surface">ALGO</div>
+<div class="font-label-md text-label-md text-on-surface-variant">Algorand Native</div>
+</div>
+</div>
+</td>
+<td class="px-lg py-lg text-right font-code-sm text-code-sm text-on-surface-variant">0</td>
+<td class="px-lg py-lg text-right">
+<div class="font-headline-sm text-headline-sm text-on-surface">450,230.00</div>
+<div class="font-label-md text-label-md text-on-surface-variant">1,200.00 Reserved</div>
+</td>
+<td class="px-lg py-lg text-right">
+<div class="font-headline-sm text-headline-sm text-on-surface">€82,410.50</div>
+<div class="font-code-sm text-code-sm text-error">€0.1830 (-0.4%)</div>
+</td>
+<td class="px-lg py-lg text-right">
+<button class="bg-surface-container-high text-on-surface px-sm py-unit rounded border border-outline font-label-md text-label-md hover:border-primary transition-colors">Stake</button>
+</td>
+</tr>
+<!-- USDC Asset -->
+<tr class="hover:bg-surface-bright transition-colors">
+<td class="px-lg py-lg">
+<div class="flex items-center gap-md">
+<div class="w-10 h-10 rounded-full bg-surface-container-lowest flex items-center justify-center border border-outline-variant">
+<span class="material-symbols-outlined text-secondary" data-icon="monetization_on">monetization_on</span>
+</div>
+<div>
+<div class="font-headline-sm text-headline-sm text-on-surface">USDC</div>
+<div class="font-label-md text-label-md text-on-surface-variant">Circle USD</div>
+</div>
+</div>
+</td>
+<td class="px-lg py-lg text-right font-code-sm text-code-sm text-on-surface-variant">31566704</td>
+<td class="px-lg py-lg text-right">
+<div class="font-headline-sm text-headline-sm text-on-surface">1,215,010.20</div>
+<div class="font-label-md text-label-md text-on-surface-variant">Active Lending</div>
+</td>
+<td class="px-lg py-lg text-right">
+<div class="font-headline-sm text-headline-sm text-on-surface">€1,199,009.92</div>
+<div class="font-code-sm text-code-sm text-on-surface-variant">USD: 1.00</div>
+</td>
+<td class="px-lg py-lg text-right">
+<button class="bg-surface-container-high text-on-surface px-sm py-unit rounded border border-outline font-label-md text-label-md hover:border-primary transition-colors">Manage</button>
+</td>
+</tr>
+</tbody>
+</table>
+<!-- Table Footer -->
+<div class="p-md bg-surface-container-low flex justify-between items-center">
+<div class="flex items-center gap-md">
+<span class="font-label-md text-label-md text-on-surface-variant">Showing 3 of 12 assets</span>
+<a class="text-primary font-label-md text-label-md hover:underline" href="#">View all assets on Explorer</a>
+</div>
+<div class="flex gap-xs">
+<button class="w-8 h-8 flex items-center justify-center rounded border border-outline-variant hover:bg-surface-bright text-on-surface-variant disabled:opacity-30" disabled="">
+<span class="material-symbols-outlined" data-icon="chevron_left">chevron_left</span>
+</button>
+<button class="w-8 h-8 flex items-center justify-center rounded border border-primary bg-primary-container text-on-primary-container">
+<span class="font-label-md text-label-md">1</span>
+</button>
+<button class="w-8 h-8 flex items-center justify-center rounded border border-outline-variant hover:bg-surface-bright text-on-surface-variant">
+<span class="font-label-md text-label-md">2</span>
+</button>
+<button class="w-8 h-8 flex items-center justify-center rounded border border-outline-variant hover:bg-surface-bright text-on-surface-variant">
+<span class="material-symbols-outlined" data-icon="chevron_right">chevron_right</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Compliance / Node Status -->
+<section class="mt-2xl grid grid-cols-3 gap-lg">
+<div class="bg-surface-container-low border border-outline-variant p-md rounded-lg flex items-start gap-md">
+<div class="w-8 h-8 rounded bg-primary-container/20 flex items-center justify-center">
+<div class="w-2 h-2 rounded-full bg-primary animate-pulse"></div>
+</div>
+<div>
+<h4 class="font-headline-sm text-headline-sm text-on-surface">Agent Status</h4>
+<p class="font-label-md text-label-md text-on-surface-variant mb-sm">EURD Liquidity Agent active</p>
+<span class="font-code-sm text-code-sm text-on-surface-variant bg-surface-container-high px-xs py-[2px] rounded">Heartbeat: 42,881,003</span>
+</div>
+</div>
+<div class="bg-surface-container-low border border-outline-variant p-md rounded-lg flex items-start gap-md">
+<div class="w-8 h-8 rounded bg-on-secondary-fixed/20 flex items-center justify-center">
+<span class="material-symbols-outlined text-secondary" data-icon="verified_user">verified_user</span>
+</div>
+<div>
+<h4 class="font-headline-sm text-headline-sm text-on-surface">Quantoz KyC</h4>
+<p class="font-label-md text-label-md text-on-surface-variant mb-sm">Verification Level: Institutional</p>
+<span class="font-code-sm text-code-sm text-primary-fixed-dim">Status: Valid until Dec 2024</span>
+</div>
+</div>
+<div class="bg-surface-container-low border border-outline-variant p-md rounded-lg flex items-start gap-md">
+<div class="w-8 h-8 rounded bg-error-container/20 flex items-center justify-center">
+<span class="material-symbols-outlined text-error" data-icon="gavel">gavel</span>
+</div>
+<div>
+<h4 class="font-headline-sm text-headline-sm text-on-surface">Policy Guard</h4>
+<p class="font-label-md text-label-md text-on-surface-variant mb-sm">Multi-sig enforced (3/5)</p>
+<span class="font-code-sm text-code-sm text-on-surface-variant">Daily Limit: €5,000,000</span>
+</div>
+</div>
+</section>
+</main>
+<!-- Interactions Script -->
+<script>
+        document.querySelectorAll('button').forEach(button => {
+            button.addEventListener('mousedown', () => {
+                button.classList.add('scale-95');
+            });
+            button.addEventListener('mouseup', () => {
+                button.classList.remove('scale-95');
+            });
+            button.addEventListener('mouseleave', () => {
+                button.classList.remove('scale-95');
+            });
+        });
+
+        // Add visual interest to the background gradient
+        window.addEventListener('mousemove', (e) => {
+            const x = (e.clientX / window.innerWidth) * 100;
+            const y = (e.clientY / window.innerHeight) * 100;
+            // Abstract interactive lighting could go here if needed
+        });
+    </script>
+</body></html>

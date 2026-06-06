@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Algo Safe - Proposals</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        body {
+            background-color: #020617; /* Background from Style Guidance Level 0 */
+            color: #dae2fd;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .logic-block {
+            background: #1E293B;
+            border: 1px solid #334155;
+            box-shadow: inset 0 0 10px rgba(65, 252, 231, 0.05);
+        }
+        .status-pulse-active {
+            box-shadow: 0 0 0 0 rgba(113, 255, 236, 0.7);
+            animation: pulse-teal 2s infinite;
+        }
+        @keyframes pulse-teal {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(113, 255, 236, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(113, 255, 236, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(113, 255, 236, 0); }
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "primary-fixed": "#41fce7",
+                        "on-primary": "#003732",
+                        "on-secondary-fixed-variant": "#0036bb",
+                        "error": "#ffb4ab",
+                        "on-tertiary-container": "#565656",
+                        "tertiary-fixed-dim": "#c6c6c6",
+                        "primary-fixed-dim": "#00decb",
+                        "on-primary-fixed-variant": "#005048",
+                        "surface-tint": "#00decb",
+                        "inverse-primary": "#006a61",
+                        "on-secondary-fixed": "#001354",
+                        "surface-container-lowest": "#060e20",
+                        "outline-variant": "#3b4a47",
+                        "tertiary-fixed": "#e2e2e2",
+                        "error-container": "#93000a",
+                        "on-tertiary": "#303030",
+                        "secondary-fixed-dim": "#b8c4ff",
+                        "on-error-container": "#ffdad6",
+                        "on-tertiary-fixed": "#1b1b1b",
+                        "secondary": "#b8c4ff",
+                        "inverse-on-surface": "#283044",
+                        "on-secondary": "#002486",
+                        "surface-variant": "#2d3449",
+                        "surface-container-highest": "#2d3449",
+                        "on-surface-variant": "#b9cac6",
+                        "surface": "#0b1326",
+                        "tertiary-container": "#cccccc",
+                        "on-secondary-container": "#d5daff",
+                        "primary-container": "#00e5d1",
+                        "on-surface": "#dae2fd",
+                        "on-tertiary-fixed-variant": "#474747",
+                        "tertiary": "#e8e8e8",
+                        "background": "#0b1326",
+                        "surface-container": "#171f33",
+                        "surface-container-high": "#222a3d",
+                        "on-primary-fixed": "#00201c",
+                        "surface-bright": "#31394d",
+                        "inverse-surface": "#dae2fd",
+                        "secondary-fixed": "#dde1ff",
+                        "secondary-container": "#004bf9",
+                        "surface-container-low": "#131b2e",
+                        "on-primary-container": "#006258",
+                        "outline": "#849490",
+                        "surface-dim": "#0b1326",
+                        "on-error": "#690005",
+                        "on-background": "#dae2fd",
+                        "primary": "#71ffec"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "container-max": "1280px",
+                        "md": "16px",
+                        "xs": "4px",
+                        "gutter": "20px",
+                        "2xl": "48px",
+                        "xl": "32px",
+                        "unit": "4px",
+                        "sm": "8px",
+                        "lg": "24px"
+                    },
+                    "fontFamily": {
+                        "display-md": ["Inter"],
+                        "display-lg": ["Inter"],
+                        "body-md": ["Inter"],
+                        "code-sm": ["JetBrains Mono"],
+                        "headline-sm": ["Inter"],
+                        "label-md": ["JetBrains Mono"],
+                        "body-lg": ["Inter"]
+                    },
+                    "fontSize": {
+                        "display-md": ["24px", { "lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "600" }],
+                        "display-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "600" }],
+                        "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "code-sm": ["12px", { "lineHeight": "16px", "fontWeight": "400" }],
+                        "headline-sm": ["18px", { "lineHeight": "28px", "fontWeight": "500" }],
+                        "label-md": ["12px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "500" }],
+                        "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }]
+                    }
+                },
+            },
+        }
+    </script>
+</head>
+<body class="font-body-md text-body-md overflow-x-hidden">
+<!-- SideNavBar Shell -->
+<aside class="bg-surface-container dark:bg-surface-container w-64 h-screen border-r border-outline-variant flex flex-col fixed left-0 top-0 h-full py-lg px-md z-50">
+<div class="mb-2xl px-sm">
+<div class="flex items-center gap-sm">
+<span class="font-display-md text-display-md font-bold text-primary dark:text-primary">Algo Safe</span>
+</div>
+<p class="font-label-md text-label-md text-on-surface-variant opacity-70">Institutional Treasury</p>
+</div>
+<nav class="flex-1 space-y-unit">
+<a class="flex items-center gap-md px-sm py-sm text-on-surface-variant font-medium hover:bg-surface-bright hover:text-primary transition-colors duration-200 rounded" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+<span class="font-body-md">Dashboard</span>
+</a>
+<a class="flex items-center gap-md px-sm py-sm text-on-surface-variant font-medium hover:bg-surface-bright hover:text-primary transition-colors duration-200 rounded" href="#">
+<span class="material-symbols-outlined" data-icon="account_balance_wallet">account_balance_wallet</span>
+<span class="font-body-md">Assets</span>
+</a>
+<!-- Active State for Proposals -->
+<a class="flex items-center gap-md px-sm py-sm text-primary font-bold border-r-2 border-primary bg-surface-bright transition-all rounded-l" href="#">
+<span class="material-symbols-outlined" data-icon="description">description</span>
+<span class="font-body-md">Proposals</span>
+</a>
+<a class="flex items-center gap-md px-sm py-sm text-on-surface-variant font-medium hover:bg-surface-bright hover:text-primary transition-colors duration-200 rounded" href="#">
+<span class="material-symbols-outlined" data-icon="group">group</span>
+<span class="font-body-md">Signers</span>
+</a>
+<a class="flex items-center gap-md px-sm py-sm text-on-surface-variant font-medium hover:bg-surface-bright hover:text-primary transition-colors duration-200 rounded" href="#">
+<span class="material-symbols-outlined" data-icon="smart_toy">smart_toy</span>
+<span class="font-body-md">Agents</span>
+</a>
+<a class="flex items-center gap-md px-sm py-sm text-on-surface-variant font-medium hover:bg-surface-bright hover:text-primary transition-colors duration-200 rounded" href="#">
+<span class="material-symbols-outlined" data-icon="history">history</span>
+<span class="font-body-md">Activity</span>
+</a>
+</nav>
+<div class="mt-auto space-y-unit border-t border-outline-variant pt-lg">
+<a class="flex items-center gap-md px-sm py-sm text-on-surface-variant font-medium hover:bg-surface-bright hover:text-primary transition-colors duration-200 rounded" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+<span class="font-body-md">Settings</span>
+</a>
+<a class="flex items-center gap-md px-sm py-sm text-on-surface-variant font-medium hover:bg-surface-bright hover:text-primary transition-colors duration-200 rounded" href="#">
+<span class="material-symbols-outlined" data-icon="help">help</span>
+<span class="font-body-md">Support</span>
+</a>
+</div>
+</aside>
+<!-- TopAppBar Shell -->
+<header class="bg-background dark:bg-background docked full-width top border-b border-outline-variant flex justify-between items-center w-full px-lg py-sm pl-[calc(16rem+24px)] fixed top-0 left-0 z-40">
+<div class="flex items-center gap-lg">
+<div class="relative">
+<span class="absolute left-sm top-1/2 -translate-y-1/2 material-symbols-outlined text-on-surface-variant" data-icon="search">search</span>
+<input class="bg-surface-container border-outline-variant text-on-surface font-body-md rounded-lg pl-xl pr-md py-xs w-64 focus:ring-1 focus:ring-primary focus:border-primary outline-none transition-all" placeholder="Search proposals, hashes, signers..." type="text"/>
+</div>
+<div class="flex items-center gap-md border-l border-outline-variant pl-lg">
+<span class="text-primary border-b-2 border-primary pb-1 font-label-md">Mainnet</span>
+<span class="text-on-surface-variant font-label-md">v2.4.1</span>
+</div>
+</div>
+<div class="flex items-center gap-lg">
+<div class="flex items-center gap-sm">
+<button class="text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<button class="text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined" data-icon="account_balance">account_balance</span>
+</button>
+</div>
+<button class="bg-primary-fixed text-on-primary font-label-md px-lg py-sm rounded-lg hover:opacity-90 active:scale-95 transition-all">
+                Connect Wallet
+            </button>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="ml-64 pt-2xl px-xl pb-2xl min-h-screen">
+<div class="max-w-[1200px] mx-auto mt-lg">
+<!-- Page Header -->
+<div class="flex justify-between items-end mb-2xl">
+<div>
+<h1 class="font-display-lg text-display-lg text-primary mb-xs">Proposals</h1>
+<p class="text-on-surface-variant font-body-lg">Manage multi-signature transaction workflows and treasury policies.</p>
+</div>
+<button class="bg-primary text-on-primary font-label-md px-xl py-md rounded-lg flex items-center gap-sm hover:brightness-110 transition-all">
+<span class="material-symbols-outlined" data-icon="add">add</span>
+                    Create Proposal
+                </button>
+</div>
+<!-- Dashboard Stats Bento -->
+<div class="grid grid-cols-12 gap-lg mb-2xl">
+<div class="col-span-4 logic-block p-lg rounded-xl border border-outline-variant">
+<div class="flex justify-between items-start mb-sm">
+<span class="text-on-surface-variant font-label-md">AWAITING YOU</span>
+<span class="material-symbols-outlined text-primary" data-icon="pending_actions">pending_actions</span>
+</div>
+<div class="font-display-md text-display-md text-on-surface">03</div>
+<div class="mt-xs text-on-surface-variant font-code-sm">Requires your signature</div>
+</div>
+<div class="col-span-4 logic-block p-lg rounded-xl border border-outline-variant border-primary/30">
+<div class="flex justify-between items-start mb-sm">
+<span class="text-primary font-label-md">READY TO EXECUTE</span>
+<div class="w-2 h-2 rounded-full bg-primary status-pulse-active"></div>
+</div>
+<div class="font-display-md text-display-md text-on-surface">01</div>
+<div class="mt-xs text-on-surface-variant font-code-sm">Threshold reached</div>
+</div>
+<div class="col-span-4 logic-block p-lg rounded-xl border border-outline-variant">
+<div class="flex justify-between items-start mb-sm">
+<span class="text-on-surface-variant font-label-md">AVG. CONSENSUS</span>
+<span class="material-symbols-outlined text-on-surface-variant" data-icon="speed">speed</span>
+</div>
+<div class="font-display-md text-display-md text-on-surface">4.2h</div>
+<div class="mt-xs text-on-surface-variant font-code-sm">Last 30 days performance</div>
+</div>
+</div>
+<!-- Proposals Queue -->
+<div class="space-y-gutter">
+<!-- Section Label -->
+<div class="flex items-center gap-md mb-md">
+<span class="font-label-md text-primary tracking-widest uppercase">Action Required</span>
+<div class="h-px flex-1 bg-outline-variant/30"></div>
+</div>
+<!-- Proposal Card 1: Pending -->
+<div class="bg-surface-container border border-outline-variant rounded-xl overflow-hidden hover:border-primary/50 transition-colors group">
+<div class="flex p-lg items-center gap-xl">
+<div class="flex-none w-12 h-12 rounded bg-surface-bright flex items-center justify-center border border-outline-variant">
+<span class="material-symbols-outlined text-primary" data-icon="outbound">outbound</span>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex items-center gap-sm mb-xs">
+<h3 class="font-headline-sm text-headline-sm text-on-surface truncate">Quarterly Infrastructure Funding</h3>
+<span class="bg-surface-variant text-on-surface-variant font-code-sm px-sm py-xs rounded">#TX-9902</span>
+</div>
+<div class="flex items-center gap-lg text-on-surface-variant">
+<span class="flex items-center gap-xs font-label-md"><span class="material-symbols-outlined text-sm" data-icon="group">group</span> Treasury Governors</span>
+<span class="flex items-center gap-xs font-label-md"><span class="material-symbols-outlined text-sm" data-icon="schedule">schedule</span> 14h remaining</span>
+</div>
+</div>
+<div class="flex-none text-right">
+<div class="font-headline-sm text-headline-sm text-primary mb-xs">150,000.00 ALGO</div>
+<div class="flex items-center justify-end gap-sm">
+<span class="text-on-surface-variant font-label-md">Progress: 2/3</span>
+<div class="w-24 h-1.5 bg-surface-variant rounded-full overflow-hidden">
+<div class="bg-primary h-full" style="width: 66.6%"></div>
+</div>
+</div>
+</div>
+<div class="flex-none pl-lg border-l border-outline-variant">
+<button class="bg-surface-bright text-primary border border-primary/20 hover:bg-primary hover:text-on-primary transition-all px-lg py-sm rounded font-label-md">Review &amp; Sign</button>
+</div>
+</div>
+</div>
+<!-- Section Label -->
+<div class="flex items-center gap-md mt-2xl mb-md">
+<span class="font-label-md text-primary tracking-widest uppercase">Ready</span>
+<div class="h-px flex-1 bg-outline-variant/30"></div>
+</div>
+<!-- Proposal Card 2: Ready -->
+<div class="bg-surface-container border border-primary/40 rounded-xl overflow-hidden shadow-lg shadow-primary/5 relative">
+<div class="absolute top-0 right-0 bg-primary px-sm py-xs font-code-sm text-on-primary font-bold">READY TO EXECUTE</div>
+<div class="flex p-lg items-center gap-xl">
+<div class="flex-none w-12 h-12 rounded bg-primary/10 flex items-center justify-center border border-primary/30">
+<span class="material-symbols-outlined text-primary" data-icon="contract_edit">contract_edit</span>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex items-center gap-sm mb-xs">
+<h3 class="font-headline-sm text-headline-sm text-on-surface truncate">Update Staking Smart Contract</h3>
+<span class="bg-surface-variant text-on-surface-variant font-code-sm px-sm py-xs rounded">#UP-0412</span>
+</div>
+<div class="flex items-center gap-lg text-on-surface-variant">
+<span class="flex items-center gap-xs font-label-md"><span class="material-symbols-outlined text-sm" data-icon="shield">shield</span> Security Council</span>
+<span class="flex items-center gap-xs font-label-md text-primary"><span class="material-symbols-outlined text-sm" data-icon="check_circle">check_circle</span> Threshold Met</span>
+</div>
+</div>
+<div class="flex-none text-right">
+<div class="font-headline-sm text-headline-sm text-on-surface mb-xs">App Call: Update</div>
+<div class="flex items-center justify-end gap-sm">
+<span class="text-primary font-label-md">Consensus: 5/5</span>
+<div class="w-24 h-1.5 bg-primary/20 rounded-full overflow-hidden">
+<div class="bg-primary h-full w-full"></div>
+</div>
+</div>
+</div>
+<div class="flex-none pl-lg border-l border-outline-variant">
+<button class="bg-primary text-on-primary hover:brightness-110 transition-all px-lg py-sm rounded font-label-md">Execute Call</button>
+</div>
+</div>
+</div>
+<!-- Section Label -->
+<div class="flex items-center gap-md mt-2xl mb-md">
+<span class="font-label-md text-on-surface-variant tracking-widest uppercase">Completed</span>
+<div class="h-px flex-1 bg-outline-variant/30"></div>
+</div>
+<!-- Proposal Card 3: Completed -->
+<div class="bg-surface-container/50 border border-outline-variant/50 rounded-xl overflow-hidden opacity-70">
+<div class="flex p-lg items-center gap-xl">
+<div class="flex-none w-12 h-12 rounded bg-surface-container-high flex items-center justify-center border border-outline-variant">
+<span class="material-symbols-outlined text-on-surface-variant" data-icon="check">check</span>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex items-center gap-sm mb-xs">
+<h3 class="font-headline-sm text-headline-sm text-on-surface-variant truncate">Relayer Node Subsidy - Dec 2023</h3>
+<span class="bg-surface-variant/50 text-on-surface-variant font-code-sm px-sm py-xs rounded">#TX-8841</span>
+</div>
+<div class="flex items-center gap-lg text-on-surface-variant/60">
+<span class="flex items-center gap-xs font-label-md">Executed by: ALGO_RELAY_BOT</span>
+<span class="flex items-center gap-xs font-label-md">2 days ago</span>
+</div>
+</div>
+<div class="flex-none text-right">
+<div class="font-headline-sm text-headline-sm text-on-surface-variant mb-xs">42,500.00 ALGO</div>
+<div class="flex items-center justify-end gap-sm">
+<a class="text-primary hover:underline font-label-md flex items-center gap-xs" href="#">
+                                    Verify on Explorer
+                                    <span class="material-symbols-outlined text-xs" data-icon="open_in_new">open_in_new</span>
+</a>
+</div>
+</div>
+<div class="flex-none pl-lg border-l border-outline-variant">
+<button class="text-on-surface-variant hover:text-primary transition-all px-lg py-sm rounded font-label-md">View Receipt</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Background Pattern Decorative Element -->
+<div class="fixed inset-0 pointer-events-none z-0 opacity-10">
+<div class="absolute top-0 right-0 w-1/2 h-1/2 bg-gradient-to-br from-primary/20 to-transparent blur-3xl"></div>
+<div class="absolute bottom-0 left-0 w-1/2 h-1/2 bg-gradient-to-tr from-secondary/10 to-transparent blur-3xl"></div>
+</div>
+<script>
+        // Simple Interaction logic for active state feeling
+        document.querySelectorAll('button, a').forEach(el => {
+            el.addEventListener('mousedown', () => {
+                el.classList.add('scale-95', 'opacity-80');
+            });
+            el.addEventListener('mouseup', () => {
+                el.classList.remove('scale-95', 'opacity-80');
+            });
+            el.addEventListener('mouseleave', () => {
+                el.classList.remove('scale-95', 'opacity-80');
+            });
+        });
+    </script>
+</body></html>
