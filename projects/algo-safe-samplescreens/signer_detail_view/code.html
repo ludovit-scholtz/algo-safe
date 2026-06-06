@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Signer Detail - Algo Safe</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        .pulse-active {
+            position: relative;
+        }
+        .pulse-active::after {
+            content: '';
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            background-color: #71ffec;
+            border-radius: 50%;
+            top: 50%;
+            left: -12px;
+            transform: translateY(-50%);
+            box-shadow: 0 0 0 0 rgba(113, 255, 236, 0.7);
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(113, 255, 236, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(113, 255, 236, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(113, 255, 236, 0); }
+        }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #0b1326; }
+        ::-webkit-scrollbar-thumb { background: #2d3449; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #3b4a47; }
+    </style>
+<!-- Tailwind Configuration -->
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "primary": "#71ffec",
+                    "on-tertiary": "#303030",
+                    "inverse-primary": "#006a61",
+                    "secondary-container": "#004bf9",
+                    "primary-container": "#00e5d1",
+                    "tertiary-fixed-dim": "#c6c6c6",
+                    "on-surface": "#dae2fd",
+                    "tertiary-container": "#cccccc",
+                    "on-tertiary-fixed-variant": "#474747",
+                    "secondary-fixed": "#dde1ff",
+                    "background": "#0b1326",
+                    "secondary-fixed-dim": "#b8c4ff",
+                    "on-background": "#dae2fd",
+                    "inverse-on-surface": "#283044",
+                    "on-primary-container": "#006258",
+                    "surface-variant": "#2d3449",
+                    "surface-container-highest": "#2d3449",
+                    "surface-container-high": "#222a3d",
+                    "tertiary": "#e8e8e8",
+                    "on-error": "#690005",
+                    "error-container": "#93000a",
+                    "outline-variant": "#3b4a47",
+                    "surface-tint": "#00decb",
+                    "on-secondary-fixed": "#001354",
+                    "on-error-container": "#ffdad6",
+                    "surface-dim": "#0b1326",
+                    "on-secondary-fixed-variant": "#0036bb",
+                    "error": "#ffb4ab",
+                    "tertiary-fixed": "#e2e2e2",
+                    "surface-bright": "#31394d",
+                    "secondary": "#b8c4ff",
+                    "surface-container-lowest": "#060e20",
+                    "on-tertiary-container": "#565656",
+                    "on-primary-fixed": "#00201c",
+                    "on-secondary": "#002486",
+                    "on-surface-variant": "#b9cac6",
+                    "on-primary-fixed-variant": "#005048",
+                    "surface": "#0b1326",
+                    "primary-fixed-dim": "#00decb",
+                    "on-secondary-container": "#d5daff",
+                    "on-tertiary-fixed": "#1b1b1b",
+                    "inverse-surface": "#dae2fd",
+                    "primary-fixed": "#41fce7",
+                    "surface-container-low": "#131b2e",
+                    "outline": "#849490",
+                    "on-primary": "#003732",
+                    "surface-container": "#171f33"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "spacing": {
+                    "xl": "32px",
+                    "lg": "24px",
+                    "container-max": "1280px",
+                    "xs": "4px",
+                    "md": "16px",
+                    "2xl": "48px",
+                    "unit": "4px",
+                    "sm": "8px",
+                    "gutter": "20px"
+            },
+            "fontFamily": {
+                    "code-sm": ["JetBrains Mono"],
+                    "body-md": ["Inter"],
+                    "label-md": ["JetBrains Mono"],
+                    "display-lg": ["Inter"],
+                    "headline-sm": ["Inter"],
+                    "body-lg": ["Inter"],
+                    "display-md": ["Inter"]
+            },
+            "fontSize": {
+                    "code-sm": ["12px", {"lineHeight": "16px", "fontWeight": "400"}],
+                    "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                    "label-md": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "500"}],
+                    "display-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "600"}],
+                    "headline-sm": ["18px", {"lineHeight": "28px", "fontWeight": "500"}],
+                    "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                    "display-md": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "600"}]
+            }
+          },
+        },
+      }
+    </script>
+</head>
+<body class="bg-background text-on-background font-body-md overflow-x-hidden">
+<!-- Sidebar Navigation -->
+<aside class="flex flex-col fixed left-0 top-0 h-full py-lg px-md bg-surface-container border-r border-outline-variant w-64 z-50">
+<div class="mb-2xl">
+<h1 class="font-display-md text-display-md font-bold text-primary">Algo Safe</h1>
+<p class="font-label-md text-label-md text-on-surface-variant uppercase tracking-widest mt-xs">Institutional Treasury</p>
+</div>
+<nav class="flex-1 space-y-sm">
+<a class="flex items-center gap-md p-sm rounded-lg text-on-surface-variant font-medium hover:bg-surface-bright hover:text-primary transition-colors duration-200" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-body-md">Dashboard</span>
+</a>
+<a class="flex items-center gap-md p-sm rounded-lg text-on-surface-variant font-medium hover:bg-surface-bright hover:text-primary transition-colors duration-200" href="#">
+<span class="material-symbols-outlined">account_balance_wallet</span>
+<span class="font-body-md">Assets</span>
+</a>
+<a class="flex items-center gap-md p-sm rounded-lg text-on-surface-variant font-medium hover:bg-surface-bright hover:text-primary transition-colors duration-200" href="#">
+<span class="material-symbols-outlined">description</span>
+<span class="font-body-md">Proposals</span>
+</a>
+<a class="flex items-center gap-md p-sm rounded-lg text-primary font-bold border-r-2 border-primary bg-surface-bright transition-all" href="#">
+<span class="material-symbols-outlined">group</span>
+<span class="font-body-md">Signers</span>
+</a>
+<a class="flex items-center gap-md p-sm rounded-lg text-on-surface-variant font-medium hover:bg-surface-bright hover:text-primary transition-colors duration-200" href="#">
+<span class="material-symbols-outlined">smart_toy</span>
+<span class="font-body-md">Agents</span>
+</a>
+<a class="flex items-center gap-md p-sm rounded-lg text-on-surface-variant font-medium hover:bg-surface-bright hover:text-primary transition-colors duration-200" href="#">
+<span class="material-symbols-outlined">history</span>
+<span class="font-body-md">Activity</span>
+</a>
+</nav>
+<div class="mt-auto space-y-sm pt-lg border-t border-outline-variant">
+<button class="w-full bg-primary text-on-primary py-sm px-md rounded-lg font-bold font-body-md hover:opacity-90 active:scale-95 transition-all mb-md">
+                Create Proposal
+            </button>
+<a class="flex items-center gap-md p-sm rounded-lg text-on-surface-variant font-medium hover:bg-surface-bright hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-body-md">Settings</span>
+</a>
+<a class="flex items-center gap-md p-sm rounded-lg text-on-surface-variant font-medium hover:bg-surface-bright hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined">help</span>
+<span class="font-body-md">Support</span>
+</a>
+</div>
+</aside>
+<!-- Top App Bar -->
+<header class="flex justify-between items-center w-full px-lg py-sm ml-64 fixed top-0 right-0 bg-background border-b border-outline-variant z-40 bg-opacity-90 backdrop-blur-md" style="width: calc(100% - 16rem);">
+<div class="flex items-center gap-lg">
+<div class="relative group">
+<span class="material-symbols-outlined absolute left-md top-1/2 -translate-y-1/2 text-on-surface-variant group-focus-within:text-primary transition-colors">search</span>
+<input class="bg-surface-container-low border border-outline-variant rounded-full pl-xl pr-md py-xs text-body-md focus:ring-1 focus:ring-primary focus:border-primary w-64 transition-all" placeholder="Search accounts, proposals..." type="text"/>
+</div>
+<div class="flex gap-md border-l border-outline-variant pl-md">
+<span class="font-label-md text-primary bg-primary/10 px-sm py-1 rounded">Mainnet</span>
+<span class="font-label-md text-on-surface-variant">v2.4.1</span>
+</div>
+</div>
+<div class="flex items-center gap-lg">
+<div class="flex items-center gap-sm">
+<button class="p-xs text-on-surface-variant hover:text-primary transition-colors relative">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-0 right-0 w-2 h-2 bg-error rounded-full"></span>
+</button>
+<button class="p-xs text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined">account_balance</span>
+</button>
+</div>
+<button class="bg-surface-container-high border border-outline-variant text-on-surface px-md py-xs rounded-lg font-medium hover:bg-surface-bright transition-all flex items-center gap-sm">
+<span class="material-symbols-outlined" style="font-size: 18px">account_balance_wallet</span>
+                Connect Wallet
+            </button>
+<div class="flex items-center gap-sm">
+<div class="text-right">
+<p class="font-label-md text-on-surface leading-tight">Institutional Lead</p>
+<p class="font-code-sm text-primary text-[10px]">0x4f...9E22</p>
+</div>
+<img alt="User Profile" class="w-8 h-8 rounded-full bg-surface-container-highest border border-outline-variant" data-alt="A professional high-resolution avatar for a corporate executive, featuring minimalist geometric backgrounds and professional attire. The lighting is soft and neutral, fitting an institutional finance aesthetic with cool-toned blue and teal accents." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCTYm688JLMQTouYeR6juovDVWATRPiIuZlH6XZTT-hFIVgrbLrbPv2JVzwt9hDA6A2XUGlsS-OV4-mNnDaJMhmyiDginZxgG8p591IEEMPShBMXotHrBrGk1QZIPvEEsY93cpdZ2sVph6n_o_YJBX7buT8XPkOEabwcqaWHhXdOC3q9AWOM_ayJHT-ZsmGau3dCVcs7RYbC8c9f-fzOox-HI3DRPceCxOUd6nkbEFp2aMP4kzd84b7ddQGtfg3HtOGVvwgODgoS-4w"/>
+</div>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="ml-64 mt-16 p-lg max-w-[1280px]">
+<!-- Signer Identity Header -->
+<section class="mb-lg">
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-md">
+<div class="flex items-center gap-lg">
+<div class="w-20 h-20 rounded-xl bg-surface-container border border-outline-variant flex items-center justify-center overflow-hidden">
+<img alt="Signer Identicon" class="w-16 h-16 opacity-80" data-alt="A minimalist abstract identicon generated with geometric patterns in teal and slate colors, representing a unique blockchain identity. The style is sharp, clean, and symmetrical, reflecting the precision of institutional cryptography." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCBTiWX-m0LjuIPHevDlQAYZi3JaH-F37miYiYQK2w4fkfFrnzh6tAGLOXDIOoOAnCdmGnqrh_Ly609xEfr_wWwvtS_6sCcY0RANysnlDEWZP0xHuXrt9dH50FiMt1yQVt4RWa5IDdKpsq1I7u0egVINc8es_BIIuYj1YUGsewvSpJKAvlYP1roT1r3hlYKbd1XnfvouHgO7ZTVhr5hUX3QP0yMQ--8tgGDvsYhNJitijh9kn37a2aRbPSrwTF0H43mz8ayPi5HTrVY"/>
+</div>
+<div>
+<div class="flex items-center gap-sm mb-xs">
+<h2 class="font-display-md text-display-md font-bold text-on-surface">John Doe (Lead)</h2>
+<span class="bg-primary/20 text-primary px-sm py-0.5 rounded text-[10px] font-bold uppercase tracking-widest border border-primary/30">Quantum-Secure</span>
+</div>
+<div class="flex items-center gap-md">
+<div class="flex items-center gap-xs font-code-sm text-on-surface-variant bg-surface-container-low px-sm py-1 rounded border border-outline-variant group">
+<span class="material-symbols-outlined text-sm">key</span>
+<span>ALGO_7F2B...E92W_PRO</span>
+<button class="hover:text-primary transition-colors ml-xs">
+<span class="material-symbols-outlined text-sm">content_copy</span>
+</button>
+</div>
+<span class="text-on-surface-variant font-label-md flex items-center gap-xs">
+<span class="material-symbols-outlined text-sm">fingerprint</span>
+                                Ledger Nano X Verified
+                            </span>
+</div>
+</div>
+</div>
+<div class="flex gap-sm">
+<button class="bg-surface-container border border-outline-variant text-on-surface px-md py-sm rounded-lg font-medium hover:bg-surface-bright transition-all flex items-center gap-sm">
+<span class="material-symbols-outlined">edit</span>
+                        Edit Signer
+                    </button>
+<button class="bg-error-container text-on-error-container px-md py-sm rounded-lg font-medium hover:opacity-90 transition-all flex items-center gap-sm">
+<span class="material-symbols-outlined">person_remove</span>
+                        Revoke Access
+                    </button>
+</div>
+</div>
+</section>
+<!-- Bento Grid Layout -->
+<div class="grid grid-cols-12 gap-lg">
+<!-- Performance & Activity -->
+<div class="col-span-12 lg:col-span-4 bg-surface-container border border-outline-variant rounded-xl p-lg">
+<h3 class="font-headline-sm text-headline-sm text-on-surface mb-lg flex items-center gap-sm">
+<span class="material-symbols-outlined text-primary">analytics</span>
+                    Performance Stats
+                </h3>
+<div class="grid grid-cols-2 gap-md">
+<div class="bg-surface-container-low border border-outline-variant p-md rounded-lg">
+<p class="font-label-md text-on-surface-variant mb-xs">Proposals Signed</p>
+<p class="font-display-md text-display-md text-primary">142</p>
+</div>
+<div class="bg-surface-container-low border border-outline-variant p-md rounded-lg">
+<p class="font-label-md text-on-surface-variant mb-xs">Avg. Latency</p>
+<p class="font-display-md text-display-md text-primary">1.2h</p>
+</div>
+<div class="col-span-2 bg-surface-container-low border border-outline-variant p-md rounded-lg flex justify-between items-center">
+<div>
+<p class="font-label-md text-on-surface-variant mb-xs">Last Active Block</p>
+<p class="font-code-sm text-on-surface">#42,881,209</p>
+</div>
+<div class="text-right">
+<p class="font-label-md text-on-surface-variant mb-xs">Status</p>
+<span class="pulse-active ml-4 font-label-md text-primary">Online</span>
+</div>
+</div>
+</div>
+<div class="mt-lg pt-lg border-t border-outline-variant">
+<p class="font-label-md text-on-surface-variant mb-md">Signing Reliability</p>
+<div class="h-2 w-full bg-surface-variant rounded-full overflow-hidden">
+<div class="h-full bg-primary w-[98%] shadow-[0_0_8px_rgba(113,255,236,0.4)]"></div>
+</div>
+<div class="flex justify-between mt-sm">
+<span class="font-code-sm text-primary text-[10px]">98% Success</span>
+<span class="font-code-sm text-on-surface-variant text-[10px]">Target: 95%</span>
+</div>
+</div>
+</div>
+<!-- Membership & Permissions -->
+<div class="col-span-12 lg:col-span-8 space-y-lg">
+<div class="bg-surface-container border border-outline-variant rounded-xl p-lg">
+<h3 class="font-headline-sm text-headline-sm text-on-surface mb-lg flex items-center gap-sm">
+<span class="material-symbols-outlined text-primary">security_update_good</span>
+                        Membership &amp; Permissions
+                    </h3>
+<div class="grid md:grid-cols-2 gap-lg">
+<!-- Groups -->
+<div>
+<p class="font-label-md text-on-surface-variant mb-sm uppercase tracking-wider">Group Membership</p>
+<div class="space-y-sm">
+<div class="flex items-center justify-between p-sm bg-surface-container-high border border-outline-variant rounded-lg">
+<div class="flex items-center gap-sm">
+<span class="material-symbols-outlined text-secondary">admin_panel_settings</span>
+<span class="font-body-md font-bold">Admins</span>
+</div>
+<span class="text-code-sm bg-secondary/10 text-secondary px-xs rounded">Lead Signer</span>
+</div>
+<div class="flex items-center justify-between p-sm bg-surface-container-high border border-outline-variant rounded-lg">
+<div class="flex items-center gap-sm">
+<span class="material-symbols-outlined text-on-surface-variant">account_balance</span>
+<span class="font-body-md">Treasury Ops</span>
+</div>
+<span class="text-code-sm bg-on-surface-variant/10 text-on-surface-variant px-xs rounded">Operator</span>
+</div>
+</div>
+</div>
+<!-- Active Permissions -->
+<div>
+<p class="font-label-md text-on-surface-variant mb-sm uppercase tracking-wider">Authorized Actions</p>
+<div class="grid grid-cols-1 gap-xs">
+<div class="flex items-center gap-sm text-on-surface">
+<span class="material-symbols-outlined text-primary text-sm">check_circle</span>
+<span class="font-body-md">Approve Asset Payments</span>
+</div>
+<div class="flex items-center gap-sm text-on-surface">
+<span class="material-symbols-outlined text-primary text-sm">check_circle</span>
+<span class="font-body-md">Manage Signer Registry</span>
+</div>
+<div class="flex items-center gap-sm text-on-surface">
+<span class="material-symbols-outlined text-primary text-sm">check_circle</span>
+<span class="font-body-md">Modify Policy Logic</span>
+</div>
+<div class="flex items-center gap-sm text-on-surface opacity-50">
+<span class="material-symbols-outlined text-sm">cancel</span>
+<span class="font-body-md">Emergency Vault Drain</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Policy Constraints -->
+<div class="bg-surface-container border border-outline-variant rounded-xl p-lg border-l-4 border-l-secondary">
+<div class="flex items-start gap-lg">
+<div class="p-md bg-secondary/10 rounded-lg">
+<span class="material-symbols-outlined text-secondary" style="font-size: 32px">policy</span>
+</div>
+<div class="flex-1">
+<h4 class="font-headline-sm text-headline-sm text-on-surface mb-xs">Applied Policy Constraints</h4>
+<p class="text-body-md text-on-surface-variant mb-md">These limitations are enforced by the smart contract layer for this specific signer.</p>
+<div class="flex flex-wrap gap-md">
+<div class="bg-surface-container-lowest border border-outline-variant px-md py-sm rounded-lg flex items-center gap-md">
+<span class="material-symbols-outlined text-primary" style="font-size: 20px">verified_user</span>
+<div>
+<p class="font-label-md text-on-surface-variant">Threshold Security</p>
+<p class="font-body-md font-bold">Requires Hardware MFA &gt; 50k ALGO</p>
+</div>
+</div>
+<div class="bg-surface-container-lowest border border-outline-variant px-md py-sm rounded-lg flex items-center gap-md">
+<span class="material-symbols-outlined text-primary" style="font-size: 20px">schedule</span>
+<div>
+<p class="font-label-md text-on-surface-variant">Temporal Lock</p>
+<p class="font-body-md font-bold">No signing 02:00 - 05:00 UTC</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Recent Approvals Table -->
+<div class="col-span-12 bg-surface-container border border-outline-variant rounded-xl overflow-hidden">
+<div class="px-lg py-md border-b border-outline-variant flex justify-between items-center bg-surface-container-low">
+<h3 class="font-headline-sm text-headline-sm text-on-surface flex items-center gap-sm">
+<span class="material-symbols-outlined text-primary">history_edu</span>
+                        Recent Approvals
+                    </h3>
+<button class="text-primary font-label-md hover:underline">Export CSV</button>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-surface-container-low">
+<th class="px-lg py-md font-label-md text-on-surface-variant border-b border-outline-variant">Proposal ID</th>
+<th class="px-lg py-md font-label-md text-on-surface-variant border-b border-outline-variant">Description</th>
+<th class="px-lg py-md font-label-md text-on-surface-variant border-b border-outline-variant">Amount</th>
+<th class="px-lg py-md font-label-md text-on-surface-variant border-b border-outline-variant">Role</th>
+<th class="px-lg py-md font-label-md text-on-surface-variant border-b border-outline-variant">Timestamp</th>
+<th class="px-lg py-md font-label-md text-on-surface-variant border-b border-outline-variant text-right">Actions</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant">
+<tr class="hover:bg-surface-bright transition-colors group">
+<td class="px-lg py-md font-code-sm text-primary">#PROP-8821</td>
+<td class="px-lg py-md">
+<p class="font-body-md text-on-surface">Yield Rebalance - ALGO/USDC LP</p>
+<p class="text-[10px] text-on-surface-variant">Target: Tinyman V2 Pool</p>
+</td>
+<td class="px-lg py-md">
+<span class="font-body-md font-bold text-on-surface">450,000.00 ALGO</span>
+</td>
+<td class="px-lg py-md">
+<span class="bg-primary/10 text-primary border border-primary/20 text-[10px] px-sm py-0.5 rounded font-bold uppercase">Finalizer</span>
+</td>
+<td class="px-lg py-md text-on-surface-variant font-label-md">2023-11-24 14:22:01</td>
+<td class="px-lg py-md text-right">
+<a class="text-on-surface-variant hover:text-primary transition-colors inline-flex items-center gap-xs" href="#">
+<span class="material-symbols-outlined text-sm">open_in_new</span>
+<span class="font-label-md">Explorer</span>
+</a>
+</td>
+</tr>
+<tr class="hover:bg-surface-bright transition-colors group">
+<td class="px-lg py-md font-code-sm text-primary">#PROP-8819</td>
+<td class="px-lg py-md">
+<p class="font-body-md text-on-surface">Quarterly Infrastructure Payout</p>
+<p class="text-[10px] text-on-surface-variant">Vendor: NodeOps Collective</p>
+</td>
+<td class="px-lg py-md">
+<span class="font-body-md font-bold text-on-surface">12,500.00 USDC</span>
+</td>
+<td class="px-lg py-md">
+<span class="bg-surface-variant text-on-surface-variant border border-outline-variant text-[10px] px-sm py-0.5 rounded font-bold uppercase">Endorser</span>
+</td>
+<td class="px-lg py-md text-on-surface-variant font-label-md">2023-11-23 09:15:44</td>
+<td class="px-lg py-md text-right">
+<a class="text-on-surface-variant hover:text-primary transition-colors inline-flex items-center gap-xs" href="#">
+<span class="material-symbols-outlined text-sm">open_in_new</span>
+<span class="font-label-md">Explorer</span>
+</a>
+</td>
+</tr>
+<tr class="hover:bg-surface-bright transition-colors group">
+<td class="px-lg py-md font-code-sm text-primary">#PROP-8792</td>
+<td class="px-lg py-md">
+<p class="font-body-md text-on-surface">Governance Vote Execution</p>
+<p class="text-[10px] text-on-surface-variant">Period 9 - Option A</p>
+</td>
+<td class="px-lg py-md">
+<span class="font-body-md font-bold text-on-surface">0.00 ALGO</span>
+</td>
+<td class="px-lg py-md">
+<span class="bg-surface-variant text-on-surface-variant border border-outline-variant text-[10px] px-sm py-0.5 rounded font-bold uppercase">Voter</span>
+</td>
+<td class="px-lg py-md text-on-surface-variant font-label-md">2023-11-21 18:40:12</td>
+<td class="px-lg py-md text-right">
+<a class="text-on-surface-variant hover:text-primary transition-colors inline-flex items-center gap-xs" href="#">
+<span class="material-symbols-outlined text-sm">open_in_new</span>
+<span class="font-label-md">Explorer</span>
+</a>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="px-lg py-sm bg-surface-container-low flex justify-center">
+<button class="text-on-surface-variant hover:text-primary font-label-md py-sm w-full transition-colors flex items-center justify-center gap-sm">
+                        Load More Activity
+                        <span class="material-symbols-outlined text-sm">expand_more</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Footer Visual (Atmospheric) -->
+<footer class="mt-2xl pt-lg border-t border-outline-variant text-center opacity-40">
+<div class="flex justify-center items-center gap-xl grayscale">
+<img alt="Algorand Logo" class="h-6" data-alt="A minimalist vector representation of the Algorand blockchain logo, rendered in a sleek monochromatic slate color. The design is geometric and modern, symbolizing stability and decentralization." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAwPLVojqCSVfEHJfSEfmf1xZQm21yl_xb85DDdFe6UNM8ldCDTLr5xBYdllkwq3Vy0srQCZYlxofdj3bf2yuVxjZRfo3HuaE1XsOG_N_hbiH00uEL0OesSGh83ckSKsHIJg2JyrdBDDaQ-FLUWYEkojovELxLSfORXa_4LZMq35urw8DDsvlM9R3LV5tRgr6XKGUyNF5BppJU71YGBMGyMaIp-dUavOGxHc78cxWtDUVYmGA6PYzY4bsNcAiJhHCBg-Ttm1dpkxAII"/>
+<img alt="Security Partner" class="h-6" data-alt="A minimalist high-tech security shield emblem in slate gray, representing institutional-grade encryption and safety. The logo is clean and balanced, fitting into a corporate fintech brand ecosystem." src="https://lh3.googleusercontent.com/aida-public/AB6AXuD4ICImcVPAkQeTJFAGUbzQh3nx5uV31tWnNAaEtiemCpfQf8f0qXvBUxQPtGB7uPuY1bcuZZ7QvVTl1LgD1-rT0xl6kRGNlLtCwxDwf7zcPFliFNRoZsHglljrkLEeBHSGhzzP1N4AKDzPAWHwxteKp7JlG0D3vADqniojL1VuVji4IE8tPCTv6wZb9kPXLJn1xXwDeYPLoIu88DU5dhfBYpihys_w5RDvIAHTHJyDYjdLoGIu7Xdali41TtIVUMqR7Ozoubr0fpeo"/>
+<img alt="Quantum Guard" class="h-6" data-alt="An abstract geometric icon representing quantum-secure technology, featuring interlocking circuits and hexagonal forms in a muted slate gray palette." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCRig7ikQI-hN4qLyrkhpH7WgtK-PqsFZY7vSURxL46qyUaJbJhmvCZ3uUTnBBEKQc91b7_9tILUb-fisiFYuRc9bGt4UO3s1Q-DqxiJ6Y5tq-VVEXYKDeA4b8hW69dnqyE9SFnviNhP8APltjpqZ0Qc9M8gQSHR0GUxDwa5N92ugoWmJJHRJ_N7sw2qTH5IGqHhQjc7U94bvwW-EK2M9WqPyDoWgRYmMdK4tliUWu-M2hjIo_9a2ImvgBWaHscqCw-hVz2oQ9AbVsJ"/>
+</div>
+<p class="mt-lg font-code-sm text-on-surface-variant">Algo Safe Treasury Management Engine v2.4.1-stable | Multi-Sig Signer Details View</p>
+</footer>
+</main>
+<script>
+        // Micro-interaction for Copy Button
+        document.querySelectorAll('button').forEach(btn => {
+            btn.addEventListener('click', function() {
+                if(this.querySelector('.material-symbols-outlined')?.innerText === 'content_copy') {
+                    const icon = this.querySelector('.material-symbols-outlined');
+                    icon.innerText = 'done';
+                    icon.classList.add('text-primary');
+                    setTimeout(() => {
+                        icon.innerText = 'content_copy';
+                        icon.classList.remove('text-primary');
+                    }, 2000);
+                }
+            });
+        });
+
+        // Simulating loading state for the primary action
+        const mainAction = document.querySelector('button.bg-primary');
+        if(mainAction) {
+            mainAction.addEventListener('click', () => {
+                const originalText = mainAction.innerText;
+                mainAction.innerHTML = '<span class="material-symbols-outlined animate-spin">sync</span> Loading...';
+                setTimeout(() => {
+                    mainAction.innerText = originalText;
+                }, 1500);
+            });
+        }
+    </script>
+</body></html>
