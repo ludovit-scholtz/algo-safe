@@ -25,11 +25,11 @@ Common needs:
 - **Shared custody without operational chaos**: Teams need M-of-N approval, clear roles, and a reliable way to rotate members without moving funds to a new account each time.
 - **Wallet compatibility**: Users should connect with familiar Algorand wallets through `@txnlab/use-wallet`, including Pera, Defly, Exodus, Daffi, LocalNet/KMD, and WalletConnect-capable providers where supported.
 - **Atomic transaction clarity**: Algorand transaction groups are all-or-nothing. Users need to see the exact ordered payload and inner transaction group preview before signing, including payments, ASA transfers, application calls, and key registration transactions.
-- **Application-call-first UX**: dApps often need the safe to authorize a single high-level action that expands into a complete atomic group. The UI should let a user prepare one safe execution request, then review the resulting group before collecting signatures.
+- **Application-call-first UX**: dApps often need the safe to authorize a single high-level action that expands into a complete atomic group. The UI should let a user prepare one safe execution request, then review the resulting group before collecting signed approval app calls.
 - **ASA-aware treasury management**: Teams hold ALGO and many ASAs. The safe must show asset balances, opt-in requirements, decimals, metadata, and receiver readiness.
 - **Validator and governance operations**: Algorand accounts may need key registration (`keyreg`) and governance-related actions. These should be approvable through the same policy flow as payments.
 - **Agentic payments with limits**: AI agents and automation services need constrained budgets. Humans should be able to delegate low-risk spending while keeping high-risk actions behind stricter signer groups.
-- **Failure-resistant signing**: Signers may use different wallets, devices, and networks. The frontend must recover from disconnects, stale rounds, rejected signatures, indexer lag, and partially collected approvals.
+- **Failure-resistant approval**: Signers may use different wallets, devices, and networks. The frontend must recover from disconnects, stale rounds, rejected approval app calls, indexer lag, and partially collected approvals.
 
 ---
 
@@ -92,9 +92,9 @@ Algorand is designed with post-quantum security in mind. The network already use
 Algo Safe makes the **quantum-secure account a first-class account type** that users can add to any signer group:
 
 - A quantum-secure signer is authorized by a post-quantum (Falcon) key, not only by a classical Ed25519 key.
-- Approval of that signer's portion of a proposal is verified on-chain via post-quantum signature verification (for example through `falcon_verify` in the safe's logic).
+- Approval of that signer's portion of a proposal is verified by the signed approval app call, with post-quantum verification used only for account types that cannot be authenticated directly by the transaction sender.
 - A quantum-secure account can be a sole signer, or combined with standard, multisig, and agent accounts in the same group for hybrid classical + post-quantum security.
-- The frontend collects and submits the post-quantum signature through the `algo-safe` library, exactly like any other account type, so the UX of adding, approving, and removing a quantum-secure signer matches the standard flow.
+- The frontend submits approvals through the `algo-safe` library, so the UX of adding, approving, and removing a quantum-secure signer matches the standard flow.
 
 This lets teams future-proof high-value safes against quantum attacks while keeping the same approval, policy, and audit experience.
 
@@ -152,7 +152,7 @@ Algorand atomic groups may contain a mix of transaction types. The frontend must
 
 x402 is an HTTP-native payment protocol built around `402 Payment Required`. A service provider protects a resource, the AI agent requests it, the provider returns payment requirements, and the agent retries the request with a signed payment payload. The important correction is that the agent normally sends the signed `PAYMENT-SIGNATURE` back to the resource server, not directly to the facilitator. The resource server then asks the facilitator to verify and settle the payment, and the facilitator returns settlement confirmation to the resource server.
 
-For Algo Safe, the agent does not hand-build the Algorand payment. It calls the `algo-safe` npm library, which builds an app-call-based safe execution request, checks the signer-group policy, obtains the required safe approval/signature, and returns the x402 payment payload that can be sent with the retried HTTP request.
+For Algo Safe, the agent does not hand-build the Algorand payment. It calls the `algo-safe` npm library, which builds an app-call-based safe execution request, checks the signer-group policy, submits the required signed approval app call, and returns the x402 payment payload that can be sent with the retried HTTP request.
 
 ### Standard x402 Flow
 
@@ -194,8 +194,8 @@ sequenceDiagram
     Agent->>Library: buildX402Payment(requirements, signerGroupId)
     Library->>Safe: create or load app-call payment proposal
     Safe-->>Library: policy result + typed app call payload
-    Library->>Agent: request safe signer approval
-    Agent->>Library: signer approval / wallet signature
+    Library->>Agent: request signed approval app call
+    Agent->>Library: signed approveProposal app call
     Library->>Agent: PaymentPayload for PAYMENT-SIGNATURE
     Agent->>Provider: Retry request + PAYMENT-SIGNATURE header
     Provider->>Facilitator: POST /verify payload + requirements
@@ -232,7 +232,7 @@ flowchart LR
 - The agent retries the original request with `PAYMENT-SIGNATURE`; the resource server remains the HTTP counterparty for the paid resource.
 - The facilitator verifies and settles payments for the resource server. This keeps the provider from running its own Algorand infrastructure.
 - On Algorand, the x402 payment payload can represent the safe-approved app call or transaction group needed to transfer value under the selected x402 scheme and network.
-- The `algo-safe` library is responsible for turning the x402 payment requirements into a governed safe proposal/app call, enforcing daily and monthly signer-group usage, collecting the safe signer approval, and exposing the final payload to the agent.
+- The `algo-safe` library is responsible for turning the x402 payment requirements into a governed safe proposal/app call, enforcing daily and monthly signer-group usage, submitting the safe signer approval app call, and exposing the final payload to the agent.
 
 ---
 
@@ -297,7 +297,7 @@ Requirements:
 
 - **Treasury completeness**: teams can move between EUR and on-chain value under the same M-of-N approval, policy, and audit guarantees as payments and ASA transfers.
 - **Agent budgets in euros**: agent signer groups can be funded with EURD and constrained by the same daily/monthly limits, enabling euro-denominated agentic payments.
-- **One audit trail**: every onramp and offramp appears in the activity log alongside the proposals, signatures, and executed transaction ids that authorized it.
+- **One audit trail**: every onramp and offramp appears in the activity log alongside the proposals, approval app calls, and executed transaction ids that authorized it.
 - **Boundary preserved**: third-party apps, scripts, and AI/MCP agents get the same EURD onramp/offramp by calling the `algo-safe` library, never the Quantoz API directly.
 
 ---
@@ -336,7 +336,7 @@ flowchart TB
         APP["Algo Safe Application<br/>(smart account / AVM app)"]
         SAFEADDR["Controlled safe address<br/>ALGO + ASA holdings"]
         ALGOD["algod · indexer · simulate"]
-        VERIFY["On-chain verification<br/>Ed25519 · multisig · falcon_verify"]
+        VERIFY["On-chain approval validation<br/>Txn.sender · multisig · falcon_verify when needed"]
     end
 
     FE --> API
@@ -345,9 +345,9 @@ flowchart TB
     AGENT --> API
 
     API -- "active address + TransactionSigner" --> W
-    API -- "post-quantum signature" --> PQ
-    W -- "signs proposal approval payload" --> BUILD
-    PQ -- "post-quantum signature" --> POLICY
+    API -- "post-quantum approval data when needed" --> PQ
+    W -- "signs approveProposal app call" --> BUILD
+    PQ -- "external signer proof when needed" --> POLICY
 
     CLIENT -- "atomic transaction group" --> ALGOD
     ALGOD --> APP
@@ -406,8 +406,8 @@ The contract is written in **Algorand TypeScript** (PuyaTs) and compiled to **TE
 - **Two fundamental types.** At the AVM level everything is `uint64` or `bytes` (≤ 4096 bytes). Higher-level shapes (structs, addresses, ABI tuples) are ARC-4 encodings over `bytes`.
 - **The safe address is the application account.** The smart account that holds ALGO and ASAs (including EURD) is the **application's account**. All payments, ASA transfers, app calls, and key registrations are executed as **inner transactions** signed by the application, each with `fee: 0` (the caller covers fees via fee pooling).
 - **No re-entrancy.** An application cannot call itself, even indirectly through inner transactions; the AVM enforces this.
-- **Hard limits drive storage choices.** Global state is capped (64 KV pairs, key+value ≤ 128 bytes), so per-group, per-member, per-proposal, and per-approval records live in **box storage** (`Box` / `BoxMap`), whose MBR is funded by the app account. A transaction group is at most 16 transactions; the opcode budget is 700 per app call, pooled across the group and inner app calls.
-- **Signature verification is explicit and costed.** Approvals are verified on-chain with `ed25519verify_bare` (standard / multisig signers, 1900 budget each) or `falcon_verify` (quantum-secure signers, 1700 budget each). Because each verification far exceeds the 700 base budget, approval/execute calls pool budget across multiple app calls in the group.
+- **Hard limits drive storage choices.** Global state is capped (64 KV pairs, key+value <= 128 bytes), so per-group, per-member, per-proposal, and per-approval records live in **box storage** (`Box` / `BoxMap`), whose MBR is funded by the app account. A transaction group is at most 16 transactions; the opcode budget is 700 per app call, pooled across the group and inner app calls.
+- **Approval authentication comes from the signed app call.** A standard approval is an `approveProposal` application call signed by the signer account. The AVM has already verified the transaction signature before the approval program runs, so the contract checks `Txn.sender` against the signer group and records only the approval fact. The `Approval` box never stores a signature. Explicit opcodes such as `falcon_verify` are used only for signer types that cannot be authenticated directly as the transaction sender.
 
 ### Storage Layout
 
@@ -523,9 +523,8 @@ classDiagram
     }
 
     class Approval {
-        «BoxMap key: proposalId+identity»
-        +signer : bytes
-        +signature : bytes
+        «BoxMap key: proposalId+Txn.sender»
+        +signer : Account
         +round : uint64
     }
 
@@ -563,14 +562,14 @@ flowchart TB
     subgraph Proposals["Proposal lifecycle"]
         P1["createTransactionProposal(groupId, txs, expiry)"]
         P1A["createSignerGroupChangeProposal(groupId, change, expiry)"]
-        P2["approveProposal(proposalId, signer, signature)"]
+        P2["approveProposal(proposalId)"]
         P3["executeProposal(proposalId) → inner txns"]
         P4["cancelProposal(proposalId)"]
     end
 
-    subgraph Verify["On-chain verification (private subroutines)"]
-        V1["verifyEd25519() — standard / multisig"]
-        V2["verifyFalcon() — quantum-secure (falcon_verify)"]
+    subgraph Verify["On-chain validation (private subroutines)"]
+        V1["assertSenderIsMember()"]
+        V2["verifyExternalSchemeIfNeeded()"]
         V3["checkPolicy() — threshold + limits + allowlist"]
     end
 
@@ -595,22 +594,22 @@ Every administrative change (`createSignerGroup`, `addSigner`, `removeSigner`, `
 
 ### Proposal State Machine
 
-A proposal carries the **exact typed payload** it authorizes. Signers approve the canonical ARC-4 encoding of that payload plus the proposal metadata; if the payload changes, prior approvals are invalid and signatures must be recollected. For executable transactions, the approved payload is converted into an inner transaction group during `executeProposal`. For signer-group changes, the approved payload mutates the group, member, threshold, policy, or admin-privilege boxes.
+A proposal carries the **exact typed payload** it authorizes. A signer approves by submitting a signed `approveProposal(proposalId)` app call from the signer account. The blockchain validates that transaction signature before contract logic runs; the contract then checks that `Txn.sender` is a member of the requested signer group and records the approval. If the payload changes, the proposal must be recreated and approvals collected again. For executable transactions, the approved payload is converted into an inner transaction group during `executeProposal`. For signer-group changes, the approved payload mutates the group, member, threshold, policy, or admin-privilege boxes.
 
 ```mermaid
 stateDiagram-v2
     [*] --> Draft
     Draft --> SimulationPending : submit for dry-run
     SimulationPending --> SimulationFailed : simulate rejects
-    SimulationPending --> ReadyForSignatures : simulate ok
+    SimulationPending --> ReadyForApprovals : simulate ok
     SimulationFailed --> Draft : rebuild group
-    ReadyForSignatures --> WaitingForApprovals : first valid approval
+    ReadyForApprovals --> WaitingForApprovals : first valid approval
     WaitingForApprovals --> WaitingForApprovals : approval (threshold not met)
     WaitingForApprovals --> ReadyToExecute : threshold met
     ReadyToExecute --> Executed : executeProposal() inner txns succeed
     ReadyToExecute --> FailedOnChain : inner group fails (atomic rollback)
     WaitingForApprovals --> Expired : past expiryRound
-    ReadyForSignatures --> Expired : past expiryRound
+    ReadyForApprovals --> Expired : past expiryRound
     WaitingForApprovals --> Cancelled : cancelProposal()
     Draft --> Cancelled : cancelProposal()
     Executed --> [*]
@@ -717,7 +716,7 @@ EURD is an Algorand Standard Asset, so onramp/offramp reuse the same primitives 
 - Store records as plain TS types in `BoxMap`; `clone()` on every box read/write to respect AVM value semantics.
 - Fund the application account for **box MBR** before creating groups/proposals (2,500 + 400 × (key + value length) µAlgo per box).
 - Set **`fee: 0`** on all inner transactions; the caller covers fees via fee pooling.
-- Reserve enough **app calls in the group** to cover signature-verification opcode costs (`ed25519verify_bare` = 1900, `falcon_verify` = 1700, vs. 700 base budget each call).
+- Reserve enough **app calls in the group** for approval, execution, and any external-scheme verification that cannot rely directly on `Txn.sender` authentication.
 - Emit **ARC-28 events** for created/approved/executed/cancelled so indexers and the activity log can reconstruct full custody history.
 
 ---
@@ -735,7 +734,7 @@ For example, a dApp or operator may prepare one safe execution request that resu
 3. An `appl` transaction calling a target application or the Algo Safe approval method
 4. A `keyreg` transaction registering or updating participation status
 
-Before any approval signature is requested, the frontend must show the exact ordered payload. This matters because signers approve the canonical payload that will be converted into inner transactions. If the payload changes, signatures must be collected again.
+Before any approval app call is signed, the frontend must show the exact ordered payload. This matters because signers approve the canonical payload that will be converted into inner transactions. If the payload changes, approvals must be collected again.
 
 Required builder capabilities:
 
@@ -743,7 +742,7 @@ Required builder capabilities:
 - Support `pay`, `axfer`, `appl`, and `keyreg` from guided forms
 - Import unsigned transactions from JSON/base64 for advanced users
 - Decode and display application arguments, accounts, apps, assets, and boxes where possible
-- Simulate or dry-run proposals before signature collection where supported
+- Simulate or dry-run proposals before approval collection where supported
 - Flag dangerous fields such as close remainder, asset close-to, rekey-to, app update/delete, and unknown receivers
 - Validate network, fee, min-balance, opt-in, and round validity
 - Persist drafts locally until submitted as proposals
@@ -768,7 +767,7 @@ Content and actions:
 - Show safes related to the active wallet
 - Import safe by app ID
 - Create new safe
-- Show pending proposals requiring this wallet's signature
+- Show pending proposals requiring this wallet's approval app call
 - Show clear empty, loading, disconnected, and wrong-network states
 
 ### 2. Wallet Connection Screen
@@ -785,7 +784,7 @@ Requirements:
 - Show active account, wallet provider, network, and balance
 - Handle account switching without losing app state
 - Block signing when wallet network and app network differ
-- Explain rejected signature, disconnected wallet, and unsupported provider states in plain language
+- Explain rejected approval signing, disconnected wallet, and unsupported provider states in plain language
 
 ### 3. Safe Dashboard
 
@@ -902,7 +901,7 @@ Steps:
 5. Validate address/key format and duplicates
 6. Show impact on threshold, quorum, and policy
 7. Submit change as a proposal
-8. Collect required admin signatures
+8. Collect required admin approvals
 9. Execute change
 10. Show updated group state
 
@@ -962,7 +961,7 @@ Required states:
 - Draft
 - Simulation pending
 - Simulation failed
-- Ready for signatures
+- Ready for approvals
 - Waiting for approvals
 - Ready to execute
 - Executed
@@ -988,11 +987,11 @@ Content:
 
 Actions:
 
-- Approve/sign
+- Approve by signing the app call
 - Reject
 - Comment or attach reason
 - Copy proposal link
-- Download unsigned/signed group data
+- Download unsigned/signed transaction data
 - Execute when threshold is met
 
 ### 12. Co-Signing Queue
@@ -1021,7 +1020,7 @@ Purpose: Make custody history reviewable.
 Content:
 
 - Created proposals
-- Signatures collected
+- Approval app calls recorded
 - Executed transaction IDs
 - Failed attempts
 - Signer group changes
@@ -1069,7 +1068,7 @@ The frontend should handle:
 - Stale suggested params and expired rounds
 - Indexer lag after execution
 - Duplicate submissions
-- Partially signed proposals
+- Partially approved proposals
 - Wallets that sign only subsets of a group
 - Mobile deep-link return flows
 - User rejection of one transaction in a group
@@ -1140,7 +1139,7 @@ Algo Safe succeeds when an Algorand team can:
 3. Add signer groups and members through governed proposals
 4. Prepare payment, ASA, app-call, and key-registration actions without hand-writing transaction JSON
 5. Review the exact typed payload and inner transaction group preview before signing
-6. Collect signatures across multiple people and wallets
+6. Collect approval app calls across multiple people and wallets
 7. Execute only after policy and threshold requirements are met
 8. Audit every important custody event after execution
 9. Reuse the same `algo-safe` npm library that powers the frontend to build their own apps, scripts, and agents
