@@ -1,19 +1,25 @@
-// src/layout/Sidebar.tsx
-import { NavLink } from 'react-router-dom'
-import { Icon } from '../components/ui'
+import { NavLink, useParams } from 'react-router-dom'
+import { Icon } from '../components/ui/Icon'
+
 const items = [
-  { to: '/', icon: 'dashboard', label: 'Dashboard', end: true },
-  { to: '/assets', icon: 'account_balance_wallet', label: 'Assets' },
-  { to: '/agents', icon: 'smart_toy', label: 'Agents' },
-  { to: '/proposals', icon: 'gavel', label: 'Proposals' },
-  { to: '/settings', icon: 'settings', label: 'Settings' },
+  { to: '', icon: 'dashboard', label: 'Dashboard', end: true },
+  { to: 'proposals', icon: 'how_to_vote', label: 'Proposals', end: false },
+  { to: 'assets', icon: 'account_balance_wallet', label: 'Assets', end: false },
 ]
-export const Sidebar = () => (
-  <aside className="flex w-60 flex-col border-r border-surface-border bg-white">
-    <div className="flex items-center gap-2 px-6 py-5"><Icon name="shield" className="text-ink-900" /><div><div className="font-bold">AlgoSafe</div><div className="text-xs text-ink-500">Institutional Treasury</div></div></div>
-    <nav className="flex-1 px-3">{items.map(i => (
-      <NavLink key={i.to} to={i.to} end={i.end} className={({ isActive }) => `mb-1 flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium ${isActive ? 'bg-brand-50 text-brand-700' : 'text-ink-700 hover:bg-surface-muted'}`}>
-        <Icon name={i.icon} className="text-[20px]" />{i.label}</NavLink>))}</nav>
-    <div className="p-3"><button className="flex w-full items-center justify-center gap-2 rounded-lg bg-ink-900 px-4 py-2.5 text-sm font-semibold text-white"><Icon name="add" className="text-[20px]" />Create Proposal</button></div>
-  </aside>
-)
+export function Sidebar() {
+  const { safeId } = useParams<{ safeId: string }>()
+  const base = `/safe/${safeId}`
+  return (
+    <aside className="w-60 shrink-0 border-r border-outline-variant bg-surface-container-low p-4">
+      <div className="mb-6 flex items-center gap-2 px-2"><Icon name="security" className="text-primary" /><span className="font-semibold">Algo Safe</span></div>
+      <nav className="space-y-1">
+        {items.map(it => (
+          <NavLink key={it.label} to={it.to ? `${base}/${it.to}` : base} end={it.end}
+            className={({ isActive }) => `flex items-center gap-3 rounded-sm px-3 py-2 text-sm ${isActive ? 'bg-surface-container-high text-primary' : 'text-on-surface-variant hover:bg-surface-container-high'}`}>
+            <Icon name={it.icon} className="text-lg" />{it.label}
+          </NavLink>
+        ))}
+      </nav>
+    </aside>
+  )
+}
