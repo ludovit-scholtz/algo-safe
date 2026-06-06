@@ -269,7 +269,9 @@ export function InitializeSafePage() {
             <div className="space-y-1 text-sm">
               {stage === 'idle' && (
                 <>
-                  <p className="font-semibold text-on-surface">Start will deploy first, then request one grouped ALGO funding plus bootstrap transaction.</p>
+                  <p className="font-semibold text-on-surface">
+                    Start will deploy first, then request one grouped ALGO funding plus bootstrap transaction.
+                  </p>
                   <p className="text-on-surface-variant">
                     The genesis admin group is created during bootstrap after the app account is funded.
                   </p>
@@ -294,7 +296,9 @@ export function InitializeSafePage() {
               {stage === 'success' && (
                 <>
                   <p className="font-semibold text-on-surface">Safe initialization completed.</p>
-                  <p className="text-on-surface-variant">The contract is deployed, funded with ALGO, bootstrapped for governance, and stored in your local safe registry.</p>
+                  <p className="text-on-surface-variant">
+                    The contract is deployed, funded with ALGO, bootstrapped for governance, and stored in your local safe registry.
+                  </p>
                 </>
               )}
               {stage === 'error' && (

@@ -102,9 +102,8 @@ function AuthenticatedSafeSelection() {
       setRecoverSuccess(`Recovered ${safeName} and saved it to this browser.`)
       await queryClient.invalidateQueries({ queryKey: ['safes'] })
     } catch (error) {
-      const message = error instanceof Error && error.message.trim()
-        ? error.message
-        : 'Unable to load that application on the selected network.'
+      const message =
+        error instanceof Error && error.message.trim() ? error.message : 'Unable to load that application on the selected network.'
       setRecoverError(message)
     } finally {
       setIsRecovering(false)
@@ -156,7 +155,8 @@ function AuthenticatedSafeSelection() {
             <div className="flex-1">
               <h3 className="mb-1 text-lg font-bold text-on-surface">Import Existing Account</h3>
               <p className="mb-3 text-sm text-on-surface-variant">
-                Enter an on-chain Algo Safe application ID. The dashboard reads the contract name first and only then stores it in your local registry.
+                Enter an on-chain Algo Safe application ID. The dashboard reads the contract name first and only then stores it in your
+                local registry.
               </p>
               <form className="space-y-3" onSubmit={(event) => void handleRecoverSafe(event)}>
                 <FormField label="Application ID" hint="Use the ID of an already deployed Algo Safe on the currently selected network.">
