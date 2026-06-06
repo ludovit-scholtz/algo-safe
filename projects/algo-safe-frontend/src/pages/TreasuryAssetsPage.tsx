@@ -1,19 +1,22 @@
 // src/pages/TreasuryAssetsPage.tsx
 import { useState } from 'react'
-import { useSafeId } from '../lib/SafeContext'
-import { useAssets, useTreasury } from '../hooks'
-import { AssetRow } from '../components/AssetRow'
-import { Card } from '../components/ui/Card'
-import { StatCard } from '../components/ui/StatCard'
+import { SafeHoldingsTable } from '../components/SafeHoldingsTable'
 import { Button } from '../components/ui/Button'
 import { FormField, inputCls } from '../components/ui/FormField'
+import { StatCard } from '../components/ui/StatCard'
+import { useSafe } from '../hooks'
+import { useOnChainSafeHoldings } from '../hooks/useOnChainSafeHoldings'
+import { useSafeId } from '../lib/SafeContext'
 
 export function TreasuryAssetsPage() {
   const safeId = useSafeId()
-  const { data: assets } = useAssets(safeId)
-  const { data: t } = useTreasury(safeId)
+  const { data: safe } = useSafe(safeId)
+  const { data: holdings, isLoading, error } = useOnChainSafeHoldings(safeId)
   const [open, setOpen] = useState(false)
   const [amount, setAmount] = useState(1000)
+
+  const nativeHolding = holdings?.find((holding) => holding.isNative)
+  const optedInAssets = holdings?.filter((holding) => !holding.isNative) ?? []
 
   function handleBuyEurd() {
     setOpen(false)
@@ -28,12 +31,12 @@ export function TreasuryAssetsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-on-surface">Assets</h1>
-          <p className="mt-1 text-sm text-on-surface-variant">
-            Treasury holdings and lending positions.
-          </p>
+          <p className="mt-1 text-sm text-on-surface-variant">Treasury holdings and lending positions.</p>
         </div>
         <div className="flex items-center gap-3">
-          <Button variant="secondary" onClick={() => setOpen(true)}>Buy EURD</Button>
+          <Button variant="secondary" onClick={() => setOpen(true)}>
+            Buy EURD
+          </Button>
           <Button onClick={() => setOpen(true)}>Add Funds</Button>
         </div>
       </div>
@@ -41,54 +44,32 @@ export function TreasuryAssetsPage() {
       {/* Summary stat cards */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <StatCard
-          label="Total Value"
-          value={`€${t?.totalValueEur.toLocaleString() ?? '—'}`}
-          sub="Combined treasury holdings"
+          label="Native Balance"
+          value={nativeHolding ? `${nativeHolding.balanceDisplay} ALGO` : '—'}
+          sub="Loaded directly from the safe address"
         />
+        <StatCard label="Opted-In Assets" value={optedInAssets.length} sub="Algod account holdings excluding ALGO" />
         <StatCard
-          label="Available ALGO"
-          value={t?.availableAlgo.toLocaleString() ?? '—'}
-          sub="Algorand native token"
-        />
-        <StatCard
-          label="Available EURD"
-          value={`€${t?.availableEurd.toLocaleString() ?? '—'}`}
-          sub="Quantoz Euro stablecoin"
+          label="Safe Address"
+          value={safe?.address ? `${safe.address.slice(0, 6)}...${safe.address.slice(-6)}` : '—'}
+          sub={`App ${safe?.appId ?? '—'}`}
         />
       </div>
 
       {/* Assets table */}
-      <Card>
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-outline-variant font-mono text-xs uppercase text-on-surface-variant">
-              <th className="py-2 text-left">Asset</th>
-              <th className="py-2 text-right">Amount</th>
-              <th className="py-2 text-right">Value (EUR)</th>
-            </tr>
-          </thead>
-          <tbody>
-            {assets?.map((a, i) => <AssetRow key={i} a={a} />)}
-            {!assets?.length && (
-              <tr>
-                <td colSpan={3} className="py-8 text-center text-sm text-on-surface-variant">
-                  Loading assets…
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </Card>
+      <SafeHoldingsTable
+        holdings={holdings}
+        isLoading={isLoading}
+        error={error instanceof Error ? error.message : null}
+        emptyMessage="This smart account has no native balance or opted-in assets yet."
+      />
 
       {/* Add Funds / Buy EURD modal */}
       {open && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
-          onClick={() => setOpen(false)}
-        >
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => setOpen(false)}>
           <div
             className="w-full max-w-md rounded-md border border-outline-variant bg-surface-container-high p-6"
-            onClick={e => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
           >
             <h3 className="mb-1 text-lg font-semibold text-on-surface">Buy EURD</h3>
             <p className="mb-4 text-sm text-on-surface-variant">
@@ -96,13 +77,7 @@ export function TreasuryAssetsPage() {
             </p>
 
             <FormField label="Amount (EUR)">
-              <input
-                type="number"
-                min={0}
-                className={inputCls}
-                value={amount}
-                onChange={e => setAmount(+e.target.value)}
-              />
+              <input type="number" min={0} className={inputCls} value={amount} onChange={(e) => setAmount(+e.target.value)} />
             </FormField>
 
             <div className="mt-3 rounded-md border border-outline-variant bg-surface-container-lowest px-3 py-2 font-mono text-xs text-on-surface-variant">
@@ -110,7 +85,9 @@ export function TreasuryAssetsPage() {
             </div>
 
             <div className="mt-4 flex justify-end gap-3">
-              <Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
+              <Button variant="ghost" onClick={() => setOpen(false)}>
+                Cancel
+              </Button>
               <Button onClick={handleBuyEurd}>Continue to Bank</Button>
             </div>
           </div>
