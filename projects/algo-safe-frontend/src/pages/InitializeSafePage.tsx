@@ -8,7 +8,6 @@ import { Card } from '../components/ui/Card'
 import { FormField, inputCls } from '../components/ui/FormField'
 import { Icon } from '../components/ui/Icon'
 import { Stepper } from '../components/ui/Stepper'
-import { getAlgodConfigFromViteEnvironment } from '../utils/network/getAlgoClientConfigs'
 
 const STEPS = ['Contract Deployment', 'MBR Funding']
 
@@ -59,7 +58,7 @@ function getCanonicalSenderAddress(address: string): algosdk.Address {
 
 export function InitializeSafePage() {
   const { activeNetwork } = useNetwork()
-  const { activeAddress, isReady, transactionSigner } = useWallet()
+  const { activeAddress, algodClient, isReady, transactionSigner } = useWallet()
   const [name, setName] = useState('New Treasury')
   const [depositAlgo, setDepositAlgo] = useState(2)
   const [stage, setStage] = useState<FlowStage>('idle')
@@ -109,9 +108,7 @@ export function InitializeSafePage() {
       setStage('deploying')
 
       const senderAddress = getCanonicalSenderAddress(activeAddress)
-      const algodConfig = getAlgodConfigFromViteEnvironment()
-      const algod = new algosdk.Algodv2(String(algodConfig.token ?? ''), algodConfig.server, algodConfig.port)
-      const algorand = AlgorandClient.fromClients({ algod })
+      const algorand = AlgorandClient.fromClients({ algod: algodClient })
       algorand.setSigner(senderAddress, transactionSigner)
 
       const factory = algorand.client.getTypedAppFactory(AlgoSafeFactory, {
@@ -158,6 +155,7 @@ export function InitializeSafePage() {
         activeAddress,
         activeAddressType: typeof activeAddress,
         activeAddressConstructor: activeAddress?.constructor?.name,
+        activeNetwork,
         deployment,
         safeName,
       })
