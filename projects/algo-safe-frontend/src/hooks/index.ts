@@ -1,9 +1,13 @@
 // src/hooks/index.ts
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useServices } from '../services'
-import type { RegisterAgentInput, PolicyChangeInput } from '../services/types'
+import type { RegisterAgentInput, PolicyChangeInput, CreateSafeInput } from '../services/types'
 
-export const useSafe = () => { const { safe } = useServices(); return useQuery({ queryKey: ['safe'], queryFn: () => safe.getSafe() }) }
+export const useSafes = () => { const { safe } = useServices(); return useQuery({ queryKey: ['safes'], queryFn: () => safe.listSafes() }) }
+export const useSafe = (safeId?: string) => { const { safe } = useServices(); return useQuery({ queryKey: ['safe', safeId], queryFn: () => safe.getSafe(safeId!), enabled: !!safeId }) }
+export const useAssets = (safeId?: string) => { const { safe } = useServices(); return useQuery({ queryKey: ['assets', safeId], queryFn: () => safe.listAssets(safeId!), enabled: !!safeId }) }
+export const useTreasury = (safeId?: string) => { const { safe } = useServices(); return useQuery({ queryKey: ['treasury', safeId], queryFn: () => safe.getTreasury(safeId!), enabled: !!safeId }) }
+
 export const useAgents = () => { const { safe } = useServices(); return useQuery({ queryKey: ['agents'], queryFn: () => safe.listAgents() }) }
 export const usePolicy = (agentId?: string) => { const { safe } = useServices(); return useQuery({ queryKey: ['policy', agentId], queryFn: () => safe.getPolicy(agentId!), enabled: !!agentId }) }
 export const useProposals = () => { const { safe } = useServices(); return useQuery({ queryKey: ['proposals'], queryFn: () => safe.listProposals() }) }
@@ -12,6 +16,10 @@ export const useProposal = (id?: string) => { const { safe } = useServices(); re
 export const useEurdBalance = () => { const { quantoz } = useServices(); return useQuery({ queryKey: ['eurd'], queryFn: () => quantoz.getEurdBalance() }) }
 export const useQuantozTransactions = () => { const { quantoz } = useServices(); return useQuery({ queryKey: ['qtx'], queryFn: () => quantoz.getTransactions() }) }
 
+export function useCreateSafe() {
+  const { safe } = useServices(); const qc = useQueryClient()
+  return useMutation({ mutationFn: (input: CreateSafeInput) => safe.createSafe(input), onSuccess: () => qc.invalidateQueries({ queryKey: ['safes'] }) })
+}
 export function useRegisterAgent() {
   const { safe } = useServices(); const qc = useQueryClient()
   return useMutation({
