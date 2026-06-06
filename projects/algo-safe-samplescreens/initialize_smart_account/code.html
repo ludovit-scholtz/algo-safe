@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Initialize Smart Account | Algo Safe</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "background": "#0b1326",
+                    "on-tertiary": "#303030",
+                    "error-container": "#93000a",
+                    "on-background": "#dae2fd",
+                    "on-secondary-container": "#d5daff",
+                    "on-primary": "#003732",
+                    "surface-dim": "#0b1326",
+                    "surface-container": "#171f33",
+                    "on-primary-fixed-variant": "#005048",
+                    "on-secondary-fixed": "#001354",
+                    "outline": "#849490",
+                    "surface-variant": "#2d3449",
+                    "tertiary-fixed": "#e2e2e2",
+                    "surface": "#0b1326",
+                    "outline-variant": "#3b4a47",
+                    "primary-fixed-dim": "#00decb",
+                    "tertiary": "#e8e8e8",
+                    "surface-bright": "#31394d",
+                    "on-tertiary-fixed-variant": "#474747",
+                    "on-secondary-fixed-variant": "#0036bb",
+                    "inverse-on-surface": "#283044",
+                    "secondary-fixed": "#dde1ff",
+                    "surface-container-lowest": "#060e20",
+                    "surface-container-highest": "#2d3449",
+                    "on-error": "#690005",
+                    "on-error-container": "#ffdad6",
+                    "tertiary-fixed-dim": "#c6c6c6",
+                    "inverse-primary": "#006a61",
+                    "secondary-fixed-dim": "#b8c4ff",
+                    "surface-container-high": "#222a3d",
+                    "error": "#ffb4ab",
+                    "primary-container": "#00e5d1",
+                    "on-primary-container": "#006258",
+                    "secondary": "#b8c4ff",
+                    "on-surface": "#dae2fd",
+                    "on-tertiary-container": "#565656",
+                    "surface-container-low": "#131b2e",
+                    "primary-fixed": "#41fce7",
+                    "on-secondary": "#002486",
+                    "tertiary-container": "#cccccc",
+                    "secondary-container": "#004bf9",
+                    "on-surface-variant": "#b9cac6",
+                    "surface-tint": "#00decb",
+                    "on-tertiary-fixed": "#1b1b1b",
+                    "inverse-surface": "#dae2fd",
+                    "on-primary-fixed": "#00201c",
+                    "primary": "#71ffec"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "spacing": {
+                    "unit": "4px",
+                    "container-max": "1280px",
+                    "2xl": "48px",
+                    "xl": "32px",
+                    "sm": "8px",
+                    "gutter": "20px",
+                    "lg": "24px",
+                    "xs": "4px",
+                    "md": "16px"
+            },
+            "fontFamily": {
+                    "code-sm": ["JetBrains Mono"],
+                    "display-lg": ["Inter"],
+                    "headline-sm": ["Inter"],
+                    "display-md": ["Inter"],
+                    "body-md": ["Inter"],
+                    "label-md": ["JetBrains Mono"],
+                    "body-lg": ["Inter"]
+            },
+            "fontSize": {
+                    "code-sm": ["12px", {"lineHeight": "16px", "fontWeight": "400"}],
+                    "display-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "600"}],
+                    "headline-sm": ["18px", {"lineHeight": "28px", "fontWeight": "500"}],
+                    "display-md": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                    "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                    "label-md": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "500"}],
+                    "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .glass-panel {
+            background: linear-gradient(135deg, rgba(23, 31, 51, 0.7) 0%, rgba(15, 23, 42, 0.8) 100%);
+            backdrop-filter: blur(12px);
+            border: 1px solid #334155;
+        }
+        .pulse-teal {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: .5; }
+        }
+        .atomic-link {
+            position: relative;
+        }
+        .atomic-link::after {
+            content: '';
+            position: absolute;
+            left: 50%;
+            top: 100%;
+            height: 24px;
+            width: 2px;
+            background: repeating-linear-gradient(to bottom, #71ffec 0px, #71ffec 4px, transparent 4px, transparent 8px);
+            transform: translateX(-50%);
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background font-body-md min-h-screen selection:bg-primary/30">
+<!-- Top Navigation -->
+<nav class="flex justify-between items-center w-full px-lg py-sm bg-background border-b border-outline-variant fixed top-0 z-50">
+<div class="flex items-center gap-md">
+<span class="font-display-md text-display-md font-black text-primary">Algo Safe</span>
+<div class="hidden md:flex gap-md ml-lg">
+<span class="text-primary border-b-2 border-primary pb-1 font-label-md">Mainnet</span>
+<span class="text-on-surface-variant font-label-md">v2.4.1</span>
+</div>
+</div>
+<div class="flex items-center gap-md">
+<div class="hidden md:flex items-center bg-surface-container px-md py-xs border border-outline-variant rounded">
+<span class="material-symbols-outlined text-[18px] text-on-surface-variant mr-sm">search</span>
+<input class="bg-transparent border-none focus:ring-0 text-body-md w-48 text-on-surface" placeholder="Search proposals..." type="text"/>
+</div>
+<button class="material-symbols-outlined text-on-surface-variant hover:text-primary transition-colors">notifications</button>
+<button class="material-symbols-outlined text-on-surface-variant hover:text-primary transition-colors">account_balance</button>
+<button class="bg-primary text-on-primary font-label-md px-md py-xs rounded font-bold active:scale-95 duration-150">Connect Wallet</button>
+</div>
+</nav>
+<!-- Main Content Container -->
+<main class="pt-24 pb-12 flex flex-col items-center justify-center min-h-screen px-md">
+<!-- Breadcrumb / Context -->
+<div class="w-full max-w-2xl mb-lg">
+<div class="flex items-center gap-xs text-on-surface-variant font-label-md uppercase tracking-widest">
+<span class="material-symbols-outlined text-[14px]">shield</span>
+<span>Security Setup</span>
+<span class="material-symbols-outlined text-[14px]">chevron_right</span>
+<span class="text-primary">Initialization</span>
+</div>
+</div>
+<!-- Central Initialization Card -->
+<div class="w-full max-w-2xl glass-panel p-xl rounded-xl shadow-2xl relative overflow-hidden">
+<!-- Decorative background glow -->
+<div class="absolute -top-24 -right-24 w-64 h-64 bg-primary/10 blur-[100px] rounded-full"></div>
+<header class="mb-xl text-center">
+<h1 class="font-display-lg text-display-lg text-on-background mb-sm">Initialize Smart Account</h1>
+<p class="text-on-surface-variant font-body-lg max-w-lg mx-auto">
+                    Finalize your institutional treasury by deploying the smart contract on Algorand and funding it with its first operational balance.
+                </p>
+</header>
+<!-- Atomic Group Visualization -->
+<div class="mb-xl flex flex-col items-center gap-lg">
+<div class="grid grid-cols-1 md:grid-cols-2 gap-gutter w-full relative">
+<!-- Step 1: Deployment -->
+<div class="bg-surface-container-high border border-outline-variant p-md rounded-lg flex flex-col items-center text-center group hover:border-primary/50 transition-colors">
+<div class="w-12 h-12 bg-surface-bright rounded-full flex items-center justify-center mb-sm">
+<span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">deployed_code</span>
+</div>
+<span class="font-label-md text-primary mb-xs">Step 01</span>
+<h3 class="font-headline-sm text-headline-sm text-on-surface mb-xs">Contract Deployment</h3>
+<p class="font-body-md text-on-surface-variant">Instantiate the multi-sig logic on the Algorand blockchain.</p>
+</div>
+<!-- Step 2: Deposit -->
+<div class="bg-surface-container-high border border-outline-variant p-md rounded-lg flex flex-col items-center text-center group hover:border-primary/50 transition-colors">
+<div class="w-12 h-12 bg-surface-bright rounded-full flex items-center justify-center mb-sm">
+<span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">account_balance_wallet</span>
+</div>
+<span class="font-label-md text-primary mb-xs">Step 02</span>
+<h3 class="font-headline-sm text-headline-sm text-on-surface mb-xs">Initial Funding</h3>
+<p class="font-body-md text-on-surface-variant">Transfer 100 EURD to the new safe address to activate features.</p>
+</div>
+<!-- Link Connector -->
+<div class="hidden md:flex absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-primary/20 p-sm rounded-full border border-primary/40 backdrop-blur-sm z-10">
+<span class="material-symbols-outlined text-primary text-[20px]">link</span>
+</div>
+</div>
+<div class="flex items-center gap-sm bg-primary/5 border border-primary/20 px-md py-sm rounded-full">
+<span class="material-symbols-outlined text-primary text-[16px] pulse-teal">verified</span>
+<span class="font-label-md text-primary">Atomic Transaction Group: Actions are executed together or not at all.</span>
+</div>
+</div>
+<!-- Address & Balance Info -->
+<div class="space-y-md mb-xl">
+<div class="flex flex-col md:flex-row gap-md">
+<div class="flex-1 bg-surface-container-low border border-outline-variant p-md rounded-lg">
+<div class="flex justify-between items-center mb-xs">
+<span class="font-label-md text-on-surface-variant">Funding Wallet</span>
+<span class="text-primary font-code-sm">Active</span>
+</div>
+<div class="font-code-sm text-on-surface truncate mb-sm">ADDR...4X9R</div>
+<div class="flex justify-between items-baseline">
+<span class="font-body-md text-on-surface-variant">EURD Balance</span>
+<span class="font-headline-sm text-headline-sm text-on-background">1,450.00 EURD</span>
+</div>
+</div>
+<div class="flex-1 bg-surface-container-low border border-outline-variant p-md rounded-lg">
+<div class="flex justify-between items-center mb-xs">
+<span class="font-label-md text-on-surface-variant">Target Safe Address</span>
+<span class="material-symbols-outlined text-on-surface-variant text-[16px]">info</span>
+</div>
+<div class="font-code-sm text-on-surface truncate mb-sm">SAFE...8KL2</div>
+<div class="flex justify-between items-baseline">
+<span class="font-body-md text-on-surface-variant">Initial Deposit</span>
+<span class="font-headline-sm text-headline-sm text-primary">100.00 EURD</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Action Button -->
+<div class="flex flex-col items-center gap-md">
+<button class="w-full bg-primary hover:bg-primary-fixed text-on-primary font-display-md text-display-md py-md rounded-lg font-black transition-all active:scale-[0.98] shadow-lg shadow-primary/20">
+                    Initialize Smart Account
+                </button>
+<div class="flex items-center gap-xs font-label-md text-on-surface-variant">
+<span class="material-symbols-outlined text-[14px]">history_edu</span>
+<span>Estimated Gas: <span class="text-on-surface">0.004 ALGO</span></span>
+</div>
+</div>
+</div>
+<!-- Footer Help -->
+<div class="mt-xl flex gap-lg">
+<a class="flex items-center gap-xs font-label-md text-on-surface-variant hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined text-[18px]">description</span>
+                Documentation
+            </a>
+<a class="flex items-center gap-xs font-label-md text-on-surface-variant hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined text-[18px]">support_agent</span>
+                Institutional Support
+            </a>
+</div>
+</main>
+<!-- Background Decorative Elements -->
+<div class="fixed top-0 left-0 w-full h-full -z-10 pointer-events-none opacity-30">
+<div class="absolute top-[10%] left-[5%] w-96 h-96 bg-primary/5 blur-[120px] rounded-full"></div>
+<div class="absolute bottom-[20%] right-[10%] w-[500px] h-[500px] bg-secondary/5 blur-[150px] rounded-full"></div>
+</div>
+<script>
+        // Simple micro-interaction for the initialize button
+        const initBtn = document.querySelector('button.bg-primary');
+        initBtn.addEventListener('click', function() {
+            this.innerHTML = `
+                <div class="flex items-center justify-center gap-md">
+                    <svg class="animate-spin h-6 w-6 text-on-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Processing...
+                </div>
+            `;
+            this.disabled = true;
+            this.classList.add('opacity-80', 'cursor-not-allowed');
+            
+            setTimeout(() => {
+                window.location.reload(); // Simulate success redirect
+            }, 3000);
+        });
+    </script>
+</body></html>

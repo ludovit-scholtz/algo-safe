@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Algo Safe - Agent Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "background": "#0b1326",
+                    "on-tertiary": "#303030",
+                    "error-container": "#93000a",
+                    "on-background": "#dae2fd",
+                    "on-secondary-container": "#d5daff",
+                    "on-primary": "#003732",
+                    "surface-dim": "#0b1326",
+                    "surface-container": "#171f33",
+                    "on-primary-fixed-variant": "#005048",
+                    "on-secondary-fixed": "#001354",
+                    "outline": "#849490",
+                    "surface-variant": "#2d3449",
+                    "tertiary-fixed": "#e2e2e2",
+                    "surface": "#0b1326",
+                    "outline-variant": "#3b4a47",
+                    "primary-fixed-dim": "#00decb",
+                    "tertiary": "#e8e8e8",
+                    "surface-bright": "#31394d",
+                    "on-tertiary-fixed-variant": "#474747",
+                    "on-secondary-fixed-variant": "#0036bb",
+                    "inverse-on-surface": "#283044",
+                    "secondary-fixed": "#dde1ff",
+                    "surface-container-lowest": "#060e20",
+                    "surface-container-highest": "#2d3449",
+                    "on-error": "#690005",
+                    "on-error-container": "#ffdad6",
+                    "tertiary-fixed-dim": "#c6c6c6",
+                    "inverse-primary": "#006a61",
+                    "secondary-fixed-dim": "#b8c4ff",
+                    "surface-container-high": "#222a3d",
+                    "error": "#ffb4ab",
+                    "primary-container": "#00e5d1",
+                    "on-primary-container": "#006258",
+                    "secondary": "#b8c4ff",
+                    "on-surface": "#dae2fd",
+                    "on-tertiary-container": "#565656",
+                    "surface-container-low": "#131b2e",
+                    "primary-fixed": "#41fce7",
+                    "on-secondary": "#002486",
+                    "tertiary-container": "#cccccc",
+                    "secondary-container": "#004bf9",
+                    "on-surface-variant": "#b9cac6",
+                    "surface-tint": "#00decb",
+                    "on-tertiary-fixed": "#1b1b1b",
+                    "inverse-surface": "#dae2fd",
+                    "on-primary-fixed": "#00201c",
+                    "primary": "#71ffec"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "spacing": {
+                    "unit": "4px",
+                    "2xl": "48px",
+                    "xl": "32px",
+                    "sm": "8px",
+                    "gutter": "20px",
+                    "lg": "24px",
+                    "xs": "4px",
+                    "md": "16px"
+            },
+            "fontFamily": {
+                    "code-sm": ["JetBrains Mono"],
+                    "display-lg": ["Inter"],
+                    "headline-sm": ["Inter"],
+                    "display-md": ["Inter"],
+                    "body-md": ["Inter"],
+                    "label-md": ["JetBrains Mono"],
+                    "body-lg": ["Inter"]
+            },
+            "fontSize": {
+                    "code-sm": ["12px", {"lineHeight": "16px", "fontWeight": "400"}],
+                    "display-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "600"}],
+                    "headline-sm": ["18px", {"lineHeight": "28px", "fontWeight": "500"}],
+                    "display-md": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                    "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                    "label-md": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "500"}],
+                    "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body {
+            background-color: #020617; /* Canvas background from style guidance */
+            color: #dae2fd;
+        }
+        .tonal-layer-1 { background-color: #0F172A; border: 1px solid #334155; }
+        .tonal-layer-2 { background-color: #1E293B; border: 1px solid #334155; }
+        .pulse-teal {
+            box-shadow: 0 0 0 0 rgba(113, 255, 236, 0.4);
+            animation: pulse-teal 2s infinite;
+        }
+        @keyframes pulse-teal {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(113, 255, 236, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(113, 255, 236, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(113, 255, 236, 0); }
+        }
+        .pulse-red {
+            box-shadow: 0 0 0 0 rgba(255, 180, 171, 0.4);
+            animation: pulse-red 2s infinite;
+        }
+        @keyframes pulse-red {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(255, 180, 171, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(255, 180, 171, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(255, 180, 171, 0); }
+        }
+    </style>
+</head>
+<body class="font-body-md text-body-md overflow-x-hidden">
+<!-- SideNavBar -->
+<aside class="bg-surface-container border-r border-outline-variant w-64 h-screen flex flex-col fixed left-0 top-0 py-lg px-md z-50">
+<div class="flex items-center gap-sm mb-xl">
+<div class="w-10 h-10 bg-primary-container flex items-center justify-center rounded-lg">
+<span class="material-symbols-outlined text-on-primary-container" style="font-variation-settings: 'FILL' 1;">security</span>
+</div>
+<div>
+<h1 class="font-display-md text-display-md font-bold text-primary">Algo Safe</h1>
+<p class="font-label-md text-label-md text-on-surface-variant opacity-70">Institutional Treasury</p>
+</div>
+</div>
+<nav class="flex-1 space-y-xs">
+<!-- Dashboard (Inactive) -->
+<a class="flex items-center gap-md p-sm rounded hover:bg-surface-bright hover:text-primary transition-colors duration-200 text-on-surface-variant font-medium" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-label-md text-label-md">Dashboard</span>
+</a>
+<!-- Assets (Inactive) -->
+<a class="flex items-center gap-md p-sm rounded hover:bg-surface-bright hover:text-primary transition-colors duration-200 text-on-surface-variant font-medium" href="#">
+<span class="material-symbols-outlined">account_balance_wallet</span>
+<span class="font-label-md text-label-md">Assets</span>
+</a>
+<!-- Proposals (Inactive) -->
+<a class="flex items-center gap-md p-sm rounded hover:bg-surface-bright hover:text-primary transition-colors duration-200 text-on-surface-variant font-medium" href="#">
+<span class="material-symbols-outlined">description</span>
+<span class="font-label-md text-label-md">Proposals</span>
+</a>
+<!-- Signers (Inactive) -->
+<a class="flex items-center gap-md p-sm rounded hover:bg-surface-bright hover:text-primary transition-colors duration-200 text-on-surface-variant font-medium" href="#">
+<span class="material-symbols-outlined">group</span>
+<span class="font-label-md text-label-md">Signers</span>
+</a>
+<!-- Agents (Active) -->
+<a class="flex items-center gap-md p-sm rounded bg-surface-bright text-primary font-bold border-r-2 border-primary active:opacity-80 active:scale-95 transition-all" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">smart_toy</span>
+<span class="font-label-md text-label-md">Agents</span>
+</a>
+<!-- Activity (Inactive) -->
+<a class="flex items-center gap-md p-sm rounded hover:bg-surface-bright hover:text-primary transition-colors duration-200 text-on-surface-variant font-medium" href="#">
+<span class="material-symbols-outlined">history</span>
+<span class="font-label-md text-label-md">Activity</span>
+</a>
+</nav>
+<div class="mt-auto space-y-xs">
+<button class="w-full bg-primary text-on-primary py-sm rounded-lg font-bold mb-md hover:opacity-90 transition-opacity">
+                Create Proposal
+            </button>
+<a class="flex items-center gap-md p-sm rounded hover:bg-surface-bright hover:text-primary transition-colors duration-200 text-on-surface-variant font-medium" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-label-md text-label-md">Settings</span>
+</a>
+<a class="flex items-center gap-md p-sm rounded hover:bg-surface-bright hover:text-primary transition-colors duration-200 text-on-surface-variant font-medium" href="#">
+<span class="material-symbols-outlined">help</span>
+<span class="font-label-md text-label-md">Support</span>
+</a>
+</div>
+</aside>
+<!-- TopAppBar -->
+<header class="flex justify-between items-center w-[calc(100%-16rem)] ml-64 px-lg py-sm bg-background border-b border-outline-variant fixed top-0 z-40">
+<div class="flex items-center gap-lg">
+<div class="relative">
+<span class="material-symbols-outlined absolute left-sm top-1/2 -translate-y-1/2 text-on-surface-variant">search</span>
+<input class="bg-surface-container-lowest border border-outline-variant rounded-full pl-xl pr-md py-xs text-body-md focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all w-64" placeholder="Search treasury..." type="text"/>
+</div>
+<div class="flex gap-md">
+<span class="font-label-md text-label-md text-primary border-b-2 border-primary pb-1">Mainnet</span>
+<span class="font-label-md text-label-md text-on-surface-variant">v2.4.1</span>
+</div>
+</div>
+<div class="flex items-center gap-md">
+<button class="material-symbols-outlined text-on-surface-variant hover:text-primary transition-colors">notifications</button>
+<button class="material-symbols-outlined text-on-surface-variant hover:text-primary transition-colors">account_balance</button>
+<div class="h-6 w-[1px] bg-outline-variant mx-xs"></div>
+<button class="bg-secondary-container text-on-secondary-container px-md py-xs rounded font-label-md text-label-md hover:opacity-90 active:scale-95 transition-all">
+                Connect Wallet
+            </button>
+</div>
+</header>
+<!-- Main Content -->
+<main class="ml-64 pt-24 px-lg pb-xl max-w-container-max mx-auto">
+<!-- Header Section -->
+<div class="flex justify-between items-end mb-xl">
+<div>
+<h2 class="font-display-lg text-display-lg text-primary mb-xs">Agent Dashboard</h2>
+<p class="font-body-lg text-body-lg text-on-surface-variant">Monitor and interact with specialized treasury execution agents.</p>
+</div>
+<div class="flex gap-md">
+<div class="text-right">
+<p class="font-label-md text-label-md text-on-surface-variant">TOTAL TREASURY BALANCE</p>
+<p class="font-headline-sm text-headline-sm text-on-surface font-bold">1,240,500.00 EURD</p>
+</div>
+</div>
+</div>
+<!-- Bento Grid Layout -->
+<div class="grid grid-cols-12 gap-lg">
+<!-- Agent Status Card -->
+<div class="col-span-12 lg:col-span-4 tonal-layer-1 p-lg rounded-xl flex flex-col justify-between">
+<div>
+<div class="flex justify-between items-start mb-lg">
+<div class="p-md bg-surface-container-highest rounded-lg">
+<span class="material-symbols-outlined text-primary text-3xl" style="font-variation-settings: 'FILL' 1;">smart_toy</span>
+</div>
+<div class="flex items-center gap-sm bg-surface-container-high px-md py-xs rounded-full border border-outline-variant" id="status-indicator">
+<div class="w-2 h-2 rounded-full bg-primary pulse-teal"></div>
+<span class="font-label-md text-label-md text-primary uppercase tracking-widest">Active</span>
+</div>
+</div>
+<h3 class="font-headline-sm text-headline-sm mb-xs">Agent Alpha</h3>
+<p class="font-code-sm text-code-sm text-on-surface-variant mb-xl">UUID: 8f22-4c11-99ab-x402</p>
+<div class="space-y-md">
+<div class="flex justify-between text-on-surface-variant">
+<span class="font-label-md text-label-md">DAILY SPENDING LIMIT</span>
+<span class="font-code-sm text-code-sm text-on-surface">1.00 EURD</span>
+</div>
+<div class="w-full bg-surface-container-lowest h-2 rounded-full overflow-hidden">
+<div class="bg-primary h-full transition-all duration-500" id="budget-progress" style="width: 0%"></div>
+</div>
+<div class="flex justify-between text-on-surface-variant">
+<span class="font-label-md text-label-md">USED BUDGET</span>
+<span class="font-code-sm text-code-sm text-on-surface" id="budget-text">0.00 / 1.00 EURD</span>
+</div>
+</div>
+</div>
+<div class="mt-xl pt-lg border-t border-outline-variant">
+<div class="flex items-center gap-sm">
+<span class="material-symbols-outlined text-on-surface-variant text-sm">update</span>
+<span class="font-code-sm text-code-sm text-on-surface-variant">Last Heartbeat: 2s ago (Block #42,102,941)</span>
+</div>
+</div>
+</div>
+<!-- x402 Interactive Demo -->
+<div class="col-span-12 lg:col-span-8 tonal-layer-1 overflow-hidden rounded-xl flex flex-col">
+<div class="p-lg border-b border-outline-variant bg-surface-container-high flex justify-between items-center">
+<div class="flex items-center gap-md">
+<span class="material-symbols-outlined text-secondary">cloud_done</span>
+<h3 class="font-headline-sm text-headline-sm">Weather Service x402 Request</h3>
+</div>
+<span class="font-label-md text-label-md text-secondary-container bg-on-secondary-container/10 px-md py-xs rounded">Demo Environment</span>
+</div>
+<div class="flex-1 p-lg flex flex-col lg:flex-row gap-xl">
+<!-- Demo Controller -->
+<div class="flex-1 space-y-lg">
+<p class="text-on-surface-variant">This service provides high-fidelity atmospheric data for risk-assessment agents. Each request costs <span class="text-on-surface font-bold">0.50 EURD</span>.</p>
+<div class="space-y-md" id="demo-controls">
+<button class="w-full bg-primary text-on-primary py-lg rounded-lg font-bold flex items-center justify-center gap-md hover:opacity-90 active:scale-95 transition-all" id="request-btn" onclick="triggerRequest()">
+<span class="material-symbols-outlined">payments</span>
+                                Request Weather Data (0.50 EURD)
+                            </button>
+<div class="hidden tonal-layer-2 border-error p-md rounded-lg flex items-center gap-md" id="limit-reached-msg">
+<span class="material-symbols-outlined text-error">block</span>
+<div>
+<p class="font-label-md text-label-md text-error">LIMIT REACHED</p>
+<p class="text-body-md">Daily spending cap enforced by Safe Policy.</p>
+</div>
+</div>
+</div>
+<!-- Visual Flow -->
+<div class="space-y-sm">
+<p class="font-label-md text-label-md text-on-surface-variant uppercase">Flow Visualization</p>
+<div class="flex items-center gap-sm">
+<div class="h-1 flex-1 bg-surface-container-highest rounded transition-colors duration-500" id="flow-1"></div>
+<div class="h-1 flex-1 bg-surface-container-highest rounded transition-colors duration-500" id="flow-2"></div>
+<div class="h-1 flex-1 bg-surface-container-highest rounded transition-colors duration-500" id="flow-3"></div>
+</div>
+<p class="font-code-sm text-code-sm text-center text-on-surface-variant italic" id="flow-label">Ready for request...</p>
+</div>
+</div>
+<!-- Visual Context Image -->
+<div class="w-full lg:w-1/3 h-64 lg:h-full relative rounded-lg overflow-hidden border border-outline-variant">
+<img class="absolute inset-0 w-full h-full object-cover opacity-60" data-alt="A futuristic weather monitoring interface showing high-resolution satellite radar data of a swirling storm system. The visual style is highly technical with neon teal data overlays, grid lines, and transparent UI elements on a dark navy background, perfectly matching the institutional Algo Safe aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDvZHpPp486DJRZ1IX0FQPThyNTM5lB5-ftJXvcZwUPSb_oAWjTXYOekHwJ_QhD-bu4w2iih67bDW1TdZqMOJHnMZh5tBAm3JIq2qish7wGRCkzS8ZplmvEmbfgmg6MEoawops8XNB2240GXKyfV2lekGd-LiIw9bIg_P9VEoJVR4qNqtG3wd6y4uI2Kav2N94mxkItroqQNkQQ5eydrrEHQrxZc-jCT5BEQEvYKDl4fAbpG9vIB7QW83D1svQm8SCfyVLQAb34HtLQ"/>
+<div class="absolute inset-0 bg-gradient-to-t from-background to-transparent"></div>
+<div class="absolute bottom-md left-md">
+<p class="font-label-md text-label-md text-primary">LIVE RADAR FEED</p>
+<p class="font-code-sm text-code-sm opacity-70">Station: NYC-WTR-01</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Activity Log -->
+<div class="col-span-12 tonal-layer-1 rounded-xl overflow-hidden">
+<div class="p-lg border-b border-outline-variant flex justify-between items-center">
+<h3 class="font-headline-sm text-headline-sm">Activity Log</h3>
+<button class="text-primary font-label-md text-label-md hover:underline">View All Transactions</button>
+</div>
+<div class="divide-y divide-outline-variant" id="log-container">
+<!-- Log entries will be prepended here -->
+<div class="p-md flex items-center justify-between hover:bg-surface-bright transition-colors group">
+<div class="flex items-center gap-lg">
+<div class="text-on-surface-variant group-hover:text-primary transition-colors">
+<span class="material-symbols-outlined">settings_backup_restore</span>
+</div>
+<div>
+<p class="font-body-md text-body-md font-medium">Agent Registered</p>
+<p class="font-code-sm text-code-sm text-on-surface-variant">Policy initialized with 1.00 EURD daily limit</p>
+</div>
+</div>
+<div class="text-right">
+<p class="font-code-sm text-code-sm text-on-surface">Block #42,100,001</p>
+<a class="font-label-md text-label-md text-primary opacity-70 hover:opacity-100" href="#">Verify on Explorer</a>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<script>
+        let clickCount = 0;
+        const maxClicks = 2;
+        const limit = 1.00;
+        const costPerRequest = 0.50;
+
+        function triggerRequest() {
+            if (clickCount >= maxClicks) return;
+
+            const btn = document.getElementById('request-btn');
+            const flow1 = document.getElementById('flow-1');
+            const flow2 = document.getElementById('flow-2');
+            const flow3 = document.getElementById('flow-3');
+            const flowLabel = document.getElementById('flow-label');
+            const logContainer = document.getElementById('log-container');
+            const budgetProgress = document.getElementById('budget-progress');
+            const budgetText = document.getElementById('budget-text');
+
+            // Start Flow
+            btn.disabled = true;
+            btn.style.opacity = '0.7';
+            flow1.classList.add('bg-primary');
+            flowLabel.innerText = "Agent signing 0.50 EURD payment...";
+
+            setTimeout(() => {
+                flow2.classList.add('bg-primary');
+                flowLabel.innerText = "Verifying Policy Constraints...";
+
+                setTimeout(() => {
+                    flow3.classList.add('bg-primary');
+                    flowLabel.innerText = "Transaction Broadcast Successful!";
+                    
+                    clickCount++;
+                    const used = (clickCount * costPerRequest).toFixed(2);
+                    
+                    // Update UI
+                    budgetProgress.style.width = (used / limit * 100) + '%';
+                    budgetText.innerText = `${used} / ${limit.toFixed(2)} EURD`;
+
+                    // Add Log Entry
+                    const entry = document.createElement('div');
+                    entry.className = "p-md flex items-center justify-between hover:bg-surface-bright transition-colors animate-pulse bg-surface-container-low group";
+                    entry.innerHTML = `
+                        <div class="flex items-center gap-lg">
+                            <div class="text-error rotate-45">
+                                <span class="material-symbols-outlined">arrow_outward</span>
+                            </div>
+                            <div>
+                                <p class="font-body-md text-body-md font-medium">Weather Service Payment</p>
+                                <p class="font-code-sm text-code-sm text-on-surface-variant">x402 Autopay executed by Agent Alpha</p>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <p class="font-headline-sm text-headline-sm text-error font-bold">-0.50 EURD</p>
+                            <a href="#" class="font-label-md text-label-md text-primary opacity-70 hover:opacity-100">Verify on Explorer</a>
+                        </div>
+                    `;
+                    logContainer.prepend(entry);
+                    setTimeout(() => entry.classList.remove('animate-pulse', 'bg-surface-container-low'), 1000);
+
+                    // Finalize Step
+                    if (clickCount >= maxClicks) {
+                        btn.classList.add('hidden');
+                        document.getElementById('limit-reached-msg').classList.remove('hidden');
+                        document.getElementById('status-indicator').innerHTML = `
+                            <div class="w-2 h-2 rounded-full bg-error pulse-red"></div>
+                            <span class="font-label-md text-label-md text-error uppercase tracking-widest">Limit Reached</span>
+                        `;
+                    } else {
+                        btn.disabled = false;
+                        btn.style.opacity = '1';
+                    }
+
+                    // Reset flows for next time (if not finished)
+                    if (clickCount < maxClicks) {
+                        setTimeout(() => {
+                            flow1.classList.remove('bg-primary');
+                            flow2.classList.remove('bg-primary');
+                            flow3.classList.remove('bg-primary');
+                            flowLabel.innerText = "Ready for next request...";
+                        }, 1500);
+                    }
+                }, 800);
+            }, 800);
+        }
+    </script>
+</body></html>

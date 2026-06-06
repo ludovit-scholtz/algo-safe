@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Algo Safe - Register AI Agent</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "background": "#0b1326",
+                    "on-tertiary": "#303030",
+                    "error-container": "#93000a",
+                    "on-background": "#dae2fd",
+                    "on-secondary-container": "#d5daff",
+                    "on-primary": "#003732",
+                    "surface-dim": "#0b1326",
+                    "surface-container": "#171f33",
+                    "on-primary-fixed-variant": "#005048",
+                    "on-secondary-fixed": "#001354",
+                    "outline": "#849490",
+                    "surface-variant": "#2d3449",
+                    "tertiary-fixed": "#e2e2e2",
+                    "surface": "#0b1326",
+                    "outline-variant": "#3b4a47",
+                    "primary-fixed-dim": "#00decb",
+                    "tertiary": "#e8e8e8",
+                    "surface-bright": "#31394d",
+                    "on-tertiary-fixed-variant": "#474747",
+                    "on-secondary-fixed-variant": "#0036bb",
+                    "inverse-on-surface": "#283044",
+                    "secondary-fixed": "#dde1ff",
+                    "surface-container-lowest": "#060e20",
+                    "surface-container-highest": "#2d3449",
+                    "on-error": "#690005",
+                    "on-error-container": "#ffdad6",
+                    "tertiary-fixed-dim": "#c6c6c6",
+                    "inverse-primary": "#006a61",
+                    "secondary-fixed-dim": "#b8c4ff",
+                    "surface-container-high": "#222a3d",
+                    "error": "#ffb4ab",
+                    "primary-container": "#00e5d1",
+                    "on-primary-container": "#006258",
+                    "secondary": "#b8c4ff",
+                    "on-surface": "#dae2fd",
+                    "on-tertiary-container": "#565656",
+                    "surface-container-low": "#131b2e",
+                    "primary-fixed": "#41fce7",
+                    "on-secondary": "#002486",
+                    "tertiary-container": "#cccccc",
+                    "secondary-container": "#004bf9",
+                    "on-surface-variant": "#b9cac6",
+                    "surface-tint": "#00decb",
+                    "on-tertiary-fixed": "#1b1b1b",
+                    "inverse-surface": "#dae2fd",
+                    "on-primary-fixed": "#00201c",
+                    "primary": "#71ffec"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "spacing": {
+                    "unit": "4px",
+                    "container-max": "1280px",
+                    "2xl": "48px",
+                    "xl": "32px",
+                    "sm": "8px",
+                    "gutter": "20px",
+                    "lg": "24px",
+                    "xs": "4px",
+                    "md": "16px"
+            },
+            "fontFamily": {
+                    "code-sm": ["JetBrains Mono"],
+                    "display-lg": ["Inter"],
+                    "headline-sm": ["Inter"],
+                    "display-md": ["Inter"],
+                    "body-md": ["Inter"],
+                    "label-md": ["JetBrains Mono"],
+                    "body-lg": ["Inter"]
+            },
+            "fontSize": {
+                    "code-sm": ["12px", {"lineHeight": "16px", "fontWeight": "400"}],
+                    "display-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "600"}],
+                    "headline-sm": ["18px", {"lineHeight": "28px", "fontWeight": "500"}],
+                    "display-md": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                    "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                    "label-md": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "500"}],
+                    "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body { background-color: #020617; }
+        .logic-block {
+            background-color: #0F172A;
+            border: 1px solid #334155;
+            transition: all 0.2s ease;
+        }
+        .logic-block:hover {
+            border-color: #71ffec;
+            box-shadow: inset 0 0 10px rgba(113, 255, 236, 0.05);
+        }
+        input:focus {
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(113, 255, 236, 0.2);
+        }
+        .pulse-active {
+            box-shadow: 0 0 0 0 rgba(113, 255, 236, 0.7);
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(113, 255, 236, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(113, 255, 236, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(113, 255, 236, 0); }
+        }
+    </style>
+</head>
+<body class="font-body-md text-on-surface selection:bg-primary selection:text-on-primary">
+<!-- Side Navigation Shell -->
+<aside class="flex flex-col fixed left-0 top-0 h-full py-lg px-md bg-surface-container border-r border-outline-variant w-64">
+<div class="mb-xl px-sm">
+<h1 class="font-display-md text-display-md font-bold text-primary">Algo Safe</h1>
+<p class="font-label-md text-label-md text-on-surface-variant uppercase tracking-widest opacity-70">Institutional Treasury</p>
+</div>
+<nav class="flex-1 space-y-xs">
+<a class="flex items-center gap-md px-md py-sm rounded-lg transition-colors duration-200 hover:bg-surface-bright hover:text-primary text-on-surface-variant font-medium" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+<span class="font-label-md text-label-md">Dashboard</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm rounded-lg transition-colors duration-200 hover:bg-surface-bright hover:text-primary text-on-surface-variant font-medium" href="#">
+<span class="material-symbols-outlined" data-icon="account_balance_wallet">account_balance_wallet</span>
+<span class="font-label-md text-label-md">Assets</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm rounded-lg transition-colors duration-200 hover:bg-surface-bright hover:text-primary text-on-surface-variant font-medium" href="#">
+<span class="material-symbols-outlined" data-icon="description">description</span>
+<span class="font-label-md text-label-md">Proposals</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm rounded-lg transition-colors duration-200 hover:bg-surface-bright hover:text-primary text-on-surface-variant font-medium" href="#">
+<span class="material-symbols-outlined" data-icon="group">group</span>
+<span class="font-label-md text-label-md">Signers</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm rounded-lg transition-colors duration-200 text-primary font-bold border-r-2 border-primary bg-surface-bright/50" href="#">
+<span class="material-symbols-outlined" data-icon="smart_toy">smart_toy</span>
+<span class="font-label-md text-label-md">Agents</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm rounded-lg transition-colors duration-200 hover:bg-surface-bright hover:text-primary text-on-surface-variant font-medium" href="#">
+<span class="material-symbols-outlined" data-icon="history">history</span>
+<span class="font-label-md text-label-md">Activity</span>
+</a>
+</nav>
+<div class="mt-auto space-y-xs pt-xl border-t border-outline-variant/30">
+<a class="flex items-center gap-md px-md py-sm rounded-lg hover:bg-surface-bright hover:text-primary transition-colors text-on-surface-variant" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+<span class="font-label-md text-label-md">Settings</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm rounded-lg hover:bg-surface-bright hover:text-primary transition-colors text-on-surface-variant" href="#">
+<span class="material-symbols-outlined" data-icon="help">help</span>
+<span class="font-label-md text-label-md">Support</span>
+</a>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="ml-64 min-h-screen">
+<!-- Top Bar -->
+<header class="flex justify-between items-center w-full px-lg py-sm bg-background border-b border-outline-variant">
+<div class="flex items-center gap-lg">
+<div class="bg-surface-container px-md py-xs rounded flex items-center gap-sm border border-outline-variant">
+<span class="w-2 h-2 rounded-full bg-primary pulse-active"></span>
+<span class="font-code-sm text-code-sm text-primary">Mainnet</span>
+</div>
+<span class="font-code-sm text-code-sm text-on-surface-variant">v2.4.1</span>
+</div>
+<div class="flex items-center gap-lg">
+<div class="flex items-center gap-sm">
+<span class="material-symbols-outlined text-on-surface-variant" data-icon="notifications">notifications</span>
+<span class="material-symbols-outlined text-on-surface-variant" data-icon="account_balance">account_balance</span>
+</div>
+<button class="bg-primary text-on-primary font-label-md text-label-md px-lg py-sm rounded-lg hover:opacity-90 transition-all active:scale-95">
+                    Connect Wallet
+                </button>
+</div>
+</header>
+<!-- Page Content -->
+<div class="max-w-[1280px] mx-auto p-xl">
+<!-- Header Section -->
+<div class="flex justify-between items-end mb-2xl">
+<div>
+<nav class="flex items-center gap-xs text-on-surface-variant font-label-md text-label-md mb-sm">
+<span>Treasury</span>
+<span class="material-symbols-outlined text-[14px]" data-icon="chevron_right">chevron_right</span>
+<span>Agents</span>
+<span class="material-symbols-outlined text-[14px]" data-icon="chevron_right">chevron_right</span>
+<span class="text-primary">Register New Agent</span>
+</nav>
+<h2 class="font-display-lg text-display-lg text-on-surface">Register AI Agent</h2>
+<p class="text-on-surface-variant font-body-lg mt-xs">Provision a secure autonomous operator for the institutional treasury.</p>
+</div>
+<!-- Balance Context Card -->
+<div class="bg-surface-container border border-outline-variant p-lg rounded-xl flex items-center gap-lg">
+<div class="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined" data-icon="account_balance_wallet" style="font-variation-settings: 'FILL' 1;">account_balance_wallet</span>
+</div>
+<div>
+<p class="font-label-md text-label-md text-on-surface-variant uppercase">Treasury Balance</p>
+<div class="flex items-baseline gap-xs">
+<span class="font-display-md text-display-md text-on-surface">1,240,500.00</span>
+<span class="font-label-md text-label-md text-primary">EURD</span>
+</div>
+</div>
+</div>
+</div>
+<div class="grid grid-cols-12 gap-xl">
+<!-- Registration Form -->
+<div class="col-span-7 space-y-lg">
+<div class="bg-surface-container border border-outline-variant rounded-xl overflow-hidden">
+<div class="p-lg border-b border-outline-variant bg-surface-container-high">
+<h3 class="font-headline-sm text-headline-sm text-on-surface">Agent Identity &amp; Parameters</h3>
+</div>
+<div class="p-xl space-y-xl">
+<!-- Field: Agent Name -->
+<div class="space-y-sm">
+<label class="font-label-md text-label-md text-on-surface-variant flex justify-between">
+<span>AGENT NAME</span>
+<span class="text-xs opacity-50 italic">Required</span>
+</label>
+<input class="w-full bg-background border border-outline-variant rounded-lg p-md text-body-lg text-on-surface placeholder:opacity-30 focus:border-primary transition-all" placeholder="e.g. Yield Optimizer Agent v4" type="text"/>
+</div>
+<!-- Field: Agent Address -->
+<div class="space-y-sm">
+<label class="font-label-md text-label-md text-on-surface-variant flex justify-between">
+<span>AGENT ALGORAND ADDRESS</span>
+<span class="text-xs opacity-50 italic">Must be a valid address</span>
+</label>
+<div class="relative">
+<input class="w-full bg-background border border-outline-variant rounded-lg p-md pr-12 text-code-sm font-code-sm text-on-surface placeholder:opacity-30 focus:border-primary transition-all" placeholder="A7RX..." type="text"/>
+<span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-on-surface-variant" data-icon="qr_code_scanner">qr_code_scanner</span>
+</div>
+</div>
+<!-- Field: Daily Limit -->
+<div class="space-y-sm">
+<label class="font-label-md text-label-md text-on-surface-variant">DAILY SPENDING LIMIT</label>
+<div class="relative">
+<input class="w-full bg-background border border-outline-variant rounded-lg p-md text-body-lg text-primary font-bold cursor-not-allowed opacity-80" readonly="" type="text" value="1.00 EURD"/>
+<span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-on-surface-variant" data-icon="lock" style="font-variation-settings: 'FILL' 1;">lock</span>
+</div>
+<p class="text-xs text-on-surface-variant italic">Limits are governed by the Primary Treasury Policy and cannot be manually overridden here.</p>
+</div>
+</div>
+</div>
+<!-- Visual Policy Builder -->
+<div class="space-y-md">
+<h3 class="font-label-md text-label-md text-on-surface-variant">AGENT POLICY PREVIEW</h3>
+<div class="flex flex-col gap-sm">
+<div class="logic-block p-md rounded-lg flex items-center gap-md">
+<div class="bg-primary/20 p-xs rounded text-primary">
+<span class="material-symbols-outlined text-[20px]" data-icon="event_available">event_available</span>
+</div>
+<div class="flex-1">
+<p class="font-label-md text-label-md text-on-surface-variant">CONDITION</p>
+<p class="text-on-surface font-body-md">Daily Cumulative Transaction Volume &lt; 1.00 EURD</p>
+</div>
+<div class="text-on-surface-variant">
+<span class="material-symbols-outlined" data-icon="add">add</span>
+</div>
+</div>
+<div class="logic-block p-md rounded-lg flex items-center gap-md">
+<div class="bg-primary/20 p-xs rounded text-primary">
+<span class="material-symbols-outlined text-[20px]" data-icon="bolt">bolt</span>
+</div>
+<div class="flex-1">
+<p class="font-label-md text-label-md text-on-surface-variant">ACTION</p>
+<p class="text-on-surface font-body-md">Auto-approve and execute Algorand Smart Contract calls</p>
+</div>
+<div class="text-on-surface-variant">
+<span class="material-symbols-outlined" data-icon="add">add</span>
+</div>
+</div>
+<div class="logic-block p-md rounded-lg flex items-center gap-md border-primary/40">
+<div class="bg-primary/20 p-xs rounded text-primary">
+<span class="material-symbols-outlined text-[20px]" data-icon="verified_user">verified_user</span>
+</div>
+<div class="flex-1">
+<p class="font-label-md text-label-md text-on-surface-variant">SIGNERS</p>
+<p class="text-on-surface font-body-md">Governance Override Required for Exceeding Limits</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Right Sidebar / Info Panel -->
+<div class="col-span-5 space-y-lg">
+<div class="bg-surface-container border border-outline-variant rounded-xl p-xl">
+<div class="flex items-center gap-md mb-lg">
+<span class="material-symbols-outlined text-primary" data-icon="gavel">gavel</span>
+<h4 class="font-headline-sm text-headline-sm text-on-surface">Proposal Workflow</h4>
+</div>
+<ul class="space-y-lg relative">
+<!-- Vertical Line Connectors -->
+<div class="absolute left-[15px] top-6 bottom-6 w-[2px] bg-outline-variant"></div>
+<li class="flex gap-md relative z-10">
+<div class="w-8 h-8 rounded-full bg-primary text-on-primary flex items-center justify-center font-bold text-xs">1</div>
+<div class="flex-1">
+<p class="font-body-md text-on-surface font-bold">Initiation</p>
+<p class="text-sm text-on-surface-variant">Submitting this form creates a "Register Agent" proposal on the blockchain.</p>
+</div>
+</li>
+<li class="flex gap-md relative z-10">
+<div class="w-8 h-8 rounded-full bg-surface-variant border border-outline-variant text-on-surface-variant flex items-center justify-center font-bold text-xs">2</div>
+<div class="flex-1">
+<p class="font-body-md text-on-surface-variant font-bold">Review Phase</p>
+<p class="text-sm text-on-surface-variant">Treasury signers (2/3 majority) must review and sign the transaction.</p>
+</div>
+</li>
+<li class="flex gap-md relative z-10">
+<div class="w-8 h-8 rounded-full bg-surface-variant border border-outline-variant text-on-surface-variant flex items-center justify-center font-bold text-xs">3</div>
+<div class="flex-1">
+<p class="font-body-md text-on-surface-variant font-bold">Activation</p>
+<p class="text-sm text-on-surface-variant">The agent gains operational rights once the proposal reaches finality.</p>
+</div>
+</li>
+</ul>
+</div>
+<!-- Security Illustration -->
+<div class="rounded-xl overflow-hidden border border-outline-variant h-64 relative group">
+<img alt="Institutional Blockchain Security Architecture" class="w-full h-full object-cover grayscale opacity-40 group-hover:grayscale-0 group-hover:opacity-60 transition-all duration-700" data-alt="A macro close-up of a highly detailed, futuristic motherboard with glowing teal circuitry traces. The lighting is moody and cinematic, with deep blues and blacks dominating the scene, highlighted by sharp, high-contrast cyan light pulses. The atmosphere is industrial and secure, representing advanced cryptography and institutional-grade financial infrastructure. Minimalist but tech-heavy aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBkBtlC4Uf7ZhYHLzyqHGt7AE9fXe3x8WJ5iYmTMY6o3zwtSRIvoMCHUOtJ1tGOOPsbWZMH0GB568IhQl3AVROGN4uAH6oXgSTSVx52WOMi3XgiAb7rdSIhvEnXrhNGo0N6W_vXAhrsg2EmjCtn7180VBuPUGG-vHhQ8XVnDFb3ZR1WUf8gG2JmfJ6qihvGFr2R7eaX6OiJy29vuYJeQCn-CPxwgsZdZ6tcAmdFwnvs0PnYa8Y_PFHUWZHS_QuXe50-uh-kVz0uYTNv"/>
+<div class="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent"></div>
+<div class="absolute bottom-6 left-6 right-6">
+<span class="bg-primary/20 text-primary font-code-sm text-code-sm px-md py-xs rounded border border-primary/30 inline-block mb-sm">ENCLAVE SECURE</span>
+<p class="font-headline-sm text-headline-sm text-on-surface leading-tight">Secured by Algorand State Proofs</p>
+</div>
+</div>
+<!-- Final Action -->
+<div class="pt-xl">
+<button class="w-full bg-primary text-on-primary py-lg rounded-xl font-headline-sm text-headline-sm flex items-center justify-center gap-md hover:opacity-90 active:scale-[0.98] transition-all shadow-lg shadow-primary/10">
+<span class="material-symbols-outlined" data-icon="send">send</span>
+                            Register Agent Proposal
+                        </button>
+<p class="text-center font-label-md text-label-md text-on-surface-variant mt-md">
+                            Gas fee: <span class="text-on-surface">0.001 ALGO</span>
+</p>
+</div>
+</div>
+</div>
+</div>
+</main>
+<script>
+        // Micro-interaction for input fields
+        const inputs = document.querySelectorAll('input:not([readonly])');
+        inputs.forEach(input => {
+            input.addEventListener('focus', () => {
+                input.parentElement.parentElement.classList.add('border-primary');
+            });
+            input.addEventListener('blur', () => {
+                input.parentElement.parentElement.classList.remove('border-primary');
+            });
+        });
+
+        // Add heartbeat effect to the Mainnet indicator
+        setInterval(() => {
+            console.log("Blockchain synchronization heartbeat...");
+        }, 3745);
+    </script>
+</body></html>
