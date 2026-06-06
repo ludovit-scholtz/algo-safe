@@ -53,7 +53,7 @@ export function InitializeSafePage() {
   const { activeNetwork } = useNetwork()
   const { activeAddress, isReady, transactionSigner } = useWallet()
   const [name, setName] = useState('New Treasury')
-  const [depositAlgo, setDepositAlgo] = useState(5)
+  const [depositAlgo, setDepositAlgo] = useState(2)
   const [stage, setStage] = useState<FlowStage>('idle')
   const [deployment, setDeployment] = useState<DeploymentDetails | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
@@ -222,7 +222,7 @@ export function InitializeSafePage() {
           <input className={inputCls} value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Governance Treasury" />
         </FormField>
 
-        <FormField label="MBR Deposit (ALGO)" hint="Recommended 5 ALGO so the app can cover box minimum balance and bootstrap operations.">
+        <FormField label="MBR Deposit (ALGO)" hint="Recommended 2 ALGO so the app can cover box minimum balance and bootstrap operations.">
           <input
             type="number"
             min={0.1}
