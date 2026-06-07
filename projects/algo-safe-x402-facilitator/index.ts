@@ -9,7 +9,7 @@ import algosdk from "algosdk";
 config();
 
 const host = process.env.HOST?.trim() || "127.0.0.1";
-const port = Number.parseInt(process.env.PORT?.trim() || "4021", 10);
+const port = Number.parseInt(process.env.PORT?.trim() || "4022", 10);
 const algodServer = process.env.ALGOD_SERVER?.trim() || "https://testnet-api.algonode.cloud";
 const algodToken = process.env.ALGOD_TOKEN?.trim() || "";
 const algodPort = process.env.ALGOD_PORT?.trim() || "";

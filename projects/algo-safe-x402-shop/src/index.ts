@@ -27,7 +27,7 @@ import { ALGORAND_TESTNET_CAIP2, ALGORAND_MAINNET_CAIP2 } from '@x402/avm';
 // ── Environment ───────────────────────────────────────────────────────────────
 
 const SELLER_ADDRESS  = process.env.SELLER_ADDRESS;
-const FACILITATOR_URL = process.env.FACILITATOR_URL ?? 'https://facilitator.goplausible.xyz';
+const FACILITATOR_URL = process.env.FACILITATOR_URL ?? 'http://127.0.0.1:4022';
 const PORT            = Number(process.env.PORT ?? 4021);
 const WEBHOOK_URL     = process.env.WEBHOOK_URL ?? '';        // optional — called after each paid request
 const LOG_DIR         = process.env.LOG_DIR ?? './logs';      // set to '' to disable file logging
