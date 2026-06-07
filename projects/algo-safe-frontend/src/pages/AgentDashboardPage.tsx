@@ -1,34 +1,38 @@
 // src/pages/AgentDashboardPage.tsx
 import { useEffect, useRef, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { useWallet } from '@txnlab/use-wallet-react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Fireworks, type FireworksHandlers } from '@fireworks-js/react'
-import { AgentStatusCard } from '../components/AgentStatusCard'
 import { SafeHoldingsTable } from '../components/SafeHoldingsTable'
+import { SignerGroupCard } from '../components/SignerGroupCard'
 import { Card } from '../components/ui/Card'
 import { Icon } from '../components/ui/Icon'
 import { StatCard } from '../components/ui/StatCard'
 import { StatusBadge } from '../components/ui/StatusBadge'
-import { useAgents, useProposals } from '../hooks'
+import { useProposals, useSignerGroups } from '../hooks'
 import { useOnChainSafeHoldings } from '../hooks/useOnChainSafeHoldings'
 import { useSafeId } from '../lib/SafeContext'
-import { store } from '../lib/store'
 
 export function AgentDashboardPage() {
   const safeId = useSafeId()
   const location = useLocation()
   const navigate = useNavigate()
+  const { algodClient } = useWallet()
   const { data: holdings, isLoading: holdingsLoading, error: holdingsError } = useOnChainSafeHoldings(safeId)
-  const { data: agents } = useAgents()
+  const { data: signerGroups, isLoading: signerGroupsLoading } = useSignerGroups()
   const { data: proposals } = useProposals()
-  const [block, setBlock] = useState(42100001)
   const fireworksRef = useRef<FireworksHandlers | null>(null)
   const [showCelebration, setShowCelebration] = useState(false)
   const executionSuccess = (location.state as { executionSuccess?: { txId: string; confirmedRound: number; proposalId: string } } | null)?.executionSuccess
-
-  useEffect(() => {
-    const t = setInterval(() => setBlock((b) => b + 1), 3000)
-    return () => clearInterval(t)
-  }, [])
+  const { data: currentRound } = useQuery({
+    queryKey: ['algod-round'],
+    queryFn: async () => {
+      const status = await algodClient.status().do()
+      return Number(status.lastRound ?? 0)
+    },
+    refetchInterval: 5000,
+  })
 
   useEffect(() => {
     if (!executionSuccess || showCelebration) return
@@ -42,7 +46,6 @@ export function AgentDashboardPage() {
     return () => window.cancelAnimationFrame(animationFrame)
   }, [executionSuccess, showCelebration])
 
-  const activeAgents = agents?.filter((a) => a.status === 'active') ?? []
   const pending = proposals?.filter((p) => p.status === 'pending' || p.status === 'ready').length ?? 0
   const nativeHolding = holdings?.find((holding) => holding.isNative)
   const optedInAssets = holdings?.filter((holding) => !holding.isNative) ?? []
@@ -117,40 +120,20 @@ export function AgentDashboardPage() {
       {/* Agents Grid */}
       <section>
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="font-mono text-xs uppercase tracking-wide text-on-surface-variant">Registered Agents</h2>
-          <span className="font-mono text-xs text-on-surface-variant">Block #{block.toLocaleString()}</span>
+          <h2 className="font-mono text-xs uppercase tracking-wide text-on-surface-variant">Registered Signer Groups</h2>
+          <span className="font-mono text-xs text-on-surface-variant">Round #{currentRound?.toLocaleString() ?? '—'}</span>
         </div>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {agents?.map((a) => (
-            <AgentStatusCard key={a.id} agent={a} dailyUsed={store.policies[a.id]?.dailyUsed ?? 0} />
+          {signerGroups?.map((group) => (
+            <SignerGroupCard key={group.id} group={group} />
           ))}
-          {!agents?.length && <div className="col-span-full animate-pulse rounded-md bg-surface-container h-32" />}
+          {signerGroupsLoading && <div className="col-span-full animate-pulse rounded-md bg-surface-container h-32" />}
+          {!signerGroupsLoading && !signerGroups?.length && (
+            <Card className="col-span-full px-6 py-8 text-center text-sm text-on-surface-variant">
+              No signer groups were found for this safe.
+            </Card>
+          )}
         </div>
-      </section>
-
-      {/* Demo Environment Panel — mirrors the x402 interactive demo from the reference */}
-      <section>
-        <h2 className="mb-3 font-mono text-xs uppercase tracking-wide text-on-surface-variant">Demo Environment</h2>
-        <Card className="overflow-hidden p-0">
-          <div className="flex items-center justify-between border-b border-outline-variant bg-surface-container-high px-6 py-4">
-            <div className="flex items-center gap-3">
-              <Icon name="cloud_done" className="text-secondary" />
-              <span className="text-base font-medium text-on-surface">Weather Service x402 Request</span>
-            </div>
-            <span className="rounded bg-secondary-container/20 px-3 py-1 font-mono text-xs text-secondary">Demo Environment</span>
-          </div>
-          <div className="px-6 py-5">
-            <p className="text-sm text-on-surface-variant">
-              This service provides high-fidelity atmospheric data for risk-assessment agents. Each request costs{' '}
-              <span className="font-semibold text-on-surface">0.50 EURD</span>. Agent spending limits are enforced automatically by the Safe
-              Policy.
-            </p>
-            <div className="mt-4 flex items-center gap-2 rounded-md border border-outline-variant bg-surface-container-lowest px-3 py-2">
-              <Icon name="update" className="text-sm text-on-surface-variant" />
-              <span className="font-mono text-xs text-on-surface-variant">Last Heartbeat: 2s ago · Block #{block.toLocaleString()}</span>
-            </div>
-          </div>
-        </Card>
       </section>
 
       {/* Activity Log */}

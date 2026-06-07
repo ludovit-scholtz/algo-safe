@@ -4,6 +4,7 @@ import { useWallet } from '@txnlab/use-wallet-react'
 import { useServices } from '../services'
 import { useSafeId } from '../lib/SafeContext'
 import type { RegisterAgentInput, PolicyChangeInput, CreateSafeInput } from '../services/types'
+import { fetchLiveSignerGroups } from '../services/algoSafeGroups'
 import { approveLiveProposal, cancelLiveProposal, executeLiveProposal, fetchLiveProposal, fetchLiveProposals, type ExecuteProposalLifecycle } from '../services/algoSafeProposals'
 
 type ExecuteProposalInput = { id: string } & ExecuteProposalLifecycle
@@ -15,6 +16,17 @@ export const useTreasury = (safeId?: string) => { const { safe } = useServices()
 
 export const useAgents = () => { const { safe } = useServices(); return useQuery({ queryKey: ['agents'], queryFn: () => safe.listAgents() }) }
 export const usePolicy = (agentId?: string) => { const { safe } = useServices(); return useQuery({ queryKey: ['policy', agentId], queryFn: () => safe.getPolicy(agentId!), enabled: !!agentId }) }
+export const useSignerGroups = () => {
+  const safeId = useSafeId()
+  const { data: safe } = useSafe(safeId)
+  const { algodClient } = useWallet()
+
+  return useQuery({
+    queryKey: ['signer-groups', safeId, safe?.appId],
+    enabled: !!safe,
+    queryFn: () => fetchLiveSignerGroups(algodClient, safe!),
+  })
+}
 export const useProposals = () => {
   const safeId = useSafeId()
   const { data: safe } = useSafe(safeId)
@@ -93,6 +105,7 @@ export function useExecuteProposal() {
     onSuccess: (_d, variables) => {
       qc.invalidateQueries({ queryKey: ['proposals', safeId] })
       qc.invalidateQueries({ queryKey: ['proposal', safeId, variables.id] })
+      qc.invalidateQueries({ queryKey: ['signer-groups', safeId] })
       qc.invalidateQueries({ queryKey: ['safe-holdings', safeId] })
       qc.invalidateQueries({ queryKey: ['assets', safeId] })
       qc.invalidateQueries({ queryKey: ['treasury', safeId] })
