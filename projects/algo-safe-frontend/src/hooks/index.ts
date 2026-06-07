@@ -4,7 +4,7 @@ import { useWallet } from '@txnlab/use-wallet-react'
 import { useServices } from '../services'
 import { useSafeId } from '../lib/SafeContext'
 import type { RegisterAgentInput, PolicyChangeInput, CreateSafeInput } from '../services/types'
-import { fetchLiveSignerGroups } from '../services/algoSafeGroups'
+import { fetchLiveSignerGroupDetail, fetchLiveSignerGroups } from '../services/algoSafeGroups'
 import { approveLiveProposal, cancelLiveProposal, executeLiveProposal, fetchLiveProposal, fetchLiveProposals, type ExecuteProposalLifecycle } from '../services/algoSafeProposals'
 
 type ExecuteProposalInput = { id: string } & ExecuteProposalLifecycle
@@ -32,6 +32,24 @@ export const useSignerGroups = () => {
     ...signerGroupsQuery,
     isLoading: safeQuery.isLoading || signerGroupsQuery.isLoading,
     isFetching: safeQuery.isFetching || signerGroupsQuery.isFetching,
+  }
+}
+export const useSignerGroup = (groupId?: string) => {
+  const safeId = useSafeId()
+  const safeQuery = useSafe(safeId)
+  const safe = safeQuery.data
+  const { algodClient, activeAddress } = useWallet()
+
+  const signerGroupQuery = useQuery({
+    queryKey: ['signer-group', safeId, groupId, safe?.appId, activeAddress],
+    enabled: !!safe && !!groupId,
+    queryFn: () => fetchLiveSignerGroupDetail(algodClient, safe!, groupId!, activeAddress),
+  })
+
+  return {
+    ...signerGroupQuery,
+    isLoading: safeQuery.isLoading || signerGroupQuery.isLoading,
+    isFetching: safeQuery.isFetching || signerGroupQuery.isFetching,
   }
 }
 export const useProposals = () => {

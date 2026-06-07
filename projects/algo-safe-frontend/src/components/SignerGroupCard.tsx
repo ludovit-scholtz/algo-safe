@@ -1,5 +1,8 @@
+import { useNavigate } from 'react-router-dom'
 import { formatUnits } from '../lib/onChainSafe'
+import { useSafeId } from '../lib/SafeContext'
 import type { LiveSignerGroup } from '../services/algoSafeGroups'
+import { Button } from './ui/Button'
 import { Card } from './ui/Card'
 import { Icon } from './ui/Icon'
 
@@ -22,6 +25,8 @@ function formatLimit(limit: bigint) {
 }
 
 export function SignerGroupCard({ group }: { group: LiveSignerGroup }) {
+  const navigate = useNavigate()
+  const safeId = useSafeId()
   const allowedActions = getActionLabels(group.allowedActions)
   const usagePercent = group.dailyLimit === 0n ? 0 : Math.min(100, Math.round(Number((group.dailyUsage * 100n) / group.dailyLimit)))
 
@@ -76,6 +81,13 @@ export function SignerGroupCard({ group }: { group: LiveSignerGroup }) {
             <div className="font-mono uppercase tracking-wide">Cooldown</div>
             <div className="mt-1 text-on-surface">{group.cooldownRounds > 0 ? `${group.cooldownRounds} rounds` : 'None'}</div>
           </div>
+        </div>
+
+        <div className="pt-1">
+          <Button variant="secondary" className="w-full" onClick={() => navigate(`/safe/${safeId}/signer-groups/${group.id}/edit`)}>
+            <Icon name="tune" className="text-base" />
+            Manage
+          </Button>
         </div>
       </div>
     </Card>

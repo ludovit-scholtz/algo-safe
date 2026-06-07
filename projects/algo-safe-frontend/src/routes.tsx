@@ -9,6 +9,7 @@ import { ProposalDetailPage } from './pages/ProposalDetailPage'
 import { ProposalsPage } from './pages/ProposalsPage'
 import { RegisterAgentPage } from './pages/RegisterAgentPage'
 import { SafeSelectionPage } from './pages/SafeSelectionPage'
+import { SignerGroupManagementPage } from './pages/SignerGroupManagementPage'
 import { TreasuryAssetsPage } from './pages/TreasuryAssetsPage'
 
 export const router = createBrowserRouter([
@@ -25,6 +26,7 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <AgentDashboardPage /> },
       { path: 'agents/register', element: <RegisterAgentPage /> },
+      { path: 'signer-groups/:groupId/edit', element: <SignerGroupManagementPage /> },
       { path: 'proposals', element: <ProposalsPage /> },
       { path: 'proposals/create', element: <CreateProposalPage /> },
       { path: 'proposals/:id', element: <ProposalDetailPage /> },
