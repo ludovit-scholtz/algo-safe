@@ -77,6 +77,11 @@ export function TreasuryAssetsPage() {
               Purchase EURD via Quantoz bank transfer. Funds settle to this safe's treasury address.
             </p>
 
+            <div className="mb-4 rounded-md border border-outline-variant bg-surface-container-lowest px-3 py-3">
+              <div className="mb-1 font-mono text-xs uppercase tracking-wide text-on-surface-variant">Safe Address</div>
+              <AddressDisplay address={safe?.address} textClassName="text-sm text-on-surface" buttonClassName="h-5 w-5" fallback="Safe address unavailable" />
+            </div>
+
             <FormField label="Amount (EUR)">
               <input type="number" min={0} className={inputCls} value={amount} onChange={(e) => setAmount(+e.target.value)} />
             </FormField>

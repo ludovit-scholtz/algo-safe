@@ -12,8 +12,10 @@ import { Card } from '../components/ui/Card'
 import { FormField, inputCls } from '../components/ui/FormField'
 import { Icon } from '../components/ui/Icon'
 import { useSafe, useSignerGroup } from '../hooks'
+import { useOnChainSafeHoldings } from '../hooks/useOnChainSafeHoldings'
 import { formatUnits, getZeroAddress } from '../lib/onChainSafe'
 import { useSafeId } from '../lib/SafeContext'
+import type { AssetSymbol } from '../services/types'
 
 const TX_VALIDITY_WINDOW = 200
 const PROPOSAL_CALL_FEE = algo(0.2)
@@ -40,6 +42,15 @@ const MEMBER_TYPE_OPTIONS = [
 
 const ZERO_ADDRESS = getZeroAddress()
 
+type SpendingAssetOption = {
+  key: string
+  symbol: AssetSymbol
+  assetId?: number
+  decimals: number
+  balanceDisplay: string
+  isNative: boolean
+}
+
 function getCurrentRound(status: Record<string, unknown>) {
   const candidate = status.lastRound ?? status['last-round']
   if (typeof candidate === 'number') return BigInt(candidate)
@@ -48,15 +59,26 @@ function getCurrentRound(status: Record<string, unknown>) {
   return 0n
 }
 
-function parseBaseUnits(value: string) {
+function parseBaseUnits(value: string, decimals: number) {
   const trimmed = value.trim()
   if (!trimmed || !/^\d+(\.\d+)?$/.test(trimmed)) return null
 
   const [wholePart, fractionPart = ''] = trimmed.split('.')
-  if (fractionPart.length > 6) return null
+  if (fractionPart.length > decimals) return null
 
-  const normalized = `${wholePart}${fractionPart.padEnd(6, '0')}`.replace(/^0+(?=\d)/, '')
+  const normalized = `${wholePart}${fractionPart.padEnd(decimals, '0')}`.replace(/^0+(?=\d)/, '')
   return BigInt(normalized || '0')
+}
+
+function inferLimitAssetSymbol(labels: string[]) {
+  for (const label of labels) {
+    const match = /\blimit\s+[^\s]+\s+([A-Za-z0-9.-]+)\b/i.exec(label)
+    if (match?.[1]) {
+      return match[1].toUpperCase()
+    }
+  }
+
+  return null
 }
 
 function accountTypeLabel(accountType: number) {
@@ -75,6 +97,7 @@ export function SignerGroupManagementPage() {
   const { enqueueSnackbar } = useSnackbar()
   const { data: safe } = useSafe(safeId)
   const { data: detail, isLoading, isFetching } = useSignerGroup(groupId)
+  const { data: holdings } = useOnChainSafeHoldings(safeId)
   const { activeAddress, algodClient, transactionSigner, isReady } = useWallet()
 
   const [selectedAdminGroupId, setSelectedAdminGroupId] = useState('')
@@ -84,6 +107,7 @@ export function SignerGroupManagementPage() {
   const [threshold, setThreshold] = useState('1')
   const [dailyLimit, setDailyLimit] = useState('0')
   const [monthlyLimit, setMonthlyLimit] = useState('0')
+  const [spendingLimitAssetKey, setSpendingLimitAssetKey] = useState('native-algo')
   const [cooldownRounds, setCooldownRounds] = useState('0')
   const [allowAlgo, setAllowAlgo] = useState(false)
   const [allowAsa, setAllowAsa] = useState(false)
@@ -95,13 +119,33 @@ export function SignerGroupManagementPage() {
   const [submittingSection, setSubmittingSection] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
+  const spendingLimitAssets: SpendingAssetOption[] = useMemo(() => (
+    (holdings ?? [])
+      .filter((holding) => holding.isNative || holding.assetId !== undefined)
+      .map((holding) => ({
+        key: holding.key,
+        symbol: holding.symbol,
+        assetId: holding.assetId,
+        decimals: holding.decimals,
+        balanceDisplay: holding.balanceDisplay,
+        isNative: holding.isNative,
+      }))
+  ), [holdings])
+
+  const selectedSpendingAsset = spendingLimitAssets.find((asset) => asset.key === spendingLimitAssetKey) ?? spendingLimitAssets[0] ?? {
+    key: 'native-algo',
+    symbol: 'ALGO',
+    assetId: 0,
+    decimals: 6,
+    balanceDisplay: '—',
+    isNative: true,
+  }
+
   useEffect(() => {
     if (!detail) return
     const preferredAdminGroup = detail.adminGroupOptions.find((option) => option.isMember)?.id ?? detail.adminGroupOptions[0]?.id ?? ''
     setSelectedAdminGroupId(preferredAdminGroup)
     setThreshold(detail.group.threshold.toString())
-    setDailyLimit(formatUnits(detail.group.dailyLimit, 6))
-    setMonthlyLimit(formatUnits(detail.group.monthlyLimit, 6))
     setCooldownRounds(detail.group.cooldownRounds.toString())
     setAllowAlgo(flagSet(detail.group.allowedActions, ACT_PAY))
     setAllowAsa(flagSet(detail.group.allowedActions, ACT_AXFER))
@@ -111,6 +155,27 @@ export function SignerGroupManagementPage() {
     setPolicyAdmin(flagSet(detail.group.adminPrivileges, PRIV_POLICY))
     setIsActive(detail.group.active)
   }, [detail])
+
+  useEffect(() => {
+    if (!detail) return
+
+    const inferredSymbol = inferLimitAssetSymbol(detail.members.map((member) => member.label))
+    const inferredAsset = inferredSymbol
+      ? spendingLimitAssets.find((asset) => asset.symbol.toUpperCase() === inferredSymbol)
+      : undefined
+    const nextAsset = inferredAsset ?? spendingLimitAssets[0]
+
+    if (nextAsset) {
+      setSpendingLimitAssetKey(nextAsset.key)
+      setDailyLimit(formatUnits(detail.group.dailyLimit, nextAsset.decimals))
+      setMonthlyLimit(formatUnits(detail.group.monthlyLimit, nextAsset.decimals))
+      return
+    }
+
+    setSpendingLimitAssetKey('native-algo')
+    setDailyLimit(formatUnits(detail.group.dailyLimit, 6))
+    setMonthlyLimit(formatUnits(detail.group.monthlyLimit, 6))
+  }, [detail?.group.id, detail, spendingLimitAssets])
 
   const canSubmit = !!safe && !!isReady && !!activeAddress && !!transactionSigner && !!selectedAdminGroupId
   const currentMembers = detail?.members ?? []
@@ -252,8 +317,8 @@ export function SignerGroupManagementPage() {
 
   async function handlePolicyUpdate(e: React.FormEvent) {
     e.preventDefault()
-    const parsedDailyLimit = parseBaseUnits(dailyLimit)
-    const parsedMonthlyLimit = parseBaseUnits(monthlyLimit)
+    const parsedDailyLimit = parseBaseUnits(dailyLimit, selectedSpendingAsset.decimals)
+    const parsedMonthlyLimit = parseBaseUnits(monthlyLimit, selectedSpendingAsset.decimals)
     if (!/^\d+$/.test(cooldownRounds || '0')) {
       setError('Cooldown rounds must be a non-negative integer.')
       return
@@ -261,7 +326,7 @@ export function SignerGroupManagementPage() {
     const parsedCooldown = BigInt(cooldownRounds || '0')
 
     if (parsedDailyLimit === null || parsedMonthlyLimit === null) {
-      setError('Enter valid ALGO limits for the signer group policy.')
+      setError(`Enter valid ${selectedSpendingAsset.symbol} limits for the signer group policy.`)
       return
     }
 
@@ -483,7 +548,7 @@ export function SignerGroupManagementPage() {
 
         <Card>
           <h2 className="text-lg font-semibold text-on-surface">Execution Policy</h2>
-          <p className="mt-1 text-sm text-on-surface-variant">Update allowed actions, ALGO-based limits, and cooldown rounds for the signer group.</p>
+          <p className="mt-1 text-sm text-on-surface-variant">Update allowed actions, asset-based limits, and cooldown rounds for the signer group.</p>
           <form className="mt-5 space-y-4" onSubmit={handlePolicyUpdate}>
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="flex items-center gap-3 rounded-md border border-outline-variant bg-surface-container-low px-4 py-3 text-sm text-on-surface">
@@ -503,11 +568,20 @@ export function SignerGroupManagementPage() {
                 Allow key registration
               </label>
             </div>
+            <FormField label="Spending Limit Asset" hint="The selected asset controls how the daily and monthly limit fields are interpreted and labeled.">
+              <select className={inputCls} value={selectedSpendingAsset.key} onChange={(event) => setSpendingLimitAssetKey(event.target.value)}>
+                {spendingLimitAssets.map((asset) => (
+                  <option key={asset.key} value={asset.key}>
+                    {asset.symbol}{asset.assetId && asset.assetId !== 0 ? ` · ${asset.assetId}` : ''} · Available {asset.balanceDisplay}
+                  </option>
+                ))}
+              </select>
+            </FormField>
             <div className="grid gap-4 md:grid-cols-3">
-              <FormField label="Daily Limit (ALGO)" hint="Use 0 for no limit.">
+              <FormField label={`Daily Limit (${selectedSpendingAsset.symbol})`} hint={`Use 0 for no limit in ${selectedSpendingAsset.symbol}.`}>
                 <input className={inputCls} value={dailyLimit} onChange={(event) => setDailyLimit(event.target.value)} />
               </FormField>
-              <FormField label="Monthly Limit (ALGO)" hint="Use 0 for no limit.">
+              <FormField label={`Monthly Limit (${selectedSpendingAsset.symbol})`} hint={`Use 0 for no limit in ${selectedSpendingAsset.symbol}.`}>
                 <input className={inputCls} value={monthlyLimit} onChange={(event) => setMonthlyLimit(event.target.value)} />
               </FormField>
               <FormField label="Cooldown Rounds" hint="Use 0 for no cooldown.">

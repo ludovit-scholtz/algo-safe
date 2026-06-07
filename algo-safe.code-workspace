@@ -2,26 +2,29 @@
   "folders": [
     {
       "path": "./",
-      "name": "ROOT"
+      "name": "ROOT",
     },
     {
-      "path": "./projects/algo-safe-contracts"
+      "path": "./projects/algo-safe-contracts",
     },
     {
-      "path": "./projects/algo-safe-frontend"
-    }
+      "path": "./projects/algo-safe-frontend",
+    },
+    {
+      "path": "./projects/algo-safe-x402-shop",
+    },
+    {
+      "path": "./projects/algo-safe-x402-client",
+    },
   ],
   "settings": {
-    "files.exclude": {
-      "projects/": true
-    },
     "jest.disabledWorkspaceFolders": ["ROOT", "projects"],
-    "dotenv.enableAutocloaking": false
+    "dotenv.enableAutocloaking": false,
   },
   "extensions": {
-    "recommendations": ["joshx.workspace-terminals"]
+    "recommendations": ["joshx.workspace-terminals"],
   },
-  
+
   "tasks": {
     "version": "2.0.0",
     "tasks": [
@@ -30,10 +33,10 @@
         "command": "algokit",
         "args": ["project", "run", "build"],
         "options": {
-          "cwd": "${workspaceFolder}"
+          "cwd": "${workspaceFolder}",
         },
         "dependsOn": "Start AlgoKit LocalNet",
-        "problemMatcher": []
+        "problemMatcher": [],
       },
       {
         "label": "Start AlgoKit LocalNet",
@@ -41,11 +44,11 @@
         "args": ["localnet", "start"],
         "type": "shell",
         "options": {
-          "cwd": "${workspaceFolder}"
+          "cwd": "${workspaceFolder}",
         },
-        "problemMatcher": []
-      }
-    ]
+        "problemMatcher": [],
+      },
+    ],
   },
   "launch": {
     "configurations": [],
@@ -56,15 +59,15 @@
         "configurations": [
           {
             "name": "Deploy contracts",
-            "folder": "algo-safe-contracts"
+            "folder": "algo-safe-contracts",
           },
-          { "name": "Run dApp", "folder": "algo-safe-frontend" }
+          { "name": "Run dApp", "folder": "algo-safe-frontend" },
         ],
         "presentation": {
           "hidden": false,
-          "group": "0. Run workspace"
-        }
-      }
-    ]
-  }
-  }
+          "group": "0. Run workspace",
+        },
+      },
+    ],
+  },
+}

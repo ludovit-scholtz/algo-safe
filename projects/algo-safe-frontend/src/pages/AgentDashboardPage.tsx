@@ -4,13 +4,14 @@ import { useQuery } from '@tanstack/react-query'
 import { useWallet } from '@txnlab/use-wallet-react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Fireworks, type FireworksHandlers } from '@fireworks-js/react'
+import { AddressDisplay } from '../components/AddressDisplay'
 import { SafeHoldingsTable } from '../components/SafeHoldingsTable'
 import { SignerGroupCard } from '../components/SignerGroupCard'
 import { Card } from '../components/ui/Card'
 import { Icon } from '../components/ui/Icon'
 import { StatCard } from '../components/ui/StatCard'
 import { StatusBadge } from '../components/ui/StatusBadge'
-import { useProposals, useSignerGroups } from '../hooks'
+import { useProposals, useSafe, useSignerGroups } from '../hooks'
 import { useOnChainSafeHoldings } from '../hooks/useOnChainSafeHoldings'
 import { useSafeId } from '../lib/SafeContext'
 
@@ -19,6 +20,7 @@ export function AgentDashboardPage() {
   const location = useLocation()
   const navigate = useNavigate()
   const { algodClient } = useWallet()
+  const { data: safe } = useSafe(safeId)
   const { data: holdings, isLoading: holdingsLoading, error: holdingsError } = useOnChainSafeHoldings(safeId)
   const { data: signerGroups, isLoading: signerGroupsLoading, isFetching: signerGroupsFetching, error: signerGroupsError } = useSignerGroups()
   const { data: proposals } = useProposals()
@@ -84,6 +86,10 @@ export function AgentDashboardPage() {
         <div>
           <h1 className="text-3xl font-bold text-on-surface">Agent Dashboard</h1>
           <p className="mt-1 text-sm text-on-surface-variant">Monitor and interact with specialized treasury execution agents.</p>
+          <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-on-surface-variant">
+            <span className="font-mono text-xs uppercase tracking-wide">Safe Address</span>
+            <AddressDisplay address={safe?.address} textClassName="text-sm text-on-surface" buttonClassName="h-5 w-5" />
+          </div>
         </div>
         <div className="text-right">
           <p className="font-mono text-xs uppercase tracking-wide text-on-surface-variant">Native Balance</p>
