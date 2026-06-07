@@ -3,6 +3,7 @@ import { useNetwork, useWallet } from '@txnlab/use-wallet-react'
 import { AlgoSafeFactory } from 'algo-safe'
 import algosdk from 'algosdk'
 import { useMemo, useState } from 'react'
+import { AddressDisplay } from '../components/AddressDisplay'
 import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
 import { FormField, inputCls } from '../components/ui/FormField'
@@ -30,12 +31,6 @@ function formatNetworkLabel(network: string) {
     default:
       return 'Algorand MainNet'
   }
-}
-
-function formatAddress(address?: string | null) {
-  if (!address) return 'Wallet not connected'
-  if (address.length <= 12) return address
-  return `${address.slice(0, 6)}...${address.slice(-4)}`
 }
 
 function getCurrentStep(stage: FlowStage) {
@@ -228,7 +223,7 @@ export function InitializeSafePage() {
               <span className="font-mono text-xs text-on-surface-variant">Connected wallet</span>
               <span className="font-mono text-xs text-primary">Ready</span>
             </div>
-            <div className="truncate font-mono text-sm text-on-surface">{formatAddress(activeAddress)}</div>
+            <AddressDisplay address={activeAddress} fallback="Wallet not connected" textClassName="text-sm text-on-surface" buttonClassName="h-5 w-5" />
             <div className="mt-3 flex items-center justify-between text-sm">
               <span className="text-on-surface-variant">Network</span>
               <span className="font-semibold text-on-surface">{networkLabel}</span>
@@ -320,7 +315,7 @@ export function InitializeSafePage() {
             </div>
             <div className="rounded-md border border-outline-variant bg-surface-container-low p-4">
               <div className="mb-1 font-mono text-xs text-on-surface-variant">App address</div>
-              <div className="break-all font-mono text-sm text-on-surface">{deployment.address}</div>
+              <AddressDisplay address={deployment.address} textClassName="text-sm text-on-surface" />
             </div>
           </div>
         )}

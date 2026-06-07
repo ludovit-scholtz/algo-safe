@@ -1,6 +1,7 @@
 import { algo, AlgorandClient } from '@algorandfoundation/algokit-utils'
 import { AlgoSafeClient, type Proposal as ContractProposal } from 'algo-safe'
 import algosdk, { type TransactionSigner } from 'algosdk'
+import { ellipseAddress } from '../utils/ellipseAddress'
 import type { PolicyCheck, Proposal, ProposalStatus, Safe, TxLine } from './types'
 
 const TX_VALIDITY_WINDOW = 200
@@ -60,11 +61,6 @@ function getCurrentRound(status: Record<string, unknown>) {
   if (typeof candidate === 'bigint') return candidate
   if (typeof candidate === 'string' && candidate.trim()) return BigInt(candidate)
   return 0n
-}
-
-function ellipseAddress(address: string) {
-  if (address.length <= 16) return address
-  return `${address.slice(0, 6)}...${address.slice(-6)}`
 }
 
 function formatAlgo(amount: bigint) {

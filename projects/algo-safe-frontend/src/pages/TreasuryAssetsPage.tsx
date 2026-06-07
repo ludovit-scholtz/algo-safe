@@ -1,5 +1,6 @@
 // src/pages/TreasuryAssetsPage.tsx
 import { useState } from 'react'
+import { AddressDisplay } from '../components/AddressDisplay'
 import { SafeHoldingsTable } from '../components/SafeHoldingsTable'
 import { Button } from '../components/ui/Button'
 import { FormField, inputCls } from '../components/ui/FormField'
@@ -51,7 +52,7 @@ export function TreasuryAssetsPage() {
         <StatCard label="Opted-In Assets" value={optedInAssets.length} sub="Algod account holdings excluding ALGO" />
         <StatCard
           label="Safe Address"
-          value={safe?.address ? `${safe.address.slice(0, 6)}...${safe.address.slice(-6)}` : '—'}
+          value={<AddressDisplay address={safe?.address} textClassName="text-xl md:text-2xl text-on-surface" buttonClassName="h-7 w-7" />}
           sub={`App ${safe?.appId ?? '—'}`}
         />
       </div>

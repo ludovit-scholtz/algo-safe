@@ -5,6 +5,7 @@ import { AlgoSafeClient } from 'algo-safe'
 import algosdk from 'algosdk'
 import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { AddressDisplay } from '../components/AddressDisplay'
 import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
 import { FormField, inputCls } from '../components/ui/FormField'
@@ -268,7 +269,9 @@ export function CreateProposalPage() {
                 </FormField>
               ) : (
                 <FormField label="Receiver" hint="Opt-in proposals always target the safe address itself.">
-                  <input className={`${inputCls} text-on-surface-variant`} value={safe?.address ?? ''} disabled readOnly />
+                  <div className={`${inputCls} flex min-h-11 items-center justify-between gap-3 text-on-surface-variant`}>
+                    <AddressDisplay address={safe?.address} textClassName="text-sm text-on-surface-variant" fallback="—" />
+                  </div>
                 </FormField>
               )}
 
@@ -404,21 +407,22 @@ export function CreateProposalPage() {
             <h2 className="mb-3 font-mono text-xs uppercase tracking-wide text-on-surface-variant">Selected Safe</h2>
             <div className="space-y-2 text-sm text-on-surface-variant">
               <p className="font-semibold text-on-surface">{safe?.name ?? 'Loading safe...'}</p>
-              <p className="font-mono break-all">{safe?.address ?? '—'}</p>
+              <AddressDisplay address={safe?.address} textClassName="text-sm text-on-surface-variant" fallback="—" />
               <p>App ID {safe?.appId ?? '—'}</p>
             </div>
           </Card>
           <Card>
             <h2 className="mb-3 font-mono text-xs uppercase tracking-wide text-on-surface-variant">Available Balances</h2>
-            <div className="space-y-2 text-sm text-on-surface-variant">
+            <div className="max-h-52 space-y-2 overflow-y-auto pr-1 text-sm text-on-surface-variant">
               <p>
                 Native ALGO:{' '}
                 <span className="font-mono text-on-surface">{holdings?.find((holding) => holding.isNative)?.balanceDisplay ?? '—'}</span>
               </p>
               {proposalKind === 'opt-in' && (
-                <p>
-                  Opt-in target: <span className="font-mono text-on-surface">{safe?.address ?? '—'}</span>
-                </p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span>Opt-in target:</span>
+                  <AddressDisplay address={safe?.address} textClassName="text-sm text-on-surface" fallback="—" />
+                </div>
               )}
               {selectedAsset && (
                 <p>

@@ -1,11 +1,8 @@
 import { useWallet } from '@txnlab/use-wallet-react'
 import { useState } from 'react'
+import { AddressDisplay } from './AddressDisplay'
 import { Button } from './ui/Button'
 import { Icon } from './ui/Icon'
-
-function shortenAddress(address: string) {
-  return `${address.slice(0, 6)}...${address.slice(-4)}`
-}
 
 export function AuthStatus() {
   const { activeAddress, activeWallet, isReady } = useWallet()
@@ -47,7 +44,11 @@ export function AuthStatus() {
           <Icon name="account_circle" className="text-lg" />
         </span>
         <div className="leading-tight">
-          <div className="text-sm font-medium text-on-surface">{shortenAddress(activeAddress)}</div>
+          <AddressDisplay
+            address={activeAddress}
+            textClassName="text-sm font-medium text-on-surface"
+            buttonClassName="h-5 w-5 border-transparent bg-transparent"
+          />
           <div className="font-mono text-[11px] uppercase tracking-wide text-on-surface-variant">{activeWallet.metadata.name}</div>
         </div>
       </div>
