@@ -48,7 +48,9 @@ export class AlgoSafeExactAvmScheme implements SchemeNetworkClient {
     if (safeConfig.proposalId === undefined) {
       const proposalCall = await this.createAssetTransferProposal(
         safeClient,
+        safeConfig.appId,
         safeConfig.groupId,
+        proposalId,
         paymentRequirements,
         x402Version,
       );
@@ -185,7 +187,9 @@ export class AlgoSafeExactAvmScheme implements SchemeNetworkClient {
 
   private async createAssetTransferProposal(
     safeClient: AlgoSafeClient,
+    appId: bigint,
     groupId: bigint,
+    proposalId: bigint,
     paymentRequirements: PaymentRequirements,
     x402Version: number,
   ) {
@@ -212,6 +216,7 @@ export class AlgoSafeExactAvmScheme implements SchemeNetworkClient {
       },
       staticFee: MIN_APP_CALL_FEE,
       sender: this.signer.address,
+      boxReferences: getProposalBoxReferences(appId, groupId, proposalId, this.signer.address),
     });
   }
 }
@@ -261,6 +266,16 @@ function getExecuteBoxReferences(appId: bigint, proposalId: bigint, groupId: big
     createBoxReference(appId, 'p', proposalId),
     createBoxReference(appId, 'g', groupId),
     createBoxReference(appId, payloadPrefix, proposalId),
+  ];
+}
+
+function getProposalBoxReferences(appId: bigint, groupId: bigint, proposalId: bigint, account: string) {
+  return [
+    createBoxReference(appId, 'g', groupId),
+    createAccountScopedBoxReference(appId, 'm', groupId, account),
+    createBoxReference(appId, 'p', proposalId),
+    createAccountScopedBoxReference(appId, 'a', proposalId, account),
+    createBoxReference(appId, 'txg', proposalId),
   ];
 }
 

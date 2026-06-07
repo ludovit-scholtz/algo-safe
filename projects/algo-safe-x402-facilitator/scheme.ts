@@ -91,10 +91,7 @@ export class ExactAvmScheme implements SchemeNetworkFacilitator {
    * @param requirements - The payment requirements
    * @returns Promise resolving to verification response
    */
-  async verify(
-    payload: PaymentPayload,
-    requirements: PaymentRequirements,
-  ): Promise<VerifyResponse> {
+  async verify(payload: PaymentPayload, requirements: PaymentRequirements): Promise<VerifyResponse> {
     try {
       // Validate x402 version
       if (payload.x402Version !== 2) {
@@ -175,10 +172,7 @@ export class ExactAvmScheme implements SchemeNetworkFacilitator {
       if ("error" in prepared) return prepared.error;
 
       // Simulate the assembled group
-      const simResult = await this.simulateTransactionGroup(
-        prepared.signedTxns,
-        requirements.network,
-      );
+      const simResult = await this.simulateTransactionGroup(prepared.signedTxns, requirements.network);
       if (!simResult.isValid) return simResult;
 
       const paymentCheck = await this.verifyPaymentTransaction(
@@ -214,10 +208,7 @@ export class ExactAvmScheme implements SchemeNetworkFacilitator {
    * @param requirements - The payment requirements
    * @returns Promise resolving to settlement response
    */
-  async settle(
-    payload: PaymentPayload,
-    requirements: PaymentRequirements,
-  ): Promise<SettleResponse> {
+  async settle(payload: PaymentPayload, requirements: PaymentRequirements): Promise<SettleResponse> {
     // First verify the payment
     const verification = await this.verify(payload, requirements);
     if (!verification.isValid) {
@@ -436,16 +427,14 @@ export class ExactAvmScheme implements SchemeNetworkFacilitator {
    * @param network - Target network for simulation
    * @returns Verification result from simulation
    */
-  private async simulateTransactionGroup(
-    signedTxns: Uint8Array[],
-    network: Network,
-  ): Promise<VerifyResponse & { result?: unknown }> {
+  private async simulateTransactionGroup(signedTxns: Uint8Array[], network: Network): Promise<VerifyResponse & { result?: unknown }> {
     try {
       const simResult = (await this.signer.simulateTransactions(signedTxns, network)) as {
         txnGroups?: Array<{ failureMessage?: string }>;
       };
 
       if (simResult.txnGroups?.[0]?.failureMessage) {
+        console.log("Simulation failed with message:", simResult.txnGroups[0].failureMessage);
         return {
           isValid: false,
           invalidReason: Errors.ErrSimulationFailed,
@@ -453,7 +442,7 @@ export class ExactAvmScheme implements SchemeNetworkFacilitator {
         };
       }
 
-  return { isValid: true, result: simResult };
+      return { isValid: true, result: simResult };
     } catch (error) {
       return {
         isValid: false,
@@ -554,11 +543,7 @@ export class ExactAvmScheme implements SchemeNetworkFacilitator {
     return { isValid: true };
   }
 
-  private async verifySignedTransaction(
-    txn: Transaction,
-    stxn: SignedTransaction,
-    encodedTxn: string,
-  ): Promise<VerifyResponse> {
+  private async verifySignedTransaction(txn: Transaction, stxn: SignedTransaction, encodedTxn: string): Promise<VerifyResponse> {
     const txnBytes = decodeBase64Transaction(encodedTxn);
     if (!hasSignature(txnBytes)) {
       return {
@@ -629,10 +614,7 @@ export class ExactAvmScheme implements SchemeNetworkFacilitator {
     return results;
   }
 
-  private matchesInnerAssetTransfer(
-    value: Record<string, unknown>,
-    requirements: PaymentRequirements,
-  ): boolean {
+  private matchesInnerAssetTransfer(value: Record<string, unknown>, requirements: PaymentRequirements): boolean {
     const txnEnvelope = this.getObjectField(value, ["txn"]) ?? value;
     const txn = this.getObjectField(txnEnvelope, ["txn"]) ?? txnEnvelope;
     const type = this.getStringField(txn, ["type"]);
