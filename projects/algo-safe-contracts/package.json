@@ -17,6 +17,7 @@
   ],
   "scripts": {
     "build": "algokit compile ts smart_contracts --output-source-map --out-dir artifacts && algokit generate client smart_contracts/artifacts --output {app_spec_dir}/{contract_name}Client.ts",
+    "build:contracts": "pnpm build",
     "build-package": "tsup src/index.ts --format cjs,esm --clean --sourcemap && tsc -p tsconfig.package.json",
     "deploy": "ts-node-dev --transpile-only --watch .env -r dotenv/config smart_contracts/index.ts",
     "deploy:ci": "ts-node --transpile-only -r dotenv/config smart_contracts/index.ts",
@@ -26,6 +27,7 @@
     "format": "prettier --write .",
     "publish-package": "npm publish",
     "test": "vitest run --coverage",
+    "test:e2e": "vitest run smart_contracts/**/*.e2e.spec.ts",
     "test:watch": "vitest watch",
     "check-types": "tsc --noEmit"
   },

@@ -104,15 +104,15 @@ Policies determine what a signer group can approve.
 
 Policy examples:
 
-- Daily ALGO limit per signer group
-- Monthly ALGO limit per signer group
-- Per-ASA transfer limits
+- Daily limit for one configured spending asset per signer group (`limitAssetId = 0` means ALGO)
+- Monthly limit for one configured spending asset per signer group (`limitAssetId = 0` means ALGO)
+- Per-ASA transfer limits for signer groups that track a specific ASA in policy
 - Allowed receiver lists for agent spending
 - Required admin approval for unknown receivers
 - Required admin approval for `keyreg`, application update/delete, close-out, or large ASA transfers
 - Cooldown period for signer removal or threshold changes
 
-Daily and monthly limits store their current usage directly in the signer group record. The contract must update the group's current daily and monthly usage whenever a proposal executes a movement of value, including ALGO payments and ASA transfers that are counted by policy. Limit usage is not stored in a separate box.
+Daily and monthly limits store their current usage directly in the signer group record, alongside the tracked `limitAssetId`. The contract must update the group's current daily and monthly usage whenever a proposal executes movement of the configured tracked asset: `limitAssetId = 0` counts ALGO payments, while any nonzero `limitAssetId` counts ASA transfers for that specific asset. Limit usage is not stored in a separate box.
 
 ### Transaction Proposals
 
@@ -437,6 +437,7 @@ classDiagram
         +memberCount : uint64
         +adminPrivileges : uint64 (bitmask group/policy/app admin)
         +allowedActions : uint64 (bitmask pay/axfer/appl/keyreg)
+        +limitAssetId : uint64 (0 = ALGO, nonzero = tracked ASA for daily/monthly limits)
         +dailyLimit : uint64
         +dailyUsage : uint64
         +dailyPeriodStart : uint64
@@ -529,7 +530,7 @@ flowchart TB
         A2["addSigner(groupId, accountType, address, label)"]
         A3["removeSigner(groupId, identity)"]
         A4["changeThreshold(groupId, threshold)"]
-        A5["setPolicy(groupId, limits, allowedActions)"]
+        A5["setPolicy(groupId, limitAssetId, limits, allowedActions)"]
     end
 
     subgraph Proposals["Proposal lifecycle"]
@@ -774,7 +775,7 @@ Content:
 - Member count
 - Threshold
 - Policy summary
-- Daily/monthly limit usage
+- Daily/monthly limit usage for the configured tracked asset
 - Last change date
 - Pending changes
 

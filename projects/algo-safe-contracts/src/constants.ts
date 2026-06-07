@@ -18,6 +18,9 @@ export const ADM_CREATE_GROUP = 1n
 export const ADM_ADD_MEMBER = 2n
 export const ADM_REMOVE_MEMBER = 3n
 export const ADM_CHANGE_THRESHOLD = 4n
+export const ADM_SET_POLICY = 5n
+export const ADM_SET_PRIVILEGES = 6n
+export const ADM_SET_ACTIVE = 7n
 
 export const FAR_EXPIRY = 4_000_000_000n
 

@@ -95,6 +95,7 @@ type SignerGroup = {
   memberCount: uint64
   adminPrivileges: uint64
   allowedActions: uint64
+  limitAssetId: uint64 // 0 = ALGO, otherwise the ASA tracked by daily/monthly limits
   dailyLimit: uint64 // microALGO; 0 = no limit
   dailyUsage: uint64
   dailyPeriodStart: uint64
@@ -200,6 +201,7 @@ type AdminChange = {
   threshold: uint64
   adminPrivileges: uint64
   allowedActions: uint64
+  limitAssetId: uint64
   dailyLimit: uint64
   monthlyLimit: uint64
   cooldownRounds: uint64
@@ -291,6 +293,7 @@ export class AlgoSafe extends Contract {
       memberCount: Uint64(1),
       adminPrivileges: PRIV_ALL,
       allowedActions: ACT_ALL,
+      limitAssetId: Uint64(0),
       dailyLimit: Uint64(0),
       dailyUsage: Uint64(0),
       dailyPeriodStart: now,
@@ -579,18 +582,15 @@ export class AlgoSafe extends Contract {
 
     // Single pass over the group: decode each entry once, validate it, tally the
     // ALGO spend, and stage it into the inner-transaction group.
-    let spend: uint64 = Uint64(0)
+    let group = clone(groupIn)
     for (let i: uint64 = Uint64(0); i < count; i = i + Uint64(1)) {
       const tx = clone(payload[i])
       this._validateSafeTxn(tx, groupIn)
       assert(tx.txType !== TX_KEYREG, 'keyreg must be single tx')
-      if (tx.txType === TX_PAYMENT) {
-        spend = spend + tx.amount
-      }
+      group = this._accountSpend(group, tx)
       this._stageSafeTxn(tx, i === Uint64(0))
     }
 
-    const group = this._accountSpend(groupIn, spend)
     this.groups(groupId).value = clone(group)
     itxnCompose.submit()
   }
@@ -869,12 +869,28 @@ export class AlgoSafe extends Contract {
   }
 
   /**
-   * Apply daily and monthly spend limits for an ALGO payment and return the
-   * updated group with usage counters advanced. Resets the relevant period
-   * window first when it has elapsed. A limit of 0 means "no limit".
+   * Apply daily and monthly spend limits for the group's configured tracked
+   * asset and return the updated group with usage counters advanced. A
+   * `limitAssetId` of 0 tracks ALGO payments; any other value tracks ASA
+   * transfers for that specific asset id. Resets the relevant period window
+   * first when it has elapsed. A limit of 0 means "no limit".
    */
-  private _accountSpend(groupIn: SignerGroup, amount: uint64): SignerGroup {
+  private _accountSpend(groupIn: SignerGroup, tx: SafeTxn): SignerGroup {
     const group = clone(groupIn)
+    let amount = Uint64(0)
+
+    if (group.limitAssetId === Uint64(0)) {
+      if (tx.txType === TX_PAYMENT) {
+        amount = tx.amount
+      }
+    } else if (tx.txType === TX_ASSET && tx.xferAsset === group.limitAssetId) {
+      amount = tx.assetAmount
+    }
+
+    if (amount === Uint64(0)) {
+      return group
+    }
+
     const now = Global.latestTimestamp
 
     if (group.dailyLimit !== Uint64(0)) {
@@ -952,10 +968,19 @@ export class AlgoSafe extends Contract {
       emit<GroupUpdated>({ groupId: change.targetGroupId })
     } else if (change.changeType === ADM_SET_POLICY) {
       const group = clone(this.groups(change.targetGroupId).value)
+      const assetChanged = group.limitAssetId !== change.limitAssetId
       group.allowedActions = change.allowedActions
+      group.limitAssetId = change.limitAssetId
       group.dailyLimit = change.dailyLimit
       group.monthlyLimit = change.monthlyLimit
       group.cooldownRounds = change.cooldownRounds
+      if (assetChanged) {
+        const now = Global.latestTimestamp
+        group.dailyUsage = Uint64(0)
+        group.dailyPeriodStart = now
+        group.monthlyUsage = Uint64(0)
+        group.monthlyPeriodStart = now
+      }
       this.groups(change.targetGroupId).value = clone(group)
       emit<GroupUpdated>({ groupId: change.targetGroupId })
     } else if (change.changeType === ADM_SET_PRIVILEGES) {
@@ -983,6 +1008,7 @@ export class AlgoSafe extends Contract {
       memberCount: Uint64(1),
       adminPrivileges: change.adminPrivileges,
       allowedActions: change.allowedActions,
+      limitAssetId: change.limitAssetId,
       dailyLimit: change.dailyLimit,
       dailyUsage: Uint64(0),
       dailyPeriodStart: now,

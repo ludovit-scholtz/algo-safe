@@ -12,6 +12,7 @@ export function createAdminChange(partial: Partial<AdminChange>): AdminChange {
     threshold: 0n,
     adminPrivileges: 0n,
     allowedActions: 0n,
+    limitAssetId: 0n,
     dailyLimit: 0n,
     monthlyLimit: 0n,
     cooldownRounds: 0n,

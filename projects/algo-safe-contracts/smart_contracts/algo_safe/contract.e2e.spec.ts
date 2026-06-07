@@ -10,6 +10,7 @@ import {
   ADM_CHANGE_THRESHOLD,
   ADM_CREATE_GROUP,
   ADM_REMOVE_MEMBER,
+  ADM_SET_POLICY,
   FAR_EXPIRY,
   PRIV_ALL,
   PRIV_GROUP,
@@ -482,6 +483,127 @@ describe('AlgoSafe contract', () => {
     await expect(
       client.send.executeProposal({ args: { proposalId: badPid! }, sender: agent, ...execParams }),
     ).rejects.toThrow()
+  })
+
+  test('stores and changes the asset id used for daily and monthly limits', async () => {
+    const { client, deployer } = await deployAndBootstrap()
+    const agent = await localnet.context.generateAccount({ initialFunds: (2).algo() })
+
+    const createAsset = await localnet.algorand.send.assetCreate({
+      sender: deployer,
+      total: 1_000_000n,
+      decimals: 0,
+      unitName: 'LIM',
+      assetName: 'Limit Asset',
+      suppressLog: true,
+    })
+    const assetId = createAsset.assetId
+
+    await governAdminChange(
+      client,
+      1n,
+      mkAdminChange({
+        changeType: ADM_CREATE_GROUP,
+        groupName: 'Scoped Limits',
+        threshold: 1n,
+        memberAddr: agent.toString(),
+        allowedActions: ACT_PAY | ACT_AXFER,
+        adminPrivileges: 0n,
+        limitAssetId: assetId,
+        dailyLimit: 150n,
+        monthlyLimit: 300n,
+      }),
+    )
+
+    let group = await client.send.getSignerGroup({ args: { groupId: 2n }, suppressLog: true })
+    expect(group.return!.limitAssetId).toBe(assetId)
+    expect(group.return!.dailyLimit).toBe(150n)
+    expect(group.return!.monthlyLimit).toBe(300n)
+
+    const { return: safeOptInPid } = await client.send.proposeAssetTransfer({
+      args: {
+        groupId: 1n,
+        payload: {
+          xferAsset: assetId,
+          assetReceiver: client.appAddress.toString(),
+          assetAmount: 0n,
+          hasClose: 0n,
+          assetCloseTo: ZERO_ADDR,
+          note: '',
+        },
+        expiryRound: FAR_EXPIRY,
+      },
+      suppressLog: true,
+      staticFee: (0.2).algo(),
+    })
+    await client.send.executeProposal({ args: { proposalId: safeOptInPid! }, ...execParams })
+
+    await localnet.algorand.send.assetTransfer({
+      sender: deployer,
+      receiver: client.appAddress,
+      assetId,
+      amount: 500n,
+      suppressLog: true,
+    })
+
+    const assetRecipient = await localnet.context.generateAccount({ initialFunds: (1).algo() })
+    await localnet.algorand.send.assetOptIn({ sender: assetRecipient, assetId, suppressLog: true })
+
+    const { return: assetPid } = await client.send.proposeAssetTransfer({
+      args: {
+        groupId: 2n,
+        payload: {
+          xferAsset: assetId,
+          assetReceiver: assetRecipient.toString(),
+          assetAmount: 100n,
+          hasClose: 0n,
+          assetCloseTo: ZERO_ADDR,
+          note: '',
+        },
+        expiryRound: FAR_EXPIRY,
+      },
+      sender: agent,
+      suppressLog: true,
+      staticFee: (0.2).algo(),
+    })
+    await client.send.executeProposal({ args: { proposalId: assetPid! }, sender: agent, ...execParams })
+
+    group = await client.send.getSignerGroup({ args: { groupId: 2n }, suppressLog: true })
+    expect(group.return!.dailyUsage).toBe(100n)
+    expect(group.return!.monthlyUsage).toBe(100n)
+
+    await governAdminChange(
+      client,
+      1n,
+      mkAdminChange({
+        changeType: ADM_SET_POLICY,
+        targetGroupId: 2n,
+        allowedActions: ACT_PAY,
+        limitAssetId: 0n,
+        dailyLimit: (2).algo().microAlgo,
+        monthlyLimit: (3).algo().microAlgo,
+      }),
+    )
+
+    group = await client.send.getSignerGroup({ args: { groupId: 2n }, suppressLog: true })
+    expect(group.return!.limitAssetId).toBe(0n)
+    expect(group.return!.dailyUsage).toBe(0n)
+    expect(group.return!.monthlyUsage).toBe(0n)
+    expect(group.return!.dailyLimit).toBe((2).algo().microAlgo)
+    expect(group.return!.monthlyLimit).toBe((3).algo().microAlgo)
+
+    const algoRecipient = await localnet.context.generateAccount({ initialFunds: (0).algo() })
+    const { return: algoPid } = await client.send.proposePayment({
+      args: { groupId: 2n, payload: mkPayment(algoRecipient.toString(), (1).algo().microAlgo), expiryRound: FAR_EXPIRY },
+      sender: agent,
+      suppressLog: true,
+      staticFee: (0.2).algo(),
+    })
+    await client.send.executeProposal({ args: { proposalId: algoPid! }, sender: agent, ...execParams })
+
+    group = await client.send.getSignerGroup({ args: { groupId: 2n }, suppressLog: true })
+    expect(group.return!.dailyUsage).toBe((1).algo().microAlgo)
+    expect(group.return!.monthlyUsage).toBe((1).algo().microAlgo)
   })
 
   test('blocks a disallowed action for the proposing group', async () => {
