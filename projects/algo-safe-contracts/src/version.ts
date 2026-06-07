@@ -25,15 +25,7 @@ const VERSION_STATE_KEY_BASE64 = 'dmVy'
 const COMMIT_ID_PATTERN = /^[0-9a-f]{7,40}$/i
 
 function decodeBase64Utf8(value: string) {
-  try {
-    return decodeURIComponent(
-      Array.from(globalThis.atob(value))
-        .map((char) => `%${char.charCodeAt(0).toString(16).padStart(2, '0')}`)
-        .join(''),
-    )
-  } catch {
-    return null
-  }
+  return Buffer.from(value, 'base64').toString('utf-8')
 }
 
 export async function getAlgoSafeContractVersion(

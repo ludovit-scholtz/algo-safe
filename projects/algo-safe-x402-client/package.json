@@ -18,7 +18,7 @@
     "typescript": "^6.0.3"
   },
   "dependencies": {
-    "algo-safe": "file:../algo-safe-contracts",
+    "algo-safe": "workspace:*",
     "@algorandfoundation/algokit-utils": "10.0.0-alpha.46",
     "@x402/avm": "^2.14.0",
     "@x402/core": "^2.14.0",

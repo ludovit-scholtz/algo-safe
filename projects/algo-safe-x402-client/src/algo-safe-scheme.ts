@@ -87,7 +87,6 @@ export class AlgoSafeExactAvmScheme implements SchemeNetworkClient {
     const executeIndex = transactions.length - 1;
     const groupedTransactions = groupTransactions(transactions);
     const paymentIndex = executeIndex;
-    //console.info(`Created Algo Safe payment proposal with appId ${safeConfig.appId}, proposalId ${proposalId}, groupId ${safeConfig.groupId}, containing ${transactions.length} transactions (payment at index ${paymentIndex} of the group).`,groupedTransactions);
     const encodedTransactions = groupedTransactions.map((txn) => encodeTransactionRaw(txn));
     const signerIndexes = groupedTransactions
       .map((txn, index) => (txn.sender.toString() === this.signer.address ? index : -1))

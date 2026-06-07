@@ -1,7 +1,8 @@
 import { config } from 'dotenv';
 import { x402Client, wrapFetchWithPayment, x402HTTPClient } from '@x402/fetch';
-import { ExactAvmScheme, toClientAvmSigner, ALGORAND_TESTNET_CAIP2 } from '@x402/avm';
+import { toClientAvmSigner, ALGORAND_TESTNET_CAIP2 } from '@x402/avm';
 import algosdk from 'algosdk';
+import { AlgoSafeExactAvmScheme } from './algo-safe-scheme.js';
 
 config();
 
@@ -26,7 +27,7 @@ async function main(): Promise<void> {
   const client = new x402Client();
 
   // Register Algorand testnet scheme
-  client.register(ALGORAND_TESTNET_CAIP2, new ExactAvmScheme(avmSigner, {
+  client.register(ALGORAND_TESTNET_CAIP2, new AlgoSafeExactAvmScheme(avmSigner, {
     algodUrl: algodServer,
     algodToken,
   }));
@@ -56,41 +57,12 @@ async function main(): Promise<void> {
     console.log('\nWeather response:');
     console.log(JSON.stringify(data, null, 2));
   } else {
-    await logUnsuccessfulResponse(response, client);
-  }
-}
-
-async function logUnsuccessfulResponse(response: Response, client: x402Client): Promise<void> {
-  const bodyText = await response.text();
-
-  if (response.status === 402) {
-    const paymentRequired = new x402HTTPClient(client).getPaymentRequiredResponse(
-      name => response.headers.get(name),
-      parseJsonSafely(bodyText),
+    const paymentRequired = new x402HTTPClient(client).getPaymentRequiredResponse(name =>
+      response.headers.get(name),
     );
-
     console.log('\nPayment requirements:');
     console.log(JSON.stringify(paymentRequired, null, 2));
     console.log(`\nNo payment settled (response status: ${response.status})`);
-    return;
-  }
-
-  console.error(`Request failed with status ${response.status} ${response.statusText}`);
-  console.error('Response headers:', Object.fromEntries(response.headers.entries()));
-  if (bodyText) {
-    console.error('Response body:', bodyText);
-  }
-}
-
-function parseJsonSafely(bodyText: string): unknown {
-  if (!bodyText.trim()) {
-    return undefined;
-  }
-
-  try {
-    return JSON.parse(bodyText);
-  } catch {
-    return undefined;
   }
 }
 
