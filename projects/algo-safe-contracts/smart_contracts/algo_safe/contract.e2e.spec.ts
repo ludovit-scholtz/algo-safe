@@ -594,7 +594,11 @@ describe('AlgoSafe contract', () => {
 
     const algoRecipient = await localnet.context.generateAccount({ initialFunds: (0).algo() })
     const { return: algoPid } = await client.send.proposePayment({
-      args: { groupId: 2n, payload: mkPayment(algoRecipient.toString(), (1).algo().microAlgo), expiryRound: FAR_EXPIRY },
+      args: {
+        groupId: 2n,
+        payload: mkPayment(algoRecipient.toString(), (1).algo().microAlgo),
+        expiryRound: FAR_EXPIRY,
+      },
       sender: agent,
       suppressLog: true,
       staticFee: (0.2).algo(),
