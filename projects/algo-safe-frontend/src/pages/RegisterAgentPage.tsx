@@ -1,13 +1,35 @@
 // src/pages/RegisterAgentPage.tsx
+import { algo, AlgorandClient } from '@algorandfoundation/algokit-utils'
+import { useQueryClient } from '@tanstack/react-query'
+import { useWallet } from '@txnlab/use-wallet-react'
+import { AlgoSafeClient } from 'algo-safe'
+import algosdk from 'algosdk'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useSafe } from '../hooks'
+import { useOnChainSafeHoldings } from '../hooks/useOnChainSafeHoldings'
 import { useSafeId } from '../lib/SafeContext'
-import { useRegisterAgent } from '../hooks'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { FormField, inputCls } from '../components/ui/FormField'
 import { Icon } from '../components/ui/Icon'
 import type { AssetSymbol } from '../services/types'
+
+const TX_VALIDITY_WINDOW = 200
+const PROPOSAL_CALL_FEE = algo(0.2)
+const GOVERNANCE_GROUP_ID = 1n
+const GOVERNED_CREATE_GROUP = 1n
+const AGENT_MEMBER_TYPE = 4n
+const AGENT_ALLOWED_ACTIONS = 7n
+
+type SpendingAssetOption = {
+  key: string
+  symbol: AssetSymbol
+  assetId?: number
+  decimals: number
+  balanceDisplay: string
+  isNative: boolean
+}
 
 const PURPOSES = [
   'Algorithmic Trading',
@@ -16,7 +38,24 @@ const PURPOSES = [
   'Payments',
 ]
 
-const ASSETS: AssetSymbol[] = ['EURD', 'ALGO', 'USDC']
+function parseBaseUnits(value: string, decimals: number) {
+  const trimmed = value.trim()
+  if (!trimmed || !/^\d+(\.\d+)?$/.test(trimmed)) return null
+
+  const [wholePart, fractionPart = ''] = trimmed.split('.')
+  if (fractionPart.length > decimals) return null
+
+  const normalized = `${wholePart}${fractionPart.padEnd(decimals, '0')}`.replace(/^0+(?=\d)/, '')
+  return BigInt(normalized || '0')
+}
+
+function getCurrentRound(status: Record<string, unknown>) {
+  const candidate = status.lastRound ?? status['last-round']
+  if (typeof candidate === 'number') return BigInt(candidate)
+  if (typeof candidate === 'bigint') return candidate
+  if (typeof candidate === 'string' && candidate.trim()) return BigInt(candidate)
+  return 0n
+}
 
 // Enhanced PolicyLogicBlock matching the reference design (icon + CONDITION/ACTION/SIGNERS rows)
 function PolicyPreviewBlock({
@@ -61,14 +100,38 @@ function PolicyPreviewBlock({
 export function RegisterAgentPage() {
   const safeId = useSafeId()
   const nav = useNavigate()
-  const reg = useRegisterAgent()
+  const queryClient = useQueryClient()
+  const { data: safe } = useSafe(safeId)
+  const { data: holdings } = useOnChainSafeHoldings(safeId)
+  const { activeAddress, algodClient, transactionSigner, isReady } = useWallet()
 
   const [alias, setAlias] = useState('')
   const [address, setAddress] = useState('')
   const [purpose, setPurpose] = useState('')
-  const [dailyLimit, setDailyLimit] = useState(1000)
-  const [primaryAsset, setPrimaryAsset] = useState<AssetSymbol>('EURD')
+  const [dailyLimit, setDailyLimit] = useState('1000')
+  const [spendingLimitAssetKey, setSpendingLimitAssetKey] = useState('native-algo')
   const [error, setError] = useState<string | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  const spendingLimitAssets: SpendingAssetOption[] = (holdings ?? [])
+    .filter((holding) => holding.isNative || holding.assetId !== undefined)
+    .map((holding) => ({
+      key: holding.key,
+      symbol: holding.symbol,
+      assetId: holding.assetId,
+      decimals: holding.decimals,
+      balanceDisplay: holding.balanceDisplay,
+      isNative: holding.isNative,
+    }))
+
+  const selectedSpendingAsset = spendingLimitAssets.find((asset) => asset.key === spendingLimitAssetKey) ?? spendingLimitAssets[0] ?? {
+    key: 'native-algo',
+    symbol: 'ALGO',
+    assetId: 0,
+    decimals: 6,
+    balanceDisplay: '—',
+    isNative: true,
+  }
 
   const valid = alias.trim() !== '' && address.trim() !== '' && purpose !== ''
 
@@ -76,22 +139,82 @@ export function RegisterAgentPage() {
     e.preventDefault()
     if (!valid) return
     setError(null)
+
+    if (!safe) {
+      setError('The selected safe could not be loaded.')
+      return
+    }
+
+    if (!isReady || !activeAddress || !transactionSigner) {
+      setError('Connect a wallet before creating an agent proposal.')
+      return
+    }
+
+    if (!algosdk.isValidAddress(address.trim())) {
+      setError('Enter a valid Algorand address for the agent.')
+      return
+    }
+
+    const rawLimit = parseBaseUnits(dailyLimit, selectedSpendingAsset.decimals)
+    if (rawLimit === null || rawLimit < 0n) {
+      setError(`Enter a valid ${selectedSpendingAsset.symbol} spending limit.`)
+      return
+    }
+
     try {
-      await reg.mutateAsync({
-        alias: alias.trim(),
-        address: address.trim(),
-        purpose,
-        groupTier: 'Tier 3 - Automated Execution (1/1)',
-        dailyLimit,
-        primaryAsset,
+      setIsSubmitting(true)
+
+      const senderAddress = algosdk.Address.fromString(activeAddress)
+      const algorand = AlgorandClient.fromClients({ algod: algodClient }).setDefaultValidityWindow(TX_VALIDITY_WINDOW)
+      algorand.setSigner(senderAddress, transactionSigner)
+
+      const appClient = algorand.client.getTypedAppClientById(AlgoSafeClient, {
+        appId: BigInt(safe.appId),
+        defaultSender: senderAddress,
       })
-      nav(`/safe/${safeId}`)
+
+      const status = (await algodClient.status().do()) as unknown as Record<string, unknown>
+      const expiryRound = getCurrentRound(status) + 2000n
+      const policyLabel = `${purpose} · limit ${dailyLimit.trim() || '0'} ${selectedSpendingAsset.symbol}`
+
+      const result = await appClient.send.proposeAdminChange({
+        args: {
+          groupId: GOVERNANCE_GROUP_ID,
+          change: {
+            changeType: GOVERNED_CREATE_GROUP,
+            targetGroupId: 0n,
+            groupName: `${alias.trim()} Agent`,
+            memberAddr: address.trim(),
+            memberType: AGENT_MEMBER_TYPE,
+            memberLabel: policyLabel,
+            threshold: 1n,
+            adminPrivileges: 0n,
+            allowedActions: AGENT_ALLOWED_ACTIONS,
+            dailyLimit: selectedSpendingAsset.isNative ? rawLimit : 0n,
+            monthlyLimit: 0n,
+            cooldownRounds: 0n,
+            activeFlag: 1n,
+          },
+          expiryRound,
+        },
+        staticFee: PROPOSAL_CALL_FEE,
+        suppressLog: true,
+      })
+
+      const proposalId = result.return?.toString() ?? ''
+      const txId = result.txIds[0] ?? ''
+
+      await queryClient.invalidateQueries({ queryKey: ['proposals', safeId] })
+      await queryClient.invalidateQueries({ queryKey: ['proposal', safeId, proposalId] })
+      nav(`/safe/${safeId}/proposals/${proposalId}`, { state: { txId } })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to register agent. Please try again.')
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
-  const conditionText = `Daily cumulative volume < ${dailyLimit.toLocaleString()} ${primaryAsset}`
+  const conditionText = `Daily cumulative volume < ${dailyLimit || '0'} ${selectedSpendingAsset.symbol}`
   const actionText = 'Auto-approve and execute Algorand Smart Contract calls'
   const signersText =
     purpose !== ''
@@ -122,11 +245,11 @@ export function RegisterAgentPage() {
           </div>
           <div>
             <p className="font-mono text-xs uppercase tracking-wide text-on-surface-variant">
-              Treasury Balance
+              Spending Asset Balance
             </p>
             <p className="text-lg font-bold text-on-surface">
-              1,240,500.00{' '}
-              <span className="text-sm font-medium text-primary">EURD</span>
+              {selectedSpendingAsset.balanceDisplay}{' '}
+              <span className="text-sm font-medium text-primary">{selectedSpendingAsset.symbol}</span>
             </p>
           </div>
         </div>
@@ -204,28 +327,30 @@ export function RegisterAgentPage() {
                   </select>
                 </FormField>
 
-                {/* Daily Spending Limit + Primary Asset */}
+                {/* Daily Spending Limit + Spending Limit Asset */}
                 <div className="grid grid-cols-2 gap-4">
                   <FormField label="Daily Spending Limit">
                     <input
-                      type="number"
+                      type="text"
                       min={0}
                       className={inputCls}
                       value={dailyLimit}
-                      onChange={e =>
-                        setDailyLimit(Math.max(0, Number(e.target.value) || 0))
-                      }
+                      onChange={e => setDailyLimit(e.target.value)}
+                      inputMode="decimal"
                     />
                   </FormField>
-                  <FormField label="Primary Asset">
+                  <FormField
+                    label="Spending Limit Asset"
+                    hint="Only ALGO and the safe's opted-in assets are available. Algo Safe currently enforces on-chain spending caps in ALGO."
+                  >
                     <select
                       className={inputCls}
-                      value={primaryAsset}
-                      onChange={e => setPrimaryAsset(e.target.value as AssetSymbol)}
+                      value={selectedSpendingAsset.key}
+                      onChange={e => setSpendingLimitAssetKey(e.target.value)}
                     >
-                      {ASSETS.map(a => (
-                        <option key={a} value={a}>
-                          {a}
+                      {spendingLimitAssets.map(asset => (
+                        <option key={asset.key} value={asset.key}>
+                          {asset.symbol} · Available {asset.balanceDisplay}
                         </option>
                       ))}
                     </select>
@@ -257,16 +382,16 @@ export function RegisterAgentPage() {
               </Button>
               <Button
                 type="submit"
-                disabled={!valid || reg.isPending}
+                disabled={!valid || isSubmitting || !safe}
               >
                 <Icon name="send" className="text-lg" />
-                {reg.isPending ? 'Submitting…' : 'Register Agent Proposal'}
+                {isSubmitting ? 'Submitting…' : 'Register Agent Proposal'}
               </Button>
             </div>
 
             {/* Gas note */}
             <p className="text-center font-mono text-xs text-on-surface-variant">
-              Gas fee: <span className="text-on-surface">0.001 ALGO</span>
+              Network fees are estimated at submission time and paid in ALGO.
             </p>
           </div>
 
