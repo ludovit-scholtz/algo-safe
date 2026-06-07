@@ -7,7 +7,7 @@ import {
   Transaction as AlgokitTransaction,
 } from '@algorandfoundation/algokit-utils/transact';
 import algosdk from 'algosdk';
-import { AlgoSafeClient } from 'algo-safe';
+import { AlgoSafeClient, TX_ASSET } from 'algo-safe';
 import type { PaymentPayloadResult, PaymentRequirements, SchemeNetworkClient } from '@x402/core/types';
 import type { ClientAvmConfig, ClientAvmSigner, ExactAvmPayloadV2 } from '@x402/avm';
 import { getAlgokitSigner, isTestnetNetwork } from '@x402/avm';
@@ -15,7 +15,6 @@ import { getAlgokitSigner, isTestnetNetwork } from '@x402/avm';
 const DEFAULT_SAFE_APP_ID = 764044668n;
 const DEFAULT_SAFE_GROUP_ID = 2n;
 const DEFAULT_VALIDITY_WINDOW = 200n;
-const READY_STATUS = 2n;
 const ZERO_ADDRESS = algosdk.encodeAddress(new Uint8Array(32));
 const MIN_APP_CALL_FEE = microAlgo(200_000);
 const EXECUTION_CALL_MAX_FEE = algo(0.2);
@@ -42,40 +41,30 @@ export class AlgoSafeExactAvmScheme implements SchemeNetworkClient {
     const safeConfig = this.getSafeConfig(extra);
     const algorandClient = this.getAlgorandClient(network);
     const safeClient = this.getSafeClient(algorandClient, safeConfig.appId);
+    const transactions: AlgokitTransaction[] = [];
 
-    const proposalId =
-      safeConfig.proposalId ??
-      (await this.createAssetTransferProposal(
+    const proposalId = safeConfig.proposalId ?? (await this.getNextProposalId(safeClient));
+
+    if (safeConfig.proposalId === undefined) {
+      const proposalCall = await this.createAssetTransferProposal(
         safeClient,
         safeConfig.groupId,
         paymentRequirements,
         x402Version,
-      ));
+      );
+      transactions.push(...proposalCall.transactions.map(unwrapTransaction));
+    }
 
-    const proposal = await safeClient.getProposal({ args: [proposalId] });
-    const hasApproved = await safeClient.hasApproved({ args: [proposalId, this.signer.address] });
-    const approveBoxReferences = getApproveBoxReferences(
-      safeConfig.appId,
-      proposalId,
-      proposal.groupId,
-      this.signer.address,
-    );
+    const payloadType =
+      safeConfig.proposalId === undefined
+        ? TX_ASSET
+        : (await safeClient.getProposal({ args: [proposalId] })).payloadType;
     const executeBoxReferences = getExecuteBoxReferences(
       safeConfig.appId,
       proposalId,
-      proposal.groupId,
-      proposal.payloadType,
+      safeConfig.groupId,
+      payloadType,
     );
-    const transactions: AlgokitTransaction[] = [];
-
-    if (proposal.status !== READY_STATUS && !hasApproved) {
-      const approvalCall = await safeClient.createTransaction.approveProposal({
-        args: { proposalId },
-        staticFee: MIN_APP_CALL_FEE,
-        boxReferences: approveBoxReferences,
-      });
-      transactions.push(...approvalCall.transactions.map(unwrapTransaction));
-    }
 
     const executeCall = await safeClient.createTransaction.executeProposal({
       args: { proposalId },
@@ -96,6 +85,7 @@ export class AlgoSafeExactAvmScheme implements SchemeNetworkClient {
     const executeIndex = transactions.length - 1;
     const groupedTransactions = groupTransactions(transactions);
     const paymentIndex = executeIndex;
+    console.info(`Created Algo Safe payment proposal with appId ${safeConfig.appId}, proposalId ${proposalId}, groupId ${safeConfig.groupId}, containing ${transactions.length} transactions (payment at index ${paymentIndex} of the group).`,groupedTransactions);
     const encodedTransactions = groupedTransactions.map((txn) => encodeTransactionRaw(txn));
     const signerIndexes = groupedTransactions
       .map((txn, index) => (txn.sender.toString() === this.signer.address ? index : -1))
@@ -182,12 +172,23 @@ export class AlgoSafeExactAvmScheme implements SchemeNetworkClient {
     throw new Error(`Expected a numeric Algorand asset id, received "${asset}".`);
   }
 
+  private async getNextProposalId(safeClient: AlgoSafeClient): Promise<bigint> {
+    const result = await safeClient.getConfig({ args: [] });
+    const nextProposalId = result?.[3];
+
+    if (typeof nextProposalId !== 'bigint') {
+      throw new Error('Algo Safe config did not return a bigint nextProposalId.');
+    }
+
+    return nextProposalId;
+  }
+
   private async createAssetTransferProposal(
     safeClient: AlgoSafeClient,
     groupId: bigint,
     paymentRequirements: PaymentRequirements,
     x402Version: number,
-  ): Promise<bigint> {
+  ) {
     const suggestedParams = await safeClient.algorand.getSuggestedParams();
     const firstValid = BigInt(
       (suggestedParams as { firstValid?: bigint | number; firstValidRound?: bigint | number }).firstValid ??
@@ -196,7 +197,7 @@ export class AlgoSafeExactAvmScheme implements SchemeNetworkClient {
     );
     const expiryRound = firstValid + DEFAULT_VALIDITY_WINDOW;
     const note = `x402-safe-payment-v${x402Version}-${Date.now()}`;
-    const result = await safeClient.send.proposeAssetTransfer({
+    return safeClient.createTransaction.proposeAssetTransfer({
       args: {
         groupId,
         payload: {
@@ -212,14 +213,6 @@ export class AlgoSafeExactAvmScheme implements SchemeNetworkClient {
       staticFee: MIN_APP_CALL_FEE,
       sender: this.signer.address,
     });
-
-    const proposalId = result.return;
-
-    if (proposalId === undefined) {
-      throw new Error('Algo Safe proposal creation did not return a proposal id.');
-    }
-
-    return BigInt(proposalId);
   }
 }
 
@@ -259,14 +252,6 @@ function createAccountScopedBoxReference(appId: bigint, prefix: string, id: bigi
       algosdk.decodeAddress(account).publicKey,
     ),
   };
-}
-
-function getApproveBoxReferences(appId: bigint, proposalId: bigint, groupId: bigint, account: string) {
-  return [
-    createBoxReference(appId, 'p', proposalId),
-    createAccountScopedBoxReference(appId, 'm', groupId, account),
-    createAccountScopedBoxReference(appId, 'a', proposalId, account),
-  ];
 }
 
 function getExecuteBoxReferences(appId: bigint, proposalId: bigint, groupId: bigint, payloadType: bigint) {
