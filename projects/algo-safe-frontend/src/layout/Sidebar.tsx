@@ -1,5 +1,6 @@
 import { NavLink, useParams } from 'react-router-dom'
 import { Icon } from '../components/ui/Icon'
+import logo from '../assets/logo.svg'
 
 const items = [
   { to: '', icon: 'dashboard', label: 'Dashboard', end: true },
@@ -12,8 +13,10 @@ export function Sidebar() {
   const base = `/safe/${safeId}`
   return (
     <aside className="w-60 shrink-0 border-r border-outline-variant bg-surface-container-low p-4">
-      <div className="mb-6 flex items-center gap-2 px-2">
-        <Icon name="security" className="text-primary" />
+      <div className="mb-6 flex items-center gap-1 px-2">
+        <div className="rounded-xl bg-white/40 backdrop-blur-sm">
+          <img src={logo} alt="Algo Safe logo" className="h-12 w-24 object-contain" />
+        </div>
         <span className="font-semibold">Algo Safe</span>
       </div>
       <nav className="space-y-1">
