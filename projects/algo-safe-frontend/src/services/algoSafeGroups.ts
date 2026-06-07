@@ -29,35 +29,27 @@ function buildAppClient(algodClient: algosdk.Algodv2, safe: Safe) {
 
 export async function fetchLiveSignerGroups(algodClient: algosdk.Algodv2, safe: Safe): Promise<LiveSignerGroup[]> {
   const client = buildAppClient(algodClient, safe)
-  const config = await client.getConfig()
-  const nextGroupId = config[2] ?? 1n
+  const groupsMap = await client.state.box.groups.getMap()
 
-  if (nextGroupId <= 1n) {
+  if (groupsMap.size === 0) {
     return []
   }
 
-  const groupIds = Array.from({ length: Number(nextGroupId - 1n) }, (_value, index) => BigInt(index + 1))
-  const groups = await Promise.all(
-    groupIds.map(async (groupId) => {
-      const group = await client.getSignerGroup({ args: [groupId] })
-
-      return {
-        id: groupId.toString(),
-        name: group.name,
-        threshold: Number(group.threshold),
-        memberCount: Number(group.memberCount),
-        adminPrivileges: Number(group.adminPrivileges),
-        allowedActions: Number(group.allowedActions),
-        dailyLimit: group.dailyLimit,
-        dailyUsage: group.dailyUsage,
-        monthlyLimit: group.monthlyLimit,
-        monthlyUsage: group.monthlyUsage,
-        cooldownRounds: Number(group.cooldownRounds),
-        active: group.active !== 0n,
-        isAdminGroup: group.adminPrivileges !== 0n,
-      } satisfies LiveSignerGroup
-    }),
-  )
+  const groups = Array.from(groupsMap.entries(), ([groupId, group]) => ({
+    id: groupId.toString(),
+    name: group.name,
+    threshold: Number(group.threshold),
+    memberCount: Number(group.memberCount),
+    adminPrivileges: Number(group.adminPrivileges),
+    allowedActions: Number(group.allowedActions),
+    dailyLimit: group.dailyLimit,
+    dailyUsage: group.dailyUsage,
+    monthlyLimit: group.monthlyLimit,
+    monthlyUsage: group.monthlyUsage,
+    cooldownRounds: Number(group.cooldownRounds),
+    active: group.active !== 0n,
+    isAdminGroup: group.adminPrivileges !== 0n,
+  } satisfies LiveSignerGroup))
 
   return groups.sort((left, right) => Number(right.isAdminGroup) - Number(left.isAdminGroup) || Number(left.id) - Number(right.id))
 }

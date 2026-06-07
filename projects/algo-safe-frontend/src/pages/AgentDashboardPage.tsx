@@ -20,7 +20,7 @@ export function AgentDashboardPage() {
   const navigate = useNavigate()
   const { algodClient } = useWallet()
   const { data: holdings, isLoading: holdingsLoading, error: holdingsError } = useOnChainSafeHoldings(safeId)
-  const { data: signerGroups, isLoading: signerGroupsLoading } = useSignerGroups()
+  const { data: signerGroups, isLoading: signerGroupsLoading, isFetching: signerGroupsFetching, error: signerGroupsError } = useSignerGroups()
   const { data: proposals } = useProposals()
   const fireworksRef = useRef<FireworksHandlers | null>(null)
   const [showCelebration, setShowCelebration] = useState(false)
@@ -121,14 +121,27 @@ export function AgentDashboardPage() {
       <section>
         <div className="mb-3 flex items-center justify-between">
           <h2 className="font-mono text-xs uppercase tracking-wide text-on-surface-variant">Registered Signer Groups</h2>
-          <span className="font-mono text-xs text-on-surface-variant">Round #{currentRound?.toLocaleString() ?? '—'}</span>
+          <div className="flex items-center gap-2 font-mono text-xs text-on-surface-variant">
+            {(signerGroupsLoading || signerGroupsFetching) && <Icon name="progress_activity" className="animate-spin text-sm" />}
+            <span>Round #{currentRound?.toLocaleString() ?? '—'}</span>
+          </div>
         </div>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
           {signerGroups?.map((group) => (
             <SignerGroupCard key={group.id} group={group} />
           ))}
-          {signerGroupsLoading && <div className="col-span-full animate-pulse rounded-md bg-surface-container h-32" />}
-          {!signerGroupsLoading && !signerGroups?.length && (
+          {(signerGroupsLoading || signerGroupsFetching) && <div className="col-span-full flex h-32 items-center justify-center rounded-md border border-outline-variant bg-surface-container-low">
+            <div className="flex items-center gap-3 text-sm text-on-surface-variant">
+              <Icon name="progress_activity" className="animate-spin text-lg" />
+              <span>Loading signer groups from the blockchain…</span>
+            </div>
+          </div>}
+          {!signerGroupsLoading && !signerGroupsFetching && signerGroupsError instanceof Error && (
+            <Card className="col-span-full px-6 py-8 text-center text-sm text-error">
+              {signerGroupsError.message}
+            </Card>
+          )}
+          {!signerGroupsLoading && !signerGroupsFetching && !(signerGroupsError instanceof Error) && !signerGroups?.length && (
             <Card className="col-span-full px-6 py-8 text-center text-sm text-on-surface-variant">
               No signer groups were found for this safe.
             </Card>

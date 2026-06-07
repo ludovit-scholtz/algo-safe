@@ -18,14 +18,21 @@ export const useAgents = () => { const { safe } = useServices(); return useQuery
 export const usePolicy = (agentId?: string) => { const { safe } = useServices(); return useQuery({ queryKey: ['policy', agentId], queryFn: () => safe.getPolicy(agentId!), enabled: !!agentId }) }
 export const useSignerGroups = () => {
   const safeId = useSafeId()
-  const { data: safe } = useSafe(safeId)
+  const safeQuery = useSafe(safeId)
+  const safe = safeQuery.data
   const { algodClient } = useWallet()
 
-  return useQuery({
+  const signerGroupsQuery = useQuery({
     queryKey: ['signer-groups', safeId, safe?.appId],
     enabled: !!safe,
     queryFn: () => fetchLiveSignerGroups(algodClient, safe!),
   })
+
+  return {
+    ...signerGroupsQuery,
+    isLoading: safeQuery.isLoading || signerGroupsQuery.isLoading,
+    isFetching: safeQuery.isFetching || signerGroupsQuery.isFetching,
+  }
 }
 export const useProposals = () => {
   const safeId = useSafeId()
