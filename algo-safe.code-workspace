@@ -16,6 +16,10 @@
     {
       "path": "./projects/algo-safe-x402-client",
     },
+    {
+      "path": "./projects/algo-safe-x402-facilitator",
+    },
+    
   ],
   "settings": {
     "jest.disabledWorkspaceFolders": ["ROOT", "projects"],
