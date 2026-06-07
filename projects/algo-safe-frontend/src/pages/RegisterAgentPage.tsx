@@ -6,13 +6,13 @@ import { AlgoSafeClient, createAdminChange } from 'algo-safe'
 import algosdk from 'algosdk'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { Button } from '../components/ui/Button'
+import { Card } from '../components/ui/Card'
+import { FormField, inputCls } from '../components/ui/FormField'
+import { Icon } from '../components/ui/Icon'
 import { useSafe } from '../hooks'
 import { useOnChainSafeHoldings } from '../hooks/useOnChainSafeHoldings'
 import { useSafeId } from '../lib/SafeContext'
-import { Card } from '../components/ui/Card'
-import { Button } from '../components/ui/Button'
-import { FormField, inputCls } from '../components/ui/FormField'
-import { Icon } from '../components/ui/Icon'
 import type { AssetSymbol } from '../services/types'
 
 const TX_VALIDITY_WINDOW = 200
@@ -31,12 +31,7 @@ type SpendingAssetOption = {
   isNative: boolean
 }
 
-const PURPOSES = [
-  'Algorithmic Trading',
-  'Treasury Rebalancing',
-  'Yield Farming',
-  'Payments',
-]
+const PURPOSES = ['Algorithmic Trading', 'Treasury Rebalancing', 'Yield Farming', 'Payments']
 
 function parseBaseUnits(value: string, decimals: number) {
   const trimmed = value.trim()
@@ -58,15 +53,7 @@ function getCurrentRound(status: Record<string, unknown>) {
 }
 
 // Enhanced PolicyLogicBlock matching the reference design (icon + CONDITION/ACTION/SIGNERS rows)
-function PolicyPreviewBlock({
-  condition,
-  action,
-  signers,
-}: {
-  condition: string
-  action: string
-  signers: string
-}) {
+function PolicyPreviewBlock({ condition, action, signers }: { condition: string; action: string; signers: string }) {
   const rows = [
     { icon: 'event_available', label: 'Condition', value: condition },
     { icon: 'bolt', label: 'Action', value: action },
@@ -83,14 +70,10 @@ function PolicyPreviewBlock({
             <Icon name={r.icon} className="text-lg" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="font-mono text-xs uppercase tracking-wide text-on-surface-variant">
-              {r.label}
-            </p>
+            <p className="font-mono text-xs uppercase tracking-wide text-on-surface-variant">{r.label}</p>
             <p className="mt-0.5 text-sm text-on-surface">{r.value}</p>
           </div>
-          {i < rows.length - 1 && (
-            <Icon name="add" className="shrink-0 text-on-surface-variant" />
-          )}
+          {i < rows.length - 1 && <Icon name="add" className="shrink-0 text-on-surface-variant" />}
         </div>
       ))}
     </div>
@@ -124,14 +107,15 @@ export function RegisterAgentPage() {
       isNative: holding.isNative,
     }))
 
-  const selectedSpendingAsset = spendingLimitAssets.find((asset) => asset.key === spendingLimitAssetKey) ?? spendingLimitAssets[0] ?? {
-    key: 'native-algo',
-    symbol: 'ALGO',
-    assetId: 0,
-    decimals: 6,
-    balanceDisplay: '—',
-    isNative: true,
-  }
+  const selectedSpendingAsset = spendingLimitAssets.find((asset) => asset.key === spendingLimitAssetKey) ??
+    spendingLimitAssets[0] ?? {
+      key: 'native-algo',
+      symbol: 'ALGO',
+      assetId: 0,
+      decimals: 6,
+      balanceDisplay: '—',
+      isNative: true,
+    }
 
   const valid = alias.trim() !== '' && address.trim() !== '' && purpose !== ''
 
@@ -218,10 +202,7 @@ export function RegisterAgentPage() {
 
   const conditionText = `Daily cumulative volume < ${dailyLimit || '0'} ${selectedSpendingAsset.symbol}`
   const actionText = 'Auto-approve and execute Algorand Smart Contract calls'
-  const signersText =
-    purpose !== ''
-      ? `1-of-1 (Tier 3 automated) · ${purpose}`
-      : 'Governance override required for exceeding limits'
+  const signersText = purpose !== '' ? `1-of-1 (Tier 3 automated) · ${purpose}` : 'Governance override required for exceeding limits'
 
   return (
     <div className="space-y-6">
@@ -236,9 +217,7 @@ export function RegisterAgentPage() {
             <span className="text-primary">Register New Agent</span>
           </nav>
           <h1 className="text-3xl font-bold text-on-surface">Register AI Agent</h1>
-          <p className="mt-1 text-sm text-on-surface-variant">
-            Provision a secure autonomous operator for the institutional treasury.
-          </p>
+          <p className="mt-1 text-sm text-on-surface-variant">Provision a secure autonomous operator for the institutional treasury.</p>
         </div>
         {/* Treasury balance context */}
         <div className="hidden lg:flex items-center gap-3 rounded-md border border-outline-variant bg-surface-container px-5 py-3">
@@ -246,9 +225,7 @@ export function RegisterAgentPage() {
             <Icon name="account_balance_wallet" className="text-xl" />
           </div>
           <div>
-            <p className="font-mono text-xs uppercase tracking-wide text-on-surface-variant">
-              Spending Asset Balance
-            </p>
+            <p className="font-mono text-xs uppercase tracking-wide text-on-surface-variant">Spending Asset Balance</p>
             <p className="text-lg font-bold text-on-surface">
               {selectedSpendingAsset.balanceDisplay}{' '}
               <span className="text-sm font-medium text-primary">{selectedSpendingAsset.symbol}</span>
@@ -272,9 +249,7 @@ export function RegisterAgentPage() {
             {/* Agent Identity & Parameters card */}
             <Card className="p-0 overflow-hidden">
               <div className="border-b border-outline-variant bg-surface-container-high px-6 py-4">
-                <h3 className="text-base font-semibold text-on-surface">
-                  Agent Identity &amp; Parameters
-                </h3>
+                <h3 className="text-base font-semibold text-on-surface">Agent Identity &amp; Parameters</h3>
               </div>
               <div className="space-y-6 px-6 py-6">
                 {/* Agent Name */}
@@ -284,7 +259,7 @@ export function RegisterAgentPage() {
                     type="text"
                     placeholder="e.g. Yield Optimizer Agent v4"
                     value={alias}
-                    onChange={e => setAlias(e.target.value)}
+                    onChange={(e) => setAlias(e.target.value)}
                     required
                     aria-required="true"
                   />
@@ -298,7 +273,7 @@ export function RegisterAgentPage() {
                       type="text"
                       placeholder="A7RX..."
                       value={address}
-                      onChange={e => setAddress(e.target.value)}
+                      onChange={(e) => setAddress(e.target.value)}
                       required
                       aria-required="true"
                     />
@@ -311,17 +286,11 @@ export function RegisterAgentPage() {
 
                 {/* Purpose */}
                 <FormField label="Purpose" hint="Required">
-                  <select
-                    required
-                    className={inputCls}
-                    value={purpose}
-                    onChange={e => setPurpose(e.target.value)}
-                    aria-required="true"
-                  >
+                  <select required className={inputCls} value={purpose} onChange={(e) => setPurpose(e.target.value)} aria-required="true">
                     <option value="" disabled>
                       Select purpose…
                     </option>
-                    {PURPOSES.map(p => (
+                    {PURPOSES.map((p) => (
                       <option key={p} value={p}>
                         {p}
                       </option>
@@ -337,7 +306,7 @@ export function RegisterAgentPage() {
                       min={0}
                       className={inputCls}
                       value={dailyLimit}
-                      onChange={e => setDailyLimit(e.target.value)}
+                      onChange={(e) => setDailyLimit(e.target.value)}
                       inputMode="decimal"
                     />
                   </FormField>
@@ -348,9 +317,9 @@ export function RegisterAgentPage() {
                     <select
                       className={inputCls}
                       value={selectedSpendingAsset.key}
-                      onChange={e => setSpendingLimitAssetKey(e.target.value)}
+                      onChange={(e) => setSpendingLimitAssetKey(e.target.value)}
                     >
-                      {spendingLimitAssets.map(asset => (
+                      {spendingLimitAssets.map((asset) => (
                         <option key={asset.key} value={asset.key}>
                           {asset.symbol} · Available {asset.balanceDisplay}
                         </option>
@@ -363,29 +332,16 @@ export function RegisterAgentPage() {
 
             {/* Policy Preview inline (below form on mobile, shown here on all widths) */}
             <div className="lg:hidden">
-              <h2 className="mb-3 font-mono text-xs uppercase tracking-wide text-on-surface-variant">
-                Agent Policy Preview
-              </h2>
-              <PolicyPreviewBlock
-                condition={conditionText}
-                action={actionText}
-                signers={signersText}
-              />
+              <h2 className="mb-3 font-mono text-xs uppercase tracking-wide text-on-surface-variant">Agent Policy Preview</h2>
+              <PolicyPreviewBlock condition={conditionText} action={actionText} signers={signersText} />
             </div>
 
             {/* Action row */}
             <div className="flex items-center justify-end gap-3">
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => nav(`/safe/${safeId}`)}
-              >
+              <Button type="button" variant="ghost" onClick={() => nav(`/safe/${safeId}`)}>
                 Cancel
               </Button>
-              <Button
-                type="submit"
-                disabled={!valid || isSubmitting || !safe}
-              >
+              <Button type="submit" disabled={!valid || isSubmitting || !safe}>
                 <Icon name="send" className="text-lg" />
                 {isSubmitting ? 'Submitting…' : 'Register Agent Proposal'}
               </Button>
@@ -401,23 +357,15 @@ export function RegisterAgentPage() {
           <div className="lg:col-span-5 space-y-6">
             {/* Policy Preview (desktop) */}
             <div className="hidden lg:block">
-              <h2 className="mb-3 font-mono text-xs uppercase tracking-wide text-on-surface-variant">
-                Agent Policy Preview
-              </h2>
-              <PolicyPreviewBlock
-                condition={conditionText}
-                action={actionText}
-                signers={signersText}
-              />
+              <h2 className="mb-3 font-mono text-xs uppercase tracking-wide text-on-surface-variant">Agent Policy Preview</h2>
+              <PolicyPreviewBlock condition={conditionText} action={actionText} signers={signersText} />
             </div>
 
             {/* Proposal Workflow card */}
             <Card>
               <div className="mb-5 flex items-center gap-3">
                 <Icon name="gavel" className="text-primary" />
-                <h4 className="text-base font-semibold text-on-surface">
-                  Proposal Workflow
-                </h4>
+                <h4 className="text-base font-semibold text-on-surface">Proposal Workflow</h4>
               </div>
               <ul className="relative space-y-5">
                 {/* connector line */}
@@ -441,7 +389,7 @@ export function RegisterAgentPage() {
                     desc: 'The agent gains operational rights once the proposal reaches finality.',
                     active: false,
                   },
-                ].map(step => (
+                ].map((step) => (
                   <li key={step.n} className="relative z-10 flex gap-3">
                     <div
                       className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
@@ -453,13 +401,7 @@ export function RegisterAgentPage() {
                       {step.n}
                     </div>
                     <div>
-                      <p
-                        className={`text-sm font-semibold ${
-                          step.active ? 'text-on-surface' : 'text-on-surface-variant'
-                        }`}
-                      >
-                        {step.title}
-                      </p>
+                      <p className={`text-sm font-semibold ${step.active ? 'text-on-surface' : 'text-on-surface-variant'}`}>{step.title}</p>
                       <p className="mt-0.5 text-xs text-on-surface-variant">{step.desc}</p>
                     </div>
                   </li>
@@ -474,12 +416,9 @@ export function RegisterAgentPage() {
                   ENCLAVE SECURE
                 </span>
               </div>
-              <p className="text-sm font-semibold text-on-surface">
-                Secured by Algorand State Proofs
-              </p>
+              <p className="text-sm font-semibold text-on-surface">Secured by Algorand State Proofs</p>
               <p className="mt-1 text-xs text-on-surface-variant">
-                x402 cryptographic headers authenticate every automated request payload with
-                deterministic finality.
+                x402 cryptographic headers authenticate every automated request payload with deterministic finality.
               </p>
             </div>
           </div>

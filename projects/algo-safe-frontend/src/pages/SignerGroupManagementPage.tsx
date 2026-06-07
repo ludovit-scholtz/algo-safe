@@ -108,38 +108,36 @@ export function SignerGroupManagementPage() {
   const [submittingSection, setSubmittingSection] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  const spendingLimitAssets: SpendingAssetOption[] = useMemo(
-    () => {
-      const assets = (holdings ?? [])
-        .filter((holding) => holding.isNative || holding.assetId !== undefined)
-        .map((holding) => ({
-          key: holding.key,
-          symbol: holding.symbol,
-          assetId: holding.assetId,
-          decimals: holding.decimals,
-          balanceDisplay: holding.balanceDisplay,
-          isNative: holding.isNative,
-        }))
+  const spendingLimitAssets: SpendingAssetOption[] = useMemo(() => {
+    const assets = (holdings ?? [])
+      .filter((holding) => holding.isNative || holding.assetId !== undefined)
+      .map((holding) => ({
+        key: holding.key,
+        symbol: holding.symbol,
+        assetId: holding.assetId,
+        decimals: holding.decimals,
+        balanceDisplay: holding.balanceDisplay,
+        isNative: holding.isNative,
+      }))
 
-      const trackedAssetId = detail?.group.limitAssetId ?? 0n
-      const trackedAssetExists =
-        trackedAssetId === 0n || assets.some((asset) => !asset.isNative && asset.assetId !== undefined && BigInt(asset.assetId) === trackedAssetId)
+    const trackedAssetId = detail?.group.limitAssetId ?? 0n
+    const trackedAssetExists =
+      trackedAssetId === 0n ||
+      assets.some((asset) => !asset.isNative && asset.assetId !== undefined && BigInt(asset.assetId) === trackedAssetId)
 
-      if (!trackedAssetExists) {
-        assets.unshift({
-          key: `tracked-asset-${trackedAssetId.toString()}`,
-          symbol: 'ASA',
-          assetId: Number(trackedAssetId),
-          decimals: 0,
-          balanceDisplay: 'not held',
-          isNative: false,
-        })
-      }
+    if (!trackedAssetExists) {
+      assets.unshift({
+        key: `tracked-asset-${trackedAssetId.toString()}`,
+        symbol: 'ASA',
+        assetId: Number(trackedAssetId),
+        decimals: 0,
+        balanceDisplay: 'not held',
+        isNative: false,
+      })
+    }
 
-      return assets
-    },
-    [detail?.group.limitAssetId, holdings],
-  )
+    return assets
+  }, [detail?.group.limitAssetId, holdings])
 
   const selectedSpendingAsset = spendingLimitAssets.find((asset) => asset.key === spendingLimitAssetKey) ??
     spendingLimitAssets[0] ?? {
@@ -207,11 +205,7 @@ export function SignerGroupManagementPage() {
     return mask
   }, [groupAdmin, policyAdmin])
 
-  async function submitChange(
-    section: string,
-    change: AdminChange,
-    successMessage: string,
-  ) {
+  async function submitChange(section: string, change: AdminChange, successMessage: string) {
     setError(null)
 
     if (!safe) {

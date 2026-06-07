@@ -48,7 +48,9 @@ export function SignerGroupCard({ group }: { group: LiveSignerGroup }) {
         <div>
           <div className="flex items-center gap-2">
             <span className="font-semibold text-on-surface">{group.name}</span>
-            <span className={`rounded-sm px-2 py-0.5 font-mono text-[11px] uppercase tracking-wide ${group.isAdminGroup ? 'bg-primary/15 text-primary' : 'bg-secondary-container/20 text-secondary'}`}>
+            <span
+              className={`rounded-sm px-2 py-0.5 font-mono text-[11px] uppercase tracking-wide ${group.isAdminGroup ? 'bg-primary/15 text-primary' : 'bg-secondary-container/20 text-secondary'}`}
+            >
               {group.isAdminGroup ? 'Admin' : 'Execution'}
             </span>
           </div>
@@ -56,7 +58,9 @@ export function SignerGroupCard({ group }: { group: LiveSignerGroup }) {
             Group #{group.id} · {group.threshold}-of-{group.memberCount} signers
           </p>
         </div>
-        <span className={`inline-flex items-center gap-1 rounded-sm px-2 py-0.5 font-mono text-[11px] uppercase tracking-wide ${group.active ? 'bg-primary/15 text-primary' : 'bg-surface-container-high text-on-surface-variant'}`}>
+        <span
+          className={`inline-flex items-center gap-1 rounded-sm px-2 py-0.5 font-mono text-[11px] uppercase tracking-wide ${group.active ? 'bg-primary/15 text-primary' : 'bg-surface-container-high text-on-surface-variant'}`}
+        >
           <Icon name={group.active ? 'check_circle' : 'pause_circle'} className="text-sm" />
           {group.active ? 'Active' : 'Disabled'}
         </span>
@@ -78,7 +82,10 @@ export function SignerGroupCard({ group }: { group: LiveSignerGroup }) {
 
         <div className="flex flex-wrap gap-2">
           {allowedActions.map((label) => (
-            <span key={label} className="rounded-sm border border-outline-variant bg-surface-container-low px-2 py-1 font-mono text-[11px] uppercase tracking-wide text-on-surface-variant">
+            <span
+              key={label}
+              className="rounded-sm border border-outline-variant bg-surface-container-low px-2 py-1 font-mono text-[11px] uppercase tracking-wide text-on-surface-variant"
+            >
               {label}
             </span>
           ))}

@@ -48,15 +48,15 @@ function buildAppClient(algodClient: algosdk.Algodv2, safe: Safe) {
 
 async function getBoxMaps(algodClient: algosdk.Algodv2, safe: Safe) {
   const client = buildAppClient(algodClient, safe)
-  const [groupsMap, membersMap] = await Promise.all([
-    client.state.box.groups.getMap(),
-    client.state.box.members.getMap(),
-  ])
+  const [groupsMap, membersMap] = await Promise.all([client.state.box.groups.getMap(), client.state.box.members.getMap()])
 
   return { groupsMap, membersMap }
 }
 
-function mapLiveSignerGroup(groupId: bigint, group: Awaited<ReturnType<typeof getBoxMaps>>['groupsMap'] extends Map<bigint, infer TValue> ? TValue : never): LiveSignerGroup {
+function mapLiveSignerGroup(
+  groupId: bigint,
+  group: Awaited<ReturnType<typeof getBoxMaps>>['groupsMap'] extends Map<bigint, infer TValue> ? TValue : never,
+): LiveSignerGroup {
   return {
     id: groupId.toString(),
     name: group.name,
