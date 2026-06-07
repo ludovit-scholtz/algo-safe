@@ -21,15 +21,11 @@ function getActionLabels(allowedActions: number) {
 }
 
 function getLimitAssetLabel(group: LiveSignerGroup) {
-  return group.limitAssetId === 0n ? 'ALGO' : `ASA #${group.limitAssetId}`
+  return group.limitAsset.symbol || (group.limitAssetId === 0n ? 'ALGO' : `ASA ${group.limitAssetId.toString()}`)
 }
 
 function formatAssetScopedAmount(amount: bigint, group: LiveSignerGroup) {
-  if (group.limitAssetId === 0n) {
-    return `${formatUnits(amount, 6)} ALGO`
-  }
-
-  return `${amount.toString()} units`
+  return `${formatUnits(amount, group.limitAsset.decimals)} ${getLimitAssetLabel(group)}`
 }
 
 function formatLimit(limit: bigint, group: LiveSignerGroup) {

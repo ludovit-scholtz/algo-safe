@@ -13,6 +13,7 @@ import { FormField, inputCls } from '../components/ui/FormField'
 import { Icon } from '../components/ui/Icon'
 import { useSafe, useSignerGroup } from '../hooks'
 import { useOnChainSafeHoldings } from '../hooks/useOnChainSafeHoldings'
+import { getKnownAssets } from '../lib/assetMetadata'
 import { formatUnits, getZeroAddress } from '../lib/onChainSafe'
 import { useSafeId } from '../lib/SafeContext'
 import type { AssetSymbol } from '../services/types'
@@ -45,6 +46,7 @@ const ZERO_ADDRESS = getZeroAddress()
 type SpendingAssetOption = {
   key: string
   symbol: AssetSymbol
+  name: string
   assetId?: number
   decimals: number
   balanceDisplay: string
@@ -107,37 +109,79 @@ export function SignerGroupManagementPage() {
   const [isActive, setIsActive] = useState(true)
   const [submittingSection, setSubmittingSection] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const knownAssets = useMemo(() => getKnownAssets(safe?.network), [safe?.network])
 
   const spendingLimitAssets: SpendingAssetOption[] = useMemo(() => {
-    const assets = (holdings ?? [])
-      .filter((holding) => holding.isNative || holding.assetId !== undefined)
-      .map((holding) => ({
-        key: holding.key,
+    const assetMap = new Map<string, SpendingAssetOption>()
+
+    const upsert = (asset: SpendingAssetOption) => {
+      assetMap.set(asset.key, asset)
+    }
+
+    for (const holding of holdings ?? []) {
+      if (!holding.isNative && holding.assetId === undefined) continue
+
+      upsert({
+        key: holding.isNative ? 'native-algo' : `asa-${holding.assetId}`,
         symbol: holding.symbol,
+        name: holding.name,
         assetId: holding.assetId,
         decimals: holding.decimals,
         balanceDisplay: holding.balanceDisplay,
         isNative: holding.isNative,
-      }))
+      })
+    }
 
-    const trackedAssetId = detail?.group.limitAssetId ?? 0n
-    const trackedAssetExists =
-      trackedAssetId === 0n ||
-      assets.some((asset) => !asset.isNative && asset.assetId !== undefined && BigInt(asset.assetId) === trackedAssetId)
+    for (const asset of knownAssets) {
+      if (asset.isNative) continue
 
-    if (!trackedAssetExists) {
-      assets.unshift({
-        key: `tracked-asset-${trackedAssetId.toString()}`,
-        symbol: 'ASA',
-        assetId: Number(trackedAssetId),
-        decimals: 0,
+      const key = `asa-${asset.assetId}`
+      if (assetMap.has(key)) continue
+
+      upsert({
+        key,
+        symbol: asset.symbol,
+        name: asset.name,
+        assetId: asset.assetId,
+        decimals: asset.decimals,
         balanceDisplay: 'not held',
         isNative: false,
       })
     }
 
-    return assets
-  }, [detail?.group.limitAssetId, holdings])
+    if (!assetMap.has('native-algo')) {
+      upsert({
+        key: 'native-algo',
+        symbol: 'ALGO',
+        name: 'Algorand Native',
+        assetId: 0,
+        decimals: 6,
+        balanceDisplay: '0',
+        isNative: true,
+      })
+    }
+
+    if (detail) {
+      const trackedAsset = detail.group.limitAsset
+      const trackedKey = trackedAsset.isNative ? 'native-algo' : `asa-${trackedAsset.assetId}`
+      if (!assetMap.has(trackedKey)) {
+        upsert({
+          key: trackedKey,
+          symbol: trackedAsset.symbol,
+          name: trackedAsset.name,
+          assetId: trackedAsset.assetId,
+          decimals: trackedAsset.decimals,
+          balanceDisplay: 'not held',
+          isNative: trackedAsset.isNative,
+        })
+      }
+    }
+
+    return Array.from(assetMap.values()).sort((left, right) => {
+      if (left.isNative !== right.isNative) return left.isNative ? -1 : 1
+      return left.symbol.localeCompare(right.symbol) || (left.assetId ?? 0) - (right.assetId ?? 0)
+    })
+  }, [detail, holdings, knownAssets])
 
   const selectedSpendingAsset = spendingLimitAssets.find((asset) => asset.key === spendingLimitAssetKey) ??
     spendingLimitAssets[0] ?? {
@@ -642,7 +686,9 @@ export function SignerGroupManagementPage() {
                 {spendingLimitAssets.map((asset) => (
                   <option key={asset.key} value={asset.key}>
                     {asset.symbol}
-                    {asset.assetId && asset.assetId !== 0 ? ` · ${asset.assetId}` : ''} · Available {asset.balanceDisplay}
+                    {asset.name ? ` · ${asset.name}` : ''}
+                    {asset.assetId && asset.assetId !== 0 ? ` · ${asset.assetId}` : ''}
+                    {` · Available ${asset.balanceDisplay}`}
                   </option>
                 ))}
               </select>

@@ -1,6 +1,9 @@
 import { algo, AlgorandClient } from '@algorandfoundation/algokit-utils'
-import { AlgoSafeClient, type Proposal as ContractProposal } from 'algo-safe'
+import { AlgoSafeClient, type AdminChange, type Proposal as ContractProposal } from 'algo-safe'
 import algosdk, { type TransactionSigner } from 'algosdk'
+import type { AssetMetadata } from '../lib/assetMetadata'
+import { resolveAssetMetadata } from '../lib/assetMetadata'
+import { formatUnits } from '../lib/onChainSafe'
 import { ellipseAddress } from '../utils/ellipseAddress'
 import type { PolicyCheck, Proposal, ProposalStatus, Safe, TxLine } from './types'
 
@@ -19,6 +22,22 @@ const TX_PAYMENT = 1n
 const TX_ASSET = 2n
 const TX_APP = 3n
 const TX_KEYREG = 4n
+
+const ADM_CREATE_GROUP = 1n
+const ADM_ADD_MEMBER = 2n
+const ADM_REMOVE_MEMBER = 3n
+const ADM_CHANGE_THRESHOLD = 4n
+const ADM_SET_POLICY = 5n
+const ADM_SET_PRIVILEGES = 6n
+const ADM_SET_ACTIVE = 7n
+
+const ACT_PAY = 1n
+const ACT_AXFER = 2n
+const ACT_APPL = 4n
+const ACT_KEYREG = 8n
+
+const PRIV_GROUP = 1n
+const PRIV_POLICY = 2n
 
 type AlgoSafeClientInstance = InstanceType<typeof AlgoSafeClient>
 type TxTuple = Awaited<ReturnType<AlgoSafeClientInstance['getTransactionGroup']>>[number]
@@ -71,6 +90,69 @@ function formatRawAmount(amount: bigint) {
   return new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(Number(amount))
 }
 
+function formatAssetAmount(amount: bigint, asset: AssetMetadata) {
+  return `${formatUnits(amount, asset.decimals)} ${asset.symbol}`
+}
+
+function formatAssetLabel(asset: AssetMetadata) {
+  return asset.isNative ? asset.symbol : `${asset.symbol} (ASA ${asset.assetId})`
+}
+
+function humanList(values: string[]) {
+  if (values.length === 0) return 'none'
+  if (values.length === 1) return values[0]
+  if (values.length === 2) return `${values[0]} and ${values[1]}`
+  return `${values.slice(0, -1).join(', ')}, and ${values.at(-1)}`
+}
+
+function describeAllowedActions(mask: bigint) {
+  const labels: string[] = []
+  if ((mask & ACT_PAY) !== 0n) labels.push('ALGO payments')
+  if ((mask & ACT_AXFER) !== 0n) labels.push('ASA transfers')
+  if ((mask & ACT_APPL) !== 0n) labels.push('app calls')
+  if ((mask & ACT_KEYREG) !== 0n) labels.push('key registration')
+  return humanList(labels)
+}
+
+function describePrivileges(mask: bigint) {
+  const labels: string[] = []
+  if ((mask & PRIV_GROUP) !== 0n) labels.push('group administration')
+  if ((mask & PRIV_POLICY) !== 0n) labels.push('policy administration')
+  return humanList(labels)
+}
+
+function describeMemberType(accountType: bigint) {
+  switch (accountType) {
+    case 2n:
+      return 'multisig account'
+    case 3n:
+      return 'rekeyed account'
+    case 4n:
+      return 'agent account'
+    case 5n:
+      return 'quantum account'
+    default:
+      return 'standard account'
+  }
+}
+
+function describeCooldown(rounds: bigint) {
+  return rounds > 0n ? `${rounds.toString()} rounds` : 'no cooldown'
+}
+
+function createAssetResolver(algodClient: algosdk.Algodv2, safe: Safe) {
+  const cache = new Map<number, Promise<AssetMetadata>>()
+
+  return (assetId: number) => {
+    const existing = cache.get(assetId)
+    if (existing) return existing
+
+    const pending = resolveAssetMetadata(algodClient, assetId, safe.network)
+    cache.set(assetId, pending)
+    return pending
+  }
+}
+
 function encodeUint64(value: bigint) {
   const bytes = new Uint8Array(8)
   const view = new DataView(bytes.buffer)
@@ -117,73 +199,81 @@ function mapStatus(status: bigint, expiryRound: bigint, currentRound: bigint): P
   return 'pending'
 }
 
-function mapTxPreview(txns: TxTuple[], safeAddress: string): TxLine[] {
-  return txns.map((tx) => {
-    const [
-      txType,
-      receiver,
-      amount,
-      _hasClose,
-      _closeRemainderTo,
-      xferAsset,
-      assetReceiver,
-      assetAmount,
-      _hasAssetClose,
-      _assetCloseTo,
-      appId,
-      numArgs,
-      _arg0,
-      _arg1,
-      _arg2,
-      _arg3,
-      online,
-      _voteKey,
-      _selectionKey,
-      _stateProofKey,
-      voteFirst,
-      voteLast,
-      _voteKeyDilution,
-      note,
-    ] = tx
+async function mapTxPreview(
+  txns: TxTuple[],
+  safeAddress: string,
+  resolveAsset: (assetId: number) => Promise<AssetMetadata>,
+): Promise<TxLine[]> {
+  return Promise.all(
+    txns.map(async (tx) => {
+      const [
+        txType,
+        receiver,
+        amount,
+        _hasClose,
+        _closeRemainderTo,
+        xferAsset,
+        assetReceiver,
+        assetAmount,
+        _hasAssetClose,
+        _assetCloseTo,
+        appId,
+        numArgs,
+        _arg0,
+        _arg1,
+        _arg2,
+        _arg3,
+        online,
+        _voteKey,
+        _selectionKey,
+        _stateProofKey,
+        voteFirst,
+        voteLast,
+        _voteKeyDilution,
+        note,
+      ] = tx
 
-    if (txType === TX_PAYMENT) {
-      return {
-        type: 'pay',
-        summary: `Send ${formatAlgo(amount)} ALGO to ${ellipseAddress(receiver)}`,
-        detail: note ? `${receiver} · Note: ${note}` : receiver,
+      if (txType === TX_PAYMENT) {
+        return {
+          type: 'pay',
+          summary: `Send ${formatAlgo(amount)} ALGO to ${ellipseAddress(receiver)}`,
+          detail: note ? `${receiver} · Note: ${note}` : receiver,
+        }
       }
-    }
 
-    if (txType === TX_ASSET) {
-      if (assetAmount === 0n && assetReceiver === safeAddress) {
+      if (txType === TX_ASSET) {
+        const asset = await resolveAsset(Number(xferAsset))
+
+        if (assetAmount === 0n && assetReceiver === safeAddress) {
+          return {
+            type: 'axfer',
+            summary: `Opt in to ${formatAssetLabel(asset)}`,
+            detail: `${asset.name} · Safe address ${safeAddress}`,
+          }
+        }
+
         return {
           type: 'axfer',
-          summary: `Opt in to ASA ${xferAsset.toString()}`,
-          detail: `Safe address ${safeAddress}`,
+          summary: `Transfer ${formatAssetAmount(assetAmount, asset)} to ${ellipseAddress(assetReceiver)}`,
+          detail: `${asset.name} · ${assetReceiver}${note ? ` · Note: ${note}` : ''}`,
+        }
+      }
+
+      if (txType === TX_APP) {
+        return {
+          type: 'appl',
+          summary: `Call app ${appId.toString()}`,
+          detail: `${numArgs.toString()} argument(s)`,
         }
       }
 
       return {
-        type: 'axfer',
-        summary: `Transfer ${formatRawAmount(assetAmount)} units of ASA ${xferAsset.toString()}`,
-        detail: `${assetReceiver} · ${note || 'No note'}`,
+        type: 'keyreg',
+        summary: online === 0n ? 'Take account offline' : 'Register participation keys',
+        detail: `Rounds ${voteFirst.toString()}-${voteLast.toString()}`,
       }
-    }
-
-    if (txType === TX_APP) {
-      return {
-        type: 'appl',
-        summary: `Call app ${appId.toString()}`,
-        detail: `${numArgs.toString()} argument(s)`,
-      }
-    }
-
-    return {
-      type: 'keyreg',
-      summary: online === 0n ? 'Take account offline' : 'Register participation keys',
-      detail: `Rounds ${voteFirst.toString()}-${voteLast.toString()}`,
-    }
-  })
+    }),
+  )
 }
 
 function deriveHeadline(txPreview: TxLine[], payloadType: bigint) {
@@ -197,37 +287,110 @@ function deriveDescription(contractProposal: ContractProposal, txPreview: TxLine
   return `Signer group ${contractProposal.groupId.toString()} proposal from ${ellipseAddress(contractProposal.proposer)}. ${actionSummary}`
 }
 
-function deriveAmount(txns: TxTuple[]) {
+async function deriveAmount(txns: TxTuple[], resolveAsset: (assetId: number) => Promise<AssetMetadata>) {
   if (txns.length !== 1) return undefined
   const [txType, , amount, , , xferAsset, , assetAmount] = txns[0]
 
   if (txType === TX_PAYMENT) return { amount: Number(amount) / 1_000_000, asset: 'ALGO' }
-  if (txType === TX_ASSET && assetAmount > 0n) return { amount: Number(assetAmount), asset: `ASA ${xferAsset.toString()}` }
+  if (txType === TX_ASSET && assetAmount > 0n) {
+    const asset = await resolveAsset(Number(xferAsset))
+    return { amount: Number(formatUnits(assetAmount, asset.decimals)), asset: asset.symbol }
+  }
   return undefined
 }
 
-async function hydrateProposal(client: AlgoSafeClientInstance, proposalId: bigint, currentRound: bigint, safe: Safe, activeAddress?: string | null) {
+async function deriveAdminChangePresentation(
+  change: AdminChange,
+  contractProposal: ContractProposal,
+  resolveAsset: (assetId: number) => Promise<AssetMetadata>,
+): Promise<{ title: string; description: string; txPreview: TxLine[] }> {
+  const groupLabel = `group #${change.targetGroupId.toString()}`
+
+  if (change.changeType === ADM_CREATE_GROUP) {
+    const asset = await resolveAsset(Number(change.limitAssetId ?? 0n))
+    const title = `Create signer group ${change.groupName || `#${contractProposal.groupId.toString()}`}`
+    const description = `Create a new signer group named ${change.groupName || 'Untitled Group'} with threshold ${change.threshold.toString()}, first member ${ellipseAddress(change.memberAddr)}, ${describeAllowedActions(change.allowedActions)} enabled, and ${formatAssetLabel(asset)} policy limits of ${formatAssetAmount(change.dailyLimit, asset)} daily and ${formatAssetAmount(change.monthlyLimit, asset)} monthly.`
+    return {
+      title,
+      description,
+      txPreview: [{ type: 'appl', summary: title, detail: description }],
+    }
+  }
+
+  if (change.changeType === ADM_ADD_MEMBER) {
+    const title = `Add member to ${groupLabel}`
+    const description = `Add ${change.memberLabel || 'member'} at ${ellipseAddress(change.memberAddr)} to ${groupLabel} as a ${describeMemberType(change.memberType)}.`
+    return { title, description, txPreview: [{ type: 'appl', summary: title, detail: description }] }
+  }
+
+  if (change.changeType === ADM_REMOVE_MEMBER) {
+    const title = `Remove member from ${groupLabel}`
+    const description = `Remove ${ellipseAddress(change.memberAddr)} from ${groupLabel}.`
+    return { title, description, txPreview: [{ type: 'appl', summary: title, detail: description }] }
+  }
+
+  if (change.changeType === ADM_CHANGE_THRESHOLD) {
+    const title = `Update threshold for ${groupLabel}`
+    const description = `Require ${change.threshold.toString()} approval${change.threshold === 1n ? '' : 's'} before ${groupLabel} can approve execution.`
+    return { title, description, txPreview: [{ type: 'appl', summary: title, detail: description }] }
+  }
+
+  if (change.changeType === ADM_SET_POLICY) {
+    const asset = await resolveAsset(Number(change.limitAssetId ?? 0n))
+    const title = `Update ${formatAssetLabel(asset)} policy for ${groupLabel}`
+    const description = `Set ${groupLabel} to track spending in ${formatAssetLabel(asset)}, allow ${describeAllowedActions(change.allowedActions)}, enforce a daily limit of ${formatAssetAmount(change.dailyLimit, asset)}, a monthly limit of ${formatAssetAmount(change.monthlyLimit, asset)}, and ${describeCooldown(change.cooldownRounds)}.`
+    return { title, description, txPreview: [{ type: 'appl', summary: title, detail: description }] }
+  }
+
+  if (change.changeType === ADM_SET_PRIVILEGES) {
+    const title = `Update admin privileges for ${groupLabel}`
+    const description = `Grant ${groupLabel} ${describePrivileges(change.adminPrivileges)}.`
+    return { title, description, txPreview: [{ type: 'appl', summary: title, detail: description }] }
+  }
+
+  if (change.changeType === ADM_SET_ACTIVE) {
+    const title = `${change.activeFlag === 0n ? 'Disable' : 'Enable'} ${groupLabel}`
+    const description = `${change.activeFlag === 0n ? 'Disable' : 'Enable'} ${groupLabel} for proposal approvals and execution.`
+    return { title, description, txPreview: [{ type: 'appl', summary: title, detail: description }] }
+  }
+
+  const title = 'Admin proposal'
+  const description = `Signer group ${contractProposal.groupId.toString()} proposal from ${ellipseAddress(contractProposal.proposer)}.`
+  return { title, description, txPreview: [{ type: 'appl', summary: title, detail: description }] }
+}
+
+async function hydrateProposal(
+  client: AlgoSafeClientInstance,
+  proposalId: bigint,
+  currentRound: bigint,
+  safe: Safe,
+  resolveAsset: (assetId: number) => Promise<AssetMetadata>,
+  activeAddress?: string | null,
+) {
   const contractProposal = await client.getProposal({ args: [proposalId] })
   const userHasApproved = activeAddress ? await client.hasApproved({ args: [proposalId, activeAddress] }) : false
 
-  const txns = contractProposal.payloadType === PAYLOAD_TRANSACTION_GROUP
-    ? await client.getTransactionGroup({ args: [proposalId] }).catch(() => [])
-    : []
+  const txns =
+    contractProposal.payloadType === PAYLOAD_TRANSACTION_GROUP
+      ? await client.getTransactionGroup({ args: [proposalId] }).catch(() => [])
+      : []
 
-  const txPreview = mapTxPreview(txns, safe.address)
-  const amountDetails = deriveAmount(txns)
+  const adminChange = txns.length === 0 ? await client.state.box.adminPayloads.value(proposalId).catch(() => undefined) : undefined
+  const txPreview = txns.length > 0 ? await mapTxPreview(txns, safe.address, resolveAsset) : []
+  const amountDetails = txns.length > 0 ? await deriveAmount(txns, resolveAsset) : undefined
+  const adminPresentation = adminChange ? await deriveAdminChangePresentation(adminChange, contractProposal, resolveAsset) : undefined
 
   return {
     id: proposalId.toString(),
-    title: deriveHeadline(txPreview, contractProposal.payloadType),
-    description: deriveDescription(contractProposal, txPreview),
+    title: adminPresentation?.title ?? deriveHeadline(txPreview, contractProposal.payloadType),
+    description: adminPresentation?.description ?? deriveDescription(contractProposal, txPreview),
     status: mapStatus(contractProposal.status, contractProposal.expiryRound, currentRound),
     approvals: Number(contractProposal.approvalsCount),
     threshold: Number(contractProposal.threshold),
     amount: amountDetails?.amount,
     asset: amountDetails?.asset,
     date: `Expires at round ${contractProposal.expiryRound.toString()}`,
-    txPreview,
+    txPreview: adminPresentation?.txPreview ?? txPreview,
     policyChecks: [] as PolicyCheck[],
     proposer: contractProposal.proposer,
     groupId: contractProposal.groupId.toString(),
@@ -241,9 +404,12 @@ export async function fetchLiveProposals(context: Omit<ProposalContext, 'transac
   const nextProposalId = config[3] ?? 1n
   const status = (await context.algodClient.status().do()) as unknown as Record<string, unknown>
   const currentRound = getCurrentRound(status)
+  const resolveAsset = createAssetResolver(context.algodClient, context.safe)
 
   const proposalIds = Array.from({ length: Number(nextProposalId - 1n) }, (_value, index) => BigInt(index + 1)).reverse()
-  const proposals = await Promise.all(proposalIds.map((proposalId) => hydrateProposal(client, proposalId, currentRound, context.safe, context.activeAddress)))
+  const proposals = await Promise.all(
+    proposalIds.map((proposalId) => hydrateProposal(client, proposalId, currentRound, context.safe, resolveAsset, context.activeAddress)),
+  )
   return proposals
 }
 
@@ -251,7 +417,8 @@ export async function fetchLiveProposal(context: Omit<ProposalContext, 'transact
   const client = buildAppClient(context)
   const status = (await context.algodClient.status().do()) as unknown as Record<string, unknown>
   const currentRound = getCurrentRound(status)
-  return hydrateProposal(client, BigInt(proposalId), currentRound, context.safe, context.activeAddress)
+  const resolveAsset = createAssetResolver(context.algodClient, context.safe)
+  return hydrateProposal(client, BigInt(proposalId), currentRound, context.safe, resolveAsset, context.activeAddress)
 }
 
 function assertWalletContext(context: ProposalContext) {
@@ -296,7 +463,11 @@ export async function cancelLiveProposal(context: ProposalContext, proposalId: s
   return fetchLiveProposal(context, proposalId)
 }
 
-export async function executeLiveProposal(context: ProposalContext, proposalId: string, lifecycle?: ExecuteProposalLifecycle): Promise<ExecuteProposalResult> {
+export async function executeLiveProposal(
+  context: ProposalContext,
+  proposalId: string,
+  lifecycle?: ExecuteProposalLifecycle,
+): Promise<ExecuteProposalResult> {
   assertWalletContext(context)
   const client = buildAppClient(context)
   const proposalIdValue = BigInt(proposalId)

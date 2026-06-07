@@ -12,6 +12,7 @@ import { FormField, inputCls } from '../components/ui/FormField'
 import { Icon } from '../components/ui/Icon'
 import { useSafe } from '../hooks'
 import { useOnChainSafeHoldings } from '../hooks/useOnChainSafeHoldings'
+import { getKnownAssets } from '../lib/assetMetadata'
 import { useSafeId } from '../lib/SafeContext'
 import type { AssetSymbol } from '../services/types'
 
@@ -25,6 +26,7 @@ const AGENT_ALLOWED_ACTIONS = 7n
 type SpendingAssetOption = {
   key: string
   symbol: AssetSymbol
+  name: string
   assetId?: number
   decimals: number
   balanceDisplay: string
@@ -95,17 +97,33 @@ export function RegisterAgentPage() {
   const [spendingLimitAssetKey, setSpendingLimitAssetKey] = useState('native-algo')
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const knownAssets = getKnownAssets(safe?.network)
 
-  const spendingLimitAssets: SpendingAssetOption[] = (holdings ?? [])
-    .filter((holding) => holding.isNative || holding.assetId !== undefined)
-    .map((holding) => ({
-      key: holding.key,
-      symbol: holding.symbol,
-      assetId: holding.assetId,
-      decimals: holding.decimals,
-      balanceDisplay: holding.balanceDisplay,
-      isNative: holding.isNative,
-    }))
+  const spendingLimitAssets: SpendingAssetOption[] = [
+    ...((holdings ?? [])
+      .filter((holding) => holding.isNative || holding.assetId !== undefined)
+      .map((holding) => ({
+        key: holding.isNative ? 'native-algo' : `asa-${holding.assetId}`,
+        symbol: holding.symbol,
+        name: holding.name,
+        assetId: holding.assetId,
+        decimals: holding.decimals,
+        balanceDisplay: holding.balanceDisplay,
+        isNative: holding.isNative,
+      })) as SpendingAssetOption[]),
+    ...knownAssets
+      .filter((asset) => asset.assetId !== 0)
+      .filter((asset) => !(holdings ?? []).some((holding) => Number(holding.assetId ?? 0) === asset.assetId))
+      .map((asset) => ({
+        key: `asa-${asset.assetId}`,
+        symbol: asset.symbol,
+        name: asset.name,
+        assetId: asset.assetId,
+        decimals: asset.decimals,
+        balanceDisplay: 'not held',
+        isNative: false,
+      })),
+  ]
 
   const selectedSpendingAsset = spendingLimitAssets.find((asset) => asset.key === spendingLimitAssetKey) ??
     spendingLimitAssets[0] ?? {

@@ -1,6 +1,8 @@
 import { AlgorandClient } from '@algorandfoundation/algokit-utils'
 import { AlgoSafeClient } from 'algo-safe'
 import type algosdk from 'algosdk'
+import type { AssetMetadata } from '../lib/assetMetadata'
+import { getNativeAssetMetadata, resolveAssetMetadata } from '../lib/assetMetadata'
 import type { Safe } from './types'
 
 export type LiveSignerGroup = {
@@ -16,6 +18,7 @@ export type LiveSignerGroup = {
   monthlyLimit: bigint
   monthlyUsage: bigint
   cooldownRounds: number
+  limitAsset: AssetMetadata
   active: boolean
   isAdminGroup: boolean
 }
@@ -53,10 +56,23 @@ async function getBoxMaps(algodClient: algosdk.Algodv2, safe: Safe) {
   return { groupsMap, membersMap }
 }
 
-function mapLiveSignerGroup(
-  groupId: bigint,
-  group: Awaited<ReturnType<typeof getBoxMaps>>['groupsMap'] extends Map<bigint, infer TValue> ? TValue : never,
-): LiveSignerGroup {
+type GroupBoxValue = Awaited<ReturnType<typeof getBoxMaps>>['groupsMap'] extends Map<bigint, infer TValue> ? TValue : never
+
+async function getLimitAssetMap(algodClient: algosdk.Algodv2, safe: Safe, groupsMap: Map<bigint, GroupBoxValue>) {
+  const assetIds = Array.from(new Set(Array.from(groupsMap.values(), (group) => Number(group.limitAssetId ?? 0n))))
+  const entries = await Promise.all(
+    assetIds.map(
+      async (assetId) =>
+        [assetId, assetId === 0 ? getNativeAssetMetadata() : await resolveAssetMetadata(algodClient, assetId, safe.network)] as const,
+    ),
+  )
+
+  return new Map<number, AssetMetadata>(entries)
+}
+
+function mapLiveSignerGroup(groupId: bigint, group: GroupBoxValue, limitAssetMap: Map<number, AssetMetadata>): LiveSignerGroup {
+  const limitAssetId = group.limitAssetId ?? 0n
+
   return {
     id: groupId.toString(),
     name: group.name,
@@ -64,12 +80,13 @@ function mapLiveSignerGroup(
     memberCount: Number(group.memberCount),
     adminPrivileges: Number(group.adminPrivileges),
     allowedActions: Number(group.allowedActions),
-    limitAssetId: group.limitAssetId,
+    limitAssetId,
     dailyLimit: group.dailyLimit,
     dailyUsage: group.dailyUsage,
     monthlyLimit: group.monthlyLimit,
     monthlyUsage: group.monthlyUsage,
     cooldownRounds: Number(group.cooldownRounds),
+    limitAsset: limitAssetMap.get(Number(limitAssetId)) ?? getNativeAssetMetadata(),
     active: group.active !== 0n,
     isAdminGroup: group.adminPrivileges !== 0n,
   }
@@ -82,7 +99,8 @@ export async function fetchLiveSignerGroups(algodClient: algosdk.Algodv2, safe: 
     return []
   }
 
-  const groups = Array.from(groupsMap.entries(), ([groupId, group]) => mapLiveSignerGroup(groupId, group))
+  const limitAssetMap = await getLimitAssetMap(algodClient, safe, groupsMap)
+  const groups = Array.from(groupsMap.entries(), ([groupId, group]) => mapLiveSignerGroup(groupId, group, limitAssetMap))
 
   return groups.sort((left, right) => Number(right.isAdminGroup) - Number(left.isAdminGroup) || Number(left.id) - Number(right.id))
 }
@@ -100,6 +118,8 @@ export async function fetchLiveSignerGroupDetail(
   if (!targetGroup) {
     return null
   }
+
+  const limitAssetMap = await getLimitAssetMap(algodClient, safe, groupsMap)
 
   const members = Array.from(membersMap.entries())
     .filter(([key]) => key.groupId === targetGroupId)
@@ -123,7 +143,7 @@ export async function fetchLiveSignerGroupDetail(
     .sort((left, right) => Number(right.isMember) - Number(left.isMember) || Number(left.id) - Number(right.id))
 
   return {
-    group: mapLiveSignerGroup(targetGroupId, targetGroup),
+    group: mapLiveSignerGroup(targetGroupId, targetGroup, limitAssetMap),
     members,
     adminGroupOptions,
   }

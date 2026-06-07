@@ -12,19 +12,15 @@ import { FormField, inputCls } from '../components/ui/FormField'
 import { Icon } from '../components/ui/Icon'
 import { useSafe } from '../hooks'
 import { useOnChainSafeHoldings } from '../hooks/useOnChainSafeHoldings'
-import { useSafeId } from '../lib/SafeContext'
+import { getKnownAssets } from '../lib/assetMetadata'
 import { formatUnits, getZeroAddress } from '../lib/onChainSafe'
+import { useSafeId } from '../lib/SafeContext'
 import type { NetworkId } from '../services/types'
 
 const TX_VALIDITY_WINDOW = 200
 const PROPOSAL_CALL_FEE = algo(0.2)
 
 type ProposalKind = 'payment' | 'asset-transfer' | 'opt-in'
-
-type KnownAsset = {
-  id: string
-  label: string
-}
 
 type CreatedProposal = {
   proposalId: string
@@ -50,23 +46,6 @@ function getCurrentRound(status: Record<string, unknown>) {
   return 0n
 }
 
-function getKnownAssets(network: NetworkId | undefined): KnownAsset[] {
-  switch (network) {
-    case 'mainnet':
-      return [
-        { label: 'EURD', id: '227855942' },
-        { label: 'USDC', id: '31566704' },
-        { label: 'AsaGold', id: '764036623' },
-        { label: 'GoBTC', id: '386192725' },
-        { label: 'WBTC', id: '386192725' },
-      ]
-    case 'testnet':
-      return [{ label: 'USDC', id: '10458941' }]
-    default:
-      return []
-  }
-}
-
 export function CreateProposalPage() {
   const safeId = useSafeId()
   const navigate = useNavigate()
@@ -87,7 +66,10 @@ export function CreateProposalPage() {
 
   const assetOptions = useMemo(() => (holdings ?? []).filter((holding) => !holding.isNative), [holdings])
   const selectedAsset = assetOptions.find((holding) => String(holding.assetId) === assetId)
-  const knownAssets = useMemo(() => getKnownAssets(safe?.network), [safe?.network])
+  const knownAssets = useMemo(
+    () => getKnownAssets(safe?.network as NetworkId | undefined).map((asset) => ({ id: asset.assetId.toString(), label: asset.symbol })),
+    [safe?.network],
+  )
   const selectedKnownAsset = knownAssets.find((asset) => asset.id === assetId)
   const effectiveReceiver = proposalKind === 'opt-in' ? (safe?.address ?? '') : receiver
   const showsAssetIdInput = proposalKind === 'asset-transfer' || proposalKind === 'opt-in'
