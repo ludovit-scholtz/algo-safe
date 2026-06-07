@@ -25,9 +25,31 @@ const signer = toFacilitatorAvmSigner(account.privateKeyBase64, {
 });
 
 const facilitator = new x402Facilitator().register(ALGORAND_TESTNET_CAIP2, new ExactAvmScheme(signer));
-const app = new Hono();
+const app = new Hono<{ Variables: { requestId: string } }>();
+
+app.use("*", async (context, next) => {
+	const requestId = createRequestId();
+	const startedAt = Date.now();
+
+	context.set("requestId", requestId);
+	console.info(`[${requestId}] ${context.req.method} ${context.req.path} started`);
+
+	try {
+		await next();
+		console.info(
+			`[${requestId}] ${context.req.method} ${context.req.path} completed status=${context.res.status} durationMs=${Date.now() - startedAt}`,
+		);
+	} catch (error) {
+		console.error(
+			`[${requestId}] ${context.req.method} ${context.req.path} failed durationMs=${Date.now() - startedAt}`,
+			error,
+		);
+		throw error;
+	}
+});
 
 app.get("/health", (context) => {
+	console.info(`[${getRequestId(context)}] Health check requested`);
 	return context.json({
 		ok: true,
 		address: account.address,
@@ -35,14 +57,27 @@ app.get("/health", (context) => {
 	});
 });
 
-app.get("/supported", (context) => context.json(facilitator.getSupported()));
+app.get("/supported", (context) => {
+	const supported = facilitator.getSupported();
+	console.info(
+		`[${getRequestId(context)}] Supported schemes requested kinds=${supported.kinds.length} signers=${Object.keys(supported.signers).length}`,
+	);
+	return context.json(supported);
+});
 
 app.post("/verify", async (context) => {
 	try {
 		const { paymentPayload, paymentRequirements } = parseFacilitatorBody(await context.req.json());
+		console.info(
+			`[${getRequestId(context)}] Verify requested ${formatRequestSummary(paymentPayload, paymentRequirements)}`,
+		);
 		const result = await facilitator.verify(paymentPayload, paymentRequirements);
+		console.info(
+			`[${getRequestId(context)}] Verify result isValid=${result.isValid}${result.isValid ? "" : ` reason=${result.invalidReason ?? "unknown"}`}`,
+		);
 		return context.json(result);
 	} catch (error) {
+		console.error(`[${getRequestId(context)}] Verify request rejected`, error);
 		return context.json(
 			{ error: error instanceof Error ? error.message : "Invalid verify request." },
 			400,
@@ -53,9 +88,16 @@ app.post("/verify", async (context) => {
 app.post("/settle", async (context) => {
 	try {
 		const { paymentPayload, paymentRequirements } = parseFacilitatorBody(await context.req.json());
+		console.info(
+			`[${getRequestId(context)}] Settle requested ${formatRequestSummary(paymentPayload, paymentRequirements)}`,
+		);
 		const result = await facilitator.settle(paymentPayload, paymentRequirements);
+		console.info(
+			`[${getRequestId(context)}] Settle result success=${result.success}${result.success ? ` tx=${result.transaction}` : ` reason=${result.errorReason ?? "unknown"}`}`,
+		);
 		return context.json(result);
 	} catch (error) {
+		console.error(`[${getRequestId(context)}] Settle request rejected`, error);
 		return context.json(
 			{ error: error instanceof Error ? error.message : "Invalid settle request." },
 			400,
@@ -143,4 +185,30 @@ function formatAlgodUrl(server: string, configuredPort: string): string {
 
 	parsed.port = configuredPort;
 	return parsed.toString();
+}
+
+function createRequestId(): string {
+	return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function getRequestId(context: { get: (key: string) => unknown }): string {
+	const value = context.get("requestId");
+	return typeof value === "string" ? value : "unknown";
+}
+
+function formatRequestSummary(
+	paymentPayload: VerifyPaymentPayload,
+	paymentRequirements: VerifyPaymentRequirements,
+): string {
+	const payload = paymentPayload.payload as { paymentGroup?: unknown[]; paymentIndex?: unknown } | null;
+	const paymentGroupSize = Array.isArray(payload?.paymentGroup) ? payload.paymentGroup.length : 0;
+	const paymentIndex = typeof payload?.paymentIndex === "number" ? payload.paymentIndex : "unknown";
+
+	return [
+		`scheme=${paymentRequirements.scheme}`,
+		`network=${paymentRequirements.network}`,
+		`x402Version=${paymentPayload.x402Version}`,
+		`paymentGroupSize=${paymentGroupSize}`,
+		`paymentIndex=${paymentIndex}`,
+	].join(" ");
 }
