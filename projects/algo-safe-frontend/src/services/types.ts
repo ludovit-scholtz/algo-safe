@@ -41,7 +41,7 @@ export interface Policy {
   multiSigRequired: boolean
 }
 
-export type ProposalStatus = 'draft' | 'pending' | 'executed' | 'rejected' | 'expired' | 'blocked'
+export type ProposalStatus = 'draft' | 'pending' | 'ready' | 'executed' | 'rejected' | 'expired' | 'blocked' | 'cancelled'
 export interface TxLine { type: 'pay' | 'axfer' | 'appl' | 'keyreg'; summary: string; detail: string }
 export interface PolicyCheck { label: string; passed: boolean }
 export interface Proposal {
@@ -57,6 +57,9 @@ export interface Proposal {
   txPreview: TxLine[]
   policyChecks: PolicyCheck[]
   blockedReason?: string
+  proposer?: string
+  groupId?: string
+  userHasApproved?: boolean
 }
 
 export interface QuantozTransaction {

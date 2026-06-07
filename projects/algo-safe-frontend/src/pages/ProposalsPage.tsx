@@ -12,9 +12,10 @@ export function ProposalsPage() {
   const execute = useExecuteProposal()
 
   const ps = proposals ?? []
-  const actionRequired = ps.filter(p => p.status === 'blocked')
-  const awaiting = ps.filter(p => p.status === 'pending')
-  const completed = ps.filter(p => ['executed', 'rejected', 'expired'].includes(p.status))
+  const actionRequired = ps.filter((p) => p.status === 'ready')
+  const awaiting = ps.filter((p) => p.status === 'pending' && !p.userHasApproved)
+  const inProgress = ps.filter((p) => p.status === 'pending' && p.userHasApproved)
+  const completed = ps.filter((p) => ['executed', 'cancelled', 'expired'].includes(p.status))
   const avg = ps.length
     ? Math.round((ps.reduce((s, p) => s + p.approvals / p.threshold, 0) / ps.length) * 100)
     : 0
@@ -32,7 +33,7 @@ export function ProposalsPage() {
               p={p}
               safeId={safeId}
               onApprove={approve.mutate}
-              onExecute={execute.mutate}
+              onExecute={(id) => execute.mutate({ id })}
             />
           ))}
         </Card>
@@ -45,14 +46,15 @@ export function ProposalsPage() {
 
       {/* Stat cards */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <StatCard label="Action Required" value={actionRequired.length} />
-        <StatCard label="Awaiting You" value={awaiting.length} />
+        <StatCard label="Ready To Execute" value={actionRequired.length} />
+        <StatCard label="Awaiting Your Approval" value={awaiting.length} />
         <StatCard label="Avg. Consensus" value={`${avg}%`} />
       </div>
 
       {/* Grouped sections */}
-      {section('Action Required', actionRequired)}
-      {section('Awaiting You', awaiting)}
+      {section('Ready To Execute', actionRequired)}
+      {section('Awaiting Your Approval', awaiting)}
+      {section('Awaiting Other Signers', inProgress)}
       {section('Completed', completed)}
 
       {/* Empty state */}

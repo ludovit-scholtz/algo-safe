@@ -1,6 +1,7 @@
 // src/pages/AgentDashboardPage.tsx
-import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useRef, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
+import { Fireworks, type FireworksHandlers } from '@fireworks-js/react'
 import { AgentStatusCard } from '../components/AgentStatusCard'
 import { SafeHoldingsTable } from '../components/SafeHoldingsTable'
 import { Card } from '../components/ui/Card'
@@ -14,24 +15,59 @@ import { store } from '../lib/store'
 
 export function AgentDashboardPage() {
   const safeId = useSafeId()
+  const location = useLocation()
   const navigate = useNavigate()
   const { data: holdings, isLoading: holdingsLoading, error: holdingsError } = useOnChainSafeHoldings(safeId)
   const { data: agents } = useAgents()
   const { data: proposals } = useProposals()
   const [block, setBlock] = useState(42100001)
+  const fireworksRef = useRef<FireworksHandlers | null>(null)
+  const [showCelebration, setShowCelebration] = useState(false)
+  const executionSuccess = (location.state as { executionSuccess?: { txId: string; confirmedRound: number; proposalId: string } } | null)?.executionSuccess
 
   useEffect(() => {
     const t = setInterval(() => setBlock((b) => b + 1), 3000)
     return () => clearInterval(t)
   }, [])
 
+  useEffect(() => {
+    if (!executionSuccess || showCelebration) return
+
+    setShowCelebration(true)
+    fireworksRef.current?.launch(12)
+  }, [executionSuccess, showCelebration])
+
   const activeAgents = agents?.filter((a) => a.status === 'active') ?? []
-  const pending = proposals?.filter((p) => p.status === 'pending' || p.status === 'blocked').length ?? 0
+  const pending = proposals?.filter((p) => p.status === 'pending' || p.status === 'ready').length ?? 0
   const nativeHolding = holdings?.find((holding) => holding.isNative)
   const optedInAssets = holdings?.filter((holding) => !holding.isNative) ?? []
 
   return (
     <div className="space-y-6">
+      {executionSuccess && (
+        <div className="relative overflow-hidden rounded-md border border-primary/30 bg-primary/10 px-5 py-4">
+          <div className="flex items-start gap-3 pr-4">
+            <Icon name="celebration" className="mt-0.5 text-primary text-[22px]" />
+            <div>
+              <p className="text-sm font-semibold text-on-surface">Execution confirmed and balances refreshed</p>
+              <p className="text-sm text-on-surface-variant">
+                Proposal #{executionSuccess.proposalId} was confirmed in round {executionSuccess.confirmedRound}. Tx ID: {executionSuccess.txId}
+              </p>
+            </div>
+          </div>
+          <Fireworks
+            ref={fireworksRef}
+            autostart={false}
+            options={{
+              opacity: 0.25,
+              sound: { enabled: false },
+              rocketsPoint: { min: 25, max: 75 },
+            }}
+            className="pointer-events-none absolute inset-0"
+          />
+        </div>
+      )}
+
       {/* Page Header */}
       <div className="flex items-end justify-between">
         <div>
@@ -126,9 +162,9 @@ export function AgentDashboardPage() {
               >
                 <div className="flex items-center gap-4">
                   <Icon
-                    name={p.status === 'executed' ? 'check_circle' : p.status === 'blocked' ? 'block' : 'pending'}
+                    name={p.status === 'executed' ? 'check_circle' : p.status === 'ready' ? 'rocket_launch' : 'pending'}
                     className={`text-lg ${
-                      p.status === 'executed' ? 'text-primary' : p.status === 'blocked' ? 'text-error' : 'text-on-surface-variant'
+                      p.status === 'executed' ? 'text-primary' : p.status === 'ready' ? 'text-primary' : 'text-on-surface-variant'
                     }`}
                   />
                   <div>

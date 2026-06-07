@@ -1,4 +1,5 @@
 // src/pages/ProposalDetailPage.tsx
+import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useSnackbar } from 'notistack'
 import { useProposal, useApproveProposal, useRejectProposal, useExecuteProposal } from '../hooks'
@@ -34,6 +35,11 @@ export const ProposalDetailPage = () => {
   const executeProposal = useExecuteProposal()
 
   const backPath = `/safe/${safeId}/proposals`
+  const [executionStatus, setExecutionStatus] = useState<{
+    phase: 'idle' | 'submitting' | 'submitted' | 'confirmed'
+    txId?: string
+    confirmedRound?: number
+  }>({ phase: 'idle' })
 
   // ── Loading state ─────────────────────────────────────────────────────────
   if (isLoading) {
@@ -77,9 +83,10 @@ export const ProposalDetailPage = () => {
     )
   }
 
-  const isTerminal = proposal.status === 'executed' || proposal.status === 'rejected'
-  const canExecute = proposal.approvals >= proposal.threshold && !isTerminal
-  const approveLabel = proposal.status === 'blocked' ? 'Approve (admin override)' : 'Approve'
+  const isTerminal = proposal.status === 'executed' || proposal.status === 'cancelled' || proposal.status === 'expired'
+  const canExecute = proposal.status === 'ready' || (proposal.approvals >= proposal.threshold && !isTerminal)
+  const canCancel = proposal.status === 'pending' || proposal.status === 'ready'
+  const approveLabel = proposal.userHasApproved ? 'Approved' : 'Approve'
   const progressPct = Math.min(100, Math.round((proposal.approvals / proposal.threshold) * 100))
 
   const handleApprove = () => {
@@ -91,15 +98,40 @@ export const ProposalDetailPage = () => {
 
   const handleReject = () => {
     rejectProposal.mutate(proposal.id, {
-      onSuccess: () => enqueueSnackbar('Proposal rejected', { variant: 'default' }),
-      onError: () => enqueueSnackbar('Failed to reject', { variant: 'error' }),
+      onSuccess: () => enqueueSnackbar('Proposal cancelled', { variant: 'default' }),
+      onError: () => enqueueSnackbar('Failed to cancel', { variant: 'error' }),
     })
   }
 
   const handleExecute = () => {
-    executeProposal.mutate(proposal.id, {
-      onSuccess: () => enqueueSnackbar('Proposal executed on-chain', { variant: 'success' }),
-      onError: () => enqueueSnackbar('Execution failed', { variant: 'error' }),
+    setExecutionStatus({ phase: 'submitting' })
+    executeProposal.mutate({
+      id: proposal.id,
+      onSubmitted: ({ txId }) => {
+        setExecutionStatus({ phase: 'submitted', txId })
+        enqueueSnackbar(`Transaction ${txId} submitted to the mempool`, { variant: 'info' })
+      },
+      onConfirmed: ({ txId, confirmedRound }) => {
+        setExecutionStatus({ phase: 'confirmed', txId, confirmedRound })
+        enqueueSnackbar(`Transaction confirmed in round ${confirmedRound}`, { variant: 'success' })
+      },
+    }, {
+      onSuccess: ({ txId, confirmedRound }) => {
+        navigate(`/safe/${safeId}`, {
+          replace: true,
+          state: {
+            executionSuccess: {
+              txId,
+              confirmedRound,
+              proposalId: proposal.id,
+            },
+          },
+        })
+      },
+      onError: () => {
+        setExecutionStatus({ phase: 'idle' })
+        enqueueSnackbar('Execution failed', { variant: 'error' })
+      },
     })
   }
 
@@ -128,13 +160,14 @@ export const ProposalDetailPage = () => {
         </div>
       </div>
 
-      {/* ── Blocked banner ──────────────────────────────────────────────── */}
-      {proposal.status === 'blocked' && proposal.blockedReason && (
-        <div className="rounded-md bg-error-container/40 border border-error-container px-5 py-4 flex items-start gap-3">
-          <Icon name="block" className="text-error text-[22px] flex-shrink-0 mt-0.5" />
+      {proposal.status === 'ready' && (
+        <div className="rounded-md border border-primary/20 bg-primary/10 px-5 py-4 flex items-start gap-3">
+          <Icon name="rocket_launch" className="text-primary text-[22px] flex-shrink-0 mt-0.5" />
           <div>
-            <p className="text-sm font-semibold text-on-error-container mb-0.5">Blocked</p>
-            <p className="text-sm text-on-error-container/80 leading-relaxed">{proposal.blockedReason}</p>
+            <p className="text-sm font-semibold text-on-surface mb-0.5">Ready to execute</p>
+            <p className="text-sm text-on-surface-variant leading-relaxed">
+              The signer threshold has been met. Any connected user can submit the execution transaction now.
+            </p>
           </div>
         </div>
       )}
@@ -227,6 +260,24 @@ export const ProposalDetailPage = () => {
         <div className="lg:col-span-4">
           <div className="sticky top-6 flex flex-col gap-4">
             <Card>
+              {executionStatus.phase !== 'idle' && executionStatus.phase !== 'confirmed' && (
+                <div className="mb-5 rounded-md border border-primary/20 bg-primary/10 px-4 py-3">
+                  <div className="flex items-start gap-3">
+                    <Icon name="sync" className="mt-0.5 animate-spin text-primary text-[18px]" />
+                    <div className="space-y-1 text-sm">
+                      <p className="font-semibold text-on-surface">
+                        {executionStatus.phase === 'submitting' ? 'Submitting execution transaction...' : 'Waiting for block confirmation...'}
+                      </p>
+                      <p className="text-on-surface-variant">
+                        {executionStatus.phase === 'submitting'
+                          ? 'Approve the wallet prompt to sign and broadcast the execute transaction.'
+                          : `Transaction ${executionStatus.txId ?? ''} is in the mempool. We will take you back to the dashboard once it is confirmed.`}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Approval progress */}
               <div className="mb-5">
                 <div className="flex items-center justify-between mb-2">
@@ -239,7 +290,7 @@ export const ProposalDetailPage = () => {
                 <div className="h-2 rounded-full bg-surface-container-lowest overflow-hidden">
                   <div
                     className={`h-full rounded-full transition-all duration-500 ${
-                      progressPct >= 100 ? 'bg-primary' : proposal.status === 'blocked' ? 'bg-error' : 'bg-primary'
+                      progressPct >= 100 ? 'bg-primary' : 'bg-primary'
                     }`}
                     style={{ width: `${progressPct}%` }}
                   />
@@ -270,32 +321,38 @@ export const ProposalDetailPage = () => {
                 <Button
                   variant="primary"
                   className="w-full justify-center"
-                  disabled={isTerminal || approveProposal.isPending}
+                  disabled={isTerminal || proposal.userHasApproved || proposal.status === 'ready' || approveProposal.isPending}
                   onClick={handleApprove}
                 >
-                  <Icon name={proposal.status === 'blocked' ? 'admin_panel_settings' : 'thumb_up'} className="text-[16px]" />
+                  <Icon name="thumb_up" className="text-[16px]" />
                   {approveProposal.isPending ? 'Approving…' : approveLabel}
                 </Button>
 
-                <Button
-                  variant="danger"
-                  className="w-full justify-center"
-                  disabled={isTerminal || rejectProposal.isPending}
-                  onClick={handleReject}
-                >
-                  <Icon name="thumb_down" className="text-[16px]" />
-                  {rejectProposal.isPending ? 'Rejecting…' : 'Reject'}
-                </Button>
+                {canCancel && (
+                  <Button
+                    variant="danger"
+                    className="w-full justify-center"
+                    disabled={rejectProposal.isPending}
+                    onClick={handleReject}
+                  >
+                    <Icon name="close" className="text-[16px]" />
+                    {rejectProposal.isPending ? 'Cancelling…' : 'Cancel Proposal'}
+                  </Button>
+                )}
 
                 {canExecute && (
                   <Button
                     variant="secondary"
                     className="w-full justify-center"
-                    disabled={executeProposal.isPending}
+                    disabled={executeProposal.isPending || executionStatus.phase !== 'idle'}
                     onClick={handleExecute}
                   >
                     <Icon name="rocket_launch" className="text-[16px]" />
-                    {executeProposal.isPending ? 'Executing…' : 'Execute On-Chain'}
+                    {executionStatus.phase === 'submitted'
+                      ? 'Awaiting Confirmation…'
+                      : executeProposal.isPending || executionStatus.phase === 'submitting'
+                        ? 'Submitting…'
+                        : 'Execute On-Chain'}
                   </Button>
                 )}
               </div>

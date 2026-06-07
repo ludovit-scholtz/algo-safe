@@ -1,9 +1,10 @@
 import { algo, AlgorandClient } from '@algorandfoundation/algokit-utils'
+import { useQueryClient } from '@tanstack/react-query'
 import { useWallet } from '@txnlab/use-wallet-react'
 import { AlgoSafeClient } from 'algo-safe'
 import algosdk from 'algosdk'
 import { useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
 import { FormField, inputCls } from '../components/ui/FormField'
@@ -67,6 +68,8 @@ function getKnownAssets(network: NetworkId | undefined): KnownAsset[] {
 
 export function CreateProposalPage() {
   const safeId = useSafeId()
+  const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const { data: safe } = useSafe(safeId)
   const { data: holdings } = useOnChainSafeHoldings(safeId)
   const { activeAddress, algodClient, transactionSigner, isReady } = useWallet()
@@ -152,10 +155,13 @@ export function CreateProposalPage() {
           suppressLog: true,
         })
 
-        setCreatedProposal({
-          proposalId: result.return?.toString() ?? '',
-          txId: result.txIds[0] ?? '',
-        })
+        const proposalId = result.return?.toString() ?? ''
+        const txId = result.txIds[0] ?? ''
+
+        setCreatedProposal({ proposalId, txId })
+        await queryClient.invalidateQueries({ queryKey: ['proposals', safeId] })
+        await queryClient.invalidateQueries({ queryKey: ['proposal', safeId, proposalId] })
+        navigate(`/safe/${safeId}/proposals/${proposalId}`, { state: { txId } })
       } else {
         const resolvedAssetId = assetId.trim()
         if (!resolvedAssetId || !/^\d+$/.test(resolvedAssetId)) {
@@ -193,10 +199,13 @@ export function CreateProposalPage() {
           suppressLog: true,
         })
 
-        setCreatedProposal({
-          proposalId: result.return?.toString() ?? '',
-          txId: result.txIds[0] ?? '',
-        })
+        const proposalId = result.return?.toString() ?? ''
+        const txId = result.txIds[0] ?? ''
+
+        setCreatedProposal({ proposalId, txId })
+        await queryClient.invalidateQueries({ queryKey: ['proposals', safeId] })
+        await queryClient.invalidateQueries({ queryKey: ['proposal', safeId, proposalId] })
+        navigate(`/safe/${safeId}/proposals/${proposalId}`, { state: { txId } })
       }
     } catch (error) {
       setErrorMessage(error instanceof Error && error.message.trim() ? error.message : 'Failed to save the proposal on-chain.')

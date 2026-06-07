@@ -7,8 +7,8 @@ export function ProposalRow({ p, safeId, onApprove, onExecute }: {
   p: Proposal; safeId: string; onApprove?: (id: string) => void; onExecute?: (id: string) => void
 }) {
   const nav = useNavigate()
-  const canApprove = p.status === 'pending' && p.approvals < p.threshold
-  const canExecute = p.status === 'pending' && p.approvals >= p.threshold
+  const canApprove = p.status === 'pending' && !p.userHasApproved
+  const canExecute = p.status === 'ready' || (p.status === 'pending' && p.approvals >= p.threshold)
   return (
     <div className="flex items-center justify-between border-b border-outline-variant py-4 last:border-0">
       <button className="text-left" onClick={() => nav(`/safe/${safeId}/proposals/${p.id}`)}>
