@@ -35,7 +35,10 @@ function decodeBase64Utf8(value: string) {
   }
 }
 
-export async function getAlgoSafeContractVersion(algodClient: AlgodAppLookup, appId: bigint | number): Promise<string | null> {
+export async function getAlgoSafeContractVersion(
+  algodClient: AlgodAppLookup,
+  appId: bigint | number,
+): Promise<string | null> {
   const application = (await algodClient.getApplicationByID(Number(appId)).do()) as ApplicationLookupResponse
   const versionEntry = application.params?.['global-state']?.find((entry) => entry.key === VERSION_STATE_KEY_BASE64)
   const encodedVersion = versionEntry?.value?.type === 1 ? versionEntry.value.bytes : undefined

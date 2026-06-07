@@ -122,7 +122,7 @@ export function AgentDashboardPage() {
           <div className="mt-3 inline-flex flex-wrap items-center gap-2 rounded-md border border-outline-variant bg-surface-container-low px-3 py-2 text-sm">
             <span className="font-mono text-xs uppercase tracking-wide text-on-surface-variant">Contract Version</span>
             <span className="font-semibold text-on-surface">
-              {contractVersionLoading ? 'Loading...' : contractVersion ?? 'Version not detected for this deployment.'}
+              {contractVersionLoading ? 'Loading...' : (contractVersion ?? 'Version not detected for this deployment.')}
             </span>
           </div>
         </div>
