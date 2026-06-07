@@ -187,6 +187,7 @@ export function SignerGroupManagementPage() {
     spendingLimitAssets[0] ?? {
       key: 'native-algo',
       symbol: 'ALGO',
+      name: 'Algorand Native',
       assetId: 0,
       decimals: 6,
       balanceDisplay: '—',
@@ -211,24 +212,18 @@ export function SignerGroupManagementPage() {
   useEffect(() => {
     if (!detail) return
 
-    const nextAsset =
-      detail.group.limitAssetId === 0n
-        ? spendingLimitAssets.find((asset) => asset.isNative)
-        : spendingLimitAssets.find(
-            (asset) => !asset.isNative && asset.assetId !== undefined && BigInt(asset.assetId) === detail.group.limitAssetId,
-          )
-
-    if (nextAsset) {
-      setSpendingLimitAssetKey(nextAsset.key)
-      setDailyLimit(formatUnits(detail.group.dailyLimit, nextAsset.decimals))
-      setMonthlyLimit(formatUnits(detail.group.monthlyLimit, nextAsset.decimals))
-      return
-    }
-
-    setSpendingLimitAssetKey('native-algo')
-    setDailyLimit(formatUnits(detail.group.dailyLimit, 6))
-    setMonthlyLimit(formatUnits(detail.group.monthlyLimit, 6))
-  }, [detail?.group.id, detail, spendingLimitAssets])
+    const nextAssetKey = detail.group.limitAsset.isNative ? 'native-algo' : `asa-${detail.group.limitAsset.assetId}`
+    setSpendingLimitAssetKey(nextAssetKey)
+    setDailyLimit(formatUnits(detail.group.dailyLimit, detail.group.limitAsset.decimals))
+    setMonthlyLimit(formatUnits(detail.group.monthlyLimit, detail.group.limitAsset.decimals))
+  }, [
+    detail?.group.id,
+    detail?.group.limitAsset.assetId,
+    detail?.group.limitAsset.decimals,
+    detail?.group.limitAsset.isNative,
+    detail?.group.dailyLimit,
+    detail?.group.monthlyLimit,
+  ])
 
   const canSubmit = !!safe && !!isReady && !!activeAddress && !!transactionSigner && !!selectedAdminGroupId
   const currentMembers = detail?.members ?? []
@@ -678,11 +673,7 @@ export function SignerGroupManagementPage() {
               label="Spending Limit Asset"
               hint="The selected asset controls how the daily and monthly limit fields are interpreted and labeled."
             >
-              <select
-                className={inputCls}
-                value={selectedSpendingAsset.key}
-                onChange={(event) => setSpendingLimitAssetKey(event.target.value)}
-              >
+              <select className={inputCls} value={spendingLimitAssetKey} onChange={(event) => setSpendingLimitAssetKey(event.target.value)}>
                 {spendingLimitAssets.map((asset) => (
                   <option key={asset.key} value={asset.key}>
                     {asset.symbol}

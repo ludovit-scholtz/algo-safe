@@ -11,6 +11,6 @@ export function useOnChainSafeHoldings(safeId?: string) {
     queryKey: ['safe-holdings', safeId, safe?.address, safe?.appId, safe?.network],
     enabled: !!safe?.address,
     staleTime: 30_000,
-    queryFn: () => fetchSafeHoldings(algodClient, safe!.address),
+    queryFn: () => fetchSafeHoldings(algodClient, safe!.address, safe?.network),
   })
 }
