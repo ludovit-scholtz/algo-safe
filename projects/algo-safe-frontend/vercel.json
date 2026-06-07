@@ -1,8 +1,8 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "vite",
-  "installCommand": "npm install",
-  "buildCommand": "npm run build",
+  "installCommand": "pnpm --dir ../algo-safe-contracts install --no-frozen-lockfile && pnpm --dir ../algo-safe-contracts build-package && pnpm install --no-frozen-lockfile",
+  "buildCommand": "pnpm build",
   "outputDirectory": "dist",
   "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
 }
