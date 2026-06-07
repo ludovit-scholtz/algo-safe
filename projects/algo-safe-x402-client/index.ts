@@ -1,20 +1,23 @@
 import { config } from 'dotenv';
 import { x402Client, wrapFetchWithPayment, x402HTTPClient } from '@x402/fetch';
 import { toClientAvmSigner, ExactAvmScheme, ALGORAND_TESTNET_CAIP2 } from '@x402/avm';
-import {
-  ed25519SigningKeyFromWrappedSecret,
-  type WrappedEd25519Seed,
-} from '@algorandfoundation/algokit-utils/crypto';
-import { seedFromMnemonic } from '@algorandfoundation/algokit-utils/algo25';
+import algosdk from 'algosdk';
 
 config();
 
 const avmMnemonic = process.env.AVM_MNEMONIC as string;
+const algodServer = process.env.ALGOD_SERVER?.trim() || 'https://testnet-api.algonode.cloud';
+const algodToken = process.env.ALGOD_TOKEN?.trim() || '';
+const algodPort = process.env.ALGOD_PORT?.trim() || '';
+const usdcAssetId = Number.parseInt(process.env.USDC_ASSET_ID?.trim() || '10458941', 10);
 //const url = 'https://x402.goplausible.xyz/examples/weather';
 const url = 'http://localhost:4021/weather';
 
 async function main(): Promise<void> {
-  const secretKey = await getSecretKeyFromMnemonic(avmMnemonic);
+  const account = algosdk.mnemonicToSecretKey(avmMnemonic);
+  const algod = new algosdk.Algodv2(algodToken, algodServer, algodPort);
+  await ensureAssetOptIn(algod, account, usdcAssetId);
+  const secretKey = Buffer.from(account.sk).toString('base64');
 
   // Create the Algorand signer used to authorize payments.
   const avmSigner = toClientAvmSigner(secretKey);
@@ -50,27 +53,47 @@ async function main(): Promise<void> {
     console.log('\nWeather response:');
     console.log(JSON.stringify(data, null, 2));
   } else {
+    const paymentRequired = new x402HTTPClient(client).getPaymentRequiredResponse(name =>
+      response.headers.get(name),
+    );
+    console.log('\nPayment requirements:');
+    console.log(JSON.stringify(paymentRequired, null, 2));
     console.log(`\nNo payment settled (response status: ${response.status})`);
   }
 }
 
-// Build the base64-encoded signing key that x402-avm expects.
-// Format = 32-byte Ed25519 seed + 32-byte public key
-async function getSecretKeyFromMnemonic(avmMnemonic: string): Promise<string> {
-  const seed = seedFromMnemonic(avmMnemonic);
+async function ensureAssetOptIn(
+  algod: algosdk.Algodv2,
+  account: algosdk.Account,
+  assetId: number,
+): Promise<void> {
+  if (Number.isNaN(assetId)) {
+    throw new Error('USDC_ASSET_ID must be a valid integer asset id.');
+  }
 
-  const seedCopy = new Uint8Array(seed);
-
-  const wrappedSeed: WrappedEd25519Seed = {
-    unwrapEd25519Seed: async () => seed,
-    wrapEd25519Seed: async () => {},
-  };
-
-  const wrappedSecret = await ed25519SigningKeyFromWrappedSecret(wrappedSeed);
-
-  return Buffer.concat([Buffer.from(seedCopy), Buffer.from(wrappedSecret.ed25519Pubkey)]).toString(
-    'base64',
+  const info = await algod.accountInformation(account.addr).do();
+  const holdings = (info.assets ?? []) as Array<{ assetId?: bigint | number; ['asset-id']?: bigint | number }>;
+  const alreadyOptedIn = holdings.some(
+    (asset) => String(asset.assetId ?? asset['asset-id']) === String(assetId),
   );
+
+  if (alreadyOptedIn) {
+    return;
+  }
+
+  const suggestedParams = await algod.getTransactionParams().do();
+  const optInTxn = algosdk.makeAssetTransferTxnWithSuggestedParamsFromObject({
+    sender: account.addr.toString(),
+    receiver: account.addr.toString(),
+    amount: 0,
+    assetIndex: assetId,
+    suggestedParams,
+  });
+  const signedTxn = optInTxn.signTxn(account.sk);
+  const { txid } = await algod.sendRawTransaction(signedTxn).do();
+  const txId = txid;
+  await algosdk.waitForConfirmation(algod, txId, 10);
+  console.info(`Opted client account into asset ${assetId} via ${txId}`);
 }
 
 main().catch(error => {

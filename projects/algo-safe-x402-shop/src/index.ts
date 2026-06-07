@@ -26,14 +26,15 @@ import { ALGORAND_TESTNET_CAIP2, ALGORAND_MAINNET_CAIP2 } from '@x402/avm';
 
 // ── Environment ───────────────────────────────────────────────────────────────
 
-const SELLER_ADDRESS  = process.env.SELLER_ADDRESS;
-const FACILITATOR_URL = process.env.FACILITATOR_URL ?? 'http://127.0.0.1:4022';
-const PORT            = Number(process.env.PORT ?? 4021);
-const WEBHOOK_URL     = process.env.WEBHOOK_URL ?? '';        // optional — called after each paid request
-const LOG_DIR         = process.env.LOG_DIR ?? './logs';      // set to '' to disable file logging
-const NETWORK         = process.env.NETWORK ?? 'testnet';     // 'testnet' | 'mainnet'
-const NETWORK_CAIP2   = NETWORK === 'mainnet' ? ALGORAND_MAINNET_CAIP2 : ALGORAND_TESTNET_CAIP2;
-const NETWORK_LABEL   = NETWORK === 'mainnet' ? 'Algorand Mainnet' : 'Algorand Testnet';
+const SELLER_ADDRESS             = process.env.SELLER_ADDRESS;
+const CONFIGURED_FACILITATOR_URL = process.env.FACILITATOR_URL?.trim() ?? 'https://facilitator.goplausible.xyz';
+const LOCAL_FACILITATOR_URL      = process.env.LOCAL_FACILITATOR_URL?.trim() ?? 'http://127.0.0.1:4022';
+const PORT                       = Number(process.env.PORT ?? 4021);
+const WEBHOOK_URL                = process.env.WEBHOOK_URL ?? '';        // optional — called after each paid request
+const LOG_DIR                    = process.env.LOG_DIR ?? './logs';      // set to '' to disable file logging
+const NETWORK                    = process.env.NETWORK ?? 'testnet';     // 'testnet' | 'mainnet'
+const NETWORK_CAIP2              = NETWORK === 'mainnet' ? ALGORAND_MAINNET_CAIP2 : ALGORAND_TESTNET_CAIP2;
+const NETWORK_LABEL              = NETWORK === 'mainnet' ? 'Algorand Mainnet' : 'Algorand Testnet';
 
 // CHANGE 1 — set your price per request
 const WEATHER_PRICE  = `$${process.env.SELLER_WEATHER_PRICE  ?? '0.001'}`;
@@ -42,6 +43,45 @@ const FORECAST_PRICE = `$${process.env.SELLER_FORECAST_PRICE ?? '0.005'}`;
 if (!SELLER_ADDRESS) {
   console.error('[seller] ERROR: SELLER_ADDRESS is required in .env');
   process.exit(1);
+}
+
+const {
+  url: FACILITATOR_URL,
+  source: FACILITATOR_SOURCE,
+  address: FACILITATOR_ADDRESS,
+} = await resolveFacilitatorUrl();
+const PAY_TO_ADDRESS = FACILITATOR_SOURCE === 'local-fallback' && FACILITATOR_ADDRESS
+  ? FACILITATOR_ADDRESS
+  : SELLER_ADDRESS;
+
+async function resolveFacilitatorUrl(): Promise<{
+  url: string;
+  source: 'configured' | 'local-fallback';
+  address?: string;
+}> {
+  if (!shouldPreferLocalFacilitator(CONFIGURED_FACILITATOR_URL)) {
+    return { url: CONFIGURED_FACILITATOR_URL, source: 'configured' };
+  }
+
+  try {
+    const response = await fetch(`${LOCAL_FACILITATOR_URL}/health`, {
+      method: 'GET',
+      signal: AbortSignal.timeout(1500),
+    });
+
+    if (response.ok) {
+      const body = await response.json() as { address?: string };
+      return { url: LOCAL_FACILITATOR_URL, source: 'local-fallback', address: body.address };
+    }
+  } catch {
+    // Ignore probe failures and keep the configured facilitator.
+  }
+
+  return { url: CONFIGURED_FACILITATOR_URL, source: 'configured' };
+}
+
+function shouldPreferLocalFacilitator(url: string): boolean {
+  return url === 'https://facilitator.goplausible.xyz' || url === 'https://x402.org/facilitator';
 }
 
 // ── Persistent JSON log ───────────────────────────────────────────────────────
@@ -232,7 +272,7 @@ const routes = {
     accepts: {
       scheme:  'exact' as const,
       network: NETWORK_CAIP2 as Network,
-      payTo:   SELLER_ADDRESS as string,
+      payTo:   PAY_TO_ADDRESS as string,
       price:   WEATHER_PRICE,
     },
     description: 'Current weather for a random city — pay-per-request via x402',
@@ -241,7 +281,7 @@ const routes = {
     accepts: {
       scheme:  'exact' as const,
       network: NETWORK_CAIP2 as Network,
-      payTo:   SELLER_ADDRESS as string,
+      payTo:   PAY_TO_ADDRESS as string,
       price:   FORECAST_PRICE,
     },
     description: '7-day forecast for a random city — pay-per-request via x402',
@@ -251,12 +291,13 @@ const routes = {
     accepts: {
       scheme:  'exact' as const,
       network: NETWORK_CAIP2 as Network,
-      payTo:   SELLER_ADDRESS as string,
+      payTo:   PAY_TO_ADDRESS as string,
       price:   '$0.002',
     },
     description: 'Example POST endpoint — replace with your own processing logic',
   },
 };
+const paidRouteKeys = new Set(Object.keys(routes));
 
 // ── Hono app ──────────────────────────────────────────────────────────────────
 
@@ -292,7 +333,32 @@ app.use(async (c, next) => {
   const start = Date.now();
   await next();
   const ms = Date.now() - start;
-  const paid = c.req.header('x-payment') ? '💰' : '  ';
+  const paymentHeader = c.req.header('payment-signature') ?? c.req.header('x-payment');
+  const txid = extractTransactionId(
+    c.res.headers.get('payment-response') ?? c.res.headers.get('x-payment-response'),
+  );
+  const paid = txid ? '💰' : paymentHeader ? '↻' : '  ';
+
+  if (txid && c.res.ok && paidRouteKeys.has(`${c.req.method} ${c.req.path}`)) {
+    logPayment({
+      at: new Date().toISOString(),
+      endpoint: c.req.path,
+      method: c.req.method,
+      status: c.res.status,
+      txid,
+      latencyMs: ms,
+      ip: c.req.header('x-forwarded-for'),
+    });
+    fireWebhook({
+      event: 'payment.settled',
+      at: new Date().toISOString(),
+      endpoint: c.req.path,
+      txid,
+      payTo: PAY_TO_ADDRESS as string,
+      network: NETWORK_CAIP2,
+    });
+  }
+
   console.log(`[seller] ${paid} ${c.req.method} ${c.req.path} → ${c.res.status} (${ms}ms)`);
 });
 
@@ -310,6 +376,7 @@ app.get('/health', (c) =>
       '/forecast': { price: FORECAST_PRICE, description: '7-day forecast for a random city' },
       '/analyze':  { price: '$0.002',        description: 'Example POST endpoint' },
     },
+    payTo: PAY_TO_ADDRESS,
   }),
 );
 
@@ -323,16 +390,15 @@ app.get('/', (c) =>
       { path: '/health',   method: 'GET',  price: 'free',                    description: 'Health check' },
     ],
     facilitator: FACILITATOR_URL,
-    payTo: SELLER_ADDRESS,
+    payTo: PAY_TO_ADDRESS,
     network: NETWORK_CAIP2,
   }),
 );
 
 // ── Helper: extract txid from payment-response header ─────────────────────────
 
-function extractTxid(c: Context): string | undefined {
+function extractTransactionId(header: string | null | undefined): string | undefined {
   try {
-    const header = c.req.header('payment-response') ?? c.req.header('PAYMENT-RESPONSE');
     if (!header) return undefined;
     return (JSON.parse(Buffer.from(header, 'base64').toString('utf-8')) as { transaction?: string }).transaction;
   } catch {
@@ -344,7 +410,7 @@ function extractTxid(c: Context): string | undefined {
 
 app.get('/weather', async (c) => {
   const start = Date.now();
-  const txid  = extractTxid(c);
+  const txid  = extractTransactionId(c.req.header('payment-response') ?? c.req.header('PAYMENT-RESPONSE'));
   const cached = getCachedResponse(txid);
   if (cached) return c.json(cached);
 
@@ -373,14 +439,12 @@ app.get('/weather', async (c) => {
   }
 
   if (txid) cacheResponse(txid, body);
-  logPayment({ at: new Date().toISOString(), endpoint: '/weather', method: 'GET', status: 200, txid, latencyMs: Date.now() - start, ip: c.req.header('x-forwarded-for') });
-  fireWebhook({ event: 'payment.settled', at: new Date().toISOString(), endpoint: '/weather', txid, payTo: SELLER_ADDRESS as string, network: NETWORK_CAIP2 });
   return c.json(body);
 });
 
 app.get('/forecast', async (c) => {
   const start = Date.now();
-  const txid  = extractTxid(c);
+  const txid  = extractTransactionId(c.req.header('payment-response') ?? c.req.header('PAYMENT-RESPONSE'));
   const cached = getCachedResponse(txid);
   if (cached) return c.json(cached);
 
@@ -421,8 +485,6 @@ app.get('/forecast', async (c) => {
   }
 
   if (txid) cacheResponse(txid, body);
-  logPayment({ at: new Date().toISOString(), endpoint: '/forecast', method: 'GET', status: 200, txid, latencyMs: Date.now() - start, ip: c.req.header('x-forwarded-for') });
-  fireWebhook({ event: 'payment.settled', at: new Date().toISOString(), endpoint: '/forecast', txid, payTo: SELLER_ADDRESS as string, network: NETWORK_CAIP2 });
   return c.json(body);
 });
 
@@ -431,7 +493,7 @@ app.get('/forecast', async (c) => {
 // The request body is available at c.req.json() after payment is confirmed.
 app.post('/analyze', async (c) => {
   const start = Date.now();
-  const txid  = extractTxid(c);
+  const txid  = extractTransactionId(c.req.header('payment-response') ?? c.req.header('PAYMENT-RESPONSE'));
   const cached = getCachedResponse(txid);
   if (cached) return c.json(cached);
 
@@ -446,8 +508,6 @@ app.post('/analyze', async (c) => {
   };
 
   if (txid) cacheResponse(txid, body);
-  logPayment({ at: new Date().toISOString(), endpoint: '/analyze', method: 'POST', status: 200, txid, latencyMs: Date.now() - start, ip: c.req.header('x-forwarded-for') });
-  fireWebhook({ event: 'payment.settled', at: new Date().toISOString(), endpoint: '/analyze', txid, payTo: SELLER_ADDRESS as string, network: NETWORK_CAIP2 });
   return c.json(body);
 });
 
@@ -456,9 +516,15 @@ app.post('/analyze', async (c) => {
 serve({ fetch: app.fetch, port: PORT }, () => {
   console.log(`\n[seller] x402 Resource Server ready`);
   console.log(`[seller]   URL:         http://localhost:${PORT}`);
-  console.log(`[seller]   Pay-to:      ${SELLER_ADDRESS}`);
+  console.log(`[seller]   Pay-to:      ${PAY_TO_ADDRESS}`);
   console.log(`[seller]   Network:     ${NETWORK_LABEL} (${NETWORK_CAIP2})`);
   console.log(`[seller]   Facilitator: ${FACILITATOR_URL}`);
+  if (FACILITATOR_SOURCE === 'local-fallback') {
+    console.log(`[seller]   Note:        using local facilitator fallback from ${CONFIGURED_FACILITATOR_URL}`);
+    if (PAY_TO_ADDRESS !== SELLER_ADDRESS) {
+      console.log(`[seller]   Note:        local demo payments settle to facilitator signer instead of configured seller address`);
+    }
+  }
   console.log(`[seller]   /weather     ${WEATHER_PRICE} USDC  (GET)`);
   console.log(`[seller]   /forecast    ${FORECAST_PRICE} USDC (GET)`);
   console.log(`[seller]   /analyze     $0.002 USDC (POST)`);

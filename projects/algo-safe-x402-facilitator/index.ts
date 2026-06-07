@@ -14,11 +14,13 @@ const algodServer = process.env.ALGOD_SERVER?.trim() || "https://testnet-api.alg
 const algodToken = process.env.ALGOD_TOKEN?.trim() || "";
 const algodPort = process.env.ALGOD_PORT?.trim() || "";
 const algodUrl = formatAlgodUrl(algodServer, algodPort);
+const usdcAssetId = Number.parseInt(process.env.USDC_ASSET_ID?.trim() || "10458941", 10);
 
 type VerifyPaymentPayload = Parameters<x402Facilitator["verify"]>[0];
 type VerifyPaymentRequirements = Parameters<x402Facilitator["verify"]>[1];
 
 const account = loadFacilitatorAccount();
+await ensureAssetOptIn(account);
 const signer = toFacilitatorAvmSigner(account.privateKeyBase64, {
 	algodToken,
 	testnetUrl: algodUrl,
@@ -73,7 +75,7 @@ app.post("/verify", async (context) => {
 		);
 		const result = await facilitator.verify(paymentPayload, paymentRequirements);
 		console.info(
-			`[${getRequestId(context)}] Verify result isValid=${result.isValid}${result.isValid ? "" : ` reason=${result.invalidReason ?? "unknown"}`}`,
+			`[${getRequestId(context)}] Verify result isValid=${result.isValid}${result.isValid ? "" : ` reason=${result.invalidReason ?? "unknown"} message=${result.invalidMessage ?? "n/a"}`}`,
 		);
 		return context.json(result);
 	} catch (error) {
@@ -93,7 +95,7 @@ app.post("/settle", async (context) => {
 		);
 		const result = await facilitator.settle(paymentPayload, paymentRequirements);
 		console.info(
-			`[${getRequestId(context)}] Settle result success=${result.success}${result.success ? ` tx=${result.transaction}` : ` reason=${result.errorReason ?? "unknown"}`}`,
+			`[${getRequestId(context)}] Settle result success=${result.success}${result.success ? ` tx=${result.transaction}` : ` reason=${result.errorReason ?? "unknown"} message=${result.errorMessage ?? "n/a"}`}`,
 		);
 		return context.json(result);
 	} catch (error) {
@@ -171,6 +173,39 @@ function loadFacilitatorAccount(): { address: string; privateKeyBase64: string }
 		address: ephemeralAccount.addr.toString(),
 		privateKeyBase64: Buffer.from(ephemeralAccount.sk).toString("base64"),
 	};
+}
+
+async function ensureAssetOptIn(account: { address: string; privateKeyBase64: string }): Promise<void> {
+	if (Number.isNaN(usdcAssetId)) {
+		throw new Error("USDC_ASSET_ID must be a valid integer asset id.");
+	}
+
+	const algod = new algosdk.Algodv2(algodToken, algodServer, algodPort);
+	const accountInfo = await algod.accountInformation(account.address).do();
+	const holdings = (accountInfo.assets ?? []) as Array<{ assetId?: bigint | number; ["asset-id"]?: bigint | number }>;
+	const alreadyOptedIn = holdings.some(
+		(asset) => String(asset.assetId ?? asset["asset-id"]) === String(usdcAssetId),
+	);
+
+	if (alreadyOptedIn) {
+		console.info(`Facilitator signer already opted into asset ${usdcAssetId}`);
+		return;
+	}
+
+	const suggestedParams = await algod.getTransactionParams().do();
+	const optInTxn = algosdk.makeAssetTransferTxnWithSuggestedParamsFromObject({
+		sender: account.address,
+		receiver: account.address,
+		amount: 0,
+		assetIndex: usdcAssetId,
+		suggestedParams,
+	});
+	const secretKey = new Uint8Array(Buffer.from(account.privateKeyBase64, "base64"));
+	const signedTxn = optInTxn.signTxn(secretKey);
+	const { txid } = await algod.sendRawTransaction(signedTxn).do();
+	const txId = txid;
+	await algosdk.waitForConfirmation(algod, txId, 10);
+	console.info(`Facilitator signer opted into asset ${usdcAssetId} via ${txId}`);
 }
 
 function formatAlgodUrl(server: string, configuredPort: string): string {
