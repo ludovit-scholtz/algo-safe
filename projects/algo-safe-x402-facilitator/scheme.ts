@@ -642,7 +642,7 @@ export class ExactAvmScheme implements SchemeNetworkFacilitator {
 
     const assetTransfer = this.getObjectField(txn, ["assetTransfer", "asset-transfer"]);
     const assetId = this.getStringLike(
-      this.getField(assetTransfer, ["assetId", "asset-id"]) ?? this.getField(txn, ["xaid"]),
+      this.getField(assetTransfer, ["assetId", "assetIndex", "asset-id", "asset-index"]) ?? this.getField(txn, ["xaid"]),
     );
     const receiver = this.getStringLike(
       this.getField(assetTransfer, ["receiver", "assetReceiver", "asset-receiver"]) ?? this.getField(txn, ["arcv"]),
@@ -709,6 +709,11 @@ export class ExactAvmScheme implements SchemeNetworkFacilitator {
 
     if (typeof value === "number" || typeof value === "bigint") {
       return String(value);
+    }
+
+    if (value && typeof value === "object" && "toString" in value && typeof value.toString === "function") {
+      const stringValue = value.toString();
+      return stringValue === "[object Object]" ? undefined : stringValue;
     }
 
     return undefined;

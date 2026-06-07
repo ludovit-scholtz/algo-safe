@@ -1,5 +1,11 @@
 import { algo, AlgorandClient } from '@algorandfoundation/algokit-utils';
 import { microAlgo } from '@algorandfoundation/algokit-utils/amount';
+import {
+  decodeTransaction as decodeAlgokitTransaction,
+  encodeTransactionRaw,
+  groupTransactions,
+  Transaction as AlgokitTransaction,
+} from '@algorandfoundation/algokit-utils/transact';
 import algosdk from 'algosdk';
 import { AlgoSafeClient } from 'algo-safe';
 import type { PaymentPayloadResult, PaymentRequirements, SchemeNetworkClient } from '@x402/core/types';
@@ -60,7 +66,7 @@ export class AlgoSafeExactAvmScheme implements SchemeNetworkClient {
       proposal.groupId,
       proposal.payloadType,
     );
-    const transactions: algosdk.Transaction[] = [];
+    const transactions: AlgokitTransaction[] = [];
 
     if (proposal.status !== READY_STATUS && !hasApproved) {
       const approvalCall = await safeClient.createTransaction.approveProposal({
@@ -68,28 +74,29 @@ export class AlgoSafeExactAvmScheme implements SchemeNetworkClient {
         staticFee: MIN_APP_CALL_FEE,
         boxReferences: approveBoxReferences,
       });
-      transactions.push(...approvalCall.transactions);
+      transactions.push(...approvalCall.transactions.map(unwrapTransaction));
     }
 
     const executeCall = await safeClient.createTransaction.executeProposal({
       args: { proposalId },
       staticFee: MIN_APP_CALL_FEE,
       maxFee: EXECUTION_CALL_MAX_FEE,
+      accountReferences: [paymentRequirements.payTo],
+      assetReferences: [this.getAssetId(paymentRequirements.asset)],
       populateAppCallResources: true,
       coverAppCallInnerTransactionFees: true,
       boxReferences: executeBoxReferences,
     } as never);
-    transactions.push(...executeCall.transactions);
+    transactions.push(...executeCall.transactions.map(unwrapTransaction));
 
     if (transactions.length === 0) {
       throw new Error('Algo Safe payment flow did not produce any application call transactions.');
     }
 
-    const normalizedTransactions = transactions.map((txn) => unwrapTransaction(txn));
-    const executeIndex = normalizedTransactions.length - 1;
-    const groupedTransactions = algosdk.assignGroupID(normalizedTransactions);
+    const executeIndex = transactions.length - 1;
+    const groupedTransactions = groupTransactions(transactions);
     const paymentIndex = executeIndex;
-    const encodedTransactions = groupedTransactions.map((txn) => txn.toByte());
+    const encodedTransactions = groupedTransactions.map((txn) => encodeTransactionRaw(txn));
     const signerIndexes = groupedTransactions
       .map((txn, index) => (txn.sender.toString() === this.signer.address ? index : -1))
       .filter((index) => index >= 0);
@@ -99,7 +106,7 @@ export class AlgoSafeExactAvmScheme implements SchemeNetworkClient {
       const signedTxn = signedTransactions[index];
       return Buffer.from(signedTxn ?? txnBytes).toString('base64');
     });
-    console.log("Generated payment group transactions:", paymentGroup);
+
     return {
       x402Version,
       payload: {
@@ -272,41 +279,34 @@ function getExecuteBoxReferences(appId: bigint, proposalId: bigint, groupId: big
   ];
 }
 
-function unwrapTransaction(txn: unknown): algosdk.Transaction {
-  console.log("unwrapTransaction input", typeof txn, txn)
-  if(txn instanceof algosdk.Transaction) {
-    console.log("0x00 Transaction instance detected, returning as-is.")
+function unwrapTransaction(txn: unknown): AlgokitTransaction {
+  if (txn instanceof AlgokitTransaction) {
     return txn;
   }
+
+  if (txn instanceof algosdk.Transaction) {
+    return decodeAlgokitTransaction(txn.toByte());
+  }
+
   if (txn && typeof txn === 'object' && 'toByte' in txn && typeof txn.toByte === 'function') {
-    console.log("0x00 Found toByte method, invoking...")
-    return txn as algosdk.Transaction;
+    return decodeAlgokitTransaction((txn as { toByte: () => Uint8Array }).toByte());
   }
 
   if (txn && typeof txn === 'object' && 'txn' in txn) {
-    console.log("0x01 Found txn field, unwrapping...")
     return unwrapTransaction((txn as { txn: unknown }).txn);
   }
 
   if (txn && typeof txn === 'object' && 'transaction' in txn) {
-    console.log("0x02 Found transaction field, unwrapping...")
     return unwrapTransaction((txn as { transaction: unknown }).transaction);
   }
 
   if (txn && typeof txn === 'object' && 'unsignedTxn' in txn) {
-    console.log("0x03 Found unsignedTxn field, unwrapping...")
     return unwrapTransaction((txn as { unsignedTxn: unknown }).unsignedTxn);
   }
 
   if (txn && typeof txn === 'object' && 'unsignedTransaction' in txn) {
-     console.log("0x04 Found unsignedTransaction field, unwrapping...")
     return unwrapTransaction((txn as { unsignedTransaction: unknown }).unsignedTransaction);
   }
-  const castToTxn = txn as algosdk.Transaction;
-  if(castToTxn) {
-    console.log("castToTxn.rawTxID()",castToTxn.rawTxID())
-    return castToTxn; 
-  }
-  console.log("txn",typeof txn, txn)
+
   throw new Error('Algo Safe returned a transaction value that could not be normalized.');
 }
