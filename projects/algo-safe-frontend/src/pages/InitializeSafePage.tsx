@@ -3,6 +3,7 @@ import { useNetwork, useWallet } from '@txnlab/use-wallet-react'
 import { AlgoSafeFactory } from 'algo-safe'
 import algosdk from 'algosdk'
 import { useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { AddressDisplay } from '../components/AddressDisplay'
 import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
@@ -54,6 +55,7 @@ function getCanonicalSenderAddress(address: string): algosdk.Address {
 }
 
 export function InitializeSafePage() {
+  const navigate = useNavigate()
   const { activeNetwork } = useNetwork()
   const { activeAddress, algodClient, isReady, transactionSigner } = useWallet()
   const [name, setName] = useState('New Treasury')
@@ -149,6 +151,15 @@ export function InitializeSafePage() {
       })
 
       setStage('success')
+      navigate(`/safe/${result.appId.toString()}`, {
+        replace: true,
+        state: {
+          initializationSuccess: {
+            appId: result.appId.toString(),
+            name: safeName,
+          },
+        },
+      })
     } catch (error) {
       console.error('Initialize safe failed', {
         error,

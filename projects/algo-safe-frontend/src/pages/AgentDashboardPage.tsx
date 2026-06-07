@@ -31,6 +31,7 @@ export function AgentDashboardPage() {
   const { data: proposals } = useProposals()
   const fireworksRef = useRef<FireworksHandlers | null>(null)
   const [showCelebration, setShowCelebration] = useState(false)
+  const initializationSuccess = (location.state as { initializationSuccess?: { appId: string; name: string } } | null)?.initializationSuccess
   const executionSuccess = (location.state as { executionSuccess?: { txId: string; confirmedRound: number; proposalId: string } } | null)
     ?.executionSuccess
   const { data: currentRound } = useQuery({
@@ -43,7 +44,7 @@ export function AgentDashboardPage() {
   })
 
   useEffect(() => {
-    if (!executionSuccess || showCelebration) return
+    if ((!executionSuccess && !initializationSuccess) || showCelebration) return
 
     setShowCelebration(true)
 
@@ -52,7 +53,7 @@ export function AgentDashboardPage() {
     })
 
     return () => window.cancelAnimationFrame(animationFrame)
-  }, [executionSuccess, showCelebration])
+  }, [executionSuccess, initializationSuccess, showCelebration])
 
   const pending = proposals?.filter((p) => p.status === 'pending' || p.status === 'ready').length ?? 0
   const nativeHolding = holdings?.find((holding) => holding.isNative)
@@ -60,7 +61,7 @@ export function AgentDashboardPage() {
 
   return (
     <div className="space-y-6">
-      {executionSuccess && (
+      {(executionSuccess || initializationSuccess) && (
         <Fireworks
           ref={fireworksRef}
           autostart={false}
@@ -71,6 +72,20 @@ export function AgentDashboardPage() {
           }}
           className="pointer-events-none fixed inset-0 z-50"
         />
+      )}
+
+      {initializationSuccess && (
+        <div className="rounded-md border border-primary/30 bg-primary/10 px-5 py-4">
+          <div className="flex items-start gap-3 pr-4">
+            <Icon name="celebration" className="mt-0.5 text-primary text-[22px]" />
+            <div>
+              <p className="text-sm font-semibold text-on-surface">Safe initialization completed</p>
+              <p className="text-sm text-on-surface-variant">
+                {initializationSuccess.name} is live on-chain as safe #{initializationSuccess.appId}. The dashboard is ready.
+              </p>
+            </div>
+          </div>
+        </div>
       )}
 
       {executionSuccess && (
