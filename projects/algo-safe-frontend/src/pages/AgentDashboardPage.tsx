@@ -1,6 +1,6 @@
 // src/pages/AgentDashboardPage.tsx
 import { Fireworks, type FireworksHandlers } from '@fireworks-js/react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useWallet } from '@txnlab/use-wallet-react'
 import { getAlgoSafeContractVersion } from 'algo-safe'
 import { useEffect, useRef, useState } from 'react'
@@ -12,15 +12,19 @@ import { Card } from '../components/ui/Card'
 import { Icon } from '../components/ui/Icon'
 import { StatCard } from '../components/ui/StatCard'
 import { StatusBadge } from '../components/ui/StatusBadge'
+import { Button } from '../components/ui/Button'
 import { useProposals, useSafe, useSignerGroups } from '../hooks'
 import { useOnChainSafeHoldings } from '../hooks/useOnChainSafeHoldings'
+import { getKnownAssets } from '../lib/assetMetadata'
+import { proposeAssetOptIn } from '../lib/optInProposal'
 import { useSafeId } from '../lib/SafeContext'
 
 export function AgentDashboardPage() {
   const safeId = useSafeId()
   const location = useLocation()
   const navigate = useNavigate()
-  const { algodClient } = useWallet()
+  const queryClient = useQueryClient()
+  const { algodClient, activeAddress, transactionSigner, isReady } = useWallet()
   const { data: safe } = useSafe(safeId)
   const { data: holdings, isLoading: holdingsLoading, error: holdingsError } = useOnChainSafeHoldings(safeId)
   const {
@@ -32,6 +36,8 @@ export function AgentDashboardPage() {
   const { data: proposals } = useProposals()
   const fireworksRef = useRef<FireworksHandlers | null>(null)
   const [showCelebration, setShowCelebration] = useState(false)
+  const [openingEurd, setOpeningEurd] = useState(false)
+  const [eurdError, setEurdError] = useState<string | null>(null)
   const initializationSuccess = (location.state as { initializationSuccess?: { appId: string; name: string } } | null)
     ?.initializationSuccess
   const executionSuccess = (location.state as { executionSuccess?: { txId: string; confirmedRound: number; proposalId: string } } | null)
@@ -65,6 +71,39 @@ export function AgentDashboardPage() {
   const pending = proposals?.filter((p) => p.status === 'pending' || p.status === 'ready').length ?? 0
   const nativeHolding = holdings?.find((holding) => holding.isNative)
   const optedInAssets = holdings?.filter((holding) => !holding.isNative) ?? []
+
+  // "Open EURD account": shown only on mainnet, only while the safe is not yet
+  // opted in to EURD. One click creates the same opt-in proposal the Create
+  // Proposal page would, then routes to that proposal's approval page.
+  const eurdAsset = getKnownAssets(safe?.network).find((asset) => asset.symbol === 'EURD')
+  const isOptedIntoEurd = !!eurdAsset && (holdings ?? []).some((holding) => holding.assetId === eurdAsset.assetId)
+  const showOpenEurd = safe?.network === 'mainnet' && !!eurdAsset && !holdingsLoading && !isOptedIntoEurd
+
+  async function handleOpenEurd() {
+    if (!safe || !eurdAsset) return
+    if (!isReady || !activeAddress || !transactionSigner) {
+      setEurdError('Connect a wallet to open an EURD account.')
+      return
+    }
+    setEurdError(null)
+    setOpeningEurd(true)
+    try {
+      const { proposalId, txId } = await proposeAssetOptIn({
+        algodClient,
+        activeAddress,
+        transactionSigner,
+        appId: safe.appId,
+        safeAddress: safe.address,
+        assetId: eurdAsset.assetId,
+      })
+      await queryClient.invalidateQueries({ queryKey: ['proposals', safeId] })
+      navigate(`/safe/${safeId}/proposals/${proposalId}`, { state: { txId } })
+    } catch (error) {
+      setEurdError(error instanceof Error && error.message.trim() ? error.message : 'Failed to create the EURD opt-in proposal.')
+    } finally {
+      setOpeningEurd(false)
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -107,6 +146,26 @@ export function AgentDashboardPage() {
               </p>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Open EURD account — mainnet only, shown until the safe is opted in to EURD */}
+      {showOpenEurd && (
+        <div className="flex flex-col gap-3 rounded-md border border-secondary/40 bg-secondary/10 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-3">
+            <Icon name="euro" className="mt-0.5 text-secondary text-[22px]" />
+            <div>
+              <p className="text-sm font-semibold text-on-surface">This safe isn't set up to hold EURD yet</p>
+              <p className="text-sm text-on-surface-variant">
+                Create an opt-in proposal so the safe can receive and hold Quantoz EURD (asset {eurdAsset?.assetId}).
+              </p>
+              {eurdError && <p className="mt-1 text-sm text-error">{eurdError}</p>}
+            </div>
+          </div>
+          <Button onClick={() => void handleOpenEurd()} disabled={openingEurd} className="shrink-0">
+            {openingEurd ? <Icon name="sync" className="animate-spin text-base" /> : <Icon name="add_card" className="text-base" />}
+            {openingEurd ? 'Creating proposal…' : 'Open EURD account'}
+          </Button>
         </div>
       )}
 
