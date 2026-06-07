@@ -1,0 +1,2 @@
+export * from '../../node_modules/vite-plugin-node-polyfills/shims/global/dist/index.js';
+export { default } from '../../node_modules/vite-plugin-node-polyfills/shims/global/dist/index.js';
