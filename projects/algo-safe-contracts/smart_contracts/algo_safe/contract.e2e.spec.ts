@@ -134,7 +134,7 @@ describe('AlgoSafe contract', () => {
     expect(nextGroupId).toBe(2n)
     expect(nextProposalId).toBe(1n)
     expect(paused).toBe(0n)
-    expect(version).toBe(1n)
+    expect(version).toMatch(/^[0-9a-f]{7,40}$/)
 
     const group = await client.send.getSignerGroup({ args: { groupId: 1n }, suppressLog: true })
     expect(group.return!.threshold).toBe(1n)

@@ -2,6 +2,7 @@
 import { Fireworks, type FireworksHandlers } from '@fireworks-js/react'
 import { useQuery } from '@tanstack/react-query'
 import { useWallet } from '@txnlab/use-wallet-react'
+import { getAlgoSafeContractVersion } from 'algo-safe'
 import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { AddressDisplay } from '../components/AddressDisplay'
@@ -42,6 +43,11 @@ export function AgentDashboardPage() {
       return Number(status.lastRound ?? 0)
     },
     refetchInterval: 5000,
+  })
+  const { data: contractVersion, isLoading: contractVersionLoading } = useQuery({
+    queryKey: ['safe-contract-version', safe?.appId],
+    enabled: !!safe?.appId,
+    queryFn: () => getAlgoSafeContractVersion(algodClient, BigInt(safe!.appId)),
   })
 
   useEffect(() => {
@@ -112,6 +118,12 @@ export function AgentDashboardPage() {
           <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-on-surface-variant">
             <span className="font-mono text-xs uppercase tracking-wide">Safe Address</span>
             <AddressDisplay address={safe?.address} textClassName="text-sm text-on-surface" buttonClassName="h-5 w-5" />
+          </div>
+          <div className="mt-3 inline-flex flex-wrap items-center gap-2 rounded-md border border-outline-variant bg-surface-container-low px-3 py-2 text-sm">
+            <span className="font-mono text-xs uppercase tracking-wide text-on-surface-variant">Contract Version</span>
+            <span className="font-semibold text-on-surface">
+              {contractVersionLoading ? 'Loading...' : contractVersion ?? 'Version not detected for this deployment.'}
+            </span>
           </div>
         </div>
         <div className="text-right">
