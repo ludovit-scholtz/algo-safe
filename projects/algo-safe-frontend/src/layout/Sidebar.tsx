@@ -1,6 +1,6 @@
 import { NavLink, useParams } from 'react-router-dom'
-import { Icon } from '../components/ui/Icon'
 import logo from '../assets/logo.svg'
+import { Icon } from '../components/ui/Icon'
 
 const items = [
   { to: '', icon: 'dashboard', label: 'Dashboard', end: true },
