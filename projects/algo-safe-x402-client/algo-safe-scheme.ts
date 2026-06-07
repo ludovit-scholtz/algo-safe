@@ -85,8 +85,11 @@ export class AlgoSafeExactAvmScheme implements SchemeNetworkClient {
       throw new Error('Algo Safe payment flow did not produce any application call transactions.');
     }
 
-    const executeIndex = transactions.length - 1;
-    const groupedTransactions = algosdk.assignGroupID(transactions);
+    const normalizedTransactions = transactions.map((txn) =>
+      algosdk.decodeUnsignedTransaction(unwrapTransaction(txn).toByte()),
+    );
+    const executeIndex = normalizedTransactions.length - 1;
+    const groupedTransactions = algosdk.assignGroupID(normalizedTransactions);
     const paymentIndex = executeIndex;
     const encodedTransactions = groupedTransactions.map((txn) => txn.toByte());
     const signerIndexes = groupedTransactions
@@ -269,4 +272,16 @@ function getExecuteBoxReferences(appId: bigint, proposalId: bigint, groupId: big
     createBoxReference(appId, 'g', groupId),
     createBoxReference(appId, payloadPrefix, proposalId),
   ];
+}
+
+function unwrapTransaction(txn: unknown): algosdk.Transaction {
+  if (txn && typeof txn === 'object' && 'toByte' in txn && typeof txn.toByte === 'function') {
+    return txn as algosdk.Transaction;
+  }
+
+  if (txn && typeof txn === 'object' && 'txn' in txn) {
+    return unwrapTransaction(txn.txn);
+  }
+
+  throw new Error('Algo Safe returned a transaction value that could not be normalized.');
 }
