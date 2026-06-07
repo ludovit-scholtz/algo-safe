@@ -10,6 +10,7 @@ export type LiveSignerGroup = {
   memberCount: number
   adminPrivileges: number
   allowedActions: number
+  limitAssetId: bigint
   dailyLimit: bigint
   dailyUsage: bigint
   monthlyLimit: bigint
@@ -63,6 +64,7 @@ function mapLiveSignerGroup(groupId: bigint, group: Awaited<ReturnType<typeof ge
     memberCount: Number(group.memberCount),
     adminPrivileges: Number(group.adminPrivileges),
     allowedActions: Number(group.allowedActions),
+    limitAssetId: group.limitAssetId,
     dailyLimit: group.dailyLimit,
     dailyUsage: group.dailyUsage,
     monthlyLimit: group.monthlyLimit,

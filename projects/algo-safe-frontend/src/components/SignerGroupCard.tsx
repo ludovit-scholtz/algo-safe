@@ -20,8 +20,20 @@ function getActionLabels(allowedActions: number) {
   return labels.length > 0 ? labels : ['None']
 }
 
-function formatLimit(limit: bigint) {
-  return limit === 0n ? 'No limit' : `${formatUnits(limit, 6)} ALGO`
+function getLimitAssetLabel(group: LiveSignerGroup) {
+  return group.limitAssetId === 0n ? 'ALGO' : `ASA #${group.limitAssetId}`
+}
+
+function formatAssetScopedAmount(amount: bigint, group: LiveSignerGroup) {
+  if (group.limitAssetId === 0n) {
+    return `${formatUnits(amount, 6)} ALGO`
+  }
+
+  return `${amount.toString()} units`
+}
+
+function formatLimit(limit: bigint, group: LiveSignerGroup) {
+  return limit === 0n ? 'No limit' : `${formatAssetScopedAmount(limit, group)} · ${getLimitAssetLabel(group)}`
 }
 
 export function SignerGroupCard({ group }: { group: LiveSignerGroup }) {
@@ -53,14 +65,14 @@ export function SignerGroupCard({ group }: { group: LiveSignerGroup }) {
       <div className="mt-4 space-y-3">
         <div>
           <div className="flex justify-between font-mono text-xs uppercase text-on-surface-variant">
-            <span>Daily Usage</span>
+            <span>Daily Usage ({getLimitAssetLabel(group)})</span>
             <span>{group.dailyLimit === 0n ? 'Unlimited' : `${usagePercent}%`}</span>
           </div>
           <div className="mt-1 h-2 w-full rounded-full bg-surface-container-lowest">
             <div className="h-2 rounded-full bg-primary" style={{ width: `${usagePercent}%` }} />
           </div>
           <div className="mt-1 text-xs text-on-surface-variant">
-            {formatUnits(group.dailyUsage, 6)} / {formatLimit(group.dailyLimit)}
+            {formatAssetScopedAmount(group.dailyUsage, group)} / {formatLimit(group.dailyLimit, group)}
           </div>
         </div>
 
@@ -75,7 +87,7 @@ export function SignerGroupCard({ group }: { group: LiveSignerGroup }) {
         <div className="grid grid-cols-2 gap-3 text-xs text-on-surface-variant">
           <div>
             <div className="font-mono uppercase tracking-wide">Monthly Limit</div>
-            <div className="mt-1 text-on-surface">{formatLimit(group.monthlyLimit)}</div>
+            <div className="mt-1 text-on-surface">{formatLimit(group.monthlyLimit, group)}</div>
           </div>
           <div>
             <div className="font-mono uppercase tracking-wide">Cooldown</div>

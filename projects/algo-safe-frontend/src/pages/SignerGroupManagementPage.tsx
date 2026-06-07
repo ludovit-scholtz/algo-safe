@@ -1,7 +1,7 @@
 import { algo, AlgorandClient } from '@algorandfoundation/algokit-utils'
 import { useQueryClient } from '@tanstack/react-query'
 import { useWallet } from '@txnlab/use-wallet-react'
-import { AlgoSafeClient } from 'algo-safe'
+import { AlgoSafeClient, createAdminChange, type AdminChange } from 'algo-safe'
 import algosdk from 'algosdk'
 import { useSnackbar } from 'notistack'
 import { useEffect, useMemo, useState } from 'react'
@@ -70,17 +70,6 @@ function parseBaseUnits(value: string, decimals: number) {
   return BigInt(normalized || '0')
 }
 
-function inferLimitAssetSymbol(labels: string[]) {
-  for (const label of labels) {
-    const match = /\blimit\s+[^\s]+\s+([A-Za-z0-9.-]+)\b/i.exec(label)
-    if (match?.[1]) {
-      return match[1].toUpperCase()
-    }
-  }
-
-  return null
-}
-
 function accountTypeLabel(accountType: number) {
   return MEMBER_TYPE_OPTIONS.find((option) => option.value === accountType)?.label ?? `Type ${accountType}`
 }
@@ -120,8 +109,8 @@ export function SignerGroupManagementPage() {
   const [error, setError] = useState<string | null>(null)
 
   const spendingLimitAssets: SpendingAssetOption[] = useMemo(
-    () =>
-      (holdings ?? [])
+    () => {
+      const assets = (holdings ?? [])
         .filter((holding) => holding.isNative || holding.assetId !== undefined)
         .map((holding) => ({
           key: holding.key,
@@ -130,8 +119,26 @@ export function SignerGroupManagementPage() {
           decimals: holding.decimals,
           balanceDisplay: holding.balanceDisplay,
           isNative: holding.isNative,
-        })),
-    [holdings],
+        }))
+
+      const trackedAssetId = detail?.group.limitAssetId ?? 0n
+      const trackedAssetExists =
+        trackedAssetId === 0n || assets.some((asset) => !asset.isNative && asset.assetId !== undefined && BigInt(asset.assetId) === trackedAssetId)
+
+      if (!trackedAssetExists) {
+        assets.unshift({
+          key: `tracked-asset-${trackedAssetId.toString()}`,
+          symbol: 'ASA',
+          assetId: Number(trackedAssetId),
+          decimals: 0,
+          balanceDisplay: 'not held',
+          isNative: false,
+        })
+      }
+
+      return assets
+    },
+    [detail?.group.limitAssetId, holdings],
   )
 
   const selectedSpendingAsset = spendingLimitAssets.find((asset) => asset.key === spendingLimitAssetKey) ??
@@ -162,9 +169,12 @@ export function SignerGroupManagementPage() {
   useEffect(() => {
     if (!detail) return
 
-    const inferredSymbol = inferLimitAssetSymbol(detail.members.map((member) => member.label))
-    const inferredAsset = inferredSymbol ? spendingLimitAssets.find((asset) => asset.symbol.toUpperCase() === inferredSymbol) : undefined
-    const nextAsset = inferredAsset ?? spendingLimitAssets[0]
+    const nextAsset =
+      detail.group.limitAssetId === 0n
+        ? spendingLimitAssets.find((asset) => asset.isNative)
+        : spendingLimitAssets.find(
+            (asset) => !asset.isNative && asset.assetId !== undefined && BigInt(asset.assetId) === detail.group.limitAssetId,
+          )
 
     if (nextAsset) {
       setSpendingLimitAssetKey(nextAsset.key)
@@ -199,21 +209,7 @@ export function SignerGroupManagementPage() {
 
   async function submitChange(
     section: string,
-    change: {
-      changeType: bigint
-      targetGroupId: bigint
-      groupName: string
-      memberAddr: string
-      memberType: bigint
-      memberLabel: string
-      threshold: bigint
-      adminPrivileges: bigint
-      allowedActions: bigint
-      dailyLimit: bigint
-      monthlyLimit: bigint
-      cooldownRounds: bigint
-      activeFlag: bigint
-    },
+    change: AdminChange,
     successMessage: string,
   ) {
     setError(null)
@@ -279,7 +275,7 @@ export function SignerGroupManagementPage() {
 
     await submitChange(
       'member',
-      {
+      createAdminChange({
         changeType: ADM_ADD_MEMBER,
         targetGroupId: BigInt(groupId),
         groupName: '',
@@ -289,11 +285,12 @@ export function SignerGroupManagementPage() {
         threshold: 0n,
         adminPrivileges: 0n,
         allowedActions: 0n,
+        limitAssetId: 0n,
         dailyLimit: 0n,
         monthlyLimit: 0n,
         cooldownRounds: 0n,
         activeFlag: 1n,
-      },
+      }),
       'Member addition proposal created',
     )
   }
@@ -309,7 +306,7 @@ export function SignerGroupManagementPage() {
 
     await submitChange(
       'threshold',
-      {
+      createAdminChange({
         changeType: ADM_CHANGE_THRESHOLD,
         targetGroupId: BigInt(groupId),
         groupName: '',
@@ -319,11 +316,12 @@ export function SignerGroupManagementPage() {
         threshold: BigInt(parsedThreshold),
         adminPrivileges: 0n,
         allowedActions: 0n,
+        limitAssetId: 0n,
         dailyLimit: 0n,
         monthlyLimit: 0n,
         cooldownRounds: 0n,
         activeFlag: 1n,
-      },
+      }),
       'Threshold update proposal created',
     )
   }
@@ -337,15 +335,27 @@ export function SignerGroupManagementPage() {
       return
     }
     const parsedCooldown = BigInt(cooldownRounds || '0')
+    const limitAssetId = BigInt(selectedSpendingAsset.assetId ?? 0)
 
     if (parsedDailyLimit === null || parsedMonthlyLimit === null) {
       setError(`Enter valid ${selectedSpendingAsset.symbol} limits for the signer group policy.`)
       return
     }
 
+    const hasSpendingLimit = parsedDailyLimit > 0n || parsedMonthlyLimit > 0n
+    if (hasSpendingLimit && limitAssetId === 0n && !allowAlgo) {
+      setError('Enable ALGO payments when the spending limit asset is ALGO.')
+      return
+    }
+
+    if (hasSpendingLimit && limitAssetId !== 0n && !allowAsa) {
+      setError('Enable ASA transfers when the spending limit asset is an ASA.')
+      return
+    }
+
     await submitChange(
       'policy',
-      {
+      createAdminChange({
         changeType: ADM_SET_POLICY,
         targetGroupId: BigInt(groupId),
         groupName: '',
@@ -355,11 +365,12 @@ export function SignerGroupManagementPage() {
         threshold: 0n,
         adminPrivileges: 0n,
         allowedActions: BigInt(actionMask),
+        limitAssetId,
         dailyLimit: parsedDailyLimit,
         monthlyLimit: parsedMonthlyLimit,
         cooldownRounds: parsedCooldown,
         activeFlag: 1n,
-      },
+      }),
       'Policy update proposal created',
     )
   }
@@ -368,7 +379,7 @@ export function SignerGroupManagementPage() {
     e.preventDefault()
     await submitChange(
       'privileges',
-      {
+      createAdminChange({
         changeType: ADM_SET_PRIVILEGES,
         targetGroupId: BigInt(groupId),
         groupName: '',
@@ -378,11 +389,12 @@ export function SignerGroupManagementPage() {
         threshold: 0n,
         adminPrivileges: BigInt(adminMask),
         allowedActions: 0n,
+        limitAssetId: 0n,
         dailyLimit: 0n,
         monthlyLimit: 0n,
         cooldownRounds: 0n,
         activeFlag: 1n,
-      },
+      }),
       'Admin privileges proposal created',
     )
   }
@@ -391,7 +403,7 @@ export function SignerGroupManagementPage() {
     e.preventDefault()
     await submitChange(
       'status',
-      {
+      createAdminChange({
         changeType: ADM_SET_ACTIVE,
         targetGroupId: BigInt(groupId),
         groupName: '',
@@ -401,11 +413,12 @@ export function SignerGroupManagementPage() {
         threshold: 0n,
         adminPrivileges: 0n,
         allowedActions: 0n,
+        limitAssetId: 0n,
         dailyLimit: 0n,
         monthlyLimit: 0n,
         cooldownRounds: 0n,
         activeFlag: isActive ? 1n : 0n,
-      },
+      }),
       'Signer-group status proposal created',
     )
   }

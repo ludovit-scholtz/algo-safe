@@ -2,7 +2,7 @@
 import { algo, AlgorandClient } from '@algorandfoundation/algokit-utils'
 import { useQueryClient } from '@tanstack/react-query'
 import { useWallet } from '@txnlab/use-wallet-react'
-import { AlgoSafeClient } from 'algo-safe'
+import { AlgoSafeClient, createAdminChange } from 'algo-safe'
 import algosdk from 'algosdk'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -176,11 +176,12 @@ export function RegisterAgentPage() {
       const status = (await algodClient.status().do()) as unknown as Record<string, unknown>
       const expiryRound = getCurrentRound(status) + 2000n
       const policyLabel = `${purpose} · limit ${dailyLimit.trim() || '0'} ${selectedSpendingAsset.symbol}`
+      const limitAssetId = BigInt(selectedSpendingAsset.assetId ?? 0)
 
       const result = await appClient.send.proposeAdminChange({
         args: {
           groupId: GOVERNANCE_GROUP_ID,
-          change: {
+          change: createAdminChange({
             changeType: GOVERNED_CREATE_GROUP,
             targetGroupId: 0n,
             groupName: `${alias.trim()} Agent`,
@@ -190,11 +191,12 @@ export function RegisterAgentPage() {
             threshold: 1n,
             adminPrivileges: 0n,
             allowedActions: AGENT_ALLOWED_ACTIONS,
-            dailyLimit: selectedSpendingAsset.isNative ? rawLimit : 0n,
+            limitAssetId,
+            dailyLimit: rawLimit,
             monthlyLimit: 0n,
             cooldownRounds: 0n,
             activeFlag: 1n,
-          },
+          }),
           expiryRound,
         },
         staticFee: PROPOSAL_CALL_FEE,
