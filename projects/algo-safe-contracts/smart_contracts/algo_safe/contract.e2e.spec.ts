@@ -317,8 +317,8 @@ describe('AlgoSafe contract', () => {
     const { client, deployer } = await deployAndBootstrap()
     const targetAppId = await createBareNoOpApp(deployer)
     const encoder = new TextEncoder()
-
-    const calls = [1, 2, 3].map((n) => safeAppCall(targetAppId, [encoder.encode(`call-${n}`)]))
+    const n = 4
+    const calls = Array.from({ length: n }, (_, i) => safeAppCall(targetAppId, [encoder.encode(`call-${i + 1}`)]))
 
     const { return: pid } = await client.send.proposeTransactionGroup({
       args: { groupId: 1n, payload: txGroup(calls), expiryRound: FAR_EXPIRY },
@@ -327,8 +327,8 @@ describe('AlgoSafe contract', () => {
     })
 
     const stored = await client.send.getTransactionGroup({ args: { proposalId: pid! }, suppressLog: true })
-    expect(stored.return!.length).toBe(3)
-    for (let i = 0; i < 3; i++) {
+    expect(stored.return!.length).toBe(n)
+    for (let i = 0; i < n; i++) {
       expect(stored.return![i][10]).toBe(targetAppId) // each appId
     }
 

@@ -369,8 +369,8 @@ export class AlgoSafe extends Contract {
    * of transactions and execution emits that list as one atomic inner group.
    */
   public proposeTransactionGroup(groupId: uint64, payload: TransactionGroupPayload, expiryRound: uint64): uint64 {
-    ensureBudget(Uint64(700)) // rough estimate; each inner transaction adds to execution cost
-
+    const count: uint64 = payload.length
+    ensureBudget((count + Uint64(1)) * Uint64(700), 0)
     assert(this.paused.value === Uint64(0), 'safe paused')
     this._assertMember(groupId)
     assert(this.groups(groupId).value.active !== Uint64(0), 'group disabled')
