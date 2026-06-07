@@ -87,7 +87,9 @@ function getInnerTransactions(confirmation: unknown): Record<string, unknown>[] 
     getArrayField(confirmation, ['innerTxns', 'inner-txns']) ??
     getArrayField(getObjectField(confirmation, ['txnResult', 'txn-result']), ['innerTxns', 'inner-txns']) ??
     []
-  return innerTransactions.filter((innerTxn): innerTxn is Record<string, unknown> => Boolean(innerTxn && typeof innerTxn === 'object'))
+  return innerTransactions.filter((innerTxn): innerTxn is Record<string, unknown> =>
+    Boolean(innerTxn && typeof innerTxn === 'object'),
+  )
 }
 
 function getInnerTransactionType(innerTxn: Record<string, unknown>): string | undefined {
@@ -511,7 +513,9 @@ describe('AlgoSafe contract', () => {
 
     const executeResult = await client.send.executeProposal({ args: { proposalId: xferPid! }, ...execParams })
     const pendingInfo = await localnet.algorand.client.algod.pendingTransactionInformation(executeResult.txIds[0]).do()
-    const assetInnerTxn = getInnerTransactions(pendingInfo).find((innerTxn) => getInnerTransactionType(innerTxn) === 'axfer')
+    const assetInnerTxn = getInnerTransactions(pendingInfo).find(
+      (innerTxn) => getInnerTransactionType(innerTxn) === 'axfer',
+    )
     expect(assetInnerTxn).toBeDefined()
     expect(getInnerTransactionType(assetInnerTxn!)).toBe('axfer')
     expect(getInnerAssetTransfer(assetInnerTxn!).assetId).toBe(assetId)
