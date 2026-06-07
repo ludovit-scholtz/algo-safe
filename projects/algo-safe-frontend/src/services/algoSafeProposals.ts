@@ -12,6 +12,7 @@ const STATUS_EXECUTED = 3n
 const STATUS_CANCELLED = 4n
 
 const PAYLOAD_TRANSACTION_GROUP = 1n
+const METHOD_EXECUTE_PROPOSAL = 'executeProposal(uint64)void'
 
 const TX_PAYMENT = 1n
 const TX_ASSET = 2n
@@ -72,6 +73,43 @@ function formatAlgo(amount: bigint) {
 
 function formatRawAmount(amount: bigint) {
   return new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(Number(amount))
+}
+
+function encodeUint64(value: bigint) {
+  const bytes = new Uint8Array(8)
+  const view = new DataView(bytes.buffer)
+  view.setBigUint64(0, value)
+  return bytes
+}
+
+function concatBytes(...parts: Uint8Array[]) {
+  const totalLength = parts.reduce((sum, part) => sum + part.length, 0)
+  const result = new Uint8Array(totalLength)
+  let offset = 0
+
+  for (const part of parts) {
+    result.set(part, offset)
+    offset += part.length
+  }
+
+  return result
+}
+
+function createBoxReference(appId: bigint, prefix: string, id: bigint) {
+  return {
+    appId,
+    name: concatBytes(new TextEncoder().encode(prefix), encodeUint64(id)),
+  }
+}
+
+function getExecuteBoxReferences(appId: bigint, proposalId: bigint, proposal: ContractProposal) {
+  const payloadPrefix = proposal.payloadType === PAYLOAD_TRANSACTION_GROUP ? 'txg' : 'dp'
+
+  return [
+    createBoxReference(appId, 'p', proposalId),
+    createBoxReference(appId, 'g', proposal.groupId),
+    createBoxReference(appId, payloadPrefix, proposalId),
+  ]
 }
 
 function mapStatus(status: bigint, expiryRound: bigint, currentRound: bigint): ProposalStatus {
@@ -265,12 +303,26 @@ export async function cancelLiveProposal(context: ProposalContext, proposalId: s
 export async function executeLiveProposal(context: ProposalContext, proposalId: string, lifecycle?: ExecuteProposalLifecycle): Promise<ExecuteProposalResult> {
   assertWalletContext(context)
   const client = buildAppClient(context)
-  const transactionGroup = await client.createTransaction.executeProposal({ args: [BigInt(proposalId)], staticFee: EXECUTION_CALL_FEE })
-  const transaction = transactionGroup.transactions[0]
-  const txId = transaction.txID()
-  const signedTransactions = await context.transactionSigner!(transactionGroup.transactions, [0])
+  const proposalIdValue = BigInt(proposalId)
+  const contractProposal = await client.getProposal({ args: [proposalIdValue] })
+  const submissionParams = {
+    method: METHOD_EXECUTE_PROPOSAL,
+    args: [proposalIdValue],
+    maxFee: EXECUTION_CALL_FEE,
+    populateAppCallResources: true,
+    coverAppCallInnerTransactionFees: true,
+    boxReferences: getExecuteBoxReferences(BigInt(context.safe.appId), proposalIdValue, contractProposal),
+    skipWaiting: true,
+    suppressLog: true,
+  } as Parameters<typeof client.appClient.send.call>[0] & { skipWaiting: true }
 
-  await context.algodClient.sendRawTransaction(signedTransactions).do()
+  const submission = await client.appClient.send.call(submissionParams)
+  const txId = submission.txIds[0] ?? submission.transactions[0]?.txID()
+
+  if (!txId) {
+    throw new Error('Unable to determine the submitted execution transaction ID.')
+  }
+
   lifecycle?.onSubmitted?.({ txId })
 
   const confirmedRound = await waitForTransactionConfirmation(context.algodClient, txId)
