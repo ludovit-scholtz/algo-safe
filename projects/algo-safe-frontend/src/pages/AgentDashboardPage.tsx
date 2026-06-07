@@ -31,7 +31,8 @@ export function AgentDashboardPage() {
   const { data: proposals } = useProposals()
   const fireworksRef = useRef<FireworksHandlers | null>(null)
   const [showCelebration, setShowCelebration] = useState(false)
-  const initializationSuccess = (location.state as { initializationSuccess?: { appId: string; name: string } } | null)?.initializationSuccess
+  const initializationSuccess = (location.state as { initializationSuccess?: { appId: string; name: string } } | null)
+    ?.initializationSuccess
   const executionSuccess = (location.state as { executionSuccess?: { txId: string; confirmedRound: number; proposalId: string } } | null)
     ?.executionSuccess
   const { data: currentRound } = useQuery({

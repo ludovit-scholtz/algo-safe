@@ -234,7 +234,12 @@ export function InitializeSafePage() {
               <span className="font-mono text-xs text-on-surface-variant">Connected wallet</span>
               <span className="font-mono text-xs text-primary">Ready</span>
             </div>
-            <AddressDisplay address={activeAddress} fallback="Wallet not connected" textClassName="text-sm text-on-surface" buttonClassName="h-5 w-5" />
+            <AddressDisplay
+              address={activeAddress}
+              fallback="Wallet not connected"
+              textClassName="text-sm text-on-surface"
+              buttonClassName="h-5 w-5"
+            />
             <div className="mt-3 flex items-center justify-between text-sm">
               <span className="text-on-surface-variant">Network</span>
               <span className="font-semibold text-on-surface">{networkLabel}</span>
