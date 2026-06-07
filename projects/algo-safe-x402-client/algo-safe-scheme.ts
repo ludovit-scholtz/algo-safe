@@ -16,7 +16,9 @@ const DEFAULT_SAFE_GROUP_ID = 2n;
 const DEFAULT_VALIDITY_WINDOW = 200n;
 const READY_STATUS = 2n;
 const ZERO_ADDRESS = algosdk.encodeAddress(new Uint8Array(32));
-const EXECUTION_CALL_FEE = algo(0.2);
+const MIN_APP_CALL_FEE = microAlgo(1_000);
+const EXECUTION_CALL_MAX_FEE = algo(0.2);
+const PROPOSE_ASSET_TRANSFER_METHOD = 'proposeAssetTransfer(uint64,(uint64,address,uint64,uint64,address,string),uint64)uint64';
 const APPROVE_PROPOSAL_METHOD = 'approveProposal(uint64)void';
 const EXECUTE_PROPOSAL_METHOD = 'executeProposal(uint64)void';
 
@@ -45,7 +47,14 @@ export class AlgoSafeExactAvmScheme implements SchemeNetworkClient {
 
     const proposalId =
       safeConfig.proposalId ??
-      (await this.createAssetTransferProposal(safeClient, safeConfig.groupId, paymentRequirements, x402Version));
+      (await this.createAssetTransferProposal(
+        safeClient,
+        safeConfig.appId,
+        safeConfig.groupId,
+        paymentRequirements,
+        x402Version,
+        network,
+      ));
 
     const proposal = await safeClient.getProposal({ args: [proposalId] });
     const hasApproved = await safeClient.hasApproved({ args: [proposalId, this.signer.address] });
@@ -67,22 +76,32 @@ export class AlgoSafeExactAvmScheme implements SchemeNetworkClient {
       const approvalParams = await safeClient.appClient.params.call({
         method: APPROVE_PROPOSAL_METHOD,
         args: [proposalId],
-        staticFee: microAlgo(1_000),
+        staticFee: MIN_APP_CALL_FEE,
         boxReferences: approveBoxReferences,
       });
-      const approvalCall = await safeClient.algorand.createTransaction.appCallMethodCall(approvalParams);
+      const approvalCall = await safeClient.algorand.createTransaction.appCallMethodCall({
+        ...approvalParams,
+        staticFee: MIN_APP_CALL_FEE,
+      });
       transactions.push(...approvalCall.transactions);
     }
 
     const executeParams = await safeClient.appClient.params.call({
       method: EXECUTE_PROPOSAL_METHOD,
       args: [proposalId],
-      maxFee: EXECUTION_CALL_FEE,
+      staticFee: MIN_APP_CALL_FEE,
+      maxFee: EXECUTION_CALL_MAX_FEE,
       populateAppCallResources: true,
       coverAppCallInnerTransactionFees: true,
       boxReferences: executeBoxReferences,
-    });
-    const executeCall = await safeClient.algorand.createTransaction.appCallMethodCall(executeParams);
+    } as never);
+    const executeCall = await safeClient.algorand.createTransaction.appCallMethodCall({
+      ...executeParams,
+      staticFee: MIN_APP_CALL_FEE,
+      maxFee: EXECUTION_CALL_MAX_FEE,
+      populateAppCallResources: true,
+      coverAppCallInnerTransactionFees: true,
+    } as never);
     transactions.push(...executeCall.transactions);
 
     if (transactions.length === 0) {
@@ -180,9 +199,11 @@ export class AlgoSafeExactAvmScheme implements SchemeNetworkClient {
 
   private async createAssetTransferProposal(
     safeClient: AlgoSafeClient,
+    appId: bigint,
     groupId: bigint,
     paymentRequirements: PaymentRequirements,
     x402Version: number,
+    network: string,
   ): Promise<bigint> {
     const suggestedParams = await safeClient.algorand.getSuggestedParams();
     const firstValid = BigInt(
@@ -193,28 +214,67 @@ export class AlgoSafeExactAvmScheme implements SchemeNetworkClient {
     const expiryRound = firstValid + DEFAULT_VALIDITY_WINDOW;
     const note = `x402-safe-payment-v${x402Version}-${Date.now()}`;
 
-    const proposal = await safeClient.send.proposeAssetTransfer({
-      args: {
-        groupId,
-        payload: {
-          xferAsset: this.getAssetId(paymentRequirements.asset),
-          assetReceiver: paymentRequirements.payTo,
-          assetAmount: BigInt(paymentRequirements.amount),
-          hasClose: 0n,
-          assetCloseTo: ZERO_ADDRESS,
-          note,
-        },
-        expiryRound,
+    const algod = this.getRawAlgodClient(network);
+    const rawSuggestedParams = await algod.getTransactionParams().do();
+    const method = algosdk.ABIMethod.fromSignature(PROPOSE_ASSET_TRANSFER_METHOD);
+    const methodArgs = algosdk.ABIType.from('(uint64,(uint64,address,uint64,uint64,address,string),uint64)').encode([
+      groupId,
+      [
+        this.getAssetId(paymentRequirements.asset),
+        paymentRequirements.payTo,
+        BigInt(paymentRequirements.amount),
+        0n,
+        ZERO_ADDRESS,
+        note,
+      ],
+      expiryRound,
+    ]);
+
+    const txn = algosdk.makeApplicationCallTxnFromObject({
+      sender: this.signer.address,
+      appIndex: Number(appId),
+      onComplete: algosdk.OnApplicationComplete.NoOpOC,
+      suggestedParams: {
+        ...rawSuggestedParams,
+        fee: Number(MIN_APP_CALL_FEE.microAlgo),
+        flatFee: true,
       },
-      staticFee: microAlgo(1_000),
-      suppressLog: true,
+      appArgs: [method.getSelector(), methodArgs],
     });
 
-    if (proposal.return === undefined) {
+    const [signedTxn] = await this.signer.signTransactions([txn.toByte()], [0]);
+    if (!signedTxn) {
+      throw new Error('Algo Safe proposal creation was not signed by the client signer.');
+    }
+
+    const { txid } = await algod.sendRawTransaction(signedTxn).do();
+    const confirmation = await algosdk.waitForConfirmation(algod, txid, 4);
+    const lastLog = confirmation.logs?.at(-1);
+
+    if (!lastLog) {
+      throw new Error('Algo Safe proposal creation did not emit an ABI return value.');
+    }
+
+    const logBytes = lastLog instanceof Uint8Array ? lastLog : Buffer.from(lastLog, 'base64');
+    const proposalId = algosdk.ABIType.from('uint64').decode(logBytes.subarray(4));
+
+    if (proposalId === undefined || (typeof proposalId !== 'bigint' && typeof proposalId !== 'number')) {
       throw new Error('Algo Safe proposal creation did not return a proposal id.');
     }
 
-    return proposal.return;
+    return BigInt(proposalId);
+  }
+
+  private getRawAlgodClient(network: string): algosdk.Algodv2 {
+    if (this.config?.algodUrl) {
+      return new algosdk.Algodv2(this.config.algodToken ?? '', this.config.algodUrl, '');
+    }
+
+    const server = isTestnetNetwork(network)
+      ? 'https://testnet-api.algonode.cloud'
+      : 'https://mainnet-api.algonode.cloud';
+
+    return new algosdk.Algodv2('', server, '');
   }
 }
 
