@@ -34,7 +34,12 @@ export function AgentDashboardPage() {
     if (!executionSuccess || showCelebration) return
 
     setShowCelebration(true)
-    fireworksRef.current?.launch(12)
+
+    const animationFrame = window.requestAnimationFrame(() => {
+      fireworksRef.current?.launch(18)
+    })
+
+    return () => window.cancelAnimationFrame(animationFrame)
   }, [executionSuccess, showCelebration])
 
   const activeAgents = agents?.filter((a) => a.status === 'active') ?? []
@@ -45,7 +50,20 @@ export function AgentDashboardPage() {
   return (
     <div className="space-y-6">
       {executionSuccess && (
-        <div className="relative overflow-hidden rounded-md border border-primary/30 bg-primary/10 px-5 py-4">
+        <Fireworks
+          ref={fireworksRef}
+          autostart={false}
+          options={{
+            opacity: 0.6,
+            sound: { enabled: false },
+            rocketsPoint: { min: 15, max: 85 },
+          }}
+          className="pointer-events-none fixed inset-0 z-50"
+        />
+      )}
+
+      {executionSuccess && (
+        <div className="rounded-md border border-primary/30 bg-primary/10 px-5 py-4">
           <div className="flex items-start gap-3 pr-4">
             <Icon name="celebration" className="mt-0.5 text-primary text-[22px]" />
             <div>
@@ -55,16 +73,6 @@ export function AgentDashboardPage() {
               </p>
             </div>
           </div>
-          <Fireworks
-            ref={fireworksRef}
-            autostart={false}
-            options={{
-              opacity: 0.25,
-              sound: { enabled: false },
-              rocketsPoint: { min: 25, max: 75 },
-            }}
-            className="pointer-events-none absolute inset-0"
-          />
         </div>
       )}
 
