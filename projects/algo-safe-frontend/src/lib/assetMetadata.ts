@@ -20,7 +20,7 @@ const NATIVE_ALGO_METADATA: AssetMetadata = {
 const KNOWN_ASSETS: Record<NetworkId, AssetMetadata[]> = {
   mainnet: [
     { assetId: 31566704, symbol: 'USDC', name: 'USD Coin', decimals: 6, isNative: false },
-    { assetId: 227855942, symbol: 'EURD', name: 'Quantoz EURD', decimals: 6, isNative: false },
+    { assetId: 1221682136, symbol: 'EURD', name: 'Quantoz EURD', decimals: 6, isNative: false },
     { assetId: 764036623, symbol: 'AsaGold', name: 'AsaGold', decimals: 6, isNative: false },
     { assetId: 386192725, symbol: 'GoBTC', name: 'GoBTC', decimals: 8, isNative: false },
   ],
