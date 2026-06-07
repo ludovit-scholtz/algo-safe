@@ -1,18 +1,23 @@
-/**
- * AVM Facilitator Scheme for Exact Payment Protocol
- *
- * Verifies and settles Algorand ASA transfer payments.
- */
-
 import {
-  decodeTransaction as decodeUnsignedTxn,
-  decodeSignedTransaction as decodeSignedTxn,
-  encodeTransactionRaw,
-  encodeSignedTransaction,
-  bytesForSigning,
-} from "@algorandfoundation/algokit-utils/transact";
-import type { Transaction, SignedTransaction } from "@algorandfoundation/algokit-utils/transact";
+  decodeTransaction as decodeBase64Transaction,
+  type ExactAvmPayloadV2,
+  type FacilitatorAvmSigner,
+  hasSignature,
+  isExactAvmPayload,
+  maxReasonableGroupFee,
+} from "@x402/avm";
+import { Buffer } from "buffer";
+import { MAX_TRANSACTION_GROUP_SIZE } from "@algorandfoundation/algokit-utils/common";
 import { ed25519Verifier } from "@algorandfoundation/algokit-utils/crypto";
+import {
+  bytesForSigning,
+  decodeSignedTransaction as decodeSignedTxn,
+  decodeTransaction as decodeUnsignedTxn,
+  encodeSignedTransaction,
+  encodeTransactionRaw,
+  type SignedTransaction,
+  type Transaction,
+} from "@algorandfoundation/algokit-utils/transact";
 import type {
   Network,
   PaymentPayload,
@@ -21,13 +26,7 @@ import type {
   SettleResponse,
   VerifyResponse,
 } from "@x402/core/types";
-import type { FacilitatorAvmSigner } from "../../signer";
-import type { ExactAvmPayloadV2 } from "../../types";
-import { isExactAvmPayload } from "../../types";
-import { MAX_TRANSACTION_GROUP_SIZE } from "@algorandfoundation/algokit-utils/common";
-import { decodeTransaction, hasSignature } from "../../utils";
-import { maxReasonableGroupFee } from "../../constants";
-import * as Errors from "./errors";
+import * as Errors from "./errors.js";
 
 /**
  * AVM facilitator implementation for the Exact payment scheme.
@@ -171,14 +170,6 @@ export class ExactAvmScheme implements SchemeNetworkFacilitator {
         };
       }
 
-      // Payment transaction correctness
-      const paymentCheck = await this.verifyPaymentTransaction(
-        decoded.txns[paymentIndex],
-        requirements,
-        paymentGroup[paymentIndex],
-      );
-      if (!paymentCheck.isValid) return paymentCheck;
-
       // Verify fee payers and sign them for simulation
       const prepared = await this.prepareSignedGroup(decoded.txns, paymentGroup);
       if ("error" in prepared) return prepared.error;
@@ -189,6 +180,15 @@ export class ExactAvmScheme implements SchemeNetworkFacilitator {
         requirements.network,
       );
       if (!simResult.isValid) return simResult;
+
+      const paymentCheck = await this.verifyPaymentTransaction(
+        decoded.txns[paymentIndex],
+        requirements,
+        paymentGroup[paymentIndex],
+        simResult.result,
+        paymentIndex,
+      );
+      if (!paymentCheck.isValid) return paymentCheck;
 
       return { isValid: true, payer };
     } catch (error) {
@@ -322,7 +322,7 @@ export class ExactAvmScheme implements SchemeNetworkFacilitator {
 
     for (let i = 0; i < paymentGroup.length; i++) {
       try {
-        const bytes = decodeTransaction(paymentGroup[i]);
+        const bytes = decodeBase64Transaction(paymentGroup[i]);
 
         try {
           const stxn = decodeSignedTxn(bytes);
@@ -422,7 +422,7 @@ export class ExactAvmScheme implements SchemeNetworkFacilitator {
           };
         }
       } else {
-        signedTxns.push(decodeTransaction(paymentGroup[i]));
+        signedTxns.push(decodeBase64Transaction(paymentGroup[i]));
       }
     }
 
@@ -439,7 +439,7 @@ export class ExactAvmScheme implements SchemeNetworkFacilitator {
   private async simulateTransactionGroup(
     signedTxns: Uint8Array[],
     network: Network,
-  ): Promise<VerifyResponse> {
+  ): Promise<VerifyResponse & { result?: unknown }> {
     try {
       const simResult = (await this.signer.simulateTransactions(signedTxns, network)) as {
         txnGroups?: Array<{ failureMessage?: string }>;
@@ -453,7 +453,7 @@ export class ExactAvmScheme implements SchemeNetworkFacilitator {
         };
       }
 
-      return { isValid: true };
+  return { isValid: true, result: simResult };
     } catch (error) {
       return {
         isValid: false,
@@ -475,19 +475,41 @@ export class ExactAvmScheme implements SchemeNetworkFacilitator {
     stxn: SignedTransaction,
     requirements: PaymentRequirements,
     encodedTxn: string,
+    simulationResult: unknown,
+    paymentIndex: number,
   ): Promise<VerifyResponse> {
     const txn = stxn.txn;
 
-    // Must be an asset transfer
-    if (txn.type !== "axfer") {
+    const signatureCheck = await this.verifySignedTransaction(txn, stxn, encodedTxn);
+    if (!signatureCheck.isValid) {
+      return signatureCheck;
+    }
+
+    if (txn.type === "axfer") {
+      return this.verifyAssetTransferFields(txn, requirements);
+    }
+
+    if (txn.type !== "appl") {
       return {
         isValid: false,
         invalidReason: Errors.ErrNotAssetTransfer,
-        invalidMessage: `Expected asset transfer, got "${txn.type}"`,
+        invalidMessage: `Expected asset transfer or app call, got "${txn.type}"`,
       };
     }
 
-    // Access asset transfer properties — properly typed in algokit-utils v10
+    const matchingInnerPayment = this.findInnerPayment(simulationResult, paymentIndex, requirements);
+    if (!matchingInnerPayment) {
+      return {
+        isValid: false,
+        invalidReason: Errors.ErrPaymentNotFound,
+        invalidMessage: `No matching inner asset transfer found for ${requirements.payTo} amount=${requirements.amount} asset=${requirements.asset}`,
+      };
+    }
+
+    return { isValid: true };
+  }
+
+  private verifyAssetTransferFields(txn: Transaction, requirements: PaymentRequirements): VerifyResponse {
     const assetTransfer = txn.assetTransfer;
 
     if (!assetTransfer) {
@@ -498,7 +520,6 @@ export class ExactAvmScheme implements SchemeNetworkFacilitator {
       };
     }
 
-    // Use BigInt comparison to avoid string format mismatches (e.g. "1000" vs "1000.0")
     const amount = assetTransfer.amount ?? BigInt(0);
 
     if (amount !== BigInt(requirements.amount)) {
@@ -509,7 +530,6 @@ export class ExactAvmScheme implements SchemeNetworkFacilitator {
       };
     }
 
-    // Verify receiver address matches payTo
     const receiver = assetTransfer.receiver ? assetTransfer.receiver.toString() : "";
 
     if (receiver !== requirements.payTo) {
@@ -531,8 +551,15 @@ export class ExactAvmScheme implements SchemeNetworkFacilitator {
       };
     }
 
-    // Verify signature exists
-    const txnBytes = decodeTransaction(encodedTxn);
+    return { isValid: true };
+  }
+
+  private async verifySignedTransaction(
+    txn: Transaction,
+    stxn: SignedTransaction,
+    encodedTxn: string,
+  ): Promise<VerifyResponse> {
+    const txnBytes = decodeBase64Transaction(encodedTxn);
     if (!hasSignature(txnBytes)) {
       return {
         isValid: false,
@@ -555,6 +582,152 @@ export class ExactAvmScheme implements SchemeNetworkFacilitator {
     }
 
     return { isValid: true };
+  }
+
+  private findInnerPayment(
+    simulationResult: unknown,
+    paymentIndex: number,
+    requirements: PaymentRequirements,
+  ): Record<string, unknown> | null {
+    const txnGroup = this.getFirstTransactionGroup(simulationResult);
+    const txnResult = this.getArrayField(txnGroup, ["txnResults", "txn-results"])?.[paymentIndex];
+    const innerTransactions = this.collectInnerTransactions(txnResult);
+
+    for (const candidate of innerTransactions) {
+      if (this.matchesInnerAssetTransfer(candidate, requirements)) {
+        return candidate;
+      }
+    }
+
+    return null;
+  }
+
+  private getFirstTransactionGroup(value: unknown): Record<string, unknown> | undefined {
+    const groups = this.getArrayField(value, ["txnGroups", "txn-groups"]);
+    const first = groups?.[0];
+    return first && typeof first === "object" ? (first as Record<string, unknown>) : undefined;
+  }
+
+  private collectInnerTransactions(value: unknown): Record<string, unknown>[] {
+    if (!value || typeof value !== "object") {
+      return [];
+    }
+
+    const node = value as Record<string, unknown>;
+    const txnResult = this.getObjectField(node, ["txnResult", "txn-result"]) ?? node;
+    const inner = this.getArrayField(txnResult, ["innerTxns", "inner-txns"]) ?? [];
+    const results: Record<string, unknown>[] = [];
+
+    for (const entry of inner) {
+      if (entry && typeof entry === "object") {
+        const objectEntry = entry as Record<string, unknown>;
+        results.push(objectEntry);
+        results.push(...this.collectInnerTransactions(objectEntry));
+      }
+    }
+
+    return results;
+  }
+
+  private matchesInnerAssetTransfer(
+    value: Record<string, unknown>,
+    requirements: PaymentRequirements,
+  ): boolean {
+    const txnEnvelope = this.getObjectField(value, ["txn"]) ?? value;
+    const txn = this.getObjectField(txnEnvelope, ["txn"]) ?? txnEnvelope;
+    const type = this.getStringField(txn, ["type"]);
+    if (type !== "axfer") {
+      return false;
+    }
+
+    const assetTransfer = this.getObjectField(txn, ["assetTransfer", "asset-transfer"]);
+    const assetId = this.getStringLike(
+      this.getField(assetTransfer, ["assetId", "asset-id"]) ?? this.getField(txn, ["xaid"]),
+    );
+    const receiver = this.getStringLike(
+      this.getField(assetTransfer, ["receiver", "assetReceiver", "asset-receiver"]) ?? this.getField(txn, ["arcv"]),
+    );
+    const amount = this.getBigIntLike(
+      this.getField(assetTransfer, ["amount", "assetAmount", "asset-amount"]) ?? this.getField(txn, ["aamt"]),
+    );
+
+    return assetId === requirements.asset && receiver === requirements.payTo && amount === BigInt(requirements.amount);
+  }
+
+  private getArrayField(value: unknown, keys: string[]): unknown[] | undefined {
+    if (!value || typeof value !== "object") {
+      return undefined;
+    }
+
+    for (const key of keys) {
+      const candidate = (value as Record<string, unknown>)[key];
+      if (Array.isArray(candidate)) {
+        return candidate;
+      }
+    }
+
+    return undefined;
+  }
+
+  private getObjectField(value: unknown, keys: string[]): Record<string, unknown> | undefined {
+    if (!value || typeof value !== "object") {
+      return undefined;
+    }
+
+    for (const key of keys) {
+      const candidate = (value as Record<string, unknown>)[key];
+      if (candidate && typeof candidate === "object") {
+        return candidate as Record<string, unknown>;
+      }
+    }
+
+    return undefined;
+  }
+
+  private getField(value: Record<string, unknown> | undefined, keys: string[]): unknown {
+    if (!value) {
+      return undefined;
+    }
+
+    for (const key of keys) {
+      if (key in value) {
+        return value[key];
+      }
+    }
+
+    return undefined;
+  }
+
+  private getStringField(value: Record<string, unknown>, keys: string[]): string | undefined {
+    return this.getStringLike(this.getField(value, keys));
+  }
+
+  private getStringLike(value: unknown): string | undefined {
+    if (typeof value === "string") {
+      return value;
+    }
+
+    if (typeof value === "number" || typeof value === "bigint") {
+      return String(value);
+    }
+
+    return undefined;
+  }
+
+  private getBigIntLike(value: unknown): bigint | undefined {
+    if (typeof value === "bigint") {
+      return value;
+    }
+
+    if (typeof value === "number" && Number.isFinite(value)) {
+      return BigInt(value);
+    }
+
+    if (typeof value === "string" && value.trim()) {
+      return BigInt(value.trim());
+    }
+
+    return undefined;
   }
 
   /**

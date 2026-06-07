@@ -1,7 +1,8 @@
 import { config } from 'dotenv';
 import { x402Client, wrapFetchWithPayment, x402HTTPClient } from '@x402/fetch';
-import { toClientAvmSigner, ExactAvmScheme, ALGORAND_TESTNET_CAIP2 } from '@x402/avm';
+import { toClientAvmSigner, ALGORAND_TESTNET_CAIP2 } from '@x402/avm';
 import algosdk from 'algosdk';
+import { AlgoSafeExactAvmScheme } from './algo-safe-scheme.js';
 
 config();
 
@@ -26,7 +27,10 @@ async function main(): Promise<void> {
   const client = new x402Client();
 
   // Register Algorand testnet scheme
-  client.register(ALGORAND_TESTNET_CAIP2, new ExactAvmScheme(avmSigner));
+  client.register(ALGORAND_TESTNET_CAIP2, new AlgoSafeExactAvmScheme(avmSigner, {
+    algodUrl: algodServer,
+    algodToken,
+  }));
 
   console.info(`AVM signer: ${avmSigner.address}`);
 

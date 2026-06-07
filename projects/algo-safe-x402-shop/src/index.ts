@@ -35,6 +35,8 @@ const LOG_DIR                    = process.env.LOG_DIR ?? './logs';      // set 
 const NETWORK                    = process.env.NETWORK ?? 'testnet';     // 'testnet' | 'mainnet'
 const NETWORK_CAIP2              = NETWORK === 'mainnet' ? ALGORAND_MAINNET_CAIP2 : ALGORAND_TESTNET_CAIP2;
 const NETWORK_LABEL              = NETWORK === 'mainnet' ? 'Algorand Mainnet' : 'Algorand Testnet';
+const ALGO_SAFE_APP_ID           = Number(process.env.ALGO_SAFE_APP_ID ?? 764044668);
+const ALGO_SAFE_GROUP_ID         = Number(process.env.ALGO_SAFE_GROUP_ID ?? 2);
 
 // CHANGE 1 — set your price per request
 const WEATHER_PRICE  = `$${process.env.SELLER_WEATHER_PRICE  ?? '0.001'}`;
@@ -50,9 +52,7 @@ const {
   source: FACILITATOR_SOURCE,
   address: FACILITATOR_ADDRESS,
 } = await resolveFacilitatorUrl();
-const PAY_TO_ADDRESS = FACILITATOR_SOURCE === 'local-fallback' && FACILITATOR_ADDRESS
-  ? FACILITATOR_ADDRESS
-  : SELLER_ADDRESS;
+const PAY_TO_ADDRESS = SELLER_ADDRESS;
 
 async function resolveFacilitatorUrl(): Promise<{
   url: string;
@@ -274,6 +274,10 @@ const routes = {
       network: NETWORK_CAIP2 as Network,
       payTo:   PAY_TO_ADDRESS as string,
       price:   WEATHER_PRICE,
+      extra: {
+        algoSafeAppId: String(ALGO_SAFE_APP_ID),
+        algoSafeGroupId: String(ALGO_SAFE_GROUP_ID),
+      },
     },
     description: 'Current weather for a random city — pay-per-request via x402',
   },
@@ -283,6 +287,10 @@ const routes = {
       network: NETWORK_CAIP2 as Network,
       payTo:   PAY_TO_ADDRESS as string,
       price:   FORECAST_PRICE,
+      extra: {
+        algoSafeAppId: String(ALGO_SAFE_APP_ID),
+        algoSafeGroupId: String(ALGO_SAFE_GROUP_ID),
+      },
     },
     description: '7-day forecast for a random city — pay-per-request via x402',
   },
@@ -293,6 +301,10 @@ const routes = {
       network: NETWORK_CAIP2 as Network,
       payTo:   PAY_TO_ADDRESS as string,
       price:   '$0.002',
+      extra: {
+        algoSafeAppId: String(ALGO_SAFE_APP_ID),
+        algoSafeGroupId: String(ALGO_SAFE_GROUP_ID),
+      },
     },
     description: 'Example POST endpoint — replace with your own processing logic',
   },

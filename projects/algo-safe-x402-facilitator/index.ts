@@ -1,10 +1,10 @@
 import { serve } from "@hono/node-server";
 import { ALGORAND_TESTNET_CAIP2, toFacilitatorAvmSigner } from "@x402/avm";
-import { ExactAvmScheme } from "@x402/avm/exact/facilitator";
 import { x402Facilitator } from "@x402/core/facilitator";
 import { config } from "dotenv";
 import { Hono } from "hono";
 import algosdk from "algosdk";
+import { ExactAvmScheme } from "./scheme.js";
 
 config();
 

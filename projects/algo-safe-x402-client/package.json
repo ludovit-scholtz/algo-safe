@@ -17,7 +17,7 @@
   },
   "dependencies": {
     "algo-safe": "file:../algo-safe-contracts",
-    "@algorandfoundation/algokit-utils": "10.0.0-alpha.42",
+    "@algorandfoundation/algokit-utils": "10.0.0-alpha.46",
     "@x402/avm": "^2.14.0",
     "@x402/core": "^2.14.0",
     "@x402/fetch": "^2.14.0",

@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@algorandfoundation/algokit-utils':
-        specifier: 10.0.0-alpha.42
-        version: 10.0.0-alpha.42
+        specifier: 10.0.0-alpha.46
+        version: 10.0.0-alpha.46
       '@x402/avm':
         specifier: ^2.14.0
         version: 2.14.0
@@ -41,10 +41,6 @@ importers:
         version: 6.0.3
 
 packages:
-
-  '@algorandfoundation/algokit-utils@10.0.0-alpha.42':
-    resolution: {integrity: sha512-+mW/E3ns9/W4h0HxW6RYEPIMTAWzeBs6fNAjwa8d7Hp1T1NrQvjSwEm6ZIfIjX0TQLIUIs7abxjbcOeAHKtNPg==}
-    engines: {node: '>=20.0'}
 
   '@algorandfoundation/algokit-utils@10.0.0-alpha.46':
     resolution: {integrity: sha512-Lx56ET6RmrDCFGwx6qyIr7YRX3Q3MyKgqkNeumLkFHXVkqMnXnK1aLeEbV59EOK8UHQ5UPJofSj1zvRMm9Du7w==}
@@ -347,20 +343,6 @@ packages:
     resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
 
 snapshots:
-
-  '@algorandfoundation/algokit-utils@10.0.0-alpha.42':
-    dependencies:
-      '@algorandfoundation/xhd-wallet-api': 2.0.0-canary.1
-      '@noble/curves': 2.2.0
-      '@noble/ed25519': 3.1.0
-      '@noble/hashes': 2.2.0
-      algorand-msgpack: 1.1.0
-      buffer: 6.0.3
-      dotenv: 16.6.1
-      hi-base32: 0.5.1
-      json-bigint: 1.0.0
-      tweetnacl: 1.0.3
-      vlq: 2.0.4
 
   '@algorandfoundation/algokit-utils@10.0.0-alpha.46':
     dependencies:

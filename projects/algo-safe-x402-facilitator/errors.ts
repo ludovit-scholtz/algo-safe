@@ -33,6 +33,7 @@ export const ErrInvalidSignature = "invalid_exact_avm_invalid_signature";
 
 // Verify errors — simulation
 export const ErrSimulationFailed = "invalid_exact_avm_simulation_failed";
+export const ErrPaymentNotFound = "invalid_exact_avm_payment_not_found";
 
 // Verify errors — facilitator safety
 export const ErrFacilitatorTransferring = "invalid_exact_avm_facilitator_transferring";
