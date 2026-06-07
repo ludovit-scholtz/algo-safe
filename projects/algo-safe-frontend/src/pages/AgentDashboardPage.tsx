@@ -1,9 +1,9 @@
 // src/pages/AgentDashboardPage.tsx
-import { useEffect, useRef, useState } from 'react'
+import { Fireworks, type FireworksHandlers } from '@fireworks-js/react'
 import { useQuery } from '@tanstack/react-query'
 import { useWallet } from '@txnlab/use-wallet-react'
+import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { Fireworks, type FireworksHandlers } from '@fireworks-js/react'
 import { AddressDisplay } from '../components/AddressDisplay'
 import { SafeHoldingsTable } from '../components/SafeHoldingsTable'
 import { SignerGroupCard } from '../components/SignerGroupCard'
@@ -22,11 +22,17 @@ export function AgentDashboardPage() {
   const { algodClient } = useWallet()
   const { data: safe } = useSafe(safeId)
   const { data: holdings, isLoading: holdingsLoading, error: holdingsError } = useOnChainSafeHoldings(safeId)
-  const { data: signerGroups, isLoading: signerGroupsLoading, isFetching: signerGroupsFetching, error: signerGroupsError } = useSignerGroups()
+  const {
+    data: signerGroups,
+    isLoading: signerGroupsLoading,
+    isFetching: signerGroupsFetching,
+    error: signerGroupsError,
+  } = useSignerGroups()
   const { data: proposals } = useProposals()
   const fireworksRef = useRef<FireworksHandlers | null>(null)
   const [showCelebration, setShowCelebration] = useState(false)
-  const executionSuccess = (location.state as { executionSuccess?: { txId: string; confirmedRound: number; proposalId: string } } | null)?.executionSuccess
+  const executionSuccess = (location.state as { executionSuccess?: { txId: string; confirmedRound: number; proposalId: string } } | null)
+    ?.executionSuccess
   const { data: currentRound } = useQuery({
     queryKey: ['algod-round'],
     queryFn: async () => {
@@ -74,7 +80,8 @@ export function AgentDashboardPage() {
             <div>
               <p className="text-sm font-semibold text-on-surface">Execution confirmed and balances refreshed</p>
               <p className="text-sm text-on-surface-variant">
-                Proposal #{executionSuccess.proposalId} was confirmed in round {executionSuccess.confirmedRound}. Tx ID: {executionSuccess.txId}
+                Proposal #{executionSuccess.proposalId} was confirmed in round {executionSuccess.confirmedRound}. Tx ID:{' '}
+                {executionSuccess.txId}
               </p>
             </div>
           </div>
@@ -136,16 +143,16 @@ export function AgentDashboardPage() {
           {signerGroups?.map((group) => (
             <SignerGroupCard key={group.id} group={group} />
           ))}
-          {(signerGroupsLoading || signerGroupsFetching) && <div className="col-span-full flex h-32 items-center justify-center rounded-md border border-outline-variant bg-surface-container-low">
-            <div className="flex items-center gap-3 text-sm text-on-surface-variant">
-              <Icon name="progress_activity" className="animate-spin text-lg" />
-              <span>Loading signer groups from the blockchain…</span>
+          {(signerGroupsLoading || signerGroupsFetching) && (
+            <div className="col-span-full flex h-32 items-center justify-center rounded-md border border-outline-variant bg-surface-container-low">
+              <div className="flex items-center gap-3 text-sm text-on-surface-variant">
+                <Icon name="progress_activity" className="animate-spin text-lg" />
+                <span>Loading signer groups from the blockchain…</span>
+              </div>
             </div>
-          </div>}
+          )}
           {!signerGroupsLoading && !signerGroupsFetching && signerGroupsError instanceof Error && (
-            <Card className="col-span-full px-6 py-8 text-center text-sm text-error">
-              {signerGroupsError.message}
-            </Card>
+            <Card className="col-span-full px-6 py-8 text-center text-sm text-error">{signerGroupsError.message}</Card>
           )}
           {!signerGroupsLoading && !signerGroupsFetching && !(signerGroupsError instanceof Error) && !signerGroups?.length && (
             <Card className="col-span-full px-6 py-8 text-center text-sm text-on-surface-variant">

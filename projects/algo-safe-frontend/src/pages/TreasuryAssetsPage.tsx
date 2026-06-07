@@ -79,7 +79,12 @@ export function TreasuryAssetsPage() {
 
             <div className="mb-4 rounded-md border border-outline-variant bg-surface-container-lowest px-3 py-3">
               <div className="mb-1 font-mono text-xs uppercase tracking-wide text-on-surface-variant">Safe Address</div>
-              <AddressDisplay address={safe?.address} textClassName="text-sm text-on-surface" buttonClassName="h-5 w-5" fallback="Safe address unavailable" />
+              <AddressDisplay
+                address={safe?.address}
+                textClassName="text-sm text-on-surface"
+                buttonClassName="h-5 w-5"
+                fallback="Safe address unavailable"
+              />
             </div>
 
             <FormField label="Amount (EUR)">

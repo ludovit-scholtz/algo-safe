@@ -1,9 +1,9 @@
 import { algo, AlgorandClient } from '@algorandfoundation/algokit-utils'
 import { useQueryClient } from '@tanstack/react-query'
 import { useWallet } from '@txnlab/use-wallet-react'
-import { useSnackbar } from 'notistack'
 import { AlgoSafeClient } from 'algo-safe'
 import algosdk from 'algosdk'
+import { useSnackbar } from 'notistack'
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { AddressDisplay } from '../components/AddressDisplay'
@@ -119,27 +119,30 @@ export function SignerGroupManagementPage() {
   const [submittingSection, setSubmittingSection] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  const spendingLimitAssets: SpendingAssetOption[] = useMemo(() => (
-    (holdings ?? [])
-      .filter((holding) => holding.isNative || holding.assetId !== undefined)
-      .map((holding) => ({
-        key: holding.key,
-        symbol: holding.symbol,
-        assetId: holding.assetId,
-        decimals: holding.decimals,
-        balanceDisplay: holding.balanceDisplay,
-        isNative: holding.isNative,
-      }))
-  ), [holdings])
+  const spendingLimitAssets: SpendingAssetOption[] = useMemo(
+    () =>
+      (holdings ?? [])
+        .filter((holding) => holding.isNative || holding.assetId !== undefined)
+        .map((holding) => ({
+          key: holding.key,
+          symbol: holding.symbol,
+          assetId: holding.assetId,
+          decimals: holding.decimals,
+          balanceDisplay: holding.balanceDisplay,
+          isNative: holding.isNative,
+        })),
+    [holdings],
+  )
 
-  const selectedSpendingAsset = spendingLimitAssets.find((asset) => asset.key === spendingLimitAssetKey) ?? spendingLimitAssets[0] ?? {
-    key: 'native-algo',
-    symbol: 'ALGO',
-    assetId: 0,
-    decimals: 6,
-    balanceDisplay: '—',
-    isNative: true,
-  }
+  const selectedSpendingAsset = spendingLimitAssets.find((asset) => asset.key === spendingLimitAssetKey) ??
+    spendingLimitAssets[0] ?? {
+      key: 'native-algo',
+      symbol: 'ALGO',
+      assetId: 0,
+      decimals: 6,
+      balanceDisplay: '—',
+      isNative: true,
+    }
 
   useEffect(() => {
     if (!detail) return
@@ -160,9 +163,7 @@ export function SignerGroupManagementPage() {
     if (!detail) return
 
     const inferredSymbol = inferLimitAssetSymbol(detail.members.map((member) => member.label))
-    const inferredAsset = inferredSymbol
-      ? spendingLimitAssets.find((asset) => asset.symbol.toUpperCase() === inferredSymbol)
-      : undefined
+    const inferredAsset = inferredSymbol ? spendingLimitAssets.find((asset) => asset.symbol.toUpperCase() === inferredSymbol) : undefined
     const nextAsset = inferredAsset ?? spendingLimitAssets[0]
 
     if (nextAsset) {
@@ -196,21 +197,25 @@ export function SignerGroupManagementPage() {
     return mask
   }, [groupAdmin, policyAdmin])
 
-  async function submitChange(section: string, change: {
-    changeType: bigint
-    targetGroupId: bigint
-    groupName: string
-    memberAddr: string
-    memberType: bigint
-    memberLabel: string
-    threshold: bigint
-    adminPrivileges: bigint
-    allowedActions: bigint
-    dailyLimit: bigint
-    monthlyLimit: bigint
-    cooldownRounds: bigint
-    activeFlag: bigint
-  }, successMessage: string) {
+  async function submitChange(
+    section: string,
+    change: {
+      changeType: bigint
+      targetGroupId: bigint
+      groupName: string
+      memberAddr: string
+      memberType: bigint
+      memberLabel: string
+      threshold: bigint
+      adminPrivileges: bigint
+      allowedActions: bigint
+      dailyLimit: bigint
+      monthlyLimit: bigint
+      cooldownRounds: bigint
+      activeFlag: bigint
+    },
+    successMessage: string,
+  ) {
     setError(null)
 
     if (!safe) {
@@ -272,21 +277,25 @@ export function SignerGroupManagementPage() {
       return
     }
 
-    await submitChange('member', {
-      changeType: ADM_ADD_MEMBER,
-      targetGroupId: BigInt(groupId),
-      groupName: '',
-      memberAddr: memberAddress.trim(),
-      memberType: BigInt(memberType),
-      memberLabel: memberLabel.trim() || 'member',
-      threshold: 0n,
-      adminPrivileges: 0n,
-      allowedActions: 0n,
-      dailyLimit: 0n,
-      monthlyLimit: 0n,
-      cooldownRounds: 0n,
-      activeFlag: 1n,
-    }, 'Member addition proposal created')
+    await submitChange(
+      'member',
+      {
+        changeType: ADM_ADD_MEMBER,
+        targetGroupId: BigInt(groupId),
+        groupName: '',
+        memberAddr: memberAddress.trim(),
+        memberType: BigInt(memberType),
+        memberLabel: memberLabel.trim() || 'member',
+        threshold: 0n,
+        adminPrivileges: 0n,
+        allowedActions: 0n,
+        dailyLimit: 0n,
+        monthlyLimit: 0n,
+        cooldownRounds: 0n,
+        activeFlag: 1n,
+      },
+      'Member addition proposal created',
+    )
   }
 
   async function handleThresholdUpdate(e: React.FormEvent) {
@@ -298,21 +307,25 @@ export function SignerGroupManagementPage() {
       return
     }
 
-    await submitChange('threshold', {
-      changeType: ADM_CHANGE_THRESHOLD,
-      targetGroupId: BigInt(groupId),
-      groupName: '',
-      memberAddr: ZERO_ADDRESS,
-      memberType: 0n,
-      memberLabel: '',
-      threshold: BigInt(parsedThreshold),
-      adminPrivileges: 0n,
-      allowedActions: 0n,
-      dailyLimit: 0n,
-      monthlyLimit: 0n,
-      cooldownRounds: 0n,
-      activeFlag: 1n,
-    }, 'Threshold update proposal created')
+    await submitChange(
+      'threshold',
+      {
+        changeType: ADM_CHANGE_THRESHOLD,
+        targetGroupId: BigInt(groupId),
+        groupName: '',
+        memberAddr: ZERO_ADDRESS,
+        memberType: 0n,
+        memberLabel: '',
+        threshold: BigInt(parsedThreshold),
+        adminPrivileges: 0n,
+        allowedActions: 0n,
+        dailyLimit: 0n,
+        monthlyLimit: 0n,
+        cooldownRounds: 0n,
+        activeFlag: 1n,
+      },
+      'Threshold update proposal created',
+    )
   }
 
   async function handlePolicyUpdate(e: React.FormEvent) {
@@ -330,59 +343,71 @@ export function SignerGroupManagementPage() {
       return
     }
 
-    await submitChange('policy', {
-      changeType: ADM_SET_POLICY,
-      targetGroupId: BigInt(groupId),
-      groupName: '',
-      memberAddr: ZERO_ADDRESS,
-      memberType: 0n,
-      memberLabel: '',
-      threshold: 0n,
-      adminPrivileges: 0n,
-      allowedActions: BigInt(actionMask),
-      dailyLimit: parsedDailyLimit,
-      monthlyLimit: parsedMonthlyLimit,
-      cooldownRounds: parsedCooldown,
-      activeFlag: 1n,
-    }, 'Policy update proposal created')
+    await submitChange(
+      'policy',
+      {
+        changeType: ADM_SET_POLICY,
+        targetGroupId: BigInt(groupId),
+        groupName: '',
+        memberAddr: ZERO_ADDRESS,
+        memberType: 0n,
+        memberLabel: '',
+        threshold: 0n,
+        adminPrivileges: 0n,
+        allowedActions: BigInt(actionMask),
+        dailyLimit: parsedDailyLimit,
+        monthlyLimit: parsedMonthlyLimit,
+        cooldownRounds: parsedCooldown,
+        activeFlag: 1n,
+      },
+      'Policy update proposal created',
+    )
   }
 
   async function handlePrivilegesUpdate(e: React.FormEvent) {
     e.preventDefault()
-    await submitChange('privileges', {
-      changeType: ADM_SET_PRIVILEGES,
-      targetGroupId: BigInt(groupId),
-      groupName: '',
-      memberAddr: ZERO_ADDRESS,
-      memberType: 0n,
-      memberLabel: '',
-      threshold: 0n,
-      adminPrivileges: BigInt(adminMask),
-      allowedActions: 0n,
-      dailyLimit: 0n,
-      monthlyLimit: 0n,
-      cooldownRounds: 0n,
-      activeFlag: 1n,
-    }, 'Admin privileges proposal created')
+    await submitChange(
+      'privileges',
+      {
+        changeType: ADM_SET_PRIVILEGES,
+        targetGroupId: BigInt(groupId),
+        groupName: '',
+        memberAddr: ZERO_ADDRESS,
+        memberType: 0n,
+        memberLabel: '',
+        threshold: 0n,
+        adminPrivileges: BigInt(adminMask),
+        allowedActions: 0n,
+        dailyLimit: 0n,
+        monthlyLimit: 0n,
+        cooldownRounds: 0n,
+        activeFlag: 1n,
+      },
+      'Admin privileges proposal created',
+    )
   }
 
   async function handleActiveUpdate(e: React.FormEvent) {
     e.preventDefault()
-    await submitChange('status', {
-      changeType: ADM_SET_ACTIVE,
-      targetGroupId: BigInt(groupId),
-      groupName: '',
-      memberAddr: ZERO_ADDRESS,
-      memberType: 0n,
-      memberLabel: '',
-      threshold: 0n,
-      adminPrivileges: 0n,
-      allowedActions: 0n,
-      dailyLimit: 0n,
-      monthlyLimit: 0n,
-      cooldownRounds: 0n,
-      activeFlag: isActive ? 1n : 0n,
-    }, 'Signer-group status proposal created')
+    await submitChange(
+      'status',
+      {
+        changeType: ADM_SET_ACTIVE,
+        targetGroupId: BigInt(groupId),
+        groupName: '',
+        memberAddr: ZERO_ADDRESS,
+        memberType: 0n,
+        memberLabel: '',
+        threshold: 0n,
+        adminPrivileges: 0n,
+        allowedActions: 0n,
+        dailyLimit: 0n,
+        monthlyLimit: 0n,
+        cooldownRounds: 0n,
+        activeFlag: isActive ? 1n : 0n,
+      },
+      'Signer-group status proposal created',
+    )
   }
 
   if (isLoading) {
@@ -403,9 +428,7 @@ export function SignerGroupManagementPage() {
           <Icon name="arrow_back" className="text-base" />
           Back to Dashboard
         </Button>
-        <Card className="px-6 py-8 text-center text-sm text-on-surface-variant">
-          The selected signer group was not found.
-        </Card>
+        <Card className="px-6 py-8 text-center text-sm text-on-surface-variant">The selected signer group was not found.</Card>
       </div>
     )
   }
@@ -444,21 +467,28 @@ export function SignerGroupManagementPage() {
           <div>
             <div className="flex items-center gap-2">
               <h2 className="text-xl font-semibold text-on-surface">{detail.group.name}</h2>
-              <span className={`rounded-sm px-2 py-0.5 font-mono text-[11px] uppercase tracking-wide ${detail.group.isAdminGroup ? 'bg-primary/15 text-primary' : 'bg-secondary-container/20 text-secondary'}`}>
+              <span
+                className={`rounded-sm px-2 py-0.5 font-mono text-[11px] uppercase tracking-wide ${detail.group.isAdminGroup ? 'bg-primary/15 text-primary' : 'bg-secondary-container/20 text-secondary'}`}
+              >
                 {detail.group.isAdminGroup ? 'Admin' : 'Execution'}
               </span>
             </div>
             <p className="mt-1 text-sm text-on-surface-variant">
-              Group names are fixed at creation time. All other supported properties can be updated via proposals from an admin signer group.
+              Group names are fixed at creation time. All other supported properties can be updated via proposals from an admin signer
+              group.
             </p>
           </div>
 
           <div className="w-full max-w-sm">
-            <FormField label="Submitting Admin Signer Group" hint="The connected account must be a member of the selected admin group to submit the proposal.">
+            <FormField
+              label="Submitting Admin Signer Group"
+              hint="The connected account must be a member of the selected admin group to submit the proposal."
+            >
               <select className={inputCls} value={selectedAdminGroupId} onChange={(event) => setSelectedAdminGroupId(event.target.value)}>
                 {detail.adminGroupOptions.map((option) => (
                   <option key={option.id} value={option.id}>
-                    #{option.id} {option.name}{option.isMember ? ' · you are a member' : ''}
+                    #{option.id} {option.name}
+                    {option.isMember ? ' · you are a member' : ''}
                   </option>
                 ))}
               </select>
@@ -467,7 +497,9 @@ export function SignerGroupManagementPage() {
               <p className="mt-2 text-xs text-error">No active admin signer groups were found for this safe.</p>
             )}
             {selectedAdminGroup && !selectedAdminGroup.isMember && (
-              <p className="mt-2 text-xs text-warn">The selected admin group may reject this proposal if the connected wallet is not a member.</p>
+              <p className="mt-2 text-xs text-warn">
+                The selected admin group may reject this proposal if the connected wallet is not a member.
+              </p>
             )}
             {isFetching && (
               <div className="mt-2 flex items-center gap-2 text-xs text-on-surface-variant">
@@ -511,16 +543,28 @@ export function SignerGroupManagementPage() {
 
           <form className="mt-5 space-y-4" onSubmit={handleAddMember}>
             <FormField label="Member Address">
-              <input className={inputCls} value={memberAddress} onChange={(event) => setMemberAddress(event.target.value)} placeholder="Algorand address" />
+              <input
+                className={inputCls}
+                value={memberAddress}
+                onChange={(event) => setMemberAddress(event.target.value)}
+                placeholder="Algorand address"
+              />
             </FormField>
             <div className="grid gap-4 md:grid-cols-2">
               <FormField label="Member Label">
-                <input className={inputCls} value={memberLabel} onChange={(event) => setMemberLabel(event.target.value)} placeholder="Treasury signer" />
+                <input
+                  className={inputCls}
+                  value={memberLabel}
+                  onChange={(event) => setMemberLabel(event.target.value)}
+                  placeholder="Treasury signer"
+                />
               </FormField>
               <FormField label="Account Type">
                 <select className={inputCls} value={memberType} onChange={(event) => setMemberType(event.target.value)}>
                   {MEMBER_TYPE_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>{option.label}</option>
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
                   ))}
                 </select>
               </FormField>
@@ -534,10 +578,19 @@ export function SignerGroupManagementPage() {
 
         <Card>
           <h2 className="text-lg font-semibold text-on-surface">Signing Threshold</h2>
-          <p className="mt-1 text-sm text-on-surface-variant">Change how many signatures are required before this group can approve execution.</p>
+          <p className="mt-1 text-sm text-on-surface-variant">
+            Change how many signatures are required before this group can approve execution.
+          </p>
           <form className="mt-5 space-y-4" onSubmit={handleThresholdUpdate}>
             <FormField label="Threshold" hint={`Current members available: ${maxThreshold}`}>
-              <input className={inputCls} type="number" min={1} max={maxThreshold} value={threshold} onChange={(event) => setThreshold(event.target.value)} />
+              <input
+                className={inputCls}
+                type="number"
+                min={1}
+                max={maxThreshold}
+                value={threshold}
+                onChange={(event) => setThreshold(event.target.value)}
+              />
             </FormField>
             <Button type="submit" disabled={!canSubmit || submittingSection !== null}>
               <Icon name="rule" className="text-base" />
@@ -548,7 +601,9 @@ export function SignerGroupManagementPage() {
 
         <Card>
           <h2 className="text-lg font-semibold text-on-surface">Execution Policy</h2>
-          <p className="mt-1 text-sm text-on-surface-variant">Update allowed actions, asset-based limits, and cooldown rounds for the signer group.</p>
+          <p className="mt-1 text-sm text-on-surface-variant">
+            Update allowed actions, asset-based limits, and cooldown rounds for the signer group.
+          </p>
           <form className="mt-5 space-y-4" onSubmit={handlePolicyUpdate}>
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="flex items-center gap-3 rounded-md border border-outline-variant bg-surface-container-low px-4 py-3 text-sm text-on-surface">
@@ -568,24 +623,44 @@ export function SignerGroupManagementPage() {
                 Allow key registration
               </label>
             </div>
-            <FormField label="Spending Limit Asset" hint="The selected asset controls how the daily and monthly limit fields are interpreted and labeled.">
-              <select className={inputCls} value={selectedSpendingAsset.key} onChange={(event) => setSpendingLimitAssetKey(event.target.value)}>
+            <FormField
+              label="Spending Limit Asset"
+              hint="The selected asset controls how the daily and monthly limit fields are interpreted and labeled."
+            >
+              <select
+                className={inputCls}
+                value={selectedSpendingAsset.key}
+                onChange={(event) => setSpendingLimitAssetKey(event.target.value)}
+              >
                 {spendingLimitAssets.map((asset) => (
                   <option key={asset.key} value={asset.key}>
-                    {asset.symbol}{asset.assetId && asset.assetId !== 0 ? ` · ${asset.assetId}` : ''} · Available {asset.balanceDisplay}
+                    {asset.symbol}
+                    {asset.assetId && asset.assetId !== 0 ? ` · ${asset.assetId}` : ''} · Available {asset.balanceDisplay}
                   </option>
                 ))}
               </select>
             </FormField>
             <div className="grid gap-4 md:grid-cols-3">
-              <FormField label={`Daily Limit (${selectedSpendingAsset.symbol})`} hint={`Use 0 for no limit in ${selectedSpendingAsset.symbol}.`}>
+              <FormField
+                label={`Daily Limit (${selectedSpendingAsset.symbol})`}
+                hint={`Use 0 for no limit in ${selectedSpendingAsset.symbol}.`}
+              >
                 <input className={inputCls} value={dailyLimit} onChange={(event) => setDailyLimit(event.target.value)} />
               </FormField>
-              <FormField label={`Monthly Limit (${selectedSpendingAsset.symbol})`} hint={`Use 0 for no limit in ${selectedSpendingAsset.symbol}.`}>
+              <FormField
+                label={`Monthly Limit (${selectedSpendingAsset.symbol})`}
+                hint={`Use 0 for no limit in ${selectedSpendingAsset.symbol}.`}
+              >
                 <input className={inputCls} value={monthlyLimit} onChange={(event) => setMonthlyLimit(event.target.value)} />
               </FormField>
               <FormField label="Cooldown Rounds" hint="Use 0 for no cooldown.">
-                <input className={inputCls} type="number" min={0} value={cooldownRounds} onChange={(event) => setCooldownRounds(event.target.value)} />
+                <input
+                  className={inputCls}
+                  type="number"
+                  min={0}
+                  value={cooldownRounds}
+                  onChange={(event) => setCooldownRounds(event.target.value)}
+                />
               </FormField>
             </div>
             <Button type="submit" disabled={!canSubmit || submittingSection !== null}>
@@ -597,7 +672,9 @@ export function SignerGroupManagementPage() {
 
         <Card>
           <h2 className="text-lg font-semibold text-on-surface">Admin Controls</h2>
-          <p className="mt-1 text-sm text-on-surface-variant">Grant or revoke governance privileges and enable or disable the signer group.</p>
+          <p className="mt-1 text-sm text-on-surface-variant">
+            Grant or revoke governance privileges and enable or disable the signer group.
+          </p>
 
           <form className="mt-5 space-y-4" onSubmit={handlePrivilegesUpdate}>
             <div className="grid gap-3 sm:grid-cols-2">
