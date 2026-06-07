@@ -17,6 +17,7 @@ type AppStateEntry = {
 type ApplicationLookupResponse = {
   params?: {
     'global-state'?: AppStateEntry[]
+    globalState?: AppStateEntry[]
   }
 }
 
@@ -40,7 +41,8 @@ export async function getAlgoSafeContractVersion(
   appId: bigint | number,
 ): Promise<string | null> {
   const application = (await algodClient.getApplicationByID(Number(appId)).do()) as ApplicationLookupResponse
-  const versionEntry = application.params?.['global-state']?.find((entry) => entry.key === VERSION_STATE_KEY_BASE64)
+  const globalState = application.params?.['global-state'] ?? application.params?.globalState
+  const versionEntry = globalState?.find((entry) => entry.key === VERSION_STATE_KEY_BASE64)
   const encodedVersion = versionEntry?.value?.type === 1 ? versionEntry.value.bytes : undefined
 
   if (!encodedVersion) return null
