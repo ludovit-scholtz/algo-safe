@@ -15,6 +15,7 @@ import {
   PRIV_ALL,
   PRIV_GROUP,
   TX_APP,
+  TX_ASSET,
   TX_PAYMENT,
   ZERO_ADDR,
   createAdminChange,
@@ -49,6 +50,74 @@ function safeAppCall(appId: bigint, args: Uint8Array[] = []): SafeTxn {
 
 function txGroup(txs: SafeTxn[]) {
   return toSafeTxnGroup(txs)
+}
+
+function getObjectField(value: unknown, keys: string[]): Record<string, unknown> | undefined {
+  if (!value || typeof value !== 'object') {
+    return undefined
+  }
+
+  for (const key of keys) {
+    const candidate = (value as Record<string, unknown>)[key]
+    if (candidate && typeof candidate === 'object') {
+      return candidate as Record<string, unknown>
+    }
+  }
+
+  return undefined
+}
+
+function getArrayField(value: unknown, keys: string[]): unknown[] | undefined {
+  if (!value || typeof value !== 'object') {
+    return undefined
+  }
+
+  for (const key of keys) {
+    const candidate = (value as Record<string, unknown>)[key]
+    if (Array.isArray(candidate)) {
+      return candidate
+    }
+  }
+
+  return undefined
+}
+
+function getInnerTransactions(confirmation: unknown): Record<string, unknown>[] {
+  const innerTransactions =
+    getArrayField(confirmation, ['innerTxns', 'inner-txns']) ??
+    getArrayField(getObjectField(confirmation, ['txnResult', 'txn-result']), ['innerTxns', 'inner-txns']) ??
+    []
+  return innerTransactions.filter((innerTxn): innerTxn is Record<string, unknown> => Boolean(innerTxn && typeof innerTxn === 'object'))
+}
+
+function getInnerTransactionType(innerTxn: Record<string, unknown>): string | undefined {
+  const txnEnvelope = getObjectField(innerTxn, ['txn']) ?? innerTxn
+  const txn = getObjectField(txnEnvelope, ['txn']) ?? txnEnvelope
+  const type = txn.type
+  return typeof type === 'string' ? type : undefined
+}
+
+function getBigIntLike(value: unknown): bigint | undefined {
+  if (typeof value === 'bigint') {
+    return value
+  }
+  if (typeof value === 'number') {
+    return BigInt(value)
+  }
+  if (typeof value === 'string') {
+    return BigInt(value)
+  }
+  return undefined
+}
+
+function getInnerAssetTransfer(innerTxn: Record<string, unknown>) {
+  const txnEnvelope = getObjectField(innerTxn, ['txn']) ?? innerTxn
+  const txn = getObjectField(txnEnvelope, ['txn']) ?? txnEnvelope
+  const assetTransfer = getObjectField(txn, ['assetTransfer', 'asset-transfer'])
+  return {
+    assetId: getBigIntLike(assetTransfer?.assetIndex ?? assetTransfer?.['asset-index'] ?? txn.xaid),
+    amount: getBigIntLike(assetTransfer?.amount ?? assetTransfer?.['asset-amount'] ?? txn.aamt),
+  }
 }
 
 describe('AlgoSafe contract', () => {
@@ -433,7 +502,20 @@ describe('AlgoSafe contract', () => {
       suppressLog: true,
       staticFee: (0.2).algo(),
     })
-    await client.send.executeProposal({ args: { proposalId: xferPid! }, ...execParams })
+
+    const stored = await client.send.getTransactionGroup({ args: { proposalId: xferPid! }, suppressLog: true })
+    expect(stored.return!).toHaveLength(1)
+    expect(stored.return![0][0]).toBe(TX_ASSET)
+    expect(stored.return![0][5]).toBe(assetId)
+    expect(stored.return![0][7]).toBe(100n)
+
+    const executeResult = await client.send.executeProposal({ args: { proposalId: xferPid! }, ...execParams })
+    const pendingInfo = await localnet.algorand.client.algod.pendingTransactionInformation(executeResult.txIds[0]).do()
+    const assetInnerTxn = getInnerTransactions(pendingInfo).find((innerTxn) => getInnerTransactionType(innerTxn) === 'axfer')
+    expect(assetInnerTxn).toBeDefined()
+    expect(getInnerTransactionType(assetInnerTxn!)).toBe('axfer')
+    expect(getInnerAssetTransfer(assetInnerTxn!).assetId).toBe(assetId)
+    expect(getInnerAssetTransfer(assetInnerTxn!).amount).toBe(100n)
 
     const info = await localnet.algorand.account.getInformation(recipient)
     const held = info.assets?.find((a) => a.assetId === assetId)
