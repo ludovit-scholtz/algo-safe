@@ -16,10 +16,6 @@
     "allowJs": false,
     "allowSyntheticDefaultImports": true,
     "moduleResolution": "Node",
-    "baseUrl": ".",
-    "paths": {
-      "algo-safe": ["../algo-safe-contracts/dist/src/index.d.ts"]
-    },
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
