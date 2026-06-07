@@ -85,9 +85,7 @@ export class AlgoSafeExactAvmScheme implements SchemeNetworkClient {
       throw new Error('Algo Safe payment flow did not produce any application call transactions.');
     }
 
-    const normalizedTransactions = transactions.map((txn) =>
-      algosdk.decodeUnsignedTransaction(unwrapTransaction(txn).toByte()),
-    );
+    const normalizedTransactions = transactions.map((txn) => unwrapTransaction(txn));
     const executeIndex = normalizedTransactions.length - 1;
     const groupedTransactions = algosdk.assignGroupID(normalizedTransactions);
     const paymentIndex = executeIndex;
@@ -101,7 +99,7 @@ export class AlgoSafeExactAvmScheme implements SchemeNetworkClient {
       const signedTxn = signedTransactions[index];
       return Buffer.from(signedTxn ?? txnBytes).toString('base64');
     });
-
+    console.log("Generated payment group transactions:", paymentGroup);
     return {
       x402Version,
       payload: {
@@ -275,13 +273,40 @@ function getExecuteBoxReferences(appId: bigint, proposalId: bigint, groupId: big
 }
 
 function unwrapTransaction(txn: unknown): algosdk.Transaction {
+  console.log("unwrapTransaction input", typeof txn, txn)
+  if(txn instanceof algosdk.Transaction) {
+    console.log("0x00 Transaction instance detected, returning as-is.")
+    return txn;
+  }
   if (txn && typeof txn === 'object' && 'toByte' in txn && typeof txn.toByte === 'function') {
+    console.log("0x00 Found toByte method, invoking...")
     return txn as algosdk.Transaction;
   }
 
   if (txn && typeof txn === 'object' && 'txn' in txn) {
-    return unwrapTransaction(txn.txn);
+    console.log("0x01 Found txn field, unwrapping...")
+    return unwrapTransaction((txn as { txn: unknown }).txn);
   }
 
+  if (txn && typeof txn === 'object' && 'transaction' in txn) {
+    console.log("0x02 Found transaction field, unwrapping...")
+    return unwrapTransaction((txn as { transaction: unknown }).transaction);
+  }
+
+  if (txn && typeof txn === 'object' && 'unsignedTxn' in txn) {
+    console.log("0x03 Found unsignedTxn field, unwrapping...")
+    return unwrapTransaction((txn as { unsignedTxn: unknown }).unsignedTxn);
+  }
+
+  if (txn && typeof txn === 'object' && 'unsignedTransaction' in txn) {
+     console.log("0x04 Found unsignedTransaction field, unwrapping...")
+    return unwrapTransaction((txn as { unsignedTransaction: unknown }).unsignedTransaction);
+  }
+  const castToTxn = txn as algosdk.Transaction;
+  if(castToTxn) {
+    console.log("castToTxn.rawTxID()",castToTxn.rawTxID())
+    return castToTxn; 
+  }
+  console.log("txn",typeof txn, txn)
   throw new Error('Algo Safe returned a transaction value that could not be normalized.');
 }

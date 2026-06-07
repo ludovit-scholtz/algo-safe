@@ -98,6 +98,14 @@ type LogEntry = {
   ip?: string;
 };
 
+type PaymentDebugInfo = {
+  signatureHeaderPresent: boolean;
+  requestPaymentResponsePresent: boolean;
+  responsePaymentResponsePresent: boolean;
+  requestTxid?: string;
+  responseTxid?: string;
+};
+
 let logReady = false;
 if (LOG_DIR) {
   try {
@@ -113,6 +121,31 @@ function logPayment(entry: LogEntry) {
   try {
     appendFileSync(`${LOG_DIR}/payments.jsonl`, JSON.stringify(entry) + '\n');
   } catch { /* disk full or permission error — non-fatal */ }
+}
+
+function summarizePaymentDebug(c: Context): PaymentDebugInfo {
+  const requestPaymentResponse = c.req.header('payment-response') ?? c.req.header('PAYMENT-RESPONSE');
+  const responsePaymentResponse = c.res.headers.get('payment-response') ?? c.res.headers.get('x-payment-response');
+
+  return {
+    signatureHeaderPresent: Boolean(c.req.header('payment-signature') ?? c.req.header('x-payment')),
+    requestPaymentResponsePresent: Boolean(requestPaymentResponse),
+    responsePaymentResponsePresent: Boolean(responsePaymentResponse),
+    requestTxid: extractTransactionId(requestPaymentResponse),
+    responseTxid: extractTransactionId(responsePaymentResponse),
+  };
+}
+
+function logPaymentDebug(stage: string, c: Context, extra: Record<string, unknown> = {}) {
+  const payment = summarizePaymentDebug(c);
+
+  console.log('[seller] payment-debug', JSON.stringify({
+    stage,
+    method: c.req.method,
+    path: c.req.path,
+    ...payment,
+    ...extra,
+  }));
 }
 
 // ── Webhook ───────────────────────────────────────────────────────────────────
@@ -343,13 +376,20 @@ app.use('/analyze',  rateLimitMiddleware);
 // Request logger — marks paid requests with 💰
 app.use(async (c, next) => {
   const start = Date.now();
+  logPaymentDebug('request:start', c, {
+    ip: c.req.header('x-forwarded-for')?.split(',')[0].trim() ?? 'unknown',
+  });
   await next();
   const ms = Date.now() - start;
+  const payment = summarizePaymentDebug(c);
   const paymentHeader = c.req.header('payment-signature') ?? c.req.header('x-payment');
-  const txid = extractTransactionId(
-    c.res.headers.get('payment-response') ?? c.res.headers.get('x-payment-response'),
-  );
+  const txid = payment.responseTxid;
   const paid = txid ? '💰' : paymentHeader ? '↻' : '  ';
+
+  logPaymentDebug('request:end', c, {
+    latencyMs: ms,
+    status: c.res.status,
+  });
 
   if (txid && c.res.ok && paidRouteKeys.has(`${c.req.method} ${c.req.path}`)) {
     logPayment({
@@ -421,9 +461,12 @@ function extractTransactionId(header: string | null | undefined): string | undef
 // ── CHANGE 3 — paid handlers ──────────────────────────────────────────────────
 
 app.get('/weather', async (c) => {
-  const start = Date.now();
   const txid  = extractTransactionId(c.req.header('payment-response') ?? c.req.header('PAYMENT-RESPONSE'));
   const cached = getCachedResponse(txid);
+  logPaymentDebug('weather:handler', c, {
+    handlerTxid: txid,
+    cacheHit: Boolean(cached),
+  });
   if (cached) return c.json(cached);
 
   const { city, lat, lon } = randomCity();
@@ -455,9 +498,12 @@ app.get('/weather', async (c) => {
 });
 
 app.get('/forecast', async (c) => {
-  const start = Date.now();
   const txid  = extractTransactionId(c.req.header('payment-response') ?? c.req.header('PAYMENT-RESPONSE'));
   const cached = getCachedResponse(txid);
+  logPaymentDebug('forecast:handler', c, {
+    handlerTxid: txid,
+    cacheHit: Boolean(cached),
+  });
   if (cached) return c.json(cached);
 
   const { city, lat, lon } = randomCity();
@@ -504,13 +550,22 @@ app.get('/forecast', async (c) => {
 // Replace this handler with your own processing logic.
 // The request body is available at c.req.json() after payment is confirmed.
 app.post('/analyze', async (c) => {
-  const start = Date.now();
   const txid  = extractTransactionId(c.req.header('payment-response') ?? c.req.header('PAYMENT-RESPONSE'));
   const cached = getCachedResponse(txid);
+  logPaymentDebug('analyze:handler', c, {
+    handlerTxid: txid,
+    cacheHit: Boolean(cached),
+  });
   if (cached) return c.json(cached);
 
   let input: unknown = {};
   try { input = await c.req.json(); } catch { /* no body or invalid JSON */ }
+
+  console.log('[seller] analyze payload', JSON.stringify({
+    path: c.req.path,
+    txid,
+    input,
+  }));
 
   const body = {
     received: input,
