@@ -135,7 +135,7 @@ export function CreateProposalPage() {
 
       if (proposalKind === 'payment') {
         const rawAmount = parseBaseUnits(amount, 6)
-        if (rawAmount === null || rawAmount <= 0n) {
+        if (rawAmount === null || rawAmount < 0n) {
           throw new Error('Enter a valid ALGO amount for the payment proposal.')
         }
 
@@ -174,7 +174,7 @@ export function CreateProposalPage() {
 
         const resolvedAssetDecimals = proposalKind === 'opt-in' ? 0 : (selectedAsset?.decimals ?? 0)
         const rawAmount = proposalKind === 'opt-in' ? 0n : parseBaseUnits(amount, resolvedAssetDecimals)
-        if (rawAmount === null || rawAmount < 0n || (proposalKind !== 'opt-in' && rawAmount <= 0n)) {
+        if (rawAmount === null || rawAmount < 0n) {
           throw new Error(
             proposalKind === 'opt-in'
               ? 'Opt-in proposals must use a zero amount.'
