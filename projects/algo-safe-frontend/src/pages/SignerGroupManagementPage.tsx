@@ -53,6 +53,8 @@ type SpendingAssetOption = {
   isNative: boolean
 }
 
+type AdminChangeTuple = [bigint, bigint, string, string, bigint, string, bigint, bigint, bigint, bigint, bigint, bigint, bigint, bigint]
+
 function getCurrentRound(status: Record<string, unknown>) {
   const candidate = status.lastRound ?? status['last-round']
   if (typeof candidate === 'number') return BigInt(candidate)
@@ -78,6 +80,25 @@ function accountTypeLabel(accountType: number) {
 
 function flagSet(mask: number, flag: number) {
   return (mask & flag) !== 0
+}
+
+function toAdminChangeTuple(change: AdminChange): AdminChangeTuple {
+  return [
+    change.changeType,
+    change.targetGroupId,
+    change.groupName,
+    change.memberAddr,
+    change.memberType,
+    change.memberLabel,
+    change.threshold,
+    change.adminPrivileges,
+    change.allowedActions,
+    change.limitAssetId,
+    change.dailyLimit,
+    change.monthlyLimit,
+    change.cooldownRounds,
+    change.activeFlag,
+  ]
 }
 
 export function SignerGroupManagementPage() {
@@ -272,11 +293,7 @@ export function SignerGroupManagementPage() {
       const status = (await algodClient.status().do()) as unknown as Record<string, unknown>
       const expiryRound = getCurrentRound(status) + 2000n
       const result = await appClient.send.proposeAdminChange({
-        args: {
-          groupId: BigInt(selectedAdminGroupId),
-          change,
-          expiryRound,
-        },
+        args: [BigInt(selectedAdminGroupId), toAdminChangeTuple(change) as unknown as AdminChange, expiryRound],
         staticFee: PROPOSAL_CALL_FEE,
         suppressLog: true,
       })
