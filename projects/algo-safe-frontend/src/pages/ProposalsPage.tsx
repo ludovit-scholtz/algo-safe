@@ -16,25 +16,15 @@ export function ProposalsPage() {
   const awaiting = ps.filter((p) => p.status === 'pending' && !p.userHasApproved)
   const inProgress = ps.filter((p) => p.status === 'pending' && p.userHasApproved)
   const completed = ps.filter((p) => ['executed', 'cancelled', 'expired'].includes(p.status))
-  const avg = ps.length
-    ? Math.round((ps.reduce((s, p) => s + p.approvals / p.threshold, 0) / ps.length) * 100)
-    : 0
+  const avg = ps.length ? Math.round((ps.reduce((s, p) => s + p.approvals / p.threshold, 0) / ps.length) * 100) : 0
 
   const section = (title: string, list: typeof ps) =>
     list.length > 0 && (
       <section>
-        <h2 className="mb-2 font-mono text-xs uppercase tracking-wide text-on-surface-variant">
-          {title}
-        </h2>
+        <h2 className="mb-2 font-mono text-xs uppercase tracking-wide text-on-surface-variant">{title}</h2>
         <Card>
-          {list.map(p => (
-            <ProposalRow
-              key={p.id}
-              p={p}
-              safeId={safeId}
-              onApprove={approve.mutate}
-              onExecute={(id) => execute.mutate({ id })}
-            />
+          {list.map((p) => (
+            <ProposalRow key={p.id} p={p} safeId={safeId} onApprove={approve.mutate} onExecute={(id) => execute.mutate({ id })} />
           ))}
         </Card>
       </section>

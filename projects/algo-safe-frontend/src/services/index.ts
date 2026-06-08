@@ -11,8 +11,11 @@ import { quantozEnabled } from '../lib/env'
 function withFallback(live: QuantozService, mock: QuantozService): QuantozService {
   const wrap = <K extends keyof QuantozService>(k: K) =>
     (async (...args: unknown[]) => {
-      try { return await (live[k] as (...a: unknown[]) => Promise<unknown>)(...args) }
-      catch { return (mock[k] as (...a: unknown[]) => Promise<unknown>)(...args) }
+      try {
+        return await (live[k] as (...a: unknown[]) => Promise<unknown>)(...args)
+      } catch {
+        return (mock[k] as (...a: unknown[]) => Promise<unknown>)(...args)
+      }
     }) as QuantozService[K]
   return {
     isLive: () => true,
@@ -24,7 +27,11 @@ function withFallback(live: QuantozService, mock: QuantozService): QuantozServic
   }
 }
 
-export interface Services { safe: SafeService; quantoz: QuantozService; quantozLive: boolean }
+export interface Services {
+  safe: SafeService
+  quantoz: QuantozService
+  quantozLive: boolean
+}
 export const services: Services = {
   safe: safeMock,
   quantoz: quantozEnabled() ? withFallback(quantozClient, quantozMock) : quantozMock,

@@ -12,13 +12,15 @@ import { fmtEur, fmtNum } from '../lib/format'
 
 // Chip for transaction type: pay/axfer/appl/keyreg
 const TX_TYPE_STYLES: Record<string, string> = {
-  pay:    'bg-secondary-container/20 text-secondary border-secondary-container',
-  axfer:  'bg-on-primary-container/20 text-primary border-on-primary-container/30',
-  appl:   'bg-warn/15 text-warn border-warn/20',
+  pay: 'bg-secondary-container/20 text-secondary border-secondary-container',
+  axfer: 'bg-on-primary-container/20 text-primary border-on-primary-container/30',
+  appl: 'bg-warn/15 text-warn border-warn/20',
   keyreg: 'bg-surface-container-high text-on-surface-variant border-outline-variant',
 }
 const TxChip = ({ type }: { type: string }) => (
-  <span className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide border ${TX_TYPE_STYLES[type] ?? TX_TYPE_STYLES.keyreg}`}>
+  <span
+    className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide border ${TX_TYPE_STYLES[type] ?? TX_TYPE_STYLES.keyreg}`}
+  >
     {type}
   </span>
 )
@@ -105,47 +107,46 @@ export const ProposalDetailPage = () => {
 
   const handleExecute = () => {
     setExecutionStatus({ phase: 'submitting' })
-    executeProposal.mutate({
-      id: proposal.id,
-      onSubmitted: ({ txId }) => {
-        setExecutionStatus({ phase: 'submitted', txId })
-        enqueueSnackbar(`Transaction ${txId} submitted to the mempool`, { variant: 'info' })
+    executeProposal.mutate(
+      {
+        id: proposal.id,
+        onSubmitted: ({ txId }) => {
+          setExecutionStatus({ phase: 'submitted', txId })
+          enqueueSnackbar(`Transaction ${txId} submitted to the mempool`, { variant: 'info' })
+        },
+        onConfirmed: ({ txId, confirmedRound }) => {
+          setExecutionStatus({ phase: 'confirmed', txId, confirmedRound })
+          enqueueSnackbar(`Transaction confirmed in round ${confirmedRound}`, { variant: 'success' })
+        },
       },
-      onConfirmed: ({ txId, confirmedRound }) => {
-        setExecutionStatus({ phase: 'confirmed', txId, confirmedRound })
-        enqueueSnackbar(`Transaction confirmed in round ${confirmedRound}`, { variant: 'success' })
-      },
-    }, {
-      onSuccess: ({ txId, confirmedRound }) => {
-        navigate(`/safe/${safeId}`, {
-          replace: true,
-          state: {
-            executionSuccess: {
-              txId,
-              confirmedRound,
-              proposalId: proposal.id,
+      {
+        onSuccess: ({ txId, confirmedRound }) => {
+          navigate(`/safe/${safeId}`, {
+            replace: true,
+            state: {
+              executionSuccess: {
+                txId,
+                confirmedRound,
+                proposalId: proposal.id,
+              },
             },
-          },
-        })
+          })
+        },
+        onError: () => {
+          setExecutionStatus({ phase: 'idle' })
+          enqueueSnackbar('Execution failed', { variant: 'error' })
+        },
       },
-      onError: () => {
-        setExecutionStatus({ phase: 'idle' })
-        enqueueSnackbar('Execution failed', { variant: 'error' })
-      },
-    })
+    )
   }
 
   return (
     <div className="max-w-[1440px] mx-auto flex flex-col gap-6">
-
       {/* ── Page header ─────────────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1 text-sm text-on-surface-variant">
-            <button
-              onClick={() => navigate(backPath)}
-              className="hover:text-primary transition-colors flex items-center gap-1 font-medium"
-            >
+            <button onClick={() => navigate(backPath)} className="hover:text-primary transition-colors flex items-center gap-1 font-medium">
               <Icon name="arrow_back" className="text-[14px]" />
               Proposals
             </button>
@@ -174,10 +175,8 @@ export const ProposalDetailPage = () => {
 
       {/* ── Two-column layout ───────────────────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-
         {/* ── LEFT: Details ─────────────────────────────────────────────── */}
         <div className="lg:col-span-8 flex flex-col gap-6">
-
           {/* Human summary */}
           <Card>
             <div className="flex items-center gap-2 mb-4 pb-3 border-b border-outline-variant">
@@ -243,11 +242,7 @@ export const ProposalDetailPage = () => {
                       {check.label}
                     </span>
                     <span className="ml-auto text-xs font-semibold font-mono">
-                      {check.passed ? (
-                        <span className="text-primary">PASS</span>
-                      ) : (
-                        <span className="text-error">FAIL</span>
-                      )}
+                      {check.passed ? <span className="text-primary">PASS</span> : <span className="text-error">FAIL</span>}
                     </span>
                   </div>
                 ))}
@@ -266,7 +261,9 @@ export const ProposalDetailPage = () => {
                     <Icon name="sync" className="mt-0.5 animate-spin text-primary text-[18px]" />
                     <div className="space-y-1 text-sm">
                       <p className="font-semibold text-on-surface">
-                        {executionStatus.phase === 'submitting' ? 'Submitting execution transaction...' : 'Waiting for block confirmation...'}
+                        {executionStatus.phase === 'submitting'
+                          ? 'Submitting execution transaction...'
+                          : 'Waiting for block confirmation...'}
                       </p>
                       <p className="text-on-surface-variant">
                         {executionStatus.phase === 'submitting'
@@ -289,9 +286,7 @@ export const ProposalDetailPage = () => {
                 </div>
                 <div className="h-2 rounded-full bg-surface-container-lowest overflow-hidden">
                   <div
-                    className={`h-full rounded-full transition-all duration-500 ${
-                      progressPct >= 100 ? 'bg-primary' : 'bg-primary'
-                    }`}
+                    className={`h-full rounded-full transition-all duration-500 ${progressPct >= 100 ? 'bg-primary' : 'bg-primary'}`}
                     style={{ width: `${progressPct}%` }}
                   />
                 </div>
@@ -329,12 +324,7 @@ export const ProposalDetailPage = () => {
                 </Button>
 
                 {canCancel && (
-                  <Button
-                    variant="danger"
-                    className="w-full justify-center"
-                    disabled={rejectProposal.isPending}
-                    onClick={handleReject}
-                  >
+                  <Button variant="danger" className="w-full justify-center" disabled={rejectProposal.isPending} onClick={handleReject}>
                     <Icon name="close" className="text-[16px]" />
                     {rejectProposal.isPending ? 'Cancelling…' : 'Cancel Proposal'}
                   </Button>

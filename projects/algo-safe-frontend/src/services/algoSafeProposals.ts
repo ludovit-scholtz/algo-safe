@@ -21,7 +21,6 @@ const METHOD_EXECUTE_PROPOSAL = 'executeProposal(uint64)void'
 const TX_PAYMENT = 1n
 const TX_ASSET = 2n
 const TX_APP = 3n
-const TX_KEYREG = 4n
 
 const ADM_CREATE_GROUP = 1n
 const ADM_ADD_MEMBER = 2n
@@ -86,10 +85,6 @@ function getCurrentRound(status: Record<string, unknown>) {
 
 function formatAlgo(amount: bigint) {
   return new Intl.NumberFormat('en-US', { maximumFractionDigits: 6 }).format(Number(amount) / 1_000_000)
-}
-
-function formatRawAmount(amount: bigint) {
-  return new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(Number(amount))
 }
 
 function formatAssetAmount(amount: bigint, asset: AssetMetadata) {
@@ -433,7 +428,7 @@ async function waitForTransactionConfirmation(algodClient: algosdk.Algodv2, txId
   const status = await algodClient.status().do()
   let currentRound = Number(status.lastRound ?? 0)
 
-  while (true) {
+  for (;;) {
     const pending = await algodClient.pendingTransactionInformation(txId).do()
     const confirmedRound = Number(pending.confirmedRound ?? 0)
     const poolError = String(pending.poolError ?? '')

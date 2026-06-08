@@ -16,14 +16,8 @@ export function SafeCard({ safe }: { safe: SafeSummary }) {
   }
 
   return (
-    <Card className="cursor-pointer transition hover:border-primary" >
-      <div
-        role="button"
-        tabIndex={0}
-        className="w-full text-left"
-        onClick={() => nav(`/safe/${safe.safeId}`)}
-        onKeyDown={handleKeyDown}
-      >
+    <Card className="cursor-pointer transition hover:border-primary">
+      <div role="button" tabIndex={0} className="w-full text-left" onClick={() => nav(`/safe/${safe.safeId}`)} onKeyDown={handleKeyDown}>
         <div className="flex items-center justify-between">
           <span className="text-lg font-semibold text-on-surface">{safe.name}</span>
           <StatusBadge status={safe.status} />
@@ -35,7 +29,10 @@ export function SafeCard({ safe }: { safe: SafeSummary }) {
         <div className="mt-4 text-2xl font-bold text-on-surface">€{safe.totalValueEur.toLocaleString()}</div>
         <div className="mt-2 flex items-center justify-between text-xs text-on-surface-variant">
           <span>{safe.tier}</span>
-          <span className="inline-flex items-center gap-1"><Icon name="smart_toy" className="text-sm" />{safe.agentCount} agents</span>
+          <span className="inline-flex items-center gap-1">
+            <Icon name="smart_toy" className="text-sm" />
+            {safe.agentCount} agents
+          </span>
         </div>
       </div>
     </Card>

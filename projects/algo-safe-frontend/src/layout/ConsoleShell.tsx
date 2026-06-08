@@ -10,7 +10,11 @@ export function ConsoleShell() {
         <Sidebar />
         <div className="flex flex-1 flex-col">
           <TopBar />
-          <main className="flex-1 p-6"><div className="mx-auto max-w-container"><Outlet /></div></main>
+          <main className="flex-1 p-6">
+            <div className="mx-auto max-w-container">
+              <Outlet />
+            </div>
+          </main>
         </div>
       </div>
     </SafeProvider>

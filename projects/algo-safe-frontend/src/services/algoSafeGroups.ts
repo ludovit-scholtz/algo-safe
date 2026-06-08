@@ -75,20 +75,15 @@ function mapLiveSignerGroup(group: AlgoSafeSignerGroupRecord, limitAssetMap: Map
 }
 
 export async function fetchLiveSignerGroups(algodClient: algosdk.Algodv2, safe: Safe): Promise<LiveSignerGroup[]> {
-  try {
-    const groups = await fetchAlgoSafeSignerGroups(algodClient, { appId: safe.appId, address: safe.address })
+  const groups = await fetchAlgoSafeSignerGroups(algodClient, { appId: safe.appId, address: safe.address })
 
-    if (groups.length === 0) {
-      return []
-    }
-
-    const limitAssetMap = await getLimitAssetMap(algodClient, safe, groups)
-
-    return groups.map((group) => mapLiveSignerGroup(group, limitAssetMap))
-  } catch (error) {
-    console.error('Failed to fetch live signer groups', { appId: safe.appId, network: safe.network, error })
-    throw error
+  if (groups.length === 0) {
+    return []
   }
+
+  const limitAssetMap = await getLimitAssetMap(algodClient, safe, groups)
+
+  return groups.map((group) => mapLiveSignerGroup(group, limitAssetMap))
 }
 
 export async function fetchLiveSignerGroupDetail(
@@ -97,23 +92,18 @@ export async function fetchLiveSignerGroupDetail(
   groupId: string,
   activeAddress?: string | null,
 ): Promise<LiveSignerGroupDetail | null> {
-  try {
-    const detail = await fetchAlgoSafeSignerGroupDetail(algodClient, { appId: safe.appId, address: safe.address }, groupId, activeAddress)
+  const detail = await fetchAlgoSafeSignerGroupDetail(algodClient, { appId: safe.appId, address: safe.address }, groupId, activeAddress)
 
-    if (!detail) {
-      return null
-    }
+  if (!detail) {
+    return null
+  }
 
-    const groups = await fetchAlgoSafeSignerGroups(algodClient, { appId: safe.appId, address: safe.address })
-    const limitAssetMap = await getLimitAssetMap(algodClient, safe, groups)
+  const groups = await fetchAlgoSafeSignerGroups(algodClient, { appId: safe.appId, address: safe.address })
+  const limitAssetMap = await getLimitAssetMap(algodClient, safe, groups)
 
-    return {
-      group: mapLiveSignerGroup(detail.group, limitAssetMap),
-      members: detail.members,
-      adminGroupOptions: detail.adminGroupOptions,
-    }
-  } catch (error) {
-    console.error('Failed to fetch live signer group detail', { appId: safe.appId, network: safe.network, groupId, error })
-    throw error
+  return {
+    group: mapLiveSignerGroup(detail.group, limitAssetMap),
+    members: detail.members,
+    adminGroupOptions: detail.adminGroupOptions,
   }
 }

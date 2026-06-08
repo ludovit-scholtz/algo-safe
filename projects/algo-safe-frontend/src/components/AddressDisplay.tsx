@@ -14,13 +14,7 @@ function joinClasses(...values: Array<string | undefined | false>) {
   return values.filter(Boolean).join(' ')
 }
 
-export function AddressDisplay({
-  address,
-  className,
-  textClassName,
-  buttonClassName,
-  fallback = '—',
-}: AddressDisplayProps) {
+export function AddressDisplay({ address, className, textClassName, buttonClassName, fallback = '—' }: AddressDisplayProps) {
   const [copied, setCopied] = useState(false)
   const resetTimerRef = useRef<number | null>(null)
 

@@ -130,15 +130,13 @@ export function SignerGroupManagementPage() {
   const [isActive, setIsActive] = useState(true)
   const [submittingSection, setSubmittingSection] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const reportError = (message: string, cause?: unknown) => {
-    console.error('Signer group management error', { safeId, groupId, message, cause })
+  const reportError = (message: string) => {
     setError(message)
   }
   const knownAssets = useMemo(() => getKnownAssets(safe?.network), [safe?.network])
 
   useEffect(() => {
     if (!(detailError instanceof Error)) return
-    console.error('Signer group detail query failed', { safeId, groupId, error: detailError })
   }, [detailError, groupId, safeId])
 
   const spendingLimitAssets: SpendingAssetOption[] = useMemo(() => {

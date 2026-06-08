@@ -82,7 +82,6 @@ export function InitializeSafePage() {
 
   async function handleStart() {
     const safeName = name.trim()
-    let failedStage: FlowStage = 'deploying'
 
     if (!safeName) {
       setErrorMessage('Enter a safe name before starting the deployment.')
@@ -127,7 +126,6 @@ export function InitializeSafePage() {
 
       setDeployment(nextDeployment)
       setStage('funding')
-      failedStage = 'funding'
 
       const bootstrapCall = await appClient.params.bootstrap({
         args: { groupName: 'Admins' },
@@ -162,16 +160,6 @@ export function InitializeSafePage() {
         },
       })
     } catch (error) {
-      console.error('Initialize safe failed', {
-        error,
-        failedStage,
-        activeAddress,
-        activeAddressType: typeof activeAddress,
-        activeAddressConstructor: activeAddress?.constructor?.name,
-        activeNetwork,
-        deployment,
-        safeName,
-      })
       setStage('error')
       setErrorMessage(getErrorMessage(error))
     }
