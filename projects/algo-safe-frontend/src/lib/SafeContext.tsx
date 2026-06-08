@@ -1,13 +1,25 @@
 // src/lib/SafeContext.tsx
 import { createContext, useContext } from 'react'
-import { useParams } from 'react-router-dom'
+import { useEffect } from 'react'
+import { useNetwork } from '@txnlab/use-wallet-react'
+import { useNavigate, useParams } from 'react-router-dom'
+import { normalizeNetworkId, resolveCanonicalSafeId } from './safeRegistry'
 
 const SafeIdContext = createContext<string | undefined>(undefined)
 
 /** Provides the active safeId (from the :safeId route param) to console pages. */
 export function SafeProvider({ children }: { children: React.ReactNode }) {
   const { safeId } = useParams<{ safeId: string }>()
-  return <SafeIdContext.Provider value={safeId}>{children}</SafeIdContext.Provider>
+  const navigate = useNavigate()
+  const { activeNetwork } = useNetwork()
+  const resolvedSafeId = safeId ? resolveCanonicalSafeId(safeId, normalizeNetworkId(activeNetwork)) : safeId
+
+  useEffect(() => {
+    if (!safeId || !resolvedSafeId || safeId === resolvedSafeId) return
+    navigate(`/safe/${resolvedSafeId}`, { replace: true })
+  }, [navigate, resolvedSafeId, safeId])
+
+  return <SafeIdContext.Provider value={resolvedSafeId}>{children}</SafeIdContext.Provider>
 }
 
 export function useSafeId(): string {

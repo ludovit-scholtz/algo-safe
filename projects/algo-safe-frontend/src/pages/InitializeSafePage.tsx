@@ -143,7 +143,7 @@ export function InitializeSafePage() {
         .addAppCallMethodCall(bootstrapCall)
         .send({ suppressLog: true })
 
-      upsertSafeRegistryEntry({
+      const registryEntry = upsertSafeRegistryEntry({
         appId: Number(result.appId),
         address: appAddress,
         creatorAddress: activeAddress,
@@ -152,7 +152,7 @@ export function InitializeSafePage() {
       })
 
       setStage('success')
-      navigate(`/safe/${result.appId.toString()}`, {
+      navigate(`/safe/${registryEntry.safeId}`, {
         replace: true,
         state: {
           initializationSuccess: {

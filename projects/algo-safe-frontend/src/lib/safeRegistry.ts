@@ -72,6 +72,24 @@ export function getSafeRegistryEntryBySafeId(safeId: string) {
   return readEntries().find((entry) => entry.safeId === safeId)
 }
 
+export function resolveCanonicalSafeId(safeId: string, network?: NetworkId | null) {
+  const exactMatch = getSafeRegistryEntryBySafeId(safeId)
+  if (exactMatch) return exactMatch.safeId
+
+  const appId = Number.parseInt(safeId, 10)
+  if (!Number.isSafeInteger(appId) || String(appId) !== safeId.trim()) return safeId
+
+  const entries = readEntries().filter((entry) => entry.appId === appId)
+  if (entries.length === 0) return safeId
+
+  if (network) {
+    const networkMatch = entries.find((entry) => entry.network === network)
+    if (networkMatch) return networkMatch.safeId
+  }
+
+  return entries[0].safeId
+}
+
 export function listSafeRegistryEntriesForWallet(filters: { creatorAddress?: string | null; network?: NetworkId | null }) {
   return readEntries().filter((entry) => {
     if (filters.creatorAddress && entry.creatorAddress !== filters.creatorAddress) return false
