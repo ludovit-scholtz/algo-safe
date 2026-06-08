@@ -11,23 +11,24 @@ type AlgodAppLookup = {
 
 type ApplicationLookupResponse = {
   params?: {
-    'approval-program'?: string
-    approvalProgram?: string
+    'approval-program'?: string | Uint8Array | number[]
+    approvalProgram?: string | Uint8Array | number[]
   }
 }
 
-const UTF8_DECODER = new TextDecoder()
 const HEX_DIGITS = '0123456789abcdef'
 
-function decodeBase64Utf8(value: string) {
-  const decoded = atob(value)
-  const bytes = Uint8Array.from(decoded, (char) => char.charCodeAt(0))
-  return UTF8_DECODER.decode(bytes)
+function decodeBase64Bytes(value: string) {
+  const normalized = value.replace(/-/g, '+').replace(/_/g, '/')
+  const padded = normalized.padEnd(normalized.length + ((4 - (normalized.length % 4)) % 4), '=')
+  const decoded = atob(padded)
+  return Uint8Array.from(decoded, (char) => char.charCodeAt(0))
 }
 
-function decodeBase64Bytes(value: string) {
-  const decoded = atob(value)
-  return Uint8Array.from(decoded, (char) => char.charCodeAt(0))
+function normalizeApprovalProgram(value: string | Uint8Array | number[]) {
+  if (value instanceof Uint8Array) return value
+  if (Array.isArray(value)) return Uint8Array.from(value)
+  return decodeBase64Bytes(value)
 }
 
 function bytesToHex(bytes: Uint8Array) {
@@ -40,8 +41,8 @@ function bytesToHex(bytes: Uint8Array) {
   return hex
 }
 
-async function hashApprovalProgram(approvalProgramBase64: string) {
-  const approvalProgramBytes = decodeBase64Bytes(approvalProgramBase64)
+async function hashApprovalProgram(approvalProgram: string | Uint8Array | number[]) {
+  const approvalProgramBytes = normalizeApprovalProgram(approvalProgram)
   const digest = await crypto.subtle.digest('SHA-256', approvalProgramBytes)
   return bytesToHex(new Uint8Array(digest))
 }

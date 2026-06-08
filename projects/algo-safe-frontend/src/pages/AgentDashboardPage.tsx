@@ -8,11 +8,11 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { AddressDisplay } from '../components/AddressDisplay'
 import { SafeHoldingsTable } from '../components/SafeHoldingsTable'
 import { SignerGroupCard } from '../components/SignerGroupCard'
+import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
 import { Icon } from '../components/ui/Icon'
 import { StatCard } from '../components/ui/StatCard'
 import { StatusBadge } from '../components/ui/StatusBadge'
-import { Button } from '../components/ui/Button'
 import { useProposals, useSafe, useSignerGroups } from '../hooks'
 import { useOnChainSafeHoldings } from '../hooks/useOnChainSafeHoldings'
 import { getKnownAssets } from '../lib/assetMetadata'
@@ -57,6 +57,21 @@ export function AgentDashboardPage() {
   })
 
   useEffect(() => {
+    if (!(holdingsError instanceof Error)) return
+    console.error('Safe holdings query failed', { safeId, appId: safe?.appId, error: holdingsError })
+  }, [holdingsError, safe?.appId, safeId])
+
+  useEffect(() => {
+    if (!(signerGroupsError instanceof Error)) return
+    console.error('Signer groups query failed', { safeId, appId: safe?.appId, error: signerGroupsError })
+  }, [safe?.appId, safeId, signerGroupsError])
+
+  useEffect(() => {
+    if (!eurdError) return
+    console.error('EURD opt-in error', { safeId, appId: safe?.appId, error: eurdError })
+  }, [eurdError, safe?.appId, safeId])
+
+  useEffect(() => {
     if ((!executionSuccess && !initializationSuccess) || showCelebration) return
 
     setShowCelebration(true)
@@ -82,6 +97,7 @@ export function AgentDashboardPage() {
   async function handleOpenEurd() {
     if (!safe || !eurdAsset) return
     if (!isReady || !activeAddress || !transactionSigner) {
+      console.error('EURD opt-in blocked: wallet not connected', { safeId, appId: safe?.appId })
       setEurdError('Connect a wallet to open an EURD account.')
       return
     }
@@ -99,6 +115,7 @@ export function AgentDashboardPage() {
       await queryClient.invalidateQueries({ queryKey: ['proposals', safeId] })
       navigate(`/safe/${safeId}/proposals/${proposalId}`, { state: { txId } })
     } catch (error) {
+      console.error('Failed to create EURD opt-in proposal', { safeId, appId: safe.appId, error })
       setEurdError(error instanceof Error && error.message.trim() ? error.message : 'Failed to create the EURD opt-in proposal.')
     } finally {
       setOpeningEurd(false)

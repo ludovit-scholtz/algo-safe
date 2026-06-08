@@ -108,7 +108,7 @@ export function SignerGroupManagementPage() {
   const queryClient = useQueryClient()
   const { enqueueSnackbar } = useSnackbar()
   const { data: safe } = useSafe(safeId)
-  const { data: detail, isLoading, isFetching } = useSignerGroup(groupId)
+  const { data: detail, isLoading, isFetching, error: detailError } = useSignerGroup(groupId)
   const { data: holdings } = useOnChainSafeHoldings(safeId)
   const { activeAddress, algodClient, transactionSigner, isReady } = useWallet()
 
@@ -130,7 +130,16 @@ export function SignerGroupManagementPage() {
   const [isActive, setIsActive] = useState(true)
   const [submittingSection, setSubmittingSection] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const reportError = (message: string, cause?: unknown) => {
+    console.error('Signer group management error', { safeId, groupId, message, cause })
+    setError(message)
+  }
   const knownAssets = useMemo(() => getKnownAssets(safe?.network), [safe?.network])
+
+  useEffect(() => {
+    if (!(detailError instanceof Error)) return
+    console.error('Signer group detail query failed', { safeId, groupId, error: detailError })
+  }, [detailError, groupId, safeId])
 
   const spendingLimitAssets: SpendingAssetOption[] = useMemo(() => {
     const assetMap = new Map<string, SpendingAssetOption>()
@@ -269,12 +278,12 @@ export function SignerGroupManagementPage() {
     setError(null)
 
     if (!safe) {
-      setError('The selected safe could not be loaded.')
+      reportError('The selected safe could not be loaded.')
       return
     }
 
     if (!canSubmit) {
-      setError('Connect a wallet with access to an admin signer group before managing this signer group.')
+      reportError('Connect a wallet with access to an admin signer group before managing this signer group.')
       return
     }
 
@@ -310,7 +319,7 @@ export function SignerGroupManagementPage() {
       enqueueSnackbar(successMessage, { variant: 'success' })
       navigate(`/safe/${safeId}/proposals/${proposalId}`, { state: { txId } })
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : 'Failed to create signer-group update proposal.')
+      reportError(submitError instanceof Error ? submitError.message : 'Failed to create signer-group update proposal.', submitError)
     } finally {
       setSubmittingSection(null)
     }
@@ -320,7 +329,7 @@ export function SignerGroupManagementPage() {
     e.preventDefault()
 
     if (!algosdk.isValidAddress(memberAddress.trim())) {
-      setError('Enter a valid Algorand address for the member.')
+      reportError('Enter a valid Algorand address for the member.')
       return
     }
 
@@ -351,7 +360,7 @@ export function SignerGroupManagementPage() {
     const parsedThreshold = Number(threshold)
 
     if (!Number.isInteger(parsedThreshold) || parsedThreshold < 1 || parsedThreshold > maxThreshold) {
-      setError(`Threshold must be between 1 and ${maxThreshold}.`)
+      reportError(`Threshold must be between 1 and ${maxThreshold}.`)
       return
     }
 
@@ -382,25 +391,25 @@ export function SignerGroupManagementPage() {
     const parsedDailyLimit = parseBaseUnits(dailyLimit, selectedSpendingAsset.decimals)
     const parsedMonthlyLimit = parseBaseUnits(monthlyLimit, selectedSpendingAsset.decimals)
     if (!/^\d+$/.test(cooldownRounds || '0')) {
-      setError('Cooldown rounds must be a non-negative integer.')
+      reportError('Cooldown rounds must be a non-negative integer.')
       return
     }
     const parsedCooldown = BigInt(cooldownRounds || '0')
     const limitAssetId = BigInt(selectedSpendingAsset.assetId ?? 0)
 
     if (parsedDailyLimit === null || parsedMonthlyLimit === null) {
-      setError(`Enter valid ${selectedSpendingAsset.symbol} limits for the signer group policy.`)
+      reportError(`Enter valid ${selectedSpendingAsset.symbol} limits for the signer group policy.`)
       return
     }
 
     const hasSpendingLimit = parsedDailyLimit > 0n || parsedMonthlyLimit > 0n
     if (hasSpendingLimit && limitAssetId === 0n && !allowAlgo) {
-      setError('Enable ALGO payments when the spending limit asset is ALGO.')
+      reportError('Enable ALGO payments when the spending limit asset is ALGO.')
       return
     }
 
     if (hasSpendingLimit && limitAssetId !== 0n && !allowAsa) {
-      setError('Enable ASA transfers when the spending limit asset is an ASA.')
+      reportError('Enable ASA transfers when the spending limit asset is an ASA.')
       return
     }
 

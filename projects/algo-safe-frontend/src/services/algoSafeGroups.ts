@@ -1,5 +1,4 @@
-import { AlgorandClient } from '@algorandfoundation/algokit-utils'
-import { getAlgoSafeContractVersion, getClient } from 'algo-safe'
+import { fetchAlgoSafeSignerGroupDetail, fetchAlgoSafeSignerGroups, type AlgoSafeSignerGroupRecord } from 'algo-safe'
 import type algosdk from 'algosdk'
 import type { AssetMetadata } from '../lib/assetMetadata'
 import { getNativeAssetMetadata, resolveAssetMetadata } from '../lib/assetMetadata'
@@ -41,27 +40,8 @@ export type LiveSignerGroupDetail = {
   adminGroupOptions: LiveAdminGroupOption[]
 }
 
-async function buildAppClient(algodClient: algosdk.Algodv2, safe: Safe) {
-  const algorand = AlgorandClient.fromClients({ algod: algodClient })
-  const clientVersion = await getAlgoSafeContractVersion(algodClient, BigInt(safe.appId))
-
-  return algorand.client.getTypedAppClientById(getClient(clientVersion ?? 'latest'), {
-    appId: BigInt(safe.appId),
-    defaultSender: safe.address,
-  })
-}
-
-async function getBoxMaps(algodClient: algosdk.Algodv2, safe: Safe) {
-  const client = await buildAppClient(algodClient, safe)
-  const [groupsMap, membersMap] = await Promise.all([client.state.box.groups.getMap(), client.state.box.members.getMap()])
-
-  return { groupsMap, membersMap }
-}
-
-type GroupBoxValue = Awaited<ReturnType<typeof getBoxMaps>>['groupsMap'] extends Map<bigint, infer TValue> ? TValue : never
-
-async function getLimitAssetMap(algodClient: algosdk.Algodv2, safe: Safe, groupsMap: Map<bigint, GroupBoxValue>) {
-  const assetIds = Array.from(new Set(Array.from(groupsMap.values(), (group) => Number(group.limitAssetId ?? 0n))))
+async function getLimitAssetMap(algodClient: algosdk.Algodv2, safe: Safe, groups: readonly AlgoSafeSignerGroupRecord[]) {
+  const assetIds = Array.from(new Set(groups.map((group) => Number(group.limitAssetId ?? 0n))))
   const entries = await Promise.all(
     assetIds.map(
       async (assetId) =>
@@ -72,39 +52,43 @@ async function getLimitAssetMap(algodClient: algosdk.Algodv2, safe: Safe, groups
   return new Map<number, AssetMetadata>(entries)
 }
 
-function mapLiveSignerGroup(groupId: bigint, group: GroupBoxValue, limitAssetMap: Map<number, AssetMetadata>): LiveSignerGroup {
+function mapLiveSignerGroup(group: AlgoSafeSignerGroupRecord, limitAssetMap: Map<number, AssetMetadata>): LiveSignerGroup {
   const limitAssetId = group.limitAssetId ?? 0n
 
   return {
-    id: groupId.toString(),
+    id: group.id,
     name: group.name,
-    threshold: Number(group.threshold),
-    memberCount: Number(group.memberCount),
-    adminPrivileges: Number(group.adminPrivileges),
-    allowedActions: Number(group.allowedActions),
+    threshold: group.threshold,
+    memberCount: group.memberCount,
+    adminPrivileges: group.adminPrivileges,
+    allowedActions: group.allowedActions,
     limitAssetId,
     dailyLimit: group.dailyLimit,
     dailyUsage: group.dailyUsage,
     monthlyLimit: group.monthlyLimit,
     monthlyUsage: group.monthlyUsage,
-    cooldownRounds: Number(group.cooldownRounds),
+    cooldownRounds: group.cooldownRounds,
     limitAsset: limitAssetMap.get(Number(limitAssetId)) ?? getNativeAssetMetadata(),
-    active: group.active !== 0n,
-    isAdminGroup: group.adminPrivileges !== 0n,
+    active: group.active,
+    isAdminGroup: group.isAdminGroup,
   }
 }
 
 export async function fetchLiveSignerGroups(algodClient: algosdk.Algodv2, safe: Safe): Promise<LiveSignerGroup[]> {
-  const { groupsMap } = await getBoxMaps(algodClient, safe)
+  try {
+    const groups = await fetchAlgoSafeSignerGroups(algodClient, { appId: safe.appId, address: safe.address })
 
-  if (groupsMap.size === 0) {
-    return []
+    if (groups.length === 0) {
+      return []
+    }
+
+    const limitAssetMap = await getLimitAssetMap(algodClient, safe, groups)
+
+    return groups.map((group) => mapLiveSignerGroup(group, limitAssetMap))
+  } catch (error) {
+    console.error('Failed to fetch live signer groups', { appId: safe.appId, network: safe.network, error })
+    throw error
   }
-
-  const limitAssetMap = await getLimitAssetMap(algodClient, safe, groupsMap)
-  const groups = Array.from(groupsMap.entries(), ([groupId, group]) => mapLiveSignerGroup(groupId, group, limitAssetMap))
-
-  return groups.sort((left, right) => Number(right.isAdminGroup) - Number(left.isAdminGroup) || Number(left.id) - Number(right.id))
 }
 
 export async function fetchLiveSignerGroupDetail(
@@ -113,40 +97,23 @@ export async function fetchLiveSignerGroupDetail(
   groupId: string,
   activeAddress?: string | null,
 ): Promise<LiveSignerGroupDetail | null> {
-  const { groupsMap, membersMap } = await getBoxMaps(algodClient, safe)
-  const targetGroupId = BigInt(groupId)
-  const targetGroup = groupsMap.get(targetGroupId)
+  try {
+    const detail = await fetchAlgoSafeSignerGroupDetail(algodClient, { appId: safe.appId, address: safe.address }, groupId, activeAddress)
 
-  if (!targetGroup) {
-    return null
-  }
+    if (!detail) {
+      return null
+    }
 
-  const limitAssetMap = await getLimitAssetMap(algodClient, safe, groupsMap)
+    const groups = await fetchAlgoSafeSignerGroups(algodClient, { appId: safe.appId, address: safe.address })
+    const limitAssetMap = await getLimitAssetMap(algodClient, safe, groups)
 
-  const members = Array.from(membersMap.entries())
-    .filter(([key]) => key.groupId === targetGroupId)
-    .map(([_key, member]) => ({
-      address: member.addr,
-      label: member.label,
-      accountType: Number(member.accountType),
-    }))
-    .sort((left, right) => left.label.localeCompare(right.label) || left.address.localeCompare(right.address))
-
-  const normalizedActiveAddress = activeAddress?.trim() ?? ''
-  const adminGroupOptions = Array.from(groupsMap.entries())
-    .filter(([_id, group]) => group.adminPrivileges !== 0n && group.active !== 0n)
-    .map(([adminGroupId, group]) => ({
-      id: adminGroupId.toString(),
-      name: group.name,
-      isMember: normalizedActiveAddress
-        ? Array.from(membersMap.keys()).some((key) => key.groupId === adminGroupId && key.account === normalizedActiveAddress)
-        : false,
-    }))
-    .sort((left, right) => Number(right.isMember) - Number(left.isMember) || Number(left.id) - Number(right.id))
-
-  return {
-    group: mapLiveSignerGroup(targetGroupId, targetGroup, limitAssetMap),
-    members,
-    adminGroupOptions,
+    return {
+      group: mapLiveSignerGroup(detail.group, limitAssetMap),
+      members: detail.members,
+      adminGroupOptions: detail.adminGroupOptions,
+    }
+  } catch (error) {
+    console.error('Failed to fetch live signer group detail', { appId: safe.appId, network: safe.network, groupId, error })
+    throw error
   }
 }
