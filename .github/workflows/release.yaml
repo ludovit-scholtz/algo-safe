@@ -15,16 +15,16 @@ permissions:
   packages: read
 
 jobs:
-  algo-safe-contracts-validate:
-    name: Run algo-safe-contracts release
-    secrets: inherit
-    uses: ./.github/workflows/algo-safe-contracts-ci.yaml
+  # algo-safe-contracts-validate:
+  #   name: Run algo-safe-contracts release
+  #   secrets: inherit
+  #   uses: ./.github/workflows/algo-safe-contracts-ci.yaml
 
-  algo-safe-contracts-release:
-    name: Run algo-safe-contracts release
-    secrets: inherit
-    uses: ./.github/workflows/algo-safe-contracts-cd.yaml
-    needs: algo-safe-contracts-validate
+  # algo-safe-contracts-release:
+  #   name: Run algo-safe-contracts release
+  #   secrets: inherit
+  #   uses: ./.github/workflows/algo-safe-contracts-cd.yaml
+  #   needs: algo-safe-contracts-validate
 
   algo-safe-frontend-validate:
     name: Run algo-safe-frontend release
