@@ -7,6 +7,7 @@ export type SafeRegistryEntry = {
   appId: number
   address: string
   network: NetworkId
+  creatorAddress: string
 }
 
 const STORAGE_KEY = 'algo-safe.registry'
@@ -32,7 +33,8 @@ function readEntries() {
         typeof (entry as SafeRegistryEntry).name === 'string' &&
         typeof (entry as SafeRegistryEntry).appId === 'number' &&
         typeof (entry as SafeRegistryEntry).address === 'string' &&
-        typeof (entry as SafeRegistryEntry).network === 'string'
+        typeof (entry as SafeRegistryEntry).network === 'string' &&
+        typeof (entry as SafeRegistryEntry).creatorAddress === 'string'
       )
     })
   } catch {
@@ -55,6 +57,8 @@ function toSafeId(appId: number, network: NetworkId) {
 
 export function normalizeNetworkId(network: string | null | undefined): NetworkId {
   const value = String(network ?? '').toLowerCase()
+  if (value === 'voimain') return 'voimain'
+  if (value === 'aramidmain') return 'aramidmain'
   if (value === 'localnet') return 'localnet'
   if (value === 'testnet') return 'testnet'
   return 'mainnet'
@@ -66,6 +70,14 @@ export function listSafeRegistryEntries() {
 
 export function getSafeRegistryEntryBySafeId(safeId: string) {
   return readEntries().find((entry) => entry.safeId === safeId)
+}
+
+export function listSafeRegistryEntriesForWallet(filters: { creatorAddress?: string | null; network?: NetworkId | null }) {
+  return readEntries().filter((entry) => {
+    if (filters.creatorAddress && entry.creatorAddress !== filters.creatorAddress) return false
+    if (filters.network && entry.network !== filters.network) return false
+    return true
+  })
 }
 
 export function upsertSafeRegistryEntry(entry: Omit<SafeRegistryEntry, 'safeId'> & { safeId?: string }) {

@@ -1,15 +1,27 @@
 // src/hooks/index.ts
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useNetwork } from '@txnlab/use-wallet-react'
 import { useWallet } from '@txnlab/use-wallet-react'
 import { useServices } from '../services'
 import { useSafeId } from '../lib/SafeContext'
+import { normalizeNetworkId } from '../lib/safeRegistry'
 import type { RegisterAgentInput, PolicyChangeInput, CreateSafeInput } from '../services/types'
 import { fetchLiveSignerGroupDetail, fetchLiveSignerGroups } from '../services/algoSafeGroups'
 import { approveLiveProposal, cancelLiveProposal, executeLiveProposal, fetchLiveProposal, fetchLiveProposals, type ExecuteProposalLifecycle } from '../services/algoSafeProposals'
 
 type ExecuteProposalInput = { id: string } & ExecuteProposalLifecycle
 
-export const useSafes = () => { const { safe } = useServices(); return useQuery({ queryKey: ['safes'], queryFn: () => safe.listSafes() }) }
+export const useSafes = () => {
+  const { safe } = useServices()
+  const { activeAddress } = useWallet()
+  const { activeNetwork } = useNetwork()
+
+  return useQuery({
+    queryKey: ['safes', activeAddress, normalizeNetworkId(activeNetwork)],
+    queryFn: () => safe.listSafes({ creatorAddress: activeAddress, network: normalizeNetworkId(activeNetwork) }),
+    enabled: !!activeAddress,
+  })
+}
 export const useSafe = (safeId?: string) => { const { safe } = useServices(); return useQuery({ queryKey: ['safe', safeId], queryFn: () => safe.getSafe(safeId!), enabled: !!safeId }) }
 export const useAssets = (safeId?: string) => { const { safe } = useServices(); return useQuery({ queryKey: ['assets', safeId], queryFn: () => safe.listAssets(safeId!), enabled: !!safeId }) }
 export const useTreasury = (safeId?: string) => { const { safe } = useServices(); return useQuery({ queryKey: ['treasury', safeId], queryFn: () => safe.getTreasury(safeId!), enabled: !!safeId }) }

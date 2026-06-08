@@ -146,6 +146,7 @@ export function InitializeSafePage() {
       upsertSafeRegistryEntry({
         appId: Number(result.appId),
         address: appAddress,
+        creatorAddress: activeAddress,
         name: safeName,
         network: normalizeNetworkId(activeNetwork ?? import.meta.env.VITE_ALGOD_NETWORK),
       })

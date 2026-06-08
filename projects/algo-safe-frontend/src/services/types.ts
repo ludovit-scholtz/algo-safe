@@ -1,5 +1,10 @@
 // src/services/types.ts
-export type NetworkId = 'mainnet' | 'testnet' | 'localnet'
+export type NetworkId = 'mainnet' | 'testnet' | 'localnet' | 'voimain' | 'aramidmain'
+
+export interface SafeListFilters {
+  creatorAddress?: string | null
+  network?: NetworkId | null
+}
 
 export interface Safe {
   name: string

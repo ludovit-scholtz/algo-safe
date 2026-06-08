@@ -97,6 +97,7 @@ function AuthenticatedSafeSelection() {
       upsertSafeRegistryEntry({
         appId: parsedAppId,
         address: algosdk.getApplicationAddress(parsedAppId).toString(),
+        creatorAddress: activeAddress,
         name: safeName,
         network: normalizeNetworkId(activeNetwork),
       })

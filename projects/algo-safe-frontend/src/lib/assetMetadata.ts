@@ -24,6 +24,8 @@ const KNOWN_ASSETS: Record<NetworkId, AssetMetadata[]> = {
     { assetId: 764036623, symbol: 'AsaGold', name: 'AsaGold', decimals: 6, isNative: false },
     { assetId: 386192725, symbol: 'GoBTC', name: 'GoBTC', decimals: 8, isNative: false },
   ],
+  voimain: [],
+  aramidmain: [],
   testnet: [{ assetId: 10458941, symbol: 'USDC', name: 'USD Coin', decimals: 6, isNative: false }],
   localnet: [],
 }

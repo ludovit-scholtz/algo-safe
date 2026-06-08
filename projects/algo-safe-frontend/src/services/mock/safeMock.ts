@@ -1,21 +1,23 @@
 // src/services/mock/safeMock.ts
 import {
   getSafeRegistryEntryBySafeId,
-  listSafeRegistryEntries,
+  listSafeRegistryEntriesForWallet,
   safeRegistryEntryToSafe,
   safeRegistryEntryToSummary,
 } from '../../lib/safeRegistry'
 import { store } from '../../lib/store'
 import type { SafeService } from '../SafeService'
-import type { Agent, CreateSafeInput, Proposal } from '../types'
+import type { Agent, CreateSafeInput, Proposal, SafeListFilters } from '../types'
 
 const delay = <T>(v: T) => new Promise<T>((r) => setTimeout(() => r(v), 150))
 const wait = (ms = 250) => new Promise<void>((r) => setTimeout(r, ms))
 
 export const safeMock: SafeService = {
-  async listSafes() {
+  async listSafes(filters?: SafeListFilters) {
     await wait()
-    return listSafeRegistryEntries().map(safeRegistryEntryToSummary)
+    return listSafeRegistryEntriesForWallet({ creatorAddress: filters?.creatorAddress, network: filters?.network }).map(
+      safeRegistryEntryToSummary,
+    )
   },
   async getSafe(safeId: string) {
     const registrySafe = getSafeRegistryEntryBySafeId(safeId)
