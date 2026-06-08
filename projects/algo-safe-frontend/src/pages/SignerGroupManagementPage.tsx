@@ -317,7 +317,7 @@ export function SignerGroupManagementPage() {
       enqueueSnackbar(successMessage, { variant: 'success' })
       navigate(`/safe/${safeId}/proposals/${proposalId}`, { state: { txId } })
     } catch (submitError) {
-      reportError(submitError instanceof Error ? submitError.message : 'Failed to create signer-group update proposal.', submitError)
+      reportError(submitError instanceof Error ? submitError.message : 'Failed to create signer-group update proposal.')
     } finally {
       setSubmittingSection(null)
     }
