@@ -1,5 +1,5 @@
 import { algo, AlgorandClient } from '@algorandfoundation/algokit-utils'
-import { AlgoSafeClient, type AdminChange, type Proposal as ContractProposal } from 'algo-safe'
+import { getAlgoSafeContractVersion, getClient, type AdminChange, type Proposal as ContractProposal } from 'algo-safe'
 import algosdk, { type TransactionSigner } from 'algosdk'
 import type { AssetMetadata } from '../lib/assetMetadata'
 import { resolveAssetMetadata } from '../lib/assetMetadata'
@@ -39,7 +39,7 @@ const ACT_KEYREG = 8n
 const PRIV_GROUP = 1n
 const PRIV_POLICY = 2n
 
-type AlgoSafeClientInstance = InstanceType<typeof AlgoSafeClient>
+type AlgoSafeClientInstance = InstanceType<ReturnType<typeof getClient>>
 type TxTuple = Awaited<ReturnType<AlgoSafeClientInstance['getTransactionGroup']>>[number]
 
 type ProposalContext = {
@@ -60,7 +60,7 @@ export type ExecuteProposalResult = {
   confirmedRound: number
 }
 
-function buildAppClient({ algodClient, safe, activeAddress, transactionSigner }: ProposalContext) {
+async function buildAppClient({ algodClient, safe, activeAddress, transactionSigner }: ProposalContext) {
   const sender = algosdk.Address.fromString(activeAddress ?? safe.address)
   const algorand = AlgorandClient.fromClients({ algod: algodClient }).setDefaultValidityWindow(TX_VALIDITY_WINDOW)
 
@@ -68,7 +68,9 @@ function buildAppClient({ algodClient, safe, activeAddress, transactionSigner }:
     algorand.setSigner(sender, transactionSigner)
   }
 
-  return algorand.client.getTypedAppClientById(AlgoSafeClient, {
+  const clientVersion = await getAlgoSafeContractVersion(algodClient, BigInt(safe.appId))
+
+  return algorand.client.getTypedAppClientById(getClient(clientVersion ?? 'latest'), {
     appId: BigInt(safe.appId),
     defaultSender: sender,
   })
@@ -102,7 +104,7 @@ function humanList(values: string[]) {
   if (values.length === 0) return 'none'
   if (values.length === 1) return values[0]
   if (values.length === 2) return `${values[0]} and ${values[1]}`
-  return `${values.slice(0, -1).join(', ')}, and ${values.at(-1)}`
+  return `${values.slice(0, -1).join(', ')}, and ${values[values.length - 1]}`
 }
 
 function describeAllowedActions(mask: bigint) {
@@ -399,7 +401,7 @@ async function hydrateProposal(
 }
 
 export async function fetchLiveProposals(context: Omit<ProposalContext, 'transactionSigner'>) {
-  const client = buildAppClient(context)
+  const client = await buildAppClient(context)
   const config = await client.getConfig()
   const nextProposalId = config[3] ?? 1n
   const status = (await context.algodClient.status().do()) as unknown as Record<string, unknown>
@@ -414,7 +416,7 @@ export async function fetchLiveProposals(context: Omit<ProposalContext, 'transac
 }
 
 export async function fetchLiveProposal(context: Omit<ProposalContext, 'transactionSigner'>, proposalId: string) {
-  const client = buildAppClient(context)
+  const client = await buildAppClient(context)
   const status = (await context.algodClient.status().do()) as unknown as Record<string, unknown>
   const currentRound = getCurrentRound(status)
   const resolveAsset = createAssetResolver(context.algodClient, context.safe)
@@ -451,14 +453,14 @@ async function waitForTransactionConfirmation(algodClient: algosdk.Algodv2, txId
 
 export async function approveLiveProposal(context: ProposalContext, proposalId: string) {
   assertWalletContext(context)
-  const client = buildAppClient(context)
+  const client = await buildAppClient(context)
   await client.send.approveProposal({ args: [BigInt(proposalId)], suppressLog: true })
   return fetchLiveProposal(context, proposalId)
 }
 
 export async function cancelLiveProposal(context: ProposalContext, proposalId: string) {
   assertWalletContext(context)
-  const client = buildAppClient(context)
+  const client = await buildAppClient(context)
   await client.send.cancelProposal({ args: [BigInt(proposalId)], suppressLog: true })
   return fetchLiveProposal(context, proposalId)
 }
@@ -469,7 +471,7 @@ export async function executeLiveProposal(
   lifecycle?: ExecuteProposalLifecycle,
 ): Promise<ExecuteProposalResult> {
   assertWalletContext(context)
-  const client = buildAppClient(context)
+  const client = await buildAppClient(context)
   const proposalIdValue = BigInt(proposalId)
   const contractProposal = await client.getProposal({ args: [proposalIdValue] })
   const submissionParams = {

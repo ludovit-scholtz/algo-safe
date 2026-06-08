@@ -2,7 +2,7 @@
 import { algo, AlgorandClient } from '@algorandfoundation/algokit-utils'
 import { useQueryClient } from '@tanstack/react-query'
 import { useWallet } from '@txnlab/use-wallet-react'
-import { AlgoSafeClient, createAdminChange } from 'algo-safe'
+import { createAdminChange, getAlgoSafeContractVersion, getClient } from 'algo-safe'
 import algosdk from 'algosdk'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -170,7 +170,8 @@ export function RegisterAgentPage() {
       const algorand = AlgorandClient.fromClients({ algod: algodClient }).setDefaultValidityWindow(TX_VALIDITY_WINDOW)
       algorand.setSigner(senderAddress, transactionSigner)
 
-      const appClient = algorand.client.getTypedAppClientById(AlgoSafeClient, {
+      const clientVersion = await getAlgoSafeContractVersion(algodClient, BigInt(safe.appId))
+      const appClient = algorand.client.getTypedAppClientById(getClient(clientVersion ?? 'latest'), {
         appId: BigInt(safe.appId),
         defaultSender: senderAddress,
       })

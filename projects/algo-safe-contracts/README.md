@@ -45,6 +45,31 @@ Directly manage and interact with your project using AlgoKit commands:
 2. **Deploy**: Use `algokit project deploy localnet` to deploy contracts to the local network. You can also specify a specific contract by passing the name of the contract folder as an extra argument.
    For example: `algokit project deploy localnet -- hello_world` will only deploy the `hello_world` contract.
 
+#### Versioned generated clients
+
+This package snapshots each generated Algo Safe client under `clients/<approval-program-sha256>/`.
+
+1. `pnpm build` compiles the contract, regenerates `smart_contracts/artifacts/algo_safe/AlgoSafeClient.ts`, computes the approval-program SHA256 hash, removes any existing `clients/<hash>/` folder, and copies the full `smart_contracts/artifacts/algo_safe` contents into that versioned folder.
+2. `pnpm run sync-versioned-client` reruns the hash-and-copy step and refreshes the generated registry files in `src/`.
+3. The latest hash is exported from the npm package as `LATEST_CONTRACT_HASH`.
+4. Use `getAlgoSafeContractVersion(algod, appId)` to read the deployed contract version from global state, then pass that value to `getClient(version)` to resolve the matching generated client class. `getClient()` defaults to `latest`.
+
+Example:
+
+```ts
+import { AlgorandClient } from '@algorandfoundation/algokit-utils'
+import { getAlgoSafeContractVersion, getClient } from 'algo-safe'
+
+const algorand = AlgorandClient.fromClients({ algod })
+const version = await getAlgoSafeContractVersion(algod, appId)
+const AlgoSafeClient = getClient(version ?? 'latest')
+
+const client = algorand.client.getTypedAppClientById(AlgoSafeClient, {
+  appId,
+  defaultSender,
+})
+```
+
 #### VS Code
 
 For a seamless experience with breakpoint debugging and other features:

@@ -16,9 +16,9 @@
     "dist"
   ],
   "scripts": {
-    "build": "algokit compile ts smart_contracts --output-source-map --out-dir artifacts && algokit generate client smart_contracts/artifacts --output {app_spec_dir}/{contract_name}Client.ts",
+    "build": "algokit compile ts smart_contracts --output-source-map --out-dir artifacts && algokit generate client smart_contracts/artifacts --output {app_spec_dir}/{contract_name}Client.ts && pnpm run sync-versioned-client",
     "build:contracts": "pnpm build",
-    "build-package": "tsup src/index.ts --format cjs,esm --clean --sourcemap && tsc -p tsconfig.package.json",
+    "build-package": "pnpm run sync-versioned-client && tsup src/index.ts --format cjs,esm --clean --sourcemap --external @algorandfoundation/algokit-utils --external algosdk --external tslib && tsc -p tsconfig.package.json",
     "deploy": "ts-node-dev --transpile-only --watch .env -r dotenv/config smart_contracts/index.ts",
     "deploy:ci": "ts-node --transpile-only -r dotenv/config smart_contracts/index.ts",
     "lint": "eslint smart_contracts",
@@ -29,7 +29,9 @@
     "test": "vitest run --coverage",
     "test:e2e": "vitest run smart_contracts/**/*.e2e.spec.ts",
     "test:watch": "vitest watch",
-    "check-types": "tsc --noEmit"
+    "check-types": "tsc --noEmit",
+    "compute-bytecode-hashes": "ts-node scripts/compute-bytecode-hashes.ts",
+    "sync-versioned-client": "ts-node scripts/sync-versioned-client.ts"
   },
   "engines": {
     "node": ">=22.0",
@@ -37,6 +39,7 @@
   },
   "dependencies": {
     "@algorandfoundation/algorand-typescript": "^1.0.1",
+    "algosdk": "^3.0.0",
     "tslib": "^2.8.1"
   },
   "devDependencies": {
@@ -50,7 +53,6 @@
     "@tsconfig/node22": "^22.0.0",
     "@types/node": "22.15.30",
     "@vitest/coverage-v8": "^4.1.8",
-    "algosdk": "^3.0.0",
     "dotenv": "^16.4.7",
     "eslint": "^9.18.0",
     "globals": "^16.4.0",

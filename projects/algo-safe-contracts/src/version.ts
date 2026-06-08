@@ -1,5 +1,8 @@
 type AlgodAppLookup = {
-  getApplicationByID(appId: number): {
+  getApplicationByID?: (appId: number) => {
+    do(): Promise<unknown>
+  }
+  applicationByID?: (appId: number) => {
     do(): Promise<unknown>
   }
 }
@@ -23,16 +26,25 @@ type ApplicationLookupResponse = {
 
 const VERSION_STATE_KEY_BASE64 = 'dmVy'
 const COMMIT_ID_PATTERN = /^[0-9a-f]{7,40}$/i
+const UTF8_DECODER = new TextDecoder()
 
 function decodeBase64Utf8(value: string) {
-  return Buffer.from(value, 'base64').toString('utf-8')
+  const decoded = atob(value)
+  const bytes = Uint8Array.from(decoded, (char) => char.charCodeAt(0))
+  return UTF8_DECODER.decode(bytes)
 }
 
 export async function getAlgoSafeContractVersion(
   algodClient: AlgodAppLookup,
   appId: bigint | number,
 ): Promise<string | null> {
-  const application = (await algodClient.getApplicationByID(Number(appId)).do()) as ApplicationLookupResponse
+  const lookup = algodClient.getApplicationByID?.(Number(appId)) ?? algodClient.applicationByID?.(Number(appId))
+
+  if (!lookup) {
+    throw new Error('The provided algod client does not support application lookup by ID.')
+  }
+
+  const application = (await lookup.do()) as ApplicationLookupResponse
   const globalState = application.params?.['global-state'] ?? application.params?.globalState
   const versionEntry = globalState?.find((entry) => entry.key === VERSION_STATE_KEY_BASE64)
   const encodedVersion = versionEntry?.value?.type === 1 ? versionEntry.value.bytes : undefined

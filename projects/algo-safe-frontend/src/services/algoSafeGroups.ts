@@ -1,5 +1,5 @@
 import { AlgorandClient } from '@algorandfoundation/algokit-utils'
-import { AlgoSafeClient } from 'algo-safe'
+import { getAlgoSafeContractVersion, getClient } from 'algo-safe'
 import type algosdk from 'algosdk'
 import type { AssetMetadata } from '../lib/assetMetadata'
 import { getNativeAssetMetadata, resolveAssetMetadata } from '../lib/assetMetadata'
@@ -41,16 +41,18 @@ export type LiveSignerGroupDetail = {
   adminGroupOptions: LiveAdminGroupOption[]
 }
 
-function buildAppClient(algodClient: algosdk.Algodv2, safe: Safe) {
+async function buildAppClient(algodClient: algosdk.Algodv2, safe: Safe) {
   const algorand = AlgorandClient.fromClients({ algod: algodClient })
-  return algorand.client.getTypedAppClientById(AlgoSafeClient, {
+  const clientVersion = await getAlgoSafeContractVersion(algodClient, BigInt(safe.appId))
+
+  return algorand.client.getTypedAppClientById(getClient(clientVersion ?? 'latest'), {
     appId: BigInt(safe.appId),
     defaultSender: safe.address,
   })
 }
 
 async function getBoxMaps(algodClient: algosdk.Algodv2, safe: Safe) {
-  const client = buildAppClient(algodClient, safe)
+  const client = await buildAppClient(algodClient, safe)
   const [groupsMap, membersMap] = await Promise.all([client.state.box.groups.getMap(), client.state.box.members.getMap()])
 
   return { groupsMap, membersMap }

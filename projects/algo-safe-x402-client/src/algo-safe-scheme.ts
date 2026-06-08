@@ -7,7 +7,7 @@ import {
   Transaction as AlgokitTransaction,
 } from '@algorandfoundation/algokit-utils/transact';
 import algosdk from 'algosdk';
-import { AlgoSafeClient, TX_ASSET } from 'algo-safe';
+import { getAlgoSafeContractVersion, getClient, TX_ASSET } from 'algo-safe';
 import type { PaymentPayloadResult, PaymentRequirements, SchemeNetworkClient } from '@x402/core/types';
 import type { ClientAvmConfig, ClientAvmSigner, ExactAvmPayloadV2 } from '@x402/avm';
 import { getAlgokitSigner, isTestnetNetwork } from '@x402/avm';
@@ -25,6 +25,8 @@ type SafePaymentConfig = {
   proposalId?: bigint;
 };
 
+type AlgoSafeClientInstance = InstanceType<ReturnType<typeof getClient>>;
+
 export class AlgoSafeExactAvmScheme implements SchemeNetworkClient {
   readonly scheme = 'exact';
 
@@ -40,7 +42,7 @@ export class AlgoSafeExactAvmScheme implements SchemeNetworkClient {
     const { extra, network } = paymentRequirements;
     const safeConfig = this.getSafeConfig(extra);
     const algorandClient = this.getAlgorandClient(network);
-    const safeClient = this.getSafeClient(algorandClient, safeConfig.appId);
+    const safeClient = await this.getSafeClient(algorandClient, safeConfig.appId);
     const transactions: AlgokitTransaction[] = [];
 
     const proposalId = safeConfig.proposalId ?? (await this.getNextProposalId(safeClient));
@@ -124,7 +126,7 @@ export class AlgoSafeExactAvmScheme implements SchemeNetworkClient {
     return isTestnetNetwork(network) ? AlgorandClient.testNet() : AlgorandClient.mainNet();
   }
 
-  private getSafeClient(algorandClient: AlgorandClient, appId: bigint): AlgoSafeClient {
+  private async getSafeClient(algorandClient: AlgorandClient, appId: bigint): Promise<AlgoSafeClientInstance> {
     const algokitSigner = getAlgokitSigner(this.signer);
     if (!algokitSigner) {
       throw new Error('The Algo Safe x402 client requires an AlgoKit-backed Algorand signer.');
@@ -132,10 +134,12 @@ export class AlgoSafeExactAvmScheme implements SchemeNetworkClient {
 
     algorandClient.setSigner(this.signer.address, algokitSigner.signer as unknown as never);
 
-    return algorandClient.client.getTypedAppClientById(AlgoSafeClient, {
+    const clientVersion = await getAlgoSafeContractVersion(algorandClient.client.algod as never, appId);
+
+    return algorandClient.client.getTypedAppClientById(getClient(clientVersion ?? 'latest') as never, {
       appId,
       defaultSender: this.signer.address,
-    });
+    }) as AlgoSafeClientInstance;
   }
 
   private getSafeConfig(extra: PaymentRequirements['extra']): SafePaymentConfig {
@@ -173,7 +177,7 @@ export class AlgoSafeExactAvmScheme implements SchemeNetworkClient {
     throw new Error(`Expected a numeric Algorand asset id, received "${asset}".`);
   }
 
-  private async getNextProposalId(safeClient: AlgoSafeClient): Promise<bigint> {
+  private async getNextProposalId(safeClient: AlgoSafeClientInstance): Promise<bigint> {
     const result = await safeClient.getConfig({ args: [] });
     const nextProposalId = result?.[3];
 
@@ -185,7 +189,7 @@ export class AlgoSafeExactAvmScheme implements SchemeNetworkClient {
   }
 
   private async createAssetTransferProposal(
-    safeClient: AlgoSafeClient,
+    safeClient: AlgoSafeClientInstance,
     appId: bigint,
     groupId: bigint,
     proposalId: bigint,
@@ -213,7 +217,7 @@ export class AlgoSafeExactAvmScheme implements SchemeNetworkClient {
         },
         expiryRound,
       },
-      staticFee: MIN_APP_CALL_FEE,
+      staticFee: MIN_APP_CALL_FEE as never,
       sender: this.signer.address,
       boxReferences: getProposalBoxReferences(appId, groupId, proposalId, this.signer.address),
     });

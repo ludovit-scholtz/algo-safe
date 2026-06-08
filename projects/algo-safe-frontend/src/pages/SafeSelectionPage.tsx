@@ -1,7 +1,7 @@
 import { AlgorandClient } from '@algorandfoundation/algokit-utils'
 import { useQueryClient } from '@tanstack/react-query'
 import { useNetwork, useWallet, WalletId, type Wallet } from '@txnlab/use-wallet-react'
-import { AlgoSafeClient } from 'algo-safe'
+import { getAlgoSafeContractVersion, getClient } from 'algo-safe'
 import algosdk from 'algosdk'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -80,7 +80,8 @@ function AuthenticatedSafeSelection() {
 
       const senderAddress = algosdk.Address.fromString(activeAddress)
       const algorand = AlgorandClient.fromClients({ algod: algodClient })
-      const appClient = algorand.client.getTypedAppClientById(AlgoSafeClient, {
+      const clientVersion = await getAlgoSafeContractVersion(algodClient, BigInt(parsedAppId))
+      const appClient = algorand.client.getTypedAppClientById(getClient(clientVersion ?? 'latest'), {
         appId: BigInt(parsedAppId),
         defaultSender: senderAddress,
       })

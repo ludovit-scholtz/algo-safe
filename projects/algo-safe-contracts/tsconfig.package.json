@@ -8,6 +8,6 @@
     "outDir": "dist",
     "rootDir": "."
   },
-  "include": ["src/**/*.ts", "smart_contracts/artifacts/**/*.ts"],
+  "include": ["src/**/*.ts", "clients/**/*.ts", "smart_contracts/artifacts/**/*.ts"],
   "exclude": ["node_modules", "coverage", "dist"]
 }
