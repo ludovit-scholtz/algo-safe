@@ -1,7 +1,6 @@
 // src/lib/SafeContext.tsx
-import { createContext, useContext } from 'react'
-import { useEffect } from 'react'
 import { useNetwork } from '@txnlab/use-wallet-react'
+import { createContext, useContext, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { normalizeNetworkId, resolveCanonicalSafeId } from './safeRegistry'
 
