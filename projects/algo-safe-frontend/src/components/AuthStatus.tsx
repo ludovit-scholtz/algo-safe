@@ -1,5 +1,6 @@
 import { useWallet } from '@txnlab/use-wallet-react'
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { AddressDisplay } from './AddressDisplay'
 import { Button } from './ui/Button'
 import { Icon } from './ui/Icon'
@@ -7,6 +8,7 @@ import { Icon } from './ui/Icon'
 export function AuthStatus() {
   const { activeAddress, activeWallet, isReady } = useWallet()
   const [isDisconnecting, setIsDisconnecting] = useState(false)
+  const navigate = useNavigate()
 
   async function handleLogout() {
     if (!activeWallet) return
@@ -14,6 +16,7 @@ export function AuthStatus() {
     setIsDisconnecting(true)
     try {
       await activeWallet.disconnect()
+      navigate('/', { replace: true })
     } finally {
       setIsDisconnecting(false)
     }
