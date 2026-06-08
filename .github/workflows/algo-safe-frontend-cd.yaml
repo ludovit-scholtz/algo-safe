@@ -5,7 +5,7 @@ on:
 
 permissions:
   contents: read
-  packages: write
+  packages: read
 
 env:
   PROJECT_PATH: projects/algo-safe-frontend
