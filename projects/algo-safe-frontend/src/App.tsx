@@ -27,10 +27,16 @@ const browserWallets: SupportedWallet[] = [
   { id: WalletId.WALLETCONNECT, options: { ...walletConnectOptions, skin: 'biatec' } },
 ]
 
-type SupportedChainId = NetworkId.MAINNET | NetworkId.TESTNET | NetworkId.LOCALNET
+type SupportedChainId = NetworkId.MAINNET | NetworkId.TESTNET | NetworkId.LOCALNET | 'voimain' | 'aramidmain'
 
 function toSupportedChainId(network: string): SupportedChainId {
-  if (network === NetworkId.MAINNET || network === NetworkId.TESTNET || network === NetworkId.LOCALNET) {
+  if (
+    network === NetworkId.MAINNET ||
+    network === NetworkId.TESTNET ||
+    network === NetworkId.LOCALNET ||
+    network === 'voimain' ||
+    network === 'aramidmain'
+  ) {
     return network
   }
 
@@ -45,6 +51,20 @@ function getWalletNetworks(algodConfig: ReturnType<typeof getAlgodConfigFromVite
     [NetworkId.MAINNET]: DEFAULT_NETWORK_CONFIG.mainnet,
     [NetworkId.TESTNET]: DEFAULT_NETWORK_CONFIG.testnet,
     [NetworkId.LOCALNET]: DEFAULT_NETWORK_CONFIG.localnet,
+    ['voimain']: {
+      algod: { baseServer: 'https://mainnet-api.voi.nodely.dev', port: '443', token: '' },
+      caipChainId: 'r20fSQI8gWe_kFZziNonSPCXLwcQmH_n',
+      genesisHash: 'r20fSQI8gWe/kFZziNonSPCXLwcQmH/nxROvnnueWOk=',
+      genesisId: 'voimain-v1.0',
+      isTestnet: false,
+    },
+    ['aramidmain']: {
+      algod: { baseServer: 'https://aramidmain-algod-public.de.nodes.biatec.io', port: '443', token: '' },
+      caipChainId: 'PgeQVJJgx_LYKJfIEz7dbfNPuXmDyJ-O',
+      genesisHash: 'PgeQVJJgx/LYKJfIEz7dbfNPuXmDyJ+O7FwQ4XL9tE8=',
+      genesisId: 'aramidmain-v1.0',
+      isTestnet: false,
+    },
   }
 
   networks[selectedNetwork] = {

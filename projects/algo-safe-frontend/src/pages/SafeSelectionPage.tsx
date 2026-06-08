@@ -17,6 +17,8 @@ const browserWalletKeys = new Set([WalletId.PERA, WalletId.DEFLY, WalletId.WALLE
 
 const chainOptions = [
   { id: 'mainnet', label: 'Algorand MainNet', hint: 'Production network for live treasury operations.' },
+  { id: 'voimain', label: 'Voi MainNet', hint: 'Voi network for specialized operations.' },
+  { id: 'aramidmain', label: 'Aramid MainNet', hint: 'Aramid network for specialized operations.' },
   { id: 'testnet', label: 'Algorand TestNet', hint: 'Public test network for wallet pairing and dry runs.' },
   { id: 'localnet', label: 'AlgoKit LocalNet', hint: 'Local development chain with KMD-backed wallets.' },
 ] as const
