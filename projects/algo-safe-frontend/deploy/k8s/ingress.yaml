@@ -4,7 +4,7 @@ metadata:
   name: algo-safe-frontend
   namespace: algo-safe
   annotations:
-    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/ssl-redirect: 'true'
 spec:
   ingressClassName: nginx
   rules:
