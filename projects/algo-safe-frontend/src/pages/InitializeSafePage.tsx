@@ -146,7 +146,7 @@ export function InitializeSafePage() {
         address: appAddress,
         creatorAddress: activeAddress,
         name: safeName,
-        network: normalizeNetworkId(activeNetwork ?? import.meta.env.VITE_ALGOD_NETWORK),
+        network: normalizeNetworkId(activeNetwork),
       })
 
       setStage('success')
