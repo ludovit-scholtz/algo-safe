@@ -1,7 +1,7 @@
 export {
+  APP_SPEC,
   AdminChangeFromTuple,
   AlgoSafeFactory,
-  APP_SPEC,
   AppCallPayloadFromTuple,
   ApprovalFromTuple,
   AssetPayloadFromTuple,

@@ -1,3 +1,5 @@
+import { CONTRACT_HASHES, type ContractVersion } from './versioned-clients.generated'
+
 type AlgodAppLookup = {
   getApplicationByID?: (appId: number) => {
     do(): Promise<unknown>
@@ -7,26 +9,15 @@ type AlgodAppLookup = {
   }
 }
 
-type AppStateValue = {
-  type?: number
-  bytes?: string
-}
-
-type AppStateEntry = {
-  key?: string
-  value?: AppStateValue
-}
-
 type ApplicationLookupResponse = {
   params?: {
-    'global-state'?: AppStateEntry[]
-    globalState?: AppStateEntry[]
+    'approval-program'?: string
+    approvalProgram?: string
   }
 }
 
-const VERSION_STATE_KEY_BASE64 = 'dmVy'
-const COMMIT_ID_PATTERN = /^[0-9a-f]{7,40}$/i
 const UTF8_DECODER = new TextDecoder()
+const HEX_DIGITS = '0123456789abcdef'
 
 function decodeBase64Utf8(value: string) {
   const decoded = atob(value)
@@ -34,10 +25,31 @@ function decodeBase64Utf8(value: string) {
   return UTF8_DECODER.decode(bytes)
 }
 
+function decodeBase64Bytes(value: string) {
+  const decoded = atob(value)
+  return Uint8Array.from(decoded, (char) => char.charCodeAt(0))
+}
+
+function bytesToHex(bytes: Uint8Array) {
+  let hex = ''
+
+  for (const byte of bytes) {
+    hex += HEX_DIGITS[(byte >> 4) & 0x0f] + HEX_DIGITS[byte & 0x0f]
+  }
+
+  return hex
+}
+
+async function hashApprovalProgram(approvalProgramBase64: string) {
+  const approvalProgramBytes = decodeBase64Bytes(approvalProgramBase64)
+  const digest = await crypto.subtle.digest('SHA-256', approvalProgramBytes)
+  return bytesToHex(new Uint8Array(digest))
+}
+
 export async function getAlgoSafeContractVersion(
   algodClient: AlgodAppLookup,
   appId: bigint | number,
-): Promise<string | null> {
+): Promise<ContractVersion> {
   const lookup = algodClient.getApplicationByID?.(Number(appId)) ?? algodClient.applicationByID?.(Number(appId))
 
   if (!lookup) {
@@ -45,12 +57,10 @@ export async function getAlgoSafeContractVersion(
   }
 
   const application = (await lookup.do()) as ApplicationLookupResponse
-  const globalState = application.params?.['global-state'] ?? application.params?.globalState
-  const versionEntry = globalState?.find((entry) => entry.key === VERSION_STATE_KEY_BASE64)
-  const encodedVersion = versionEntry?.value?.type === 1 ? versionEntry.value.bytes : undefined
+  const approvalProgram = application.params?.['approval-program'] ?? application.params?.approvalProgram
 
-  if (!encodedVersion) return null
+  if (!approvalProgram) return 'latest'
 
-  const version = decodeBase64Utf8(encodedVersion)?.trim()
-  return version && COMMIT_ID_PATTERN.test(version) ? version : null
+  const approvalHash = await hashApprovalProgram(approvalProgram)
+  return CONTRACT_HASHES.includes(approvalHash as (typeof CONTRACT_HASHES)[number]) ? approvalHash : 'latest'
 }

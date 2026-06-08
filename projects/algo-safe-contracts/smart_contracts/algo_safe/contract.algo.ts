@@ -84,7 +84,7 @@ const ADM_SET_ACTIVE: uint64 = Uint64(7)
 // Period lengths for spending limits, in seconds.
 const DAY_SECONDS: uint64 = Uint64(86400)
 const MONTH_SECONDS: uint64 = Uint64(2592000) // 30 days
-const CONTRACT_VERSION = '58cb47a5ee27'
+const CONTRACT_VERSION = 'BIATECH-ALGO-SAFE-v1.0.0'
 
 // ---------------------------------------------------------------------------
 // Stored record types (plain TS types for box storage)
