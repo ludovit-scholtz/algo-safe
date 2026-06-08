@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: algo-safe-frontend
+  namespace: algo-safe
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: algo-safe-frontend
+  template:
+    metadata:
+      labels:
+        app: algo-safe-frontend
+    spec:
+      imagePullSecrets:
+        - name: regcred
+      containers:
+        - name: algo-safe-frontend
+          image: IMAGE_PLACEHOLDER
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi

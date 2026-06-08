@@ -1,0 +1,16 @@
+.git
+.github
+.idea
+.vscode
+**/node_modules
+**/dist
+**/coverage
+**/.algokit
+**/.turbo
+**/.cache
+**/*.tsbuildinfo
+**/logs
+**/.env
+**/.env.*
+!**/.env.template
+test-out.txt

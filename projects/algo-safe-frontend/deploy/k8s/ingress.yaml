@@ -1,0 +1,24 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: algo-safe-frontend
+  namespace: algo-safe
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: FRONTEND_HOST_PLACEHOLDER
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: algo-safe-frontend
+                port:
+                  number: 80
+  tls:
+    - hosts:
+        - FRONTEND_HOST_PLACEHOLDER
+      secretName: FRONTEND_TLS_SECRET_PLACEHOLDER

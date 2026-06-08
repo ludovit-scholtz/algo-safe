@@ -2,36 +2,133 @@ name: Release algo-safe-frontend
 
 on:
   workflow_call:
+
 permissions:
   contents: read
-  packages: read
+  packages: write
+
+env:
+  PROJECT_PATH: projects/algo-safe-frontend
+  IMAGE_NAME: harbor.de-4.biatec.io/biatec/algo-safe-frontend
+  K8S_NAMESPACE: algo-safe
+  K8S_DEPLOYMENT_NAME: algo-safe-frontend
+  K8S_SERVICE_NAME: algo-safe-frontend
+  K8S_INGRESS_NAME: algo-safe-frontend
+  K8S_IMAGE_PULL_SECRET: regcred
+  FRONTEND_HOSTNAME: ${{ vars.FRONTEND_HOSTNAME }}
+  FRONTEND_TLS_SECRET_NAME: ${{ vars.FRONTEND_TLS_SECRET_NAME }}
 
 jobs:
-  
+  docker:
+    runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.derive_image_tag.outputs.value }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Derive image tag
+        id: derive_image_tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          image_tag="$(date -u +%F)-${GITHUB_SHA::8}"
+          echo "value=$image_tag" >> "$GITHUB_OUTPUT"
+
+      - name: Log in to Harbor
+        uses: docker/login-action@v4
+        with:
+          registry: harbor.de-4.biatec.io
+          username: ${{ secrets.HARBOR_USERNAME }}
+          password: ${{ secrets.HARBOR_PASSWORD }}
+
+      - name: Build and push image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ./projects/algo-safe-frontend/Dockerfile
+          push: true
+          tags: |
+            ${{ env.IMAGE_NAME }}:${{ steps.derive_image_tag.outputs.value }}
+            ${{ env.IMAGE_NAME }}:latest
+
   deploy:
     runs-on: ubuntu-latest
-    name: Deploy to Vercel
-    environment: frontend-prod
-    
+    needs: docker
+    env:
+      IMAGE_REF: harbor.de-4.biatec.io/biatec/algo-safe-frontend:${{ needs.docker.outputs.image_tag }}
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
+      - name: Checkout
+        uses: actions/checkout@v5
 
-      - name: Setup node
-        uses: actions/setup-node@v3
-        with:
-          node-version: 18
-
-      - name: Install algokit
-        run: pipx install algokit
-
-      - name: Bootstrap dependencies
-        run: algokit project bootstrap all --project-name 'algo-safe-frontend'
-    
-      - name: Publish to Vercel
+      - name: Check required configuration
         env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-        run: algokit project run ci-deploy-vercel
+          HARBOR_USERNAME: ${{ secrets.HARBOR_USERNAME }}
+          HARBOR_PASSWORD: ${{ secrets.HARBOR_PASSWORD }}
+          KUBE_CONFIG_DATA: ${{ secrets.KUBE_CONFIG_DATA }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          missing=0
+          for name in HARBOR_USERNAME HARBOR_PASSWORD KUBE_CONFIG_DATA; do
+            value="${!name:-}"
+            if [ -z "$value" ]; then
+              echo "Missing required secret: $name" >&2
+              missing=1
+            fi
+          done
+          for name in FRONTEND_HOSTNAME FRONTEND_TLS_SECRET_NAME; do
+            value="${!name:-}"
+            if [ -z "$value" ]; then
+              echo "Missing required repository variable: $name" >&2
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            exit 1
+          fi
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: latest
+
+      - name: Configure kubeconfig
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.kube
+          echo "${{ secrets.KUBE_CONFIG_DATA }}" | base64 --decode > ~/.kube/config
+
+      - name: Apply namespace
+        run: kubectl apply -f ${{ env.PROJECT_PATH }}/deploy/k8s/namespace.yaml
+
+      - name: Create or update image pull secret
+        shell: bash
+        run: |
+          set -euo pipefail
+          kubectl create secret docker-registry ${{ env.K8S_IMAGE_PULL_SECRET }} \
+            --namespace ${{ env.K8S_NAMESPACE }} \
+            --docker-server=harbor.de-4.biatec.io \
+            --docker-username='${{ secrets.HARBOR_USERNAME }}' \
+            --docker-password='${{ secrets.HARBOR_PASSWORD }}' \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Deploy application
+        shell: bash
+        run: |
+          set -euo pipefail
+          sed \
+            -e "s|IMAGE_PLACEHOLDER|${IMAGE_REF}|g" \
+            -e "s|FRONTEND_HOST_PLACEHOLDER|${FRONTEND_HOSTNAME}|g" \
+            -e "s|FRONTEND_TLS_SECRET_PLACEHOLDER|${FRONTEND_TLS_SECRET_NAME}|g" \
+            ${{ env.PROJECT_PATH }}/deploy/k8s/deployment.yaml | kubectl apply -f -
+          kubectl apply -f ${{ env.PROJECT_PATH }}/deploy/k8s/service.yaml
+          sed \
+            -e "s|FRONTEND_HOST_PLACEHOLDER|${FRONTEND_HOSTNAME}|g" \
+            -e "s|FRONTEND_TLS_SECRET_PLACEHOLDER|${FRONTEND_TLS_SECRET_NAME}|g" \
+            ${{ env.PROJECT_PATH }}/deploy/k8s/ingress.yaml | kubectl apply -f -
+
+      - name: Verify rollout
+        run: kubectl rollout status deployment/${{ env.K8S_DEPLOYMENT_NAME }} --namespace ${{ env.K8S_NAMESPACE }} --timeout=600s
     
