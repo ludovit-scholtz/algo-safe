@@ -66,7 +66,7 @@ export function InitializeSafePage() {
 
   const isBusy = stage === 'deploying' || stage === 'funding'
   const currentStep = getCurrentStep(stage)
-  const networkLabel = formatNetworkLabel(activeNetwork ?? import.meta.env.VITE_ALGOD_NETWORK ?? 'mainnet')
+  const networkLabel = formatNetworkLabel(activeNetwork ?? 'mainnet')
   const buttonLabel = useMemo(() => {
     switch (stage) {
       case 'deploying':

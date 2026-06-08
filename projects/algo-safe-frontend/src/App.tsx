@@ -27,6 +27,12 @@ const browserWallets: SupportedWallet[] = [
   { id: WalletId.WALLETCONNECT, options: { ...walletConnectOptions, skin: 'biatec' } },
 ]
 
+const kmd = getKmdConfigFromViteEnvironment()
+const supportedWallets: SupportedWallet[] = [
+  { id: WalletId.KMD, options: { baseServer: kmd.server, token: String(kmd.token), port: String(kmd.port) } },
+  ...browserWallets,
+]
+
 type SupportedChainId = NetworkId.MAINNET | NetworkId.TESTNET | NetworkId.LOCALNET | 'voimain' | 'aramidmain'
 
 function toSupportedChainId(network: string): SupportedChainId {
@@ -80,16 +86,6 @@ function getWalletNetworks(algodConfig: ReturnType<typeof getAlgodConfigFromVite
   return networks
 }
 
-let supportedWallets: SupportedWallet[]
-if (import.meta.env.VITE_ALGOD_NETWORK === 'localnet') {
-  const kmd = getKmdConfigFromViteEnvironment()
-  supportedWallets = [
-    { id: WalletId.KMD, options: { baseServer: kmd.server, token: String(kmd.token), port: String(kmd.port) } },
-    ...browserWallets,
-  ]
-} else {
-  supportedWallets = browserWallets
-}
 const queryClient = new QueryClient()
 
 export default function App() {
