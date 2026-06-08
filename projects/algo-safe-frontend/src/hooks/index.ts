@@ -1,13 +1,19 @@
 // src/hooks/index.ts
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useNetwork } from '@txnlab/use-wallet-react'
-import { useWallet } from '@txnlab/use-wallet-react'
-import { useServices } from '../services'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useNetwork, useWallet } from '@txnlab/use-wallet-react'
 import { useSafeId } from '../lib/SafeContext'
 import { normalizeNetworkId } from '../lib/safeRegistry'
-import type { RegisterAgentInput, PolicyChangeInput, CreateSafeInput } from '../services/types'
+import { useServices } from '../services'
 import { fetchLiveSignerGroupDetail, fetchLiveSignerGroups } from '../services/algoSafeGroups'
-import { approveLiveProposal, cancelLiveProposal, executeLiveProposal, fetchLiveProposal, fetchLiveProposals, type ExecuteProposalLifecycle } from '../services/algoSafeProposals'
+import {
+  approveLiveProposal,
+  cancelLiveProposal,
+  executeLiveProposal,
+  fetchLiveProposal,
+  fetchLiveProposals,
+  type ExecuteProposalLifecycle,
+} from '../services/algoSafeProposals'
+import type { CreateSafeInput, PolicyChangeInput, RegisterAgentInput } from '../services/types'
 
 type ExecuteProposalInput = { id: string } & ExecuteProposalLifecycle
 
@@ -22,12 +28,27 @@ export const useSafes = () => {
     enabled: !!activeAddress,
   })
 }
-export const useSafe = (safeId?: string) => { const { safe } = useServices(); return useQuery({ queryKey: ['safe', safeId], queryFn: () => safe.getSafe(safeId!), enabled: !!safeId }) }
-export const useAssets = (safeId?: string) => { const { safe } = useServices(); return useQuery({ queryKey: ['assets', safeId], queryFn: () => safe.listAssets(safeId!), enabled: !!safeId }) }
-export const useTreasury = (safeId?: string) => { const { safe } = useServices(); return useQuery({ queryKey: ['treasury', safeId], queryFn: () => safe.getTreasury(safeId!), enabled: !!safeId }) }
+export const useSafe = (safeId?: string) => {
+  const { safe } = useServices()
+  return useQuery({ queryKey: ['safe', safeId], queryFn: () => safe.getSafe(safeId!), enabled: !!safeId })
+}
+export const useAssets = (safeId?: string) => {
+  const { safe } = useServices()
+  return useQuery({ queryKey: ['assets', safeId], queryFn: () => safe.listAssets(safeId!), enabled: !!safeId })
+}
+export const useTreasury = (safeId?: string) => {
+  const { safe } = useServices()
+  return useQuery({ queryKey: ['treasury', safeId], queryFn: () => safe.getTreasury(safeId!), enabled: !!safeId })
+}
 
-export const useAgents = () => { const { safe } = useServices(); return useQuery({ queryKey: ['agents'], queryFn: () => safe.listAgents() }) }
-export const usePolicy = (agentId?: string) => { const { safe } = useServices(); return useQuery({ queryKey: ['policy', agentId], queryFn: () => safe.getPolicy(agentId!), enabled: !!agentId }) }
+export const useAgents = () => {
+  const { safe } = useServices()
+  return useQuery({ queryKey: ['agents'], queryFn: () => safe.listAgents() })
+}
+export const usePolicy = (agentId?: string) => {
+  const { safe } = useServices()
+  return useQuery({ queryKey: ['policy', agentId], queryFn: () => safe.getPolicy(agentId!), enabled: !!agentId })
+}
 export const useSignerGroups = () => {
   const safeId = useSafeId()
   const safeQuery = useSafe(safeId)
@@ -87,23 +108,41 @@ export const useProposal = (id?: string) => {
   })
 }
 
-export const useEurdBalance = () => { const { quantoz } = useServices(); return useQuery({ queryKey: ['eurd'], queryFn: () => quantoz.getEurdBalance() }) }
-export const useQuantozTransactions = () => { const { quantoz } = useServices(); return useQuery({ queryKey: ['qtx'], queryFn: () => quantoz.getTransactions() }) }
+export const useEurdBalance = () => {
+  const { quantoz } = useServices()
+  return useQuery({ queryKey: ['eurd'], queryFn: () => quantoz.getEurdBalance() })
+}
+export const useQuantozTransactions = () => {
+  const { quantoz } = useServices()
+  return useQuery({ queryKey: ['qtx'], queryFn: () => quantoz.getTransactions() })
+}
 
 export function useCreateSafe() {
-  const { safe } = useServices(); const qc = useQueryClient()
-  return useMutation({ mutationFn: (input: CreateSafeInput) => safe.createSafe(input), onSuccess: () => qc.invalidateQueries({ queryKey: ['safes'] }) })
+  const { safe } = useServices()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (input: CreateSafeInput) => safe.createSafe(input),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['safes'] }),
+  })
 }
 export function useRegisterAgent() {
-  const { safe } = useServices(); const qc = useQueryClient()
+  const { safe } = useServices()
+  const qc = useQueryClient()
   return useMutation({
     mutationFn: (input: RegisterAgentInput) => safe.registerAgent(input),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['agents'] }); qc.invalidateQueries({ queryKey: ['proposals'] }) },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['agents'] })
+      qc.invalidateQueries({ queryKey: ['proposals'] })
+    },
   })
 }
 export function useProposePolicyChange() {
-  const { safe } = useServices(); const qc = useQueryClient()
-  return useMutation({ mutationFn: (input: PolicyChangeInput) => safe.proposePolicyChange(input), onSuccess: () => qc.invalidateQueries({ queryKey: ['proposals'] }) })
+  const { safe } = useServices()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (input: PolicyChangeInput) => safe.proposePolicyChange(input),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['proposals'] }),
+  })
 }
 export function useApproveProposal() {
   const safeId = useSafeId()

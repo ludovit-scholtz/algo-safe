@@ -17,7 +17,7 @@ export type AssetSymbol = 'EURD' | 'ALGO' | 'USDC' | string
 export interface Balance {
   symbol: AssetSymbol
   assetId?: number
-  amount: number      // human units (not micro)
+  amount: number // human units (not micro)
   decimals: number
   label: string
 }
@@ -31,7 +31,7 @@ export interface Agent {
   primaryAsset: AssetSymbol
   dailyLimit: number
   status: AgentStatus
-  groupTier: string   // e.g. "Tier 3 - Automated Execution (1/1)"
+  groupTier: string // e.g. "Tier 3 - Automated Execution (1/1)"
 }
 
 export interface Policy {
@@ -47,8 +47,15 @@ export interface Policy {
 }
 
 export type ProposalStatus = 'draft' | 'pending' | 'ready' | 'executed' | 'rejected' | 'expired' | 'blocked' | 'cancelled'
-export interface TxLine { type: 'pay' | 'axfer' | 'appl' | 'keyreg'; summary: string; detail: string }
-export interface PolicyCheck { label: string; passed: boolean }
+export interface TxLine {
+  type: 'pay' | 'axfer' | 'appl' | 'keyreg'
+  summary: string
+  detail: string
+}
+export interface PolicyCheck {
+  label: string
+  passed: boolean
+}
 export interface Proposal {
   id: string
   title: string
@@ -58,7 +65,7 @@ export interface Proposal {
   threshold: number
   amount?: number
   asset?: AssetSymbol
-  date: string        // human label e.g. "Today, 14:30"
+  date: string // human label e.g. "Today, 14:30"
   txPreview: TxLine[]
   policyChecks: PolicyCheck[]
   blockedReason?: string
@@ -76,9 +83,19 @@ export interface QuantozTransaction {
   counterparty?: string
 }
 
-export interface FundByBankCountry { countryCode: string; name: string }
-export interface FundByBankBank { bankId: string; name: string }
-export interface FundingSession { sessionReference: string; redirectUrl: string; status: string }
+export interface FundByBankCountry {
+  countryCode: string
+  name: string
+}
+export interface FundByBankBank {
+  bankId: string
+  name: string
+}
+export interface FundingSession {
+  sessionReference: string
+  redirectUrl: string
+  status: string
+}
 
 export interface RegisterAgentInput {
   alias: string
@@ -88,7 +105,10 @@ export interface RegisterAgentInput {
   dailyLimit: number
   primaryAsset: AssetSymbol
 }
-export interface PolicyChangeInput { agentId: string; policy: Partial<Policy> }
+export interface PolicyChangeInput {
+  agentId: string
+  policy: Partial<Policy>
+}
 
 export type SafeTier = string // e.g. "2-of-3 Multisig"
 export interface SafeSummary {
@@ -105,12 +125,12 @@ export interface SafeSummary {
 export type AssetHoldingType = 'native' | 'stablecoin' | 'lending'
 export interface AssetHolding {
   symbol: AssetSymbol
-  name: string          // "Algorand Native", "EURD"
+  name: string // "Algorand Native", "EURD"
   assetId?: number
-  amount: number        // human units
+  amount: number // human units
   valueEur: number
   type: AssetHoldingType
-  apy?: number          // for lending positions
+  apy?: number // for lending positions
 }
 
 export interface TreasurySummary {
