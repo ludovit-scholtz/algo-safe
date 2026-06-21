@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm build)",
+      "Bash(pnpm test)",
+      "Bash(pnpm test:e2e)",
+      "Bash(pnpm lint)",
+      "Bash(pnpm lint:fix)",
+      "Bash(pnpm dev)",
+      "Bash(pnpm run *)",
+      "Bash(algokit localnet start)",
+      "Bash(algokit localnet status)",
+      "Bash(algokit localnet reset)",
+      "Bash(algokit project run build)",
+      "Bash(algokit project run test)",
+      "Bash(algokit project deploy localnet)",
+      "Bash(algokit compile ts *)",
+      "Bash(algokit generate client *)",
+      "Bash(npx tsx *)",
+      "Bash(git status)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Bash(git add *)",
+      "Bash(git branch *)"
+    ]
+  }
+}
