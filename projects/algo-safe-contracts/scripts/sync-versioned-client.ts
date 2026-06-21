@@ -83,6 +83,7 @@ function isTypeOnlyExport(name: string) {
   return (
     name === 'BinaryState' ||
     name === 'Expand' ||
+    name.startsWith('Object') ||
     name.endsWith('Args') ||
     name.endsWith('Returns') ||
     name.endsWith('Types') ||
@@ -93,10 +94,7 @@ function isTypeOnlyExport(name: string) {
     name.endsWith('Results') ||
     [
       'AdminChange',
-      'AppCallPayload',
       'Approval',
-      'AssetPayload',
-      'KeyRegPayload',
       'Member',
       'Object78E87395',
       'Object9F556C53',

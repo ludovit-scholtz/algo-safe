@@ -1,11 +1,34 @@
 import algosdk from 'algosdk'
-import type {
-  AppCallPayload,
-  AssetPayload,
-  KeyRegPayload,
-  PaymentPayload,
-} from '../smart_contracts/artifacts/algo_safe/AlgoSafeClient'
+import type { PaymentPayload } from '../smart_contracts/artifacts/algo_safe/AlgoSafeClient'
 import { EMPTY_BYTES, TX_APP, TX_ASSET, TX_KEYREG, TX_PAYMENT } from './constants'
+
+export type AssetPayload = {
+  xferAsset: bigint
+  assetReceiver: string
+  assetAmount: bigint
+  hasClose: bigint
+  assetCloseTo: string
+  note: string
+}
+
+export type AppCallPayload = {
+  appId: bigint
+  numArgs: bigint
+  arg0: Uint8Array
+  arg1: Uint8Array
+  arg2: Uint8Array
+  arg3: Uint8Array
+}
+
+export type KeyRegPayload = {
+  online: bigint
+  voteKey: Uint8Array
+  selectionKey: Uint8Array
+  stateProofKey: Uint8Array
+  voteFirst: bigint
+  voteLast: bigint
+  voteKeyDilution: bigint
+}
 
 export type SafeTxn = {
   txType: bigint
@@ -35,29 +58,29 @@ export type SafeTxn = {
 }
 
 export type SafeTxnTuple = [
-  bigint | number,
+  bigint,
   string,
-  bigint | number,
-  bigint | number,
+  bigint,
+  bigint,
   string,
-  bigint | number,
+  bigint,
   string,
-  bigint | number,
-  bigint | number,
+  bigint,
+  bigint,
   string,
-  bigint | number,
-  bigint | number,
+  bigint,
+  bigint,
   Uint8Array,
   Uint8Array,
   Uint8Array,
   Uint8Array,
-  bigint | number,
+  bigint,
   Uint8Array,
   Uint8Array,
   Uint8Array,
-  bigint | number,
-  bigint | number,
-  bigint | number,
+  bigint,
+  bigint,
+  bigint,
   string,
 ]
 
@@ -65,29 +88,29 @@ export const ZERO_ADDR = algosdk.encodeAddress(new Uint8Array(32))
 
 export function toSafeTxnTuple(tx: SafeTxn): SafeTxnTuple {
   return [
-    tx.txType,
+    BigInt(tx.txType),
     tx.receiver,
-    tx.amount,
-    tx.hasClose,
+    BigInt(tx.amount),
+    BigInt(tx.hasClose),
     tx.closeRemainderTo,
-    tx.xferAsset,
+    BigInt(tx.xferAsset),
     tx.assetReceiver,
-    tx.assetAmount,
-    tx.hasAssetClose,
+    BigInt(tx.assetAmount),
+    BigInt(tx.hasAssetClose),
     tx.assetCloseTo,
-    tx.appId,
-    tx.numArgs,
+    BigInt(tx.appId),
+    BigInt(tx.numArgs),
     tx.arg0,
     tx.arg1,
     tx.arg2,
     tx.arg3,
-    tx.online,
+    BigInt(tx.online),
     tx.voteKey,
     tx.selectionKey,
     tx.stateProofKey,
-    tx.voteFirst,
-    tx.voteLast,
-    tx.voteKeyDilution,
+    BigInt(tx.voteFirst),
+    BigInt(tx.voteLast),
+    BigInt(tx.voteKeyDilution),
     tx.note,
   ]
 }
@@ -176,6 +199,7 @@ export function createKeyRegSafeTxn(payload: KeyRegPayload): SafeTxn {
     voteKeyDilution: payload.voteKeyDilution,
   }
 }
+
 
 export function createPaymentPayload(receiver: string, amount: bigint, note = ''): PaymentPayload {
   return { receiver, amount, hasClose: 0n, closeRemainderTo: ZERO_ADDR, note }

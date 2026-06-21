@@ -21,7 +21,12 @@
       "Bash(git diff *)",
       "Bash(git log *)",
       "Bash(git add *)",
-      "Bash(git branch *)"
+      "Bash(git branch *)",
+      "Bash(Get-Content *)",
+      "Bash(Get-ChildItem *)",
+      "Bash(Get-Process *)",
+      "Bash(Get-Service *)",
+      "Bash(Get-EventLog *)"
     ]
   }
 }

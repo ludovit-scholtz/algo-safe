@@ -2,17 +2,12 @@ export {
   APP_SPEC,
   AdminChangeFromTuple,
   AlgoSafeFactory,
-  AppCallPayloadFromTuple,
   ApprovalFromTuple,
-  AssetPayloadFromTuple,
-  KeyRegPayloadFromTuple,
   MemberFromTuple,
-  Object78E87395FromTuple,
-  Object9F556C53FromTuple,
   PaymentPayloadFromTuple,
   ProposalFromTuple,
   SignerGroupFromTuple,
-} from '../clients/ebd1cf101b997b6a914caa195aa7d3eb050d557dc823edab438cc30cbf156b1e/AlgoSafeClient'
+} from '../clients/1a77ba21f289ff35d2d54b732cc2e66e4bdba6ac820e7f25e381f58bea41b5fc/AlgoSafeClient'
 
 export type {
   AdminChange,
@@ -25,21 +20,20 @@ export type {
   AlgoSafeReturns,
   AlgoSafeSignatures,
   AlgoSafeTypes,
-  AppCallPayload,
   Approval,
-  AssetPayload,
   BinaryState,
   BoxKeysState,
   CallParams,
   Expand,
   GlobalKeysState,
-  KeyRegPayload,
   Member,
   MethodArgs,
   MethodReturn,
   Object78E87395,
+  Object78E87395FromTuple,
   Object9F556C53,
+  Object9F556C53FromTuple,
   PaymentPayload,
   Proposal,
   SignerGroup,
-} from '../clients/ebd1cf101b997b6a914caa195aa7d3eb050d557dc823edab438cc30cbf156b1e/AlgoSafeClient'
+} from '../clients/1a77ba21f289ff35d2d54b732cc2e66e4bdba6ac820e7f25e381f58bea41b5fc/AlgoSafeClient'

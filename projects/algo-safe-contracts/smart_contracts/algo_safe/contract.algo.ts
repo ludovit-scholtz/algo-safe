@@ -121,6 +121,7 @@ type Proposal = {
   threshold: uint64
   expiryRound: uint64
   proposer: Account
+  numPayloads: uint64
 }
 
 type PaymentPayload = {
@@ -131,34 +132,6 @@ type PaymentPayload = {
   note: string
 }
 
-type AssetPayload = {
-  xferAsset: uint64
-  assetReceiver: Account
-  assetAmount: uint64
-  hasClose: uint64
-  assetCloseTo: Account
-  note: string
-}
-
-// App-call payloads are NoOp calls with up to 4 application arguments.
-type AppCallPayload = {
-  appId: uint64
-  numArgs: uint64
-  arg0: bytes
-  arg1: bytes
-  arg2: bytes
-  arg3: bytes
-}
-
-type KeyRegPayload = {
-  online: uint64 // 1 = online registration, 0 = go offline
-  voteKey: bytes<32>
-  selectionKey: bytes<32>
-  stateProofKey: bytes<64>
-  voteFirst: uint64
-  voteLast: uint64
-  voteKeyDilution: uint64
-}
 
 type SafeTxn = {
   txType: uint64
@@ -187,10 +160,12 @@ type SafeTxn = {
   note: string
 }
 
-// An ordered, dynamically sized list of transactions. A single-action proposal
-// is just a one-element list. This mirrors Algorand atomic transaction groups,
-// where order matters and the group is all-or-nothing.
-type TransactionGroupPayload = SafeTxn[]
+// Flat ordered list of safe transactions stored per-payload in the box.
+type SafeTxnGroup = SafeTxn[]
+
+// Multiplier for the computed box key: proposalId * TXG_KEY_MULT + payloadIndex.
+// A multiplier > 6 (the max payloadIndex) guarantees no key collisions.
+const TXG_KEY_MULT: uint64 = Uint64(7)
 
 type AdminChange = {
   changeType: uint64
@@ -248,7 +223,8 @@ export class AlgoSafe extends Contract {
   members = BoxMap<{ groupId: uint64; account: Account }, Member>({ keyPrefix: 'm' })
   proposals = BoxMap<uint64, Proposal>({ keyPrefix: 'p' })
   approvals = BoxMap<{ proposalId: uint64; account: Account }, Approval>({ keyPrefix: 'a' })
-  transactionGroups = BoxMap<uint64, TransactionGroupPayload>({ keyPrefix: 'txg' })
+  // Key = proposalId * TXG_KEY_MULT + payloadIndex (avoids composite-struct encoding overhead).
+  transactionGroups = BoxMap<uint64, SafeTxnGroup>({ keyPrefix: 'txg' })
   adminPayloads = BoxMap<uint64, AdminChange>({ keyPrefix: 'dp' })
 
   // -------------------------------------------------------------------------
@@ -328,58 +304,52 @@ export class AlgoSafe extends Contract {
     if (payload.hasClose !== Uint64(0)) {
       assert(payload.closeRemainderTo !== Global.zeroAddress, 'close target required')
     }
-    const tx = this._txnFromPayment(payload)
-    const group = this._singleTxnGroup(tx)
-    return this.proposeTransactionGroup(groupId, group, expiryRound)
-  }
-
-  /** Create an asset-transfer (ASA) proposal. Also used for opt-in (amount 0, receiver = safe). */
-  public proposeAssetTransfer(groupId: uint64, payload: AssetPayload, expiryRound: uint64): uint64 {
-    this._assertActionAllowed(groupId, ACT_AXFER)
-    assert(payload.assetReceiver !== Global.zeroAddress, 'receiver required')
-    if (payload.hasClose !== Uint64(0)) {
-      assert(payload.assetCloseTo !== Global.zeroAddress, 'close target required')
-    }
-    const tx = this._txnFromAsset(payload)
-    const group = this._singleTxnGroup(tx)
-    return this.proposeTransactionGroup(groupId, group, expiryRound)
-  }
-
-  /** Create a NoOp application-call proposal with up to 4 application args. */
-  public proposeAppCall(groupId: uint64, payload: AppCallPayload, expiryRound: uint64): uint64 {
-    this._assertActionAllowed(groupId, ACT_APPL)
-    assert(payload.appId !== Uint64(0), 'appId required')
-    assert(payload.numArgs <= Uint64(4), 'max 4 app args')
-    const tx = this._txnFromAppCall(payload)
-    const group = this._singleTxnGroup(tx)
-    return this.proposeTransactionGroup(groupId, group, expiryRound)
-  }
-
-  /** Create a key-registration proposal (online or offline). */
-  public proposeKeyRegistration(groupId: uint64, payload: KeyRegPayload, expiryRound: uint64): uint64 {
-    this._assertActionAllowed(groupId, ACT_KEYREG)
-    const tx = this._txnFromKeyReg(payload)
-    const group = this._singleTxnGroup(tx)
-    return this.proposeTransactionGroup(groupId, group, expiryRound)
+    return this._proposeSingleTxnGroup(groupId, this._txnFromPayment(payload), expiryRound)
   }
 
   /**
-   * Create an ordered transaction-group proposal. This is the canonical
-   * executable proposal form: signer approvals cover the complete ordered list
-   * of transactions and execution emits that list as one atomic inner group.
+   * Create a transaction-group proposal from the first payload chunk. When the
+   * total number of transactions exceeds the ~2 KB per-ABI-argument limit, call
+   * appendTransactionGroupPayload (once per extra chunk, slots 2–6) before the
+   * proposal is approved and executed. Stores the payload at slot 1.
    */
-  public proposeTransactionGroup(groupId: uint64, payload: TransactionGroupPayload, expiryRound: uint64): uint64 {
-    const count: uint64 = payload.length
-    ensureBudget((count + Uint64(1)) * Uint64(700), 0)
+  public proposeTransactionGroup(groupId: uint64, payload: SafeTxnGroup, expiryRound: uint64): uint64 {
+    assert(payload.length >= Uint64(1), 'empty tx group')
+    assert(payload.length <= MAX_GROUP_TXNS, 'too many txs')
+    ensureBudget((payload.length + Uint64(3)) * Uint64(700))
     assert(this.paused.value === Uint64(0), 'safe paused')
     this._assertMember(groupId)
     assert(this.groups(groupId).value.active !== Uint64(0), 'group disabled')
-    assert(payload.length >= Uint64(1), 'empty tx group')
-    assert(payload.length <= MAX_GROUP_TXNS, 'too many txs')
-
     const pid = this._newProposal(groupId, PT_TRANSACTION_GROUP, expiryRound)
-    this.transactionGroups(pid).value = clone(payload)
+    this._storePayloadGroup(pid, Uint64(1), payload)
+    const p = clone(this.proposals(pid).value)
+    p.numPayloads = Uint64(1)
+    this.proposals(pid).value = clone(p)
     return pid
+  }
+
+  /**
+   * Append an additional payload chunk (slots 2–6) to an existing transaction-group
+   * proposal. Must be called before the proposal reaches STATUS_READY so all
+   * chunks are present when the proposal is executed.
+   */
+  public appendTransactionGroupPayload(proposalId: uint64, payloadIndex: uint64, payload: SafeTxnGroup): void {
+    assert(payloadIndex >= Uint64(2) && payloadIndex <= Uint64(6), 'invalid slot')
+    assert(payload.length >= Uint64(1), 'empty payload')
+    const proposal = clone(this.proposals(proposalId).value)
+    assert(proposal.payloadType === PT_TRANSACTION_GROUP, 'not a tx group')
+    assert(
+      proposal.status === STATUS_ACTIVE || proposal.status === STATUS_READY,
+      'proposal not pending',
+    )
+    this._assertMember(proposal.groupId)
+    ensureBudget((payload.length + Uint64(3)) * Uint64(700))
+    this._storePayloadGroup(proposalId, payloadIndex, payload)
+    if (payloadIndex > proposal.numPayloads) {
+      const updated = clone(proposal)
+      updated.numPayloads = payloadIndex
+      this.proposals(proposalId).value = clone(updated)
+    }
   }
 
   /** Create a governed signer-group administration proposal. */
@@ -423,7 +393,7 @@ export class AlgoSafe extends Contract {
     assert(group.active !== Uint64(0), 'group disabled')
 
     if (proposal.payloadType === PT_TRANSACTION_GROUP) {
-      this._executeTransactionGroup(proposalId, proposal.groupId, group)
+      this._executeTransactionGroup(proposalId, proposal.groupId, group, proposal.numPayloads)
     } else {
       // Admin change: re-check privilege against current group state.
       const change = clone(this.adminPayloads(proposalId).value)
@@ -476,8 +446,8 @@ export class AlgoSafe extends Contract {
   }
 
   @abimethod({ readonly: true })
-  public getTransactionGroup(proposalId: uint64): TransactionGroupPayload {
-    return clone(this.transactionGroups(proposalId).value)
+  public getTransactionGroup(proposalId: uint64, payloadIndex: uint64): SafeTxnGroup {
+    return clone(this.transactionGroups(proposalId * TXG_KEY_MULT + payloadIndex).value)
   }
 
   @abimethod({ readonly: true })
@@ -526,6 +496,7 @@ export class AlgoSafe extends Contract {
       threshold: group.threshold,
       expiryRound,
       proposer: Txn.sender,
+      numPayloads: Uint64(0),
     }
     this.proposals(pid).value = clone(proposal)
     this.nextProposalId.value = pid + Uint64(1)
@@ -561,35 +532,26 @@ export class AlgoSafe extends Contract {
   // Internal: execution of typed payloads
   // -------------------------------------------------------------------------
 
-  private _executeTransactionGroup(proposalId: uint64, groupId: uint64, groupIn: SignerGroup): void {
-    // Read just the group length first (cheap header read) and raise the opcode
-    // budget before fully decoding the box. Decoding and staging scale with the
-    // group length, so each entry gets roughly one app-call worth of budget.
-    const count: uint64 = this.transactionGroups(proposalId).value.length
-    assert(count >= Uint64(1), 'empty tx group')
-    assert(count <= MAX_GROUP_TXNS, 'too many txs')
-    ensureBudget((count + Uint64(1)) * Uint64(700))
+  private _executeTransactionGroup(proposalId: uint64, groupId: uint64, groupIn: SignerGroup, numPayloads: uint64): void {
+    ensureBudget(Uint64(1400))
 
-    const payload = clone(this.transactionGroups(proposalId).value)
-
-    // Key registration cannot be composed into a mixed inner group; it must be
-    // proposed and executed on its own.
-    const firstTx = clone(payload[0])
-    if (count === Uint64(1) && firstTx.txType === TX_KEYREG) {
-      assert((groupIn.allowedActions & ACT_KEYREG) !== Uint64(0), 'keyreg not allowed')
-      this._executeKeyRegTx(firstTx)
-      return
-    }
-
-    // Single pass over the group: decode each entry once, validate it, tally the
-    // ALGO spend, and stage it into the inner-transaction group.
+    // Single pass over all payloads in order: validate, tally spend, stage inner txns.
     let group = clone(groupIn)
-    for (let i: uint64 = Uint64(0); i < count; i = i + Uint64(1)) {
-      const tx = clone(payload[i])
-      this._validateSafeTxn(tx, groupIn)
-      assert(tx.txType !== TX_KEYREG, 'keyreg must be single tx')
-      group = this._accountSpend(group, tx)
-      this._stageSafeTxn(tx, i === Uint64(0))
+    let txIndex = Uint64(0)
+
+    for (let p = Uint64(1); p <= numPayloads; p = p + Uint64(1)) {
+      const key: uint64 = proposalId * TXG_KEY_MULT + p
+      if (this.transactionGroups(key).exists) {
+        const payload = clone(this.transactionGroups(key).value)
+        for (let i = Uint64(0); i < payload.length; i = i + Uint64(1)) {
+          const tx = clone(payload[i])
+          this._validateSafeTxn(tx, groupIn)
+          assert(tx.txType !== TX_KEYREG, 'keyreg must be single tx')
+          group = this._accountSpend(group, tx)
+          this._stageSafeTxn(tx, txIndex === Uint64(0))
+          txIndex = txIndex + Uint64(1)
+        }
+      }
     }
 
     this.groups(groupId).value = clone(group)
@@ -787,9 +749,24 @@ export class AlgoSafe extends Contract {
     }
   }
 
-  private _singleTxnGroup(tx: SafeTxn): TransactionGroupPayload {
-    const txns: TransactionGroupPayload = [clone(tx)]
-    return txns
+  private _proposeSingleTxnGroup(groupId: uint64, tx: SafeTxn, expiryRound: uint64): uint64 {
+    ensureBudget(Uint64(700))
+    const pid = this._newProposal(groupId, PT_TRANSACTION_GROUP, expiryRound)
+    const txns: SafeTxnGroup = [clone(tx)]
+    this.transactionGroups(pid * TXG_KEY_MULT + Uint64(1)).value = clone(txns)
+    const p = clone(this.proposals(pid).value)
+    p.numPayloads = Uint64(1)
+    this.proposals(pid).value = clone(p)
+    return pid
+  }
+
+  // Stores a payload chunk at the given slot. The clone loop for SafeTxnGroup
+  // lives here so it is compiled once as a subroutine rather than being
+  // duplicated at every call site.
+  private _storePayloadGroup(proposalId: uint64, payloadIndex: uint64, payload: SafeTxnGroup): void {
+    if (payload.length > Uint64(0)) {
+      this.transactionGroups(proposalId * TXG_KEY_MULT + payloadIndex).value = clone(payload)
+    }
   }
 
   private _emptyTxn(): SafeTxn {
@@ -829,43 +806,6 @@ export class AlgoSafe extends Contract {
     tx.hasClose = payload.hasClose
     tx.closeRemainderTo = payload.closeRemainderTo
     tx.note = payload.note
-    return tx
-  }
-
-  private _txnFromAsset(payload: AssetPayload): SafeTxn {
-    const tx = this._emptyTxn()
-    tx.txType = TX_ASSET
-    tx.xferAsset = payload.xferAsset
-    tx.assetReceiver = payload.assetReceiver
-    tx.assetAmount = payload.assetAmount
-    tx.hasAssetClose = payload.hasClose
-    tx.assetCloseTo = payload.assetCloseTo
-    tx.note = payload.note
-    return tx
-  }
-
-  private _txnFromAppCall(payload: AppCallPayload): SafeTxn {
-    const tx = this._emptyTxn()
-    tx.txType = TX_APP
-    tx.appId = payload.appId
-    tx.numArgs = payload.numArgs
-    tx.arg0 = payload.arg0
-    tx.arg1 = payload.arg1
-    tx.arg2 = payload.arg2
-    tx.arg3 = payload.arg3
-    return tx
-  }
-
-  private _txnFromKeyReg(payload: KeyRegPayload): SafeTxn {
-    const tx = this._emptyTxn()
-    tx.txType = TX_KEYREG
-    tx.online = payload.online
-    tx.voteKey = payload.voteKey
-    tx.selectionKey = payload.selectionKey
-    tx.stateProofKey = payload.stateProofKey
-    tx.voteFirst = payload.voteFirst
-    tx.voteLast = payload.voteLast
-    tx.voteKeyDilution = payload.voteKeyDilution
     return tx
   }
 
