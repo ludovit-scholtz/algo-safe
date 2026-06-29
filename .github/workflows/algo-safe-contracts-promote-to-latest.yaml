@@ -1,0 +1,54 @@
+name: Promote algo-safe npm package to latest
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to promote (e.g. 1.1.0-build.42). Leave blank to use the current "next" tag.'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
+jobs:
+  promote:
+    name: Promote next → latest
+    runs-on: ubuntu-latest
+    environment: npm
+    steps:
+      - name: Use Node.js 22.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Resolve version to promote
+        id: resolve
+        shell: bash
+        run: |
+          INPUT_VERSION="${{ github.event.inputs.version }}"
+          if [ -n "$INPUT_VERSION" ]; then
+            VERSION="$INPUT_VERSION"
+          else
+            VERSION=$(npm dist-tag ls algo-safe | grep '^next:' | awk '{print $2}')
+            if [ -z "$VERSION" ]; then
+              echo "No 'next' tag found for algo-safe. Aborting."
+              exit 1
+            fi
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Promoting algo-safe@$VERSION to latest"
+
+      - name: Promote to latest
+        run: npm dist-tag add algo-safe@${{ steps.resolve.outputs.version }} latest
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Verify
+        run: |
+          LATEST=$(npm dist-tag ls algo-safe | grep '^latest:' | awk '{print $2}')
+          echo "algo-safe latest is now: $LATEST"
