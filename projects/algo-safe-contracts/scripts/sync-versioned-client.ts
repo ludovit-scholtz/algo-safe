@@ -120,7 +120,8 @@ function writeVersionedClientRegistry(latestHash: string, hashes: string[]) {
   const contractHashes = hashes.map((hash) => `  '${hash}',`).join('\n')
   const registryEntries = hashes.map((hash) => `  '${hash}': ${createImportAlias(hash)},`).join('\n')
 
-  const fileContent = `${imports}\n\nexport const LATEST_CONTRACT_HASH = '${latestHash}' as const\nexport const CONTRACT_HASHES = [\n${contractHashes}\n] as const\nexport const DEFAULT_CLIENT_VERSION = 'latest' as const\n\nexport type ContractHash = (typeof CONTRACT_HASHES)[number]\nexport type ContractVersion = ContractHash | typeof DEFAULT_CLIENT_VERSION | string\nexport type AlgoSafeClientConstructor = typeof ${createImportAlias(latestHash)}\n\nconst CLIENT_REGISTRY = {\n${registryEntries}\n} satisfies Record<ContractHash, AlgoSafeClientConstructor>\n\nexport function getClientRegistry() {\n  return CLIENT_REGISTRY\n}\n`
+  const unionType = hashes.map((h) => `| typeof ${createImportAlias(h)}`).join('\n  ')
+  const fileContent = `${imports}\n\nexport const LATEST_CONTRACT_HASH = '${latestHash}' as const\nexport const CONTRACT_HASHES = [\n${contractHashes}\n] as const\nexport const DEFAULT_CLIENT_VERSION = 'latest' as const\n\nexport type ContractHash = (typeof CONTRACT_HASHES)[number]\nexport type ContractVersion = ContractHash | typeof DEFAULT_CLIENT_VERSION | string\nexport type AlgoSafeClientConstructor =\n  ${unionType}\n\nconst CLIENT_REGISTRY = {\n${registryEntries}\n} satisfies Record<ContractHash, AlgoSafeClientConstructor>\n\nexport function getClientRegistry() {\n  return CLIENT_REGISTRY\n}\n`
 
   fs.writeFileSync(GENERATED_REGISTRY_PATH, fileContent)
 }
