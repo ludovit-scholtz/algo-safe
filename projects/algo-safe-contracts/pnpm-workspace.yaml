@@ -1,2 +1,6 @@
 allowBuilds:
   esbuild: true
+minimumReleaseAgeExclude:
+  - elliptic@6.6.2
+  - esbuild@0.28.1
+  - vite@6.4.3
