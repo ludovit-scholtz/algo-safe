@@ -1,7 +1,7 @@
 import { algo, AlgorandClient } from '@algorandfoundation/algokit-utils'
 import { useQueryClient } from '@tanstack/react-query'
 import { useWallet } from '@txnlab/use-wallet-react'
-import { getAlgoSafeContractVersion, getClient } from 'algo-safe'
+import { createAssetSafeTxn, getAlgoSafeContractVersion, getClient, toSafeTxnGroup } from 'algo-safe'
 import algosdk from 'algosdk'
 import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
@@ -166,17 +166,19 @@ export function CreateProposalPage() {
           )
         }
 
-        const result = await appClient.send.proposeAssetTransfer({
+        const result = await appClient.send.proposeTransactionGroup({
           args: {
             groupId: parsedGroupId,
-            payload: {
-              xferAsset: BigInt(resolvedAssetId),
-              assetReceiver: effectiveReceiver.trim(),
-              assetAmount: rawAmount,
-              hasClose: 0n,
-              assetCloseTo: getZeroAddress(),
-              note: note.trim(),
-            },
+            payload: toSafeTxnGroup([
+              createAssetSafeTxn({
+                xferAsset: BigInt(resolvedAssetId),
+                assetReceiver: effectiveReceiver.trim(),
+                assetAmount: rawAmount,
+                hasClose: 0n,
+                assetCloseTo: getZeroAddress(),
+                note: note.trim(),
+              }),
+            ]),
             expiryRound: proposalExpiryRound,
           },
           staticFee: PROPOSAL_CALL_FEE,

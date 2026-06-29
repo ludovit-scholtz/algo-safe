@@ -1,5 +1,5 @@
 import { algo, AlgorandClient } from '@algorandfoundation/algokit-utils'
-import { getAlgoSafeContractVersion, getClient } from 'algo-safe'
+import { createAssetSafeTxn, getAlgoSafeContractVersion, getClient, toSafeTxnGroup } from 'algo-safe'
 import algosdk from 'algosdk'
 import { getZeroAddress } from './onChainSafe'
 
@@ -44,17 +44,19 @@ export async function proposeAssetOptIn(params: {
   const status = (await algodClient.status().do()) as unknown as Record<string, unknown>
   const expiryRound = getCurrentRound(status) + expiryRounds
 
-  const result = await appClient.send.proposeAssetTransfer({
+  const result = await appClient.send.proposeTransactionGroup({
     args: {
       groupId,
-      payload: {
-        xferAsset: BigInt(assetId),
-        assetReceiver: safeAddress,
-        assetAmount: 0n,
-        hasClose: 0n,
-        assetCloseTo: getZeroAddress(),
-        note: params.note ?? 'Opt in to EURD',
-      },
+      payload: toSafeTxnGroup([
+        createAssetSafeTxn({
+          xferAsset: BigInt(assetId),
+          assetReceiver: safeAddress,
+          assetAmount: 0n,
+          hasClose: 0n,
+          assetCloseTo: getZeroAddress(),
+          note: params.note ?? 'Opt in to EURD',
+        }),
+      ]),
       expiryRound,
     },
     staticFee: PROPOSAL_CALL_FEE,

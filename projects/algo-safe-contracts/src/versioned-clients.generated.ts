@@ -15,10 +15,8 @@ export type AlgoSafeClientConstructor =
   | typeof AlgoSafeClient_ebd1cf101b997b6a914caa195aa7d3eb050d557dc823edab438cc30cbf156b1e
 
 const CLIENT_REGISTRY = {
-  '1a77ba21f289ff35d2d54b732cc2e66e4bdba6ac820e7f25e381f58bea41b5fc':
-    AlgoSafeClient_1a77ba21f289ff35d2d54b732cc2e66e4bdba6ac820e7f25e381f58bea41b5fc,
-  ebd1cf101b997b6a914caa195aa7d3eb050d557dc823edab438cc30cbf156b1e:
-    AlgoSafeClient_ebd1cf101b997b6a914caa195aa7d3eb050d557dc823edab438cc30cbf156b1e,
+  '1a77ba21f289ff35d2d54b732cc2e66e4bdba6ac820e7f25e381f58bea41b5fc': AlgoSafeClient_1a77ba21f289ff35d2d54b732cc2e66e4bdba6ac820e7f25e381f58bea41b5fc,
+  'ebd1cf101b997b6a914caa195aa7d3eb050d557dc823edab438cc30cbf156b1e': AlgoSafeClient_ebd1cf101b997b6a914caa195aa7d3eb050d557dc823edab438cc30cbf156b1e,
 } satisfies Record<ContractHash, AlgoSafeClientConstructor>
 
 export function getClientRegistry() {

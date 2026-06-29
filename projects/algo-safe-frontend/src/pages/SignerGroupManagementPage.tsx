@@ -1,7 +1,23 @@
 import { algo, AlgorandClient } from '@algorandfoundation/algokit-utils'
 import { useQueryClient } from '@tanstack/react-query'
 import { useWallet } from '@txnlab/use-wallet-react'
-import { createAdminChange, getAlgoSafeContractVersion, getClient, type AdminChange } from 'algo-safe'
+import {
+  ACT_APPL,
+  ACT_AXFER,
+  ACT_KEYREG,
+  ACT_PAY,
+  ADM_ADD_MEMBER,
+  ADM_CHANGE_THRESHOLD,
+  ADM_SET_ACTIVE,
+  ADM_SET_POLICY,
+  ADM_SET_PRIVILEGES,
+  PRIV_GROUP,
+  PRIV_POLICY,
+  createAdminChange,
+  getAlgoSafeContractVersion,
+  getClient,
+  type AdminChange,
+} from 'algo-safe'
 import algosdk from 'algosdk'
 import { useSnackbar } from 'notistack'
 import { useEffect, useMemo, useState } from 'react'
@@ -20,18 +36,6 @@ import type { AssetSymbol } from '../services/types'
 
 const TX_VALIDITY_WINDOW = 200
 const PROPOSAL_CALL_FEE = algo(0.2)
-const ADM_ADD_MEMBER = 2n
-const ADM_CHANGE_THRESHOLD = 4n
-const ADM_SET_POLICY = 5n
-const ADM_SET_PRIVILEGES = 6n
-const ADM_SET_ACTIVE = 7n
-
-const ACT_PAY = 1
-const ACT_AXFER = 2
-const ACT_APPL = 4
-const ACT_KEYREG = 8
-const PRIV_GROUP = 1
-const PRIV_POLICY = 2
 
 const MEMBER_TYPE_OPTIONS = [
   { value: 1, label: 'Standard account' },
@@ -78,8 +82,8 @@ function accountTypeLabel(accountType: number) {
   return MEMBER_TYPE_OPTIONS.find((option) => option.value === accountType)?.label ?? `Type ${accountType}`
 }
 
-function flagSet(mask: number, flag: number) {
-  return (mask & flag) !== 0
+function flagSet(mask: number, flag: bigint) {
+  return (mask & Number(flag)) !== 0
 }
 
 function toAdminChangeTuple(change: AdminChange): AdminChangeTuple {
@@ -258,7 +262,7 @@ export function SignerGroupManagementPage() {
   const maxThreshold = detail?.group.memberCount ?? 1
   const selectedAdminGroup = detail?.adminGroupOptions.find((option) => option.id === selectedAdminGroupId)
   const actionMask = useMemo(() => {
-    let mask = 0
+    let mask = 0n
     if (allowAlgo) mask |= ACT_PAY
     if (allowAsa) mask |= ACT_AXFER
     if (allowApp) mask |= ACT_APPL
@@ -266,7 +270,7 @@ export function SignerGroupManagementPage() {
     return mask
   }, [allowAlgo, allowApp, allowAsa, allowKeyreg])
   const adminMask = useMemo(() => {
-    let mask = 0
+    let mask = 0n
     if (groupAdmin) mask |= PRIV_GROUP
     if (policyAdmin) mask |= PRIV_POLICY
     return mask
@@ -422,7 +426,7 @@ export function SignerGroupManagementPage() {
         memberLabel: '',
         threshold: 0n,
         adminPrivileges: 0n,
-        allowedActions: BigInt(actionMask),
+        allowedActions: actionMask,
         limitAssetId,
         dailyLimit: parsedDailyLimit,
         monthlyLimit: parsedMonthlyLimit,
@@ -445,7 +449,7 @@ export function SignerGroupManagementPage() {
         memberType: 0n,
         memberLabel: '',
         threshold: 0n,
-        adminPrivileges: BigInt(adminMask),
+        adminPrivileges: adminMask,
         allowedActions: 0n,
         limitAssetId: 0n,
         dailyLimit: 0n,

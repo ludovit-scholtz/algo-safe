@@ -4,10 +4,9 @@ export const ACT_APPL = 4n
 export const ACT_KEYREG = 8n
 export const ACT_ALL = 15n
 
-export const PRIV_GROUP = 1n
-export const PRIV_MEMBER = 2n
-export const PRIV_THRESHOLD = 4n
-export const PRIV_ALL = 7n
+export const PRIV_GROUP = 1n  // create/modify groups, members, thresholds, privileges, active
+export const PRIV_POLICY = 2n // change spending/action policy
+export const PRIV_ALL = 7n    // all privileges (bit 4 reserved for future granularity)
 
 export const TX_PAYMENT = 1n
 export const TX_ASSET = 2n
