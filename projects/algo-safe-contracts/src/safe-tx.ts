@@ -1,6 +1,13 @@
 import algosdk from 'algosdk'
-import type { PaymentPayload } from '../smart_contracts/artifacts/algo_safe/AlgoSafeClient'
 import { EMPTY_BYTES, TX_APP, TX_ASSET, TX_KEYREG, TX_PAYMENT } from './constants'
+
+export type PaymentPayload = {
+  receiver: string
+  amount: bigint
+  hasClose: bigint
+  closeRemainderTo: string
+  note: string
+}
 
 export type AssetPayload = {
   xferAsset: bigint
@@ -203,6 +210,76 @@ export function createKeyRegSafeTxn(payload: KeyRegPayload): SafeTxn {
 
 export function createPaymentPayload(receiver: string, amount: bigint, note = ''): PaymentPayload {
   return { receiver, amount, hasClose: 0n, closeRemainderTo: ZERO_ADDR, note }
+}
+
+function algosdkTxnToSafeTxn(txn: algosdk.Transaction): SafeTxn {
+  const base = createEmptySafeTxn()
+  const note = txn.note ? new TextDecoder().decode(txn.note) : ''
+
+  if (txn.type === algosdk.TransactionType.pay) {
+    const pay = txn.payment
+    return {
+      ...base,
+      txType: TX_PAYMENT,
+      receiver: pay?.receiver?.toString() ?? ZERO_ADDR,
+      amount: pay?.amount ?? 0n,
+      hasClose: pay?.closeRemainderTo ? 1n : 0n,
+      closeRemainderTo: pay?.closeRemainderTo?.toString() ?? ZERO_ADDR,
+      note,
+    }
+  }
+
+  if (txn.type === algosdk.TransactionType.axfer) {
+    const axfer = txn.assetTransfer
+    return {
+      ...base,
+      txType: TX_ASSET,
+      xferAsset: axfer?.assetIndex ?? 0n,
+      assetReceiver: axfer?.receiver?.toString() ?? ZERO_ADDR,
+      assetAmount: axfer?.amount ?? 0n,
+      hasAssetClose: axfer?.closeRemainderTo ? 1n : 0n,
+      assetCloseTo: axfer?.closeRemainderTo?.toString() ?? ZERO_ADDR,
+      note,
+    }
+  }
+
+  if (txn.type === algosdk.TransactionType.appl) {
+    const appl = txn.applicationCall
+    const args = appl?.appArgs ?? []
+    return {
+      ...base,
+      txType: TX_APP,
+      appId: appl?.appIndex ?? 0n,
+      numArgs: BigInt(Math.min(args.length, 4)),
+      arg0: args[0] ?? EMPTY_BYTES,
+      arg1: args[1] ?? EMPTY_BYTES,
+      arg2: args[2] ?? EMPTY_BYTES,
+      arg3: args[3] ?? EMPTY_BYTES,
+      note,
+    }
+  }
+
+  if (txn.type === algosdk.TransactionType.keyreg) {
+    const kr = txn.keyreg
+    return {
+      ...base,
+      txType: TX_KEYREG,
+      online: kr?.nonParticipation ? 0n : 1n,
+      voteKey: kr?.voteKey ?? EMPTY_BYTES,
+      selectionKey: kr?.selectionKey ?? EMPTY_BYTES,
+      stateProofKey: kr?.stateProofKey ?? EMPTY_BYTES,
+      voteFirst: kr?.voteFirst ?? 0n,
+      voteLast: kr?.voteLast ?? 0n,
+      voteKeyDilution: kr?.voteKeyDilution ?? 0n,
+      note,
+    }
+  }
+
+  throw new Error(`Unsupported transaction type: ${txn.type}`)
+}
+
+export function algosdkTxnsToSafeTxnGroup(txns: algosdk.Transaction[]): SafeTxnTuple[] {
+  return toSafeTxnGroup(txns.map(algosdkTxnToSafeTxn))
 }
 
 export function createAppCallPayload(appId: bigint, args: Uint8Array[] = []): AppCallPayload {

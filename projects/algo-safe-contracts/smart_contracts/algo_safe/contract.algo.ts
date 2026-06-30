@@ -124,15 +124,6 @@ type Proposal = {
   numPayloads: uint64
 }
 
-type PaymentPayload = {
-  receiver: Account
-  amount: uint64
-  hasClose: uint64
-  closeRemainderTo: Account
-  note: string
-}
-
-
 type SafeTxn = {
   txType: uint64
   receiver: Account
@@ -296,16 +287,6 @@ export class AlgoSafe extends Contract {
   // -------------------------------------------------------------------------
   // Proposal creation
   // -------------------------------------------------------------------------
-
-  /** Create a payment (ALGO) proposal. */
-  public proposePayment(groupId: uint64, payload: PaymentPayload, expiryRound: uint64): uint64 {
-    this._assertActionAllowed(groupId, ACT_PAY)
-    assert(payload.receiver !== Global.zeroAddress, 'receiver required')
-    if (payload.hasClose !== Uint64(0)) {
-      assert(payload.closeRemainderTo !== Global.zeroAddress, 'close target required')
-    }
-    return this._proposeSingleTxnGroup(groupId, this._txnFromPayment(payload), expiryRound)
-  }
 
   /**
    * Create a transaction-group proposal from the first payload chunk. When the
@@ -472,14 +453,6 @@ export class AlgoSafe extends Contract {
   private _assertMember(groupId: uint64): void {
     assert(this.groups(groupId).exists, 'group not found')
     assert(this.members({ groupId, account: Txn.sender }).exists, 'not a group member')
-  }
-
-  private _assertActionAllowed(groupId: uint64, action: uint64): void {
-    assert(this.paused.value === Uint64(0), 'safe paused')
-    this._assertMember(groupId)
-    const group = clone(this.groups(groupId).value)
-    assert(group.active !== Uint64(0), 'group disabled')
-    assert((group.allowedActions & action) !== Uint64(0), 'action not allowed for group')
   }
 
   /** Create a proposal record, auto-approving the proposer. Returns the proposal id. */
@@ -749,17 +722,6 @@ export class AlgoSafe extends Contract {
     }
   }
 
-  private _proposeSingleTxnGroup(groupId: uint64, tx: SafeTxn, expiryRound: uint64): uint64 {
-    ensureBudget(Uint64(700))
-    const pid = this._newProposal(groupId, PT_TRANSACTION_GROUP, expiryRound)
-    const txns: SafeTxnGroup = [clone(tx)]
-    this.transactionGroups(pid * TXG_KEY_MULT + Uint64(1)).value = clone(txns)
-    const p = clone(this.proposals(pid).value)
-    p.numPayloads = Uint64(1)
-    this.proposals(pid).value = clone(p)
-    return pid
-  }
-
   // Stores a payload chunk at the given slot. The clone loop for SafeTxnGroup
   // lives here so it is compiled once as a subroutine rather than being
   // duplicated at every call site.
@@ -767,46 +729,6 @@ export class AlgoSafe extends Contract {
     if (payload.length > Uint64(0)) {
       this.transactionGroups(proposalId * TXG_KEY_MULT + payloadIndex).value = clone(payload)
     }
-  }
-
-  private _emptyTxn(): SafeTxn {
-    return {
-      txType: TX_PAYMENT,
-      receiver: Global.zeroAddress,
-      amount: Uint64(0),
-      hasClose: Uint64(0),
-      closeRemainderTo: Global.zeroAddress,
-      xferAsset: Uint64(0),
-      assetReceiver: Global.zeroAddress,
-      assetAmount: Uint64(0),
-      hasAssetClose: Uint64(0),
-      assetCloseTo: Global.zeroAddress,
-      appId: Uint64(0),
-      numArgs: Uint64(0),
-      arg0: Bytes(''),
-      arg1: Bytes(''),
-      arg2: Bytes(''),
-      arg3: Bytes(''),
-      online: Uint64(0),
-      voteKey: Bytes(''),
-      selectionKey: Bytes(''),
-      stateProofKey: Bytes(''),
-      voteFirst: Uint64(0),
-      voteLast: Uint64(0),
-      voteKeyDilution: Uint64(0),
-      note: '',
-    }
-  }
-
-  private _txnFromPayment(payload: PaymentPayload): SafeTxn {
-    const tx = this._emptyTxn()
-    tx.txType = TX_PAYMENT
-    tx.receiver = payload.receiver
-    tx.amount = payload.amount
-    tx.hasClose = payload.hasClose
-    tx.closeRemainderTo = payload.closeRemainderTo
-    tx.note = payload.note
-    return tx
   }
 
   /**

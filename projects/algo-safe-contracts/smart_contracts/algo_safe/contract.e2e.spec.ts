@@ -22,7 +22,6 @@ import {
   createAppCallPayload,
   createAssetSafeTxn,
   createEmptySafeTxn,
-  createPaymentPayload,
   createPaymentSafeTxn,
   toSafeTxnGroup,
   type SafeTxn,
@@ -33,12 +32,8 @@ function mkAdminChange(partial: Partial<AdminChange>): AdminChange {
   return createAdminChange(partial)
 }
 
-function mkPayment(receiver: string, amount: bigint) {
-  return createPaymentPayload(receiver, amount)
-}
-
 function safePayment(receiver: string, amount: bigint, note = ''): SafeTxn {
-  return createPaymentSafeTxn(createPaymentPayload(receiver, amount, note))
+  return createPaymentSafeTxn({ receiver, amount, hasClose: 0n, closeRemainderTo: ZERO_ADDR, note })
 }
 
 function safeAppCall(appId: bigint, args: Uint8Array[] = []): SafeTxn {
@@ -233,8 +228,8 @@ describe('AlgoSafe contract', () => {
     const { client } = await deployAndBootstrap()
     const recipient = await localnet.context.generateAccount({ initialFunds: (0).algo() })
 
-    const { return: pid } = await client.send.proposePayment({
-      args: { groupId: 1n, payload: mkPayment(recipient.toString(), (1).algo().microAlgo), expiryRound: FAR_EXPIRY },
+    const { return: pid } = await client.send.proposeTransactionGroup({
+      args: { groupId: 1n, payload: toSafeTxnGroup([safePayment(recipient.toString(), (1).algo().microAlgo)]), expiryRound: FAR_EXPIRY },
       suppressLog: true,
       staticFee: (0.2).algo(),
     })
@@ -416,8 +411,8 @@ describe('AlgoSafe contract', () => {
     const { client } = await deployAndBootstrap()
     const recipient = await localnet.context.generateAccount({ initialFunds: (0).algo() })
 
-    const { return: pid } = await client.send.proposePayment({
-      args: { groupId: 1n, payload: mkPayment(recipient.toString(), (1).algo().microAlgo), expiryRound: FAR_EXPIRY },
+    const { return: pid } = await client.send.proposeTransactionGroup({
+      args: { groupId: 1n, payload: toSafeTxnGroup([safePayment(recipient.toString(), (1).algo().microAlgo)]), expiryRound: FAR_EXPIRY },
       suppressLog: true,
       staticFee: (0.2).algo(),
     })
@@ -462,8 +457,8 @@ describe('AlgoSafe contract', () => {
 
     // Member A proposes a payment (auto-approve = 1 of 2).
     const recipient = await localnet.context.generateAccount({ initialFunds: (0).algo() })
-    const { return: pid } = await client.send.proposePayment({
-      args: { groupId: 2n, payload: mkPayment(recipient.toString(), (1).algo().microAlgo), expiryRound: FAR_EXPIRY },
+    const { return: pid } = await client.send.proposeTransactionGroup({
+      args: { groupId: 2n, payload: toSafeTxnGroup([safePayment(recipient.toString(), (1).algo().microAlgo)]), expiryRound: FAR_EXPIRY },
       sender: a,
       suppressLog: true,
       staticFee: (0.2).algo(),
@@ -486,8 +481,8 @@ describe('AlgoSafe contract', () => {
     const { client } = await deployAndBootstrap()
     const recipient = await localnet.context.generateAccount({ initialFunds: (0).algo() })
 
-    const { return: pid } = await client.send.proposePayment({
-      args: { groupId: 1n, payload: mkPayment(recipient.toString(), (1).algo().microAlgo), expiryRound: FAR_EXPIRY },
+    const { return: pid } = await client.send.proposeTransactionGroup({
+      args: { groupId: 1n, payload: toSafeTxnGroup([safePayment(recipient.toString(), (1).algo().microAlgo)]), expiryRound: FAR_EXPIRY },
       suppressLog: true,
       staticFee: (0.2).algo(),
     })
@@ -507,8 +502,8 @@ describe('AlgoSafe contract', () => {
     const stranger = await localnet.context.generateAccount({ initialFunds: (1).algo() })
 
     await expect(
-      client.send.proposePayment({
-        args: { groupId: 1n, payload: mkPayment(recipient.toString(), (1).algo().microAlgo), expiryRound: FAR_EXPIRY },
+      client.send.proposeTransactionGroup({
+        args: { groupId: 1n, payload: toSafeTxnGroup([safePayment(recipient.toString(), (1).algo().microAlgo)]), expiryRound: FAR_EXPIRY },
         sender: stranger,
         suppressLog: true,
         staticFee: (0.2).algo(),
@@ -626,8 +621,8 @@ describe('AlgoSafe contract', () => {
     const recipient = await localnet.context.generateAccount({ initialFunds: (0).algo() })
 
     // A payment within the limit succeeds and records usage.
-    const { return: okPid } = await client.send.proposePayment({
-      args: { groupId: 2n, payload: mkPayment(recipient.toString(), (0.4).algo().microAlgo), expiryRound: FAR_EXPIRY },
+    const { return: okPid } = await client.send.proposeTransactionGroup({
+      args: { groupId: 2n, payload: toSafeTxnGroup([safePayment(recipient.toString(), (0.4).algo().microAlgo)]), expiryRound: FAR_EXPIRY },
       sender: agent,
       suppressLog: true,
       staticFee: (0.2).algo(),
@@ -638,8 +633,8 @@ describe('AlgoSafe contract', () => {
     expect(group.return!.dailyUsage).toBe((0.4).algo().microAlgo)
 
     // A payment exceeding the remaining limit is rejected at execution.
-    const { return: badPid } = await client.send.proposePayment({
-      args: { groupId: 2n, payload: mkPayment(recipient.toString(), (0.8).algo().microAlgo), expiryRound: FAR_EXPIRY },
+    const { return: badPid } = await client.send.proposeTransactionGroup({
+      args: { groupId: 2n, payload: toSafeTxnGroup([safePayment(recipient.toString(), (0.8).algo().microAlgo)]), expiryRound: FAR_EXPIRY },
       sender: agent,
       suppressLog: true,
       staticFee: (0.2).algo(),
@@ -762,10 +757,10 @@ describe('AlgoSafe contract', () => {
     expect(group.return!.monthlyLimit).toBe((3).algo().microAlgo)
 
     const algoRecipient = await localnet.context.generateAccount({ initialFunds: (0).algo() })
-    const { return: algoPid } = await client.send.proposePayment({
+    const { return: algoPid } = await client.send.proposeTransactionGroup({
       args: {
         groupId: 2n,
-        payload: mkPayment(algoRecipient.toString(), (1).algo().microAlgo),
+        payload: toSafeTxnGroup([safePayment(algoRecipient.toString(), (1).algo().microAlgo)]),
         expiryRound: FAR_EXPIRY,
       },
       sender: agent,
@@ -798,13 +793,18 @@ describe('AlgoSafe contract', () => {
     )
 
     const recipient = await localnet.context.generateAccount({ initialFunds: (0).algo() })
+
+    // Proposal succeeds (action check happens at execution, not proposal time).
+    const { return: pid } = await client.send.proposeTransactionGroup({
+      args: { groupId: 2n, payload: toSafeTxnGroup([safePayment(recipient.toString(), (1).algo().microAlgo)]), expiryRound: FAR_EXPIRY },
+      sender: agent,
+      suppressLog: true,
+      staticFee: (0.2).algo(),
+    })
+
+    // Execution fails: ACT_PAY is not in allowedActions for this group.
     await expect(
-      client.send.proposePayment({
-        args: { groupId: 2n, payload: mkPayment(recipient.toString(), (1).algo().microAlgo), expiryRound: FAR_EXPIRY },
-        sender: agent,
-        suppressLog: true,
-        staticFee: (0.2).algo(),
-      }),
+      client.send.executeProposal({ args: { proposalId: pid! }, sender: agent, ...execParams }),
     ).rejects.toThrow()
   })
 
@@ -853,8 +853,8 @@ describe('AlgoSafe contract', () => {
     const { client } = await deployAndBootstrap()
     const recipient = await localnet.context.generateAccount({ initialFunds: (0).algo() })
 
-    const { return: pid } = await client.send.proposePayment({
-      args: { groupId: 1n, payload: mkPayment(recipient.toString(), (1).algo().microAlgo), expiryRound: FAR_EXPIRY },
+    const { return: pid } = await client.send.proposeTransactionGroup({
+      args: { groupId: 1n, payload: toSafeTxnGroup([safePayment(recipient.toString(), (1).algo().microAlgo)]), expiryRound: FAR_EXPIRY },
       suppressLog: true,
       staticFee: (0.2).algo(),
     })
@@ -873,8 +873,8 @@ describe('AlgoSafe contract', () => {
 
     const round = await currentRound()
     await expect(
-      client.send.proposePayment({
-        args: { groupId: 1n, payload: mkPayment(recipient.toString(), (1).algo().microAlgo), expiryRound: round },
+      client.send.proposeTransactionGroup({
+        args: { groupId: 1n, payload: toSafeTxnGroup([safePayment(recipient.toString(), (1).algo().microAlgo)]), expiryRound: round },
         suppressLog: true,
         staticFee: (0.2).algo(),
       }),
