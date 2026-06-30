@@ -1,68 +1,156 @@
-# algo-safe-contracts
+# algo-safe
 
-This project has been generated using AlgoKit. See below for default getting started instructions.
+Policy-driven **smart account (multisig safe) for Algorand**, plus the TypeScript client utilities to drive it.
 
-# Setup
+The application account *is* the safe: it holds ALGO and ASAs and only moves value when an **M-of-N signer group** has approved a typed proposal. Every privileged change (creating groups, adding/removing signers, changing thresholds and spending policies) is itself a governed proposal approved under the same threshold rules.
 
-### Pre-requisites
+This npm package ships:
 
-- [Nodejs 22](https://nodejs.org/en/download) or later
-- [AlgoKit CLI 2.5](https://github.com/algorandfoundation/algokit-cli?tab=readme-ov-file#install) or later
-- [Docker](https://www.docker.com/) (only required for LocalNet)
-- [Puya Compiler 4.4.4](https://pypi.org/project/puyapy/) or later
+- the compiled contract artifacts and **version-aware typed clients**,
+- **transaction-building helpers** that encode payments, asset transfers, app calls, key registrations and asset configuration into the safe's compact on-chain payload format,
+- **off-chain read helpers** for inspecting safes, signer groups and proposals.
 
-> For interactive tour over the codebase, download [vsls-contrib.codetour](https://marketplace.visualstudio.com/items?itemName=vsls-contrib.codetour) extension for VS Code, then open the [`.codetour.json`](./.tours/getting-started-with-your-algokit-project.tour) file in code tour extension.
+---
 
-### Initial Setup
+## Table of contents
 
-#### 1. Clone the Repository
+- [Install](#install)
+- [Core concepts](#core-concepts)
+- [Quick start](#quick-start)
+- [Connecting to a deployed safe (version detection)](#connecting-to-a-deployed-safe-version-detection)
+- [Building transaction payloads](#building-transaction-payloads)
+  - [Payment](#payment)
+  - [Asset transfer / opt-in](#asset-transfer--opt-in)
+  - [Application call](#application-call)
+  - [Key registration](#key-registration)
+  - [Asset configuration (create / reconfigure / destroy)](#asset-configuration-create--reconfigure--destroy)
+  - [Convert native algosdk transactions](#convert-native-algosdk-transactions)
+- [The proposal lifecycle](#the-proposal-lifecycle)
+- [Large groups: multiple payload chunks](#large-groups-multiple-payload-chunks)
+- [Governance (admin changes)](#governance-admin-changes)
+- [Reading on-chain state](#reading-on-chain-state)
+- [Decoding stored payloads](#decoding-stored-payloads)
+- [Constants & limits reference](#constants--limits-reference)
+- [API reference](#api-reference)
+- [Developing this package](#developing-this-package)
 
-Start by cloning this repository to your local machine.
+---
 
-#### 2. Install Pre-requisites
+## Install
 
-Ensure the following pre-requisites are installed and properly configured:
+```bash
+npm install algo-safe algosdk @algorandfoundation/algokit-utils
+# or
+pnpm add algo-safe algosdk @algorandfoundation/algokit-utils
+```
 
-- **Docker**: Required for running a local Algorand network.
-- **AlgoKit CLI**: Essential for project setup and operations. Verify installation with `algokit --version`, expecting `2.6.0` or later.
+`algosdk` (v3) and `@algorandfoundation/algokit-utils` (v9) are peer-level dependencies you interact with directly.
 
-#### 3. Bootstrap Your Local Environment
+```ts
+import {
+  // version + client resolution
+  getAlgoSafeContractVersion,
+  getClient,
+  LATEST_CONTRACT_HASH,
+  // typed client / factory
+  AlgoSafeFactory,
+  // payload builders
+  toSafeTxnGroup,
+  createPaymentSafeTxn,
+  createAssetSafeTxn,
+  createAppCallSafeTxn,
+  createKeyRegSafeTxn,
+  createAssetConfigSafeTxn,
+  algosdkTxnsToSafeTxnGroup,
+  // governance + constants
+  createAdminChange,
+  ACT_PAY, ACT_AXFER, ACT_APPL, ACT_KEYREG, ACT_ACFG, ACT_ALL,
+  PRIV_GROUP, PRIV_POLICY, PRIV_ALL,
+  ADM_CREATE_GROUP, ADM_ADD_MEMBER, ADM_CHANGE_THRESHOLD,
+  FAR_EXPIRY, ZERO_ADDR,
+} from 'algo-safe'
+```
 
-Run the following commands within the project folder:
+---
 
-- **Setup Project**: Execute `algokit project bootstrap all` to install dependencies and setup npm dependencies.
-- **Configure environment**: Execute `algokit generate env-file -a target_network localnet` to create a `.env.localnet` file with default configuration for `localnet`.
-- **Start LocalNet**: Use `algokit localnet start` to initiate a local Algorand network.
+## Core concepts
 
-### Development Workflow
+| Concept | Meaning |
+|---|---|
+| **Safe** | A single deployed app instance. Its app account custodies funds and assets. |
+| **Signer group** | An M-of-N set of members with an `allowedActions` bitmask (which transaction types it can move) and an `adminPrivileges` bitmask (which governance changes it can make), plus optional daily/monthly spend limits. A safe can have many groups. |
+| **Proposal** | A typed, governed action. Two kinds: a **transaction group** (`PT_TRANSACTION_GROUP`) — one or more pay/axfer/appl/keyreg/acfg transactions executed atomically as inner transactions — or an **admin change** (`PT_ADMIN`). |
+| **Approval threshold** | A proposal becomes executable once `threshold` distinct group members have approved. The proposer auto-approves on creation. |
 
-#### Terminal
+**Proposal status:** `STATUS_ACTIVE(1)` → `STATUS_READY(2)` → `STATUS_EXECUTED(3)` or `STATUS_CANCELLED(4)`.
 
-Directly manage and interact with your project using AlgoKit commands:
+**Payload encoding.** Each transaction in a group is stored on-chain as a compact tagged envelope `(txType, data)`, where `data` is the ARC4 encoding of exactly that transaction type's fields. You never build this by hand — use the `create*SafeTxn` helpers and `toSafeTxnGroup`.
 
-1. **Build Contracts**: `algokit project run build` compiles all smart contracts. You can also specify a specific contract by passing the name of the contract folder as an extra argument.
-   For example: `algokit project run build -- hello_world` will only build the `hello_world` contract.
-2. **Deploy**: Use `algokit project deploy localnet` to deploy contracts to the local network. You can also specify a specific contract by passing the name of the contract folder as an extra argument.
-   For example: `algokit project deploy localnet -- hello_world` will only deploy the `hello_world` contract.
+---
 
-#### Versioned generated clients
+## Quick start
 
-This package snapshots each generated Algo Safe client under `clients/<approval-program-sha256>/`.
+Deploy a safe, fund it, bootstrap the genesis admin group, then propose and execute a payment.
 
-1. `pnpm build` compiles the contract, regenerates `smart_contracts/artifacts/algo_safe/AlgoSafeClient.ts`, computes the approval-program SHA256 hash, removes any existing `clients/<hash>/` folder, and copies the full `smart_contracts/artifacts/algo_safe` contents into that versioned folder.
-2. `pnpm run sync-versioned-client` reruns the hash-and-copy step and refreshes the generated registry files in `src/`.
-3. The latest hash is exported from the npm package as `LATEST_CONTRACT_HASH`.
-4. Use `getAlgoSafeContractVersion(algod, appId)` to read the deployed contract version from global state, then pass that value to `getClient(version)` to resolve the matching generated client class. `getClient()` defaults to `latest`.
+```ts
+import { AlgorandClient } from '@algorandfoundation/algokit-utils'
+import { AlgoSafeFactory, toSafeTxnGroup, createPaymentSafeTxn, FAR_EXPIRY, ZERO_ADDR } from 'algo-safe'
 
-Example:
+const algorand = AlgorandClient.fromEnvironment() // or .fromClients({ algod })
+const deployer = await algorand.account.fromEnvironment('DEPLOYER')
+
+// 1. Create the application.
+const factory = algorand.client.getTypedAppFactory(AlgoSafeFactory, { defaultSender: deployer.addr })
+const { appClient } = await factory.send.create.createApplication({ args: { name: 'Treasury Safe' } })
+
+// 2. Fund the app account so it can pay box MBR and inner-transaction fees.
+await algorand.send.payment({ sender: deployer.addr, receiver: appClient.appAddress, amount: (5).algo() })
+
+// 3. Bootstrap: creates group #1 as a 1-of-1 admin group whose sole member is the creator.
+await appClient.send.bootstrap({ args: { groupName: 'Admins' } })
+
+// 4. Propose a payment from group #1. The proposer auto-approves; a 1-of-1 group is immediately READY.
+const { return: proposalId } = await appClient.send.proposeTransactionGroup({
+  args: {
+    groupId: 1n,
+    payload: toSafeTxnGroup([
+      createPaymentSafeTxn({
+        receiver: 'RECIPIENT_ADDRESS...',
+        amount: (1).algo().microAlgo,
+        hasClose: 0n,
+        closeRemainderTo: ZERO_ADDR,
+        note: 'first payout',
+      }),
+    ]),
+    expiryRound: FAR_EXPIRY,
+  },
+  staticFee: (0.2).algo(),
+})
+
+// 5. Execute. `coverAppCallInnerTransactionFees` pays the inner transactions' fees from the outer call.
+await appClient.send.executeProposal({
+  args: { proposalId: proposalId! },
+  coverAppCallInnerTransactionFees: true,
+  maxFee: (0.02).algo(),
+})
+```
+
+> **Funding matters.** The app account pays the minimum-balance requirement for every box it stores (groups, members, proposals, approvals, payloads) and is the sender of all inner transactions. Keep it funded.
+
+---
+
+## Connecting to a deployed safe (version detection)
+
+The deployed contract has shipped multiple **breaking** ABI versions. This package keeps every version's typed client side by side and resolves the right one by hashing the deployed approval program. **Always detect the version before calling a safe** — never assume `'latest'`.
 
 ```ts
 import { AlgorandClient } from '@algorandfoundation/algokit-utils'
 import { getAlgoSafeContractVersion, getClient } from 'algo-safe'
 
 const algorand = AlgorandClient.fromClients({ algod })
-const version = await getAlgoSafeContractVersion(algod, appId)
-const AlgoSafeClient = getClient(version ?? 'latest')
+
+const version = await getAlgoSafeContractVersion(algod, appId) // ContractHash | 'latest'
+const AlgoSafeClient = getClient(version)                       // matching client constructor
 
 const client = algorand.client.getTypedAppClientById(AlgoSafeClient, {
   appId,
@@ -70,117 +158,373 @@ const client = algorand.client.getTypedAppClientById(AlgoSafeClient, {
 })
 ```
 
-#### VS Code
+Or use the one-liner helper, which does the version detection for you:
 
-For a seamless experience with breakpoint debugging and other features:
+```ts
+import { buildAlgoSafeAppClient } from 'algo-safe'
 
-1. **Open Project**: In VS Code, open the repository root.
-2. **Install Extensions**: Follow prompts to install recommended extensions.
-3. **Debugging**:
-   - Use `F5` to start debugging.
+const client = await buildAlgoSafeAppClient(algod, { appId, address: defaultSender })
+```
 
-#### JetBrains IDEs
+Compare against `LATEST_CONTRACT_HASH` (treat `undefined`/`'latest'` as latest) when you need to branch on version-specific ABI differences.
 
-While primarily optimized for VS Code, JetBrains IDEs are supported:
+---
 
-1. **Open Project**: In your JetBrains IDE, open the repository root.
-2. **Automatic Setup**: The IDE should configure the Node.js environment.
-3. **Debugging**: Use `Shift+F10` or `Ctrl+R` to start debugging. Note: Windows users may encounter issues with pre-launch tasks due to a known bug. See [JetBrains forums](https://youtrack.jetbrains.com/issue/IDEA-277486/Shell-script-configuration-cannot-run-as-before-launch-task) for workarounds.
+## Building transaction payloads
 
-## AlgoKit Workspaces and Project Management
+A transaction-group proposal carries a `payload` — an array of tagged envelopes produced by `toSafeTxnGroup([...])`. Mix any of the builders below in one array; they execute **atomically and in order** as inner transactions of the safe.
 
-This project supports both standalone and monorepo setups through AlgoKit workspaces. Leverage [`algokit project run`](https://github.com/algorandfoundation/algokit-cli/blob/main/docs/features/project/run.md) commands for efficient monorepo project orchestration and management across multiple projects within a workspace.
+```ts
+await client.send.proposeTransactionGroup({
+  args: { groupId, payload: toSafeTxnGroup([ /* …safe txns… */ ]), expiryRound: FAR_EXPIRY },
+  staticFee: (0.2).algo(),
+})
+```
 
-## AlgoKit Generators
+The proposing group's `allowedActions` must permit every transaction type in the payload, and spend limits (if configured) are enforced at execution time.
 
-This template provides a set of [algokit generators](https://github.com/algorandfoundation/algokit-cli/blob/main/docs/features/generate.md) that allow you to further modify the project instantiated from the template to fit your needs, as well as giving you a base to build your own extensions to invoke via the `algokit generate` command.
+### Payment
 
-### Generate Smart Contract
+```ts
+import { createPaymentSafeTxn, createPaymentPayload, ZERO_ADDR } from 'algo-safe'
 
-By default the template creates a single `HelloWorld` contract under algo_safe folder in the `smart_contracts` directory. To add a new contract:
+const pay = createPaymentSafeTxn({
+  receiver: 'RECIPIENT...',
+  amount: (2.5).algo().microAlgo,
+  hasClose: 0n,                 // set to 1n to close the account
+  closeRemainderTo: ZERO_ADDR,  // required when hasClose === 1n
+  note: 'salary',
+})
 
-1. From the root of the project (`../`) execute `algokit generate smart-contract`. This will create a new starter smart contract and deployment configuration file under `{your_contract_name}` subfolder in the `smart_contracts` directory.
-2. Each contract potentially has different creation parameters and deployment steps. Hence, you need to define your deployment logic in `deploy-config.ts` file.
-3. Technically, you need to reference your contract deployment logic in the `index.ts` file. However, by default, `index.ts` will auto import all TypeScript deployment files under `smart_contracts` directory. If you want to manually import specific contracts, modify the default code provided by the template in `index.ts` file.
+// Shorthand for a plain transfer with no close:
+const pay2 = createPaymentSafeTxn(createPaymentPayload('RECIPIENT...', (1).algo().microAlgo, 'note'))
+```
 
-> Please note, above is just a suggested convention tailored for the base configuration and structure of this template. The default code supplied by the template in the `index.ts` file is tailored for the suggested convention. You are free to modify the structure and naming conventions as you see fit.
+### Asset transfer / opt-in
 
-### Generate '.env' files
+An opt-in is a 0-amount transfer to the safe's own address.
 
-By default the template instance does not contain any env files to deploy to different networks. Using [`algokit project deploy`](https://github.com/algorandfoundation/algokit-cli/blob/main/docs/features/project/deploy.md) against `localnet` | `testnet` | `mainnet` will use default values for `algod` and `indexer` unless overwritten via `.env` or `.env.{target_network}`.
+```ts
+import { createAssetSafeTxn, ZERO_ADDR } from 'algo-safe'
 
-To generate a new `.env` or `.env.{target_network}` file, run `algokit generate env-file`
+// Opt the safe in to an ASA:
+const optIn = createAssetSafeTxn({
+  xferAsset: assetId,
+  assetReceiver: client.appAddress.toString(),
+  assetAmount: 0n,
+  hasClose: 0n,
+  assetCloseTo: ZERO_ADDR,
+  note: '',
+})
 
-### Debugging Smart Contracts
+// Send 100 units:
+const send = createAssetSafeTxn({
+  xferAsset: assetId,
+  assetReceiver: 'RECIPIENT...',
+  assetAmount: 100n,
+  hasClose: 0n,
+  assetCloseTo: ZERO_ADDR,
+  note: '',
+})
+```
 
-This project is optimized to work with AlgoKit AVM Debugger extension. To activate it:
+### Application call
 
-Refer to the commented header in the `index.ts` file in the `smart_contracts` folder.Since you have opted in to include VSCode launch configurations in your project, you can also use the `Debug TEAL via AlgoKit AVM Debugger` launch configuration to interactively select an available trace file and launch the debug session for your smart contract.
+Supports the full Algorand app-call shape: up to **16 app args**, **4 accounts**, **8 foreign apps**, **8 foreign assets** (with the combined references ≤ 8), plus the on-completion action. Creating or updating an app (which requires program bytes) is **not** supported via the safe — `appId` must be non-zero and `onCompletion` may not be `UpdateApplication (4)`.
 
-For information on using and setting up the `AlgoKit AVM Debugger` VSCode extension refer [here](https://github.com/algorandfoundation/algokit-avm-vscode-debugger). To install the extension from the VSCode Marketplace, use the following link: [AlgoKit AVM Debugger extension](https://marketplace.visualstudio.com/items?itemName=algorandfoundation.algokit-avm-vscode-debugger).### Continuous Integration / Continuous Deployment (CI/CD)
+```ts
+import { createAppCallSafeTxn, createAppCallPayload } from 'algo-safe'
 
-This project uses [GitHub Actions](https://docs.github.com/en/actions/learn-github-actions/understanding-github-actions) to define CI/CD workflows, which are located in the [.github/workflows](`../../.github/workflows`) folder.
+// Simple no-op call with two args:
+const call = createAppCallSafeTxn(
+  createAppCallPayload(appId, [new TextEncoder().encode('vote'), new TextEncoder().encode('yes')]),
+)
 
-> Please note, if you instantiated the project with --workspace flag in `algokit init` it will automatically attempt to move the contents of the `.github` folder to the root of the workspace.
+// Full control via the explicit payload:
+const richCall = createAppCallSafeTxn({
+  appId,
+  onCompletion: 0n,                                   // 0 NoOp, 1 OptIn, 2 CloseOut, 3 ClearState, 5 Delete
+  appArgs: [new TextEncoder().encode('method')],
+  accounts: ['ACCT_A...'],
+  foreignApps: [otherAppId],
+  foreignAssets: [assetId],
+  note: '',
+})
+```
 
-### AlgoKit Workspaces
+### Key registration
 
-To define custom `algokit project run` commands refer to [documentation](https://github.com/algorandfoundation/algokit-cli/blob/main/docs/features/project/run.md). This allows orchestration of commands spanning across multiple projects within an algokit workspace based project (monorepo).
+Register the safe account online (with participation keys) or take it offline (`online: 0n`, empty keys). Requires the group to have `ACT_KEYREG`.
 
-#### Setting up GitHub for CI/CD workflow and TestNet deployment
+```ts
+import { createKeyRegSafeTxn } from 'algo-safe'
 
-1. Every time you have a change to your smart contract, and when you first initialize the project you need to [build the contract](#initial-setup) and then commit the `smart_contracts/artifacts` folder so the [output stability](https://github.com/algorandfoundation/algokit-cli/blob/main/docs/articles/output_stability.md) tests pass
-2. Decide what values you want to use for the `allowUpdate` and `allowDelete` parameters specified in [`deploy-config.ts`](./smart_contracts/algo_safe/deploy-config.ts).
-   When deploying to LocalNet these values are both set to `true` for convenience. But for non-LocalNet networks
-   they are more conservative and use `false`
-   These default values will allow the smart contract to be deployed initially, but will not allow the app to be updated or deleted if is changed and the build will instead fail.
-   To help you decide it may be helpful to read the [AlgoKit Utils app deployment documentation](https://github.com/algorandfoundation/algokit-utils-ts/blob/main/docs/capabilities/app-deploy.md) or the [AlgoKit smart contract deployment architecture](https://github.com/algorandfoundation/algokit-cli/blob/main/docs/architecture-decisions/2023-01-12_smart-contract-deployment.md#upgradeable-and-deletable-contracts).
-3. Create a [Github Environment](https://docs.github.com/en/actions/deployment/targeting-different-environments/using-environments-for-deployment#creating-an-environment) named `Test`.
-   Note: If you have a private repository and don't have GitHub Enterprise then Environments won't work and you'll need to convert the GitHub Action to use a different approach. Ignore this step if you picked `Starter` preset.
-4. Create or obtain a mnemonic for an Algorand account for use on TestNet to deploy apps, referred to as the `DEPLOYER` account.
-5. Store the mnemonic as a [secret](https://docs.github.com/en/actions/deployment/targeting-different-environments/using-environments-for-deployment#environment-secrets) `DEPLOYER_MNEMONIC`
-   in the Test environment created in step 3.
-6. The account used to deploy the smart contract will require enough funds to create the app, and also fund it. There are two approaches available here:
-   - Either, ensure the account is funded outside of CI/CD.
-     In Testnet, funds can be obtained by using the [Algorand TestNet dispenser](https://bank.testnet.algorand.network/) and we recommend provisioning 50 ALGOs.
-   - Or, fund the account as part of the CI/CD process by using a `DISPENSER_MNEMONIC` GitHub Environment secret to point to a separate `DISPENSER` account that you maintain ALGOs in (similarly, you need to provision ALGOs into this account using the [TestNet dispenser](https://bank.testnet.algorand.network/)).
+const goOnline = createKeyRegSafeTxn({
+  online: 1n,
+  voteKey,          // 32 bytes
+  selectionKey,     // 32 bytes
+  stateProofKey,    // 64 bytes
+  voteFirst: 1n,
+  voteLast: 11_000n,
+  voteKeyDilution: 100n,
+})
 
-#### Continuous Integration
+const goOffline = createKeyRegSafeTxn({
+  online: 0n,
+  voteKey: new Uint8Array(0),
+  selectionKey: new Uint8Array(0),
+  stateProofKey: new Uint8Array(0),
+  voteFirst: 0n,
+  voteLast: 0n,
+  voteKeyDilution: 0n,
+})
+```
 
-For pull requests and pushes to `main` branch against this repository the following checks are automatically performed by GitHub Actions:
+### Asset configuration (create / reconfigure / destroy)
 
-- Dependencies are audited using `pnpm audit --audit-level high`
-- Code formatting is performed using [Prettier](https://prettier.io/)
-- Linting is checked using [ESLint](https://eslint.org/)
-- The base framework for testing is [vitest](https://vitest.dev/), and the project includes two separate kinds of tests:
-- - `Algorand TypeScript` smart contract unit tests, that are run using [`algorand-typescript-testing`](https://github.com/algorandfoundation/algorand-typescript-testing), which are executed in a Node.js intepreter emulating major AVM behaviour
-- - End-to-end (e2e) `AppClient` tests that are run against `algokit localnet` and test the behaviour in a real network environment
-- Smart contract artifacts are built
-- Smart contract artifacts are checked for [output stability](https://github.com/algorandfoundation/algokit-cli/blob/main/docs/articles/output_stability.md).
-- Smart contract is deployed to a AlgoKit LocalNet instance
+Requires the group to have `ACT_ACFG`. Set `configAsset: 0n` to **create**; set it to an existing asset id to **reconfigure** (change the manager/reserve/freeze/clawback roles) or **destroy** (all roles zeroed). On reconfigure the immutable params (`total`, `decimals`, names, url, metadata) are ignored.
 
-> NOTE: By default smart contract artifacts are compiled with `--debug-level` set to 0, to change this, modify the compiler invocation under the `build` script in `package.json`
+```ts
+import { createAssetConfigSafeTxn, ZERO_ADDR } from 'algo-safe'
 
-#### Continuous Deployment
+// Create a new ASA owned by the safe:
+const create = createAssetConfigSafeTxn({
+  configAsset: 0n,
+  total: 1_000_000n,
+  decimals: 0n,
+  defaultFrozen: 0n,
+  unitName: 'SAFE',
+  assetName: 'Safe Asset',
+  url: 'https://example.org',
+  metadataHash: new Uint8Array(0), // 0 or exactly 32 bytes
+  manager: client.appAddress.toString(),
+  reserve: client.appAddress.toString(),
+  freeze: ZERO_ADDR,
+  clawback: ZERO_ADDR,
+  note: '',
+})
+```
 
-For pushes to `main` branch, after the above checks pass, the following deployment actions are performed:
+### Convert native algosdk transactions
 
-- The smart contract(s) are deployed to TestNet using [AlgoNode](https://algonode.io).
+Already have `algosdk.Transaction` objects (e.g. built by another SDK or a dApp)? Convert a whole atomic group into a safe payload in one call. Payment, asset transfer, app call, key registration and asset config are supported. The sender of the source transactions is irrelevant — the safe re-issues each as an inner transaction.
 
-> Please note deployment is also performed via `algokit deploy` command which can be invoked both via CI as seen on this project, or locally. For more information on how to use `algokit deploy` please see [AlgoKit documentation](https://github.com/algorandfoundation/algokit-cli/blob/main/docs/features/deploy.md).
+```ts
+import { algosdkTxnsToSafeTxnGroup } from 'algo-safe'
 
-# Tools
+const payload = algosdkTxnsToSafeTxnGroup([payTxn, appCallTxn]) // SafeTxnTuple[]
 
-This project makes use of Algorand TypeScript to build Algorand smart contracts. The following tools are in use:
+await client.send.proposeTransactionGroup({
+  args: { groupId: 1n, payload, expiryRound: FAR_EXPIRY },
+  staticFee: (0.2).algo(),
+})
+```
 
-- [Algorand](https://www.algorand.com/) - Layer 1 Blockchain; [Developer portal](https://dev.algorand.co/), [Why Algorand?](https://dev.algorand.co/getting-started/why-algorand/)
-- [AlgoKit](https://github.com/algorandfoundation/algokit-cli) - One-stop shop tool for developers building on the Algorand network; [docs](https://github.com/algorandfoundation/algokit-cli/blob/main/docs/algokit.md), [intro tutorial](https://github.com/algorandfoundation/algokit-cli/blob/main/docs/tutorials/intro.md)
-- [Algorand TypeScript](https://github.com/algorandfoundation/puya-ts/) - A semantically and syntactically compatible, typed TypeScript language that works with standard TypeScript tooling and allows you to express smart contracts (apps) and smart signatures (logic signatures) for deployment on the Algorand Virtual Machine (AVM); [docs](https://github.com/algorandfoundation/puya-ts/), [examples](https://github.com/algorandfoundation/puya-ts/tree/main/examples)
-- [AlgoKit Utils](https://github.com/algorandfoundation/algokit-utils-ts) - A set of core Algorand utilities that make it easier to build solutions on Algorand.
-- [NPM](https://www.npmjs.com/): TypeScript packaging and dependency management.
-- [TypeScript](https://www.typescriptlang.org/): Strongly typed programming language that builds on JavaScript
-- [ts-node-dev](https://github.com/wclr/ts-node-dev): TypeScript development execution environment- [Prettier](https://prettier.io/): A code formatter.- [ESLint](https://eslint.org/): A JavaScript / TypeScript linter.
-- [vitest](https://vitest.dev/): Automated testing.
-- [pnpm](https://pnpm.io/cli/audit): Package manager used for dependency installation and vulnerability auditing.
+---
 
-It has also been configured to have a productive dev experience out of the box in [VS Code](https://code.visualstudio.com/), see the [.vscode](./.vscode) folder.
+## The proposal lifecycle
+
+```ts
+// Create (proposer auto-approves).
+const { return: proposalId } = await client.send.proposeTransactionGroup({ args: { /* … */ } , staticFee: (0.2).algo() })
+
+// Other members approve until the threshold is met.
+await client.send.approveProposal({ args: { proposalId: proposalId! }, sender: memberB })
+
+// Anyone can read progress.
+const p = await client.send.getProposal({ args: { proposalId: proposalId! } })
+// p.return.status === 2n  → READY
+
+// Execute once READY.
+await client.send.executeProposal({
+  args: { proposalId: proposalId! },
+  coverAppCallInnerTransactionFees: true,
+  maxFee: (0.02).algo(),
+})
+
+// Or cancel while pending (proposer or any group member).
+await client.send.cancelProposal({ args: { proposalId: proposalId! } })
+```
+
+Proposals carry an `expiryRound`; create with a comfortably future round (`FAR_EXPIRY` is provided for tests/convenience) and they cannot be approved or executed once expired.
+
+---
+
+## Large groups: multiple payload chunks
+
+A single ABI argument is limited to ~2 KB, so very large transaction groups are split across **payload slots 1–6**. Create with slot 1, then append the rest *before* the proposal is executed:
+
+```ts
+const { return: pid } = await client.send.proposeTransactionGroup({
+  args: { groupId: 1n, payload: toSafeTxnGroup(firstChunk), expiryRound: FAR_EXPIRY },
+  staticFee: (0.2).algo(),
+})
+
+await client.send.appendTransactionGroupPayload({
+  args: { proposalId: pid!, payloadIndex: 2n, payload: toSafeTxnGroup(secondChunk) },
+  staticFee: (0.1).algo(),
+})
+```
+
+All slots execute atomically, in slot then array order, when the proposal is executed. The first chunk is capped at 16 transactions (`MAX_GROUP_TXNS`); spreading across slots 1–6 allows larger groups, bounded by the AVM inner-transaction and opcode-budget limits.
+
+---
+
+## Governance (admin changes)
+
+Group/policy changes are themselves governed proposals. Build the change with `createAdminChange` (it fills sensible defaults), propose it from an admin-capable group, and execute it once approved.
+
+```ts
+import { createAdminChange, ADM_CREATE_GROUP, ADM_ADD_MEMBER, ADM_CHANGE_THRESHOLD, ACT_PAY, PRIV_GROUP, FAR_EXPIRY } from 'algo-safe'
+
+async function govern(change) {
+  const { return: pid } = await client.send.proposeAdminChange({
+    args: { groupId: 1n, change, expiryRound: FAR_EXPIRY },
+    staticFee: (0.2).algo(),
+  })
+  await client.send.executeProposal({ args: { proposalId: pid! }, coverAppCallInnerTransactionFees: true, maxFee: (0.02).algo() })
+}
+
+// Create a pay-only Treasury group with member A:
+await govern(createAdminChange({
+  changeType: ADM_CREATE_GROUP,
+  groupName: 'Treasury',
+  threshold: 1n,
+  memberAddr: 'MEMBER_A...',
+  allowedActions: ACT_PAY,
+  adminPrivileges: 0n,
+}))
+
+// Add member B, then require 2-of-2:
+await govern(createAdminChange({ changeType: ADM_ADD_MEMBER, targetGroupId: 2n, memberAddr: 'MEMBER_B...' }))
+await govern(createAdminChange({ changeType: ADM_CHANGE_THRESHOLD, targetGroupId: 2n, threshold: 2n }))
+```
+
+Admin change types: `ADM_CREATE_GROUP`, `ADM_ADD_MEMBER`, `ADM_REMOVE_MEMBER`, `ADM_CHANGE_THRESHOLD`, `ADM_SET_POLICY` (actions + spend limits), `ADM_SET_PRIVILEGES`, `ADM_SET_ACTIVE`. `ADM_SET_POLICY` requires `PRIV_POLICY`; all others require `PRIV_GROUP`.
+
+---
+
+## Reading on-chain state
+
+Read-only ABI getters on the client:
+
+```ts
+const config = await client.send.getConfig({ args: {} })
+// [name, groupCount, nextGroupId, nextProposalId, paused, version]
+
+const group   = await client.send.getSignerGroup({ args: { groupId: 1n } })
+const member  = await client.send.getMember({ args: { groupId: 1n, account } })
+const isMem   = await client.send.isMember({ args: { groupId: 1n, account } })
+const prop    = await client.send.getProposal({ args: { proposalId: 1n } })
+const approved= await client.send.hasApproved({ args: { proposalId: 1n, account } })
+const stored  = await client.send.getTransactionGroup({ args: { proposalId: 1n, payloadIndex: 1n } })
+```
+
+Higher-level helpers (no manual client wiring; they detect the version, page boxes, and shape the results for UIs):
+
+```ts
+import { fetchAlgoSafeSignerGroups, fetchAlgoSafeSignerGroupDetail } from 'algo-safe'
+
+const groups = await fetchAlgoSafeSignerGroups(algod, { appId, address })
+const detail = await fetchAlgoSafeSignerGroupDetail(algod, { appId, address }, '2', activeAddress)
+// detail.group, detail.members, detail.adminGroupOptions
+```
+
+---
+
+## Decoding stored payloads
+
+`getTransactionGroup` returns the raw `(txType, data)` tuples. Decode the `data` blob per type:
+
+```ts
+import { TX_PAYMENT, TX_ASSET, TX_APP, TX_KEYREG, TX_ACFG, decodePaymentTxn, decodeAssetTxn, decodeAppTxn, decodeKeyRegTxn, decodeAssetConfigTxn } from 'algo-safe'
+
+const stored = await client.send.getTransactionGroup({ args: { proposalId: 1n, payloadIndex: 1n } })
+for (const [txType, data] of stored.return!) {
+  if (txType === TX_PAYMENT) console.log(decodePaymentTxn(data))
+  else if (txType === TX_ASSET) console.log(decodeAssetTxn(data))
+  else if (txType === TX_APP) console.log(decodeAppTxn(data))
+  else if (txType === TX_KEYREG) console.log(decodeKeyRegTxn(data))
+  else if (txType === TX_ACFG) console.log(decodeAssetConfigTxn(data))
+}
+```
+
+---
+
+## Constants & limits reference
+
+Always import these from `algo-safe` — never redefine them locally; they must track the deployed contract exactly.
+
+**Allowed-action bitmask** (`SignerGroup.allowedActions`):
+
+| Constant | Value | Permits |
+|---|---|---|
+| `ACT_PAY` | 1 | payments |
+| `ACT_AXFER` | 2 | asset transfers |
+| `ACT_APPL` | 4 | application calls |
+| `ACT_KEYREG` | 8 | key registration |
+| `ACT_ACFG` | 16 | asset configuration |
+| `ACT_ALL` | 31 | all of the above |
+
+**Admin-privilege bitmask** (`SignerGroup.adminPrivileges`): `PRIV_GROUP` (1), `PRIV_POLICY` (2), `PRIV_ALL` (7).
+
+**Transaction type discriminators:** `TX_PAYMENT` (1), `TX_ASSET` (2), `TX_APP` (3), `TX_KEYREG` (4), `TX_ACFG` (5).
+
+**Admin change types:** `ADM_CREATE_GROUP` (1), `ADM_ADD_MEMBER` (2), `ADM_REMOVE_MEMBER` (3), `ADM_CHANGE_THRESHOLD` (4), `ADM_SET_POLICY` (5), `ADM_SET_PRIVILEGES` (6), `ADM_SET_ACTIVE` (7).
+
+**App-call limits** (Algorand consensus parameters, enforced at execution): `MAX_APP_ARGS` (16), `MAX_APP_TOTAL_ARG_LEN` (2048), `MAX_APP_ACCOUNTS` (4), `MAX_APP_FOREIGN_APPS` (8), `MAX_APP_FOREIGN_ASSETS` (8), `MAX_APP_TOTAL_REFS` (8 — accounts + apps + assets combined).
+
+**Misc:** `ZERO_ADDR` (the all-zero Algorand address), `EMPTY_BYTES`, `FAR_EXPIRY` (a far-future round for proposal expiry).
+
+---
+
+## API reference
+
+| Export | Purpose |
+|---|---|
+| `AlgoSafeFactory` | Typed factory for creating/deploying a safe (latest version). |
+| `getClient(version?)` | Resolve the typed client constructor for a contract hash (or `'latest'`). |
+| `getAlgoSafeContractVersion(algod, appId)` | Hash the deployed approval program → its `ContractHash` (or `'latest'`). |
+| `LATEST_CONTRACT_HASH`, `DEFAULT_CLIENT_VERSION` | Current version hash / default selector. |
+| `buildAlgoSafeAppClient(algod, { appId, address })` | Version-detect and return a ready typed client. |
+| `toSafeTxnGroup(txns)` / `toSafeTxnTuple(txn)` | Convert builder output into the ABI payload shape. |
+| `createPaymentSafeTxn` / `createAssetSafeTxn` / `createAppCallSafeTxn` / `createKeyRegSafeTxn` / `createAssetConfigSafeTxn` | Build one typed safe transaction. |
+| `createPaymentPayload` / `createAppCallPayload` | Convenience payload constructors. |
+| `algosdkTxnsToSafeTxnGroup(txns)` | Convert native `algosdk.Transaction[]` → payload. |
+| `decodePaymentTxn` / `decodeAssetTxn` / `decodeAppTxn` / `decodeKeyRegTxn` / `decodeAssetConfigTxn` | Decode a stored `data` blob back into a typed payload. |
+| `createAdminChange(partial)` | Build an `AdminChange` with defaults filled in. |
+| `fetchAlgoSafeSignerGroups` / `fetchAlgoSafeSignerGroupDetail` | Off-chain read helpers for UIs. |
+| Types: `SafeTxn`, `SafeTxnTuple`, `PaymentPayload`, `AssetPayload`, `AppCallPayload`, `KeyRegPayload`, `AssetConfigPayload`, `AdminChange`, `Proposal`, `SignerGroup`, `Member`, `ContractHash`, `ContractVersion`, `AlgoSafeOnChainRef`, `AlgoSafeSignerGroupRecord`, … | |
+
+---
+
+## Developing this package
+
+This folder is also the contracts source. Requires Node 22+, the [AlgoKit CLI](https://github.com/algorandfoundation/algokit-cli), Docker (for LocalNet) and the PuyaTs compiler (pulled in via npm).
+
+```bash
+pnpm install                  # install dependencies
+pnpm build                    # compile TS → AVM + regenerate typed clients + sync versioned clients
+pnpm build-package            # bundle the npm package (tsup + d.ts)
+pnpm test                     # unit tests + coverage (no localnet needed)
+pnpm test:e2e                 # e2e tests against localnet  (start it first: `algokit localnet start`)
+pnpm lint                     # ESLint
+```
+
+> On Windows/Git Bash the `test:e2e` glob may not expand — run a spec directly:
+> `pnpm exec vitest run smart_contracts/algo_safe/contract.e2e.spec.ts`.
+
+**Key source files**
+
+| File | Purpose |
+|---|---|
+| `smart_contracts/algo_safe/contract.algo.ts` | The contract — all safe logic. |
+| `smart_contracts/algo_safe/contract.e2e.spec.ts` | End-to-end tests against LocalNet. |
+| `src/safe-tx.ts` | Transaction-building + decoding helpers. |
+| `src/constants.ts` | Action/privilege/tx-type/limit constants (source of truth for the frontend). |
+| `src/on-chain.ts` | On-chain read helpers. |
+| `src/version.ts`, `src/get-client.ts` | Version detection and client resolution. |
+
+**Versioned clients.** Each `pnpm build` snapshots the generated client under `clients/<approval-program-sha256>/` and refreshes `src/versioned-clients.generated.ts` (never hand-edit it). `getAlgoSafeContractVersion` + `getClient` use this registry so old and new deployments are both callable from one package version.
+
+Built with [Algorand TypeScript (PuyaTs)](https://github.com/algorandfoundation/puya-ts/), [AlgoKit](https://github.com/algorandfoundation/algokit-cli) and [AlgoKit Utils](https://github.com/algorandfoundation/algokit-utils-ts).
