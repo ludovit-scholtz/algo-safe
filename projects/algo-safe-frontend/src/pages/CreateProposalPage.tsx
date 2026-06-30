@@ -1,7 +1,7 @@
 import { algo, AlgorandClient } from '@algorandfoundation/algokit-utils'
 import { useQueryClient } from '@tanstack/react-query'
 import { useWallet } from '@txnlab/use-wallet-react'
-import { createAssetSafeTxn, getAlgoSafeContractVersion, getClient, toSafeTxnGroup } from 'algo-safe'
+import { createAssetSafeTxn, createPaymentSafeTxn, getAlgoSafeContractVersion, getClient, toSafeTxnGroup } from 'algo-safe'
 import algosdk from 'algosdk'
 import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
@@ -123,16 +123,18 @@ export function CreateProposalPage() {
           throw new Error('Enter a valid ALGO amount for the payment proposal.')
         }
 
-        const result = await appClient.send.proposePayment({
+        const result = await appClient.send.proposeTransactionGroup({
           args: {
             groupId: parsedGroupId,
-            payload: {
-              receiver: receiver.trim(),
-              amount: rawAmount,
-              hasClose: 0n,
-              closeRemainderTo: getZeroAddress(),
-              note: note.trim(),
-            },
+            payload: toSafeTxnGroup([
+              createPaymentSafeTxn({
+                receiver: receiver.trim(),
+                amount: rawAmount,
+                hasClose: 0n,
+                closeRemainderTo: getZeroAddress(),
+                note: note.trim(),
+              }),
+            ]),
             expiryRound: proposalExpiryRound,
           },
           staticFee: PROPOSAL_CALL_FEE,
