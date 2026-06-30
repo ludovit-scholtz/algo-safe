@@ -1,5 +1,9 @@
 import algosdk from 'algosdk'
-import { EMPTY_BYTES, TX_APP, TX_ASSET, TX_KEYREG, TX_PAYMENT } from './constants'
+import { EMPTY_BYTES, TX_ACFG, TX_APP, TX_ASSET, TX_KEYREG, TX_PAYMENT } from './constants'
+
+// ---------------------------------------------------------------------------
+// Per-transaction-type payloads
+// ---------------------------------------------------------------------------
 
 export type PaymentPayload = {
   receiver: string
@@ -20,11 +24,12 @@ export type AssetPayload = {
 
 export type AppCallPayload = {
   appId: bigint
-  numArgs: bigint
-  arg0: Uint8Array
-  arg1: Uint8Array
-  arg2: Uint8Array
-  arg3: Uint8Array
+  onCompletion: bigint // OnApplicationComplete code: 0 NoOp, 1 OptIn, 2 CloseOut, 3 ClearState, 5 Delete (4/Update unsupported)
+  appArgs: Uint8Array[] // up to 16, total length <= 2048 bytes
+  accounts: string[] // up to 4 foreign accounts
+  foreignApps: bigint[] // up to 8 foreign apps
+  foreignAssets: bigint[] // up to 8 foreign assets
+  note: string
 }
 
 export type KeyRegPayload = {
@@ -37,233 +42,303 @@ export type KeyRegPayload = {
   voteKeyDilution: bigint
 }
 
-export type SafeTxn = {
-  txType: bigint
-  receiver: string
-  amount: bigint
-  hasClose: bigint
-  closeRemainderTo: string
-  xferAsset: bigint
-  assetReceiver: string
-  assetAmount: bigint
-  hasAssetClose: bigint
-  assetCloseTo: string
-  appId: bigint
-  numArgs: bigint
-  arg0: Uint8Array
-  arg1: Uint8Array
-  arg2: Uint8Array
-  arg3: Uint8Array
-  online: bigint
-  voteKey: Uint8Array
-  selectionKey: Uint8Array
-  stateProofKey: Uint8Array
-  voteFirst: bigint
-  voteLast: bigint
-  voteKeyDilution: bigint
+export type AssetConfigPayload = {
+  configAsset: bigint // 0 = create, otherwise reconfigure/destroy this asset id
+  total: bigint
+  decimals: bigint
+  defaultFrozen: bigint
+  unitName: string
+  assetName: string
+  url: string
+  metadataHash: Uint8Array // 0 or 32 bytes
+  manager: string
+  reserve: string
+  freeze: string
+  clawback: string
   note: string
 }
 
-export type SafeTxnTuple = [
-  bigint,
-  string,
-  bigint,
-  bigint,
-  string,
-  bigint,
-  string,
-  bigint,
-  bigint,
-  string,
-  bigint,
-  bigint,
-  Uint8Array,
-  Uint8Array,
-  Uint8Array,
-  Uint8Array,
-  bigint,
-  Uint8Array,
-  Uint8Array,
-  Uint8Array,
-  bigint,
-  bigint,
-  bigint,
-  string,
-]
+// ---------------------------------------------------------------------------
+// Tagged envelope: every transaction is stored on-chain as `(txType, data)`,
+// where `data` is the ARC4 tuple encoding of exactly one of the structs below.
+// The contract decodes `data` according to `txType`. Splitting the payload this
+// way means a stored transaction only occupies the bytes its own type needs,
+// rather than reserving room for every field of every transaction type.
+//
+// The ARC4 tuple type strings MUST stay byte-for-byte in sync with the matching
+// structs in `contract.algo.ts` (field order included).
+// ---------------------------------------------------------------------------
+
+const PAYMENT_CODEC = algosdk.ABIType.from('(address,uint64,uint64,address,string)')
+const ASSET_CODEC = algosdk.ABIType.from('(uint64,address,uint64,uint64,address,string)')
+const APP_CODEC = algosdk.ABIType.from('(uint64,uint64,byte[][],address[],uint64[],uint64[],string)')
+const KEYREG_CODEC = algosdk.ABIType.from('(uint64,byte[],byte[],byte[],uint64,uint64,uint64)')
+const ACFG_CODEC = algosdk.ABIType.from(
+  '(uint64,uint64,uint64,uint64,string,string,string,byte[],address,address,address,address,string)',
+)
+
+export type SafeTxn = {
+  txType: bigint
+  data: Uint8Array
+}
+
+export type SafeTxnTuple = [bigint, Uint8Array]
 
 export const ZERO_ADDR = algosdk.encodeAddress(new Uint8Array(32))
 
 export function toSafeTxnTuple(tx: SafeTxn): SafeTxnTuple {
-  return [
-    BigInt(tx.txType),
-    tx.receiver,
-    BigInt(tx.amount),
-    BigInt(tx.hasClose),
-    tx.closeRemainderTo,
-    BigInt(tx.xferAsset),
-    tx.assetReceiver,
-    BigInt(tx.assetAmount),
-    BigInt(tx.hasAssetClose),
-    tx.assetCloseTo,
-    BigInt(tx.appId),
-    BigInt(tx.numArgs),
-    tx.arg0,
-    tx.arg1,
-    tx.arg2,
-    tx.arg3,
-    BigInt(tx.online),
-    tx.voteKey,
-    tx.selectionKey,
-    tx.stateProofKey,
-    BigInt(tx.voteFirst),
-    BigInt(tx.voteLast),
-    BigInt(tx.voteKeyDilution),
-    tx.note,
-  ]
+  return [BigInt(tx.txType), tx.data]
 }
 
 export function toSafeTxnGroup(txns: SafeTxn[]): SafeTxnTuple[] {
   return txns.map(toSafeTxnTuple)
 }
 
-export function createEmptySafeTxn(): SafeTxn {
-  return {
-    txType: TX_PAYMENT,
-    receiver: ZERO_ADDR,
-    amount: 0n,
-    hasClose: 0n,
-    closeRemainderTo: ZERO_ADDR,
-    xferAsset: 0n,
-    assetReceiver: ZERO_ADDR,
-    assetAmount: 0n,
-    hasAssetClose: 0n,
-    assetCloseTo: ZERO_ADDR,
-    appId: 0n,
-    numArgs: 0n,
-    arg0: EMPTY_BYTES,
-    arg1: EMPTY_BYTES,
-    arg2: EMPTY_BYTES,
-    arg3: EMPTY_BYTES,
-    online: 0n,
-    voteKey: EMPTY_BYTES,
-    selectionKey: EMPTY_BYTES,
-    stateProofKey: EMPTY_BYTES,
-    voteFirst: 0n,
-    voteLast: 0n,
-    voteKeyDilution: 0n,
-    note: '',
-  }
-}
+// ---------------------------------------------------------------------------
+// Builders — encode a typed payload into a tagged envelope
+// ---------------------------------------------------------------------------
 
 export function createPaymentSafeTxn(payload: PaymentPayload): SafeTxn {
-  return {
-    ...createEmptySafeTxn(),
-    txType: TX_PAYMENT,
-    receiver: payload.receiver,
-    amount: payload.amount,
-    hasClose: payload.hasClose,
-    closeRemainderTo: payload.closeRemainderTo,
-    note: payload.note,
-  }
+  const data = PAYMENT_CODEC.encode([
+    payload.receiver,
+    payload.amount,
+    payload.hasClose,
+    payload.closeRemainderTo,
+    payload.note,
+  ])
+  return { txType: TX_PAYMENT, data }
 }
 
 export function createAssetSafeTxn(payload: AssetPayload): SafeTxn {
-  return {
-    ...createEmptySafeTxn(),
-    txType: TX_ASSET,
-    xferAsset: payload.xferAsset,
-    assetReceiver: payload.assetReceiver,
-    assetAmount: payload.assetAmount,
-    hasAssetClose: payload.hasClose,
-    assetCloseTo: payload.assetCloseTo,
-    note: payload.note,
-  }
+  const data = ASSET_CODEC.encode([
+    payload.xferAsset,
+    payload.assetReceiver,
+    payload.assetAmount,
+    payload.hasClose,
+    payload.assetCloseTo,
+    payload.note,
+  ])
+  return { txType: TX_ASSET, data }
 }
 
 export function createAppCallSafeTxn(payload: AppCallPayload): SafeTxn {
-  return {
-    ...createEmptySafeTxn(),
-    txType: TX_APP,
-    appId: payload.appId,
-    numArgs: payload.numArgs,
-    arg0: payload.arg0,
-    arg1: payload.arg1,
-    arg2: payload.arg2,
-    arg3: payload.arg3,
-  }
+  const data = APP_CODEC.encode([
+    payload.appId,
+    payload.onCompletion,
+    payload.appArgs,
+    payload.accounts,
+    payload.foreignApps,
+    payload.foreignAssets,
+    payload.note,
+  ])
+  return { txType: TX_APP, data }
 }
 
 export function createKeyRegSafeTxn(payload: KeyRegPayload): SafeTxn {
+  const data = KEYREG_CODEC.encode([
+    payload.online,
+    payload.voteKey,
+    payload.selectionKey,
+    payload.stateProofKey,
+    payload.voteFirst,
+    payload.voteLast,
+    payload.voteKeyDilution,
+  ])
+  return { txType: TX_KEYREG, data }
+}
+
+export function createAssetConfigSafeTxn(payload: AssetConfigPayload): SafeTxn {
+  const data = ACFG_CODEC.encode([
+    payload.configAsset,
+    payload.total,
+    payload.decimals,
+    payload.defaultFrozen,
+    payload.unitName,
+    payload.assetName,
+    payload.url,
+    payload.metadataHash,
+    payload.manager,
+    payload.reserve,
+    payload.freeze,
+    payload.clawback,
+    payload.note,
+  ])
+  return { txType: TX_ACFG, data }
+}
+
+// ---------------------------------------------------------------------------
+// Decoders — read a stored envelope's `data` back into a typed payload. Useful
+// for inspecting `getTransactionGroup` results off-chain.
+// ---------------------------------------------------------------------------
+
+export function decodePaymentTxn(data: Uint8Array): PaymentPayload {
+  const [receiver, amount, hasClose, closeRemainderTo, note] = PAYMENT_CODEC.decode(data) as [
+    string,
+    bigint,
+    bigint,
+    string,
+    string,
+  ]
+  return { receiver, amount, hasClose, closeRemainderTo, note }
+}
+
+export function decodeAssetTxn(data: Uint8Array): AssetPayload {
+  const [xferAsset, assetReceiver, assetAmount, hasClose, assetCloseTo, note] = ASSET_CODEC.decode(data) as [
+    bigint,
+    string,
+    bigint,
+    bigint,
+    string,
+    string,
+  ]
+  return { xferAsset, assetReceiver, assetAmount, hasClose, assetCloseTo, note }
+}
+
+export function decodeAppTxn(data: Uint8Array): AppCallPayload {
+  const [appId, onCompletion, appArgs, accounts, foreignApps, foreignAssets, note] = APP_CODEC.decode(data) as [
+    bigint,
+    bigint,
+    Array<Uint8Array | number[]>,
+    string[],
+    bigint[],
+    bigint[],
+    string,
+  ]
+  // algosdk decodes nested `byte[]` elements as plain number arrays; normalise
+  // each application argument back to a Uint8Array.
+  const normalisedArgs = appArgs.map((arg) => (arg instanceof Uint8Array ? arg : Uint8Array.from(arg)))
+  return { appId, onCompletion, appArgs: normalisedArgs, accounts, foreignApps, foreignAssets, note }
+}
+
+function toBytes(value: Uint8Array | number[]): Uint8Array {
+  return value instanceof Uint8Array ? value : Uint8Array.from(value)
+}
+
+export function decodeKeyRegTxn(data: Uint8Array): KeyRegPayload {
+  const [online, voteKey, selectionKey, stateProofKey, voteFirst, voteLast, voteKeyDilution] = KEYREG_CODEC.decode(
+    data,
+  ) as [bigint, Uint8Array | number[], Uint8Array | number[], Uint8Array | number[], bigint, bigint, bigint]
   return {
-    ...createEmptySafeTxn(),
-    txType: TX_KEYREG,
-    online: payload.online,
-    voteKey: payload.voteKey,
-    selectionKey: payload.selectionKey,
-    stateProofKey: payload.stateProofKey,
-    voteFirst: payload.voteFirst,
-    voteLast: payload.voteLast,
-    voteKeyDilution: payload.voteKeyDilution,
+    online,
+    voteKey: toBytes(voteKey),
+    selectionKey: toBytes(selectionKey),
+    stateProofKey: toBytes(stateProofKey),
+    voteFirst,
+    voteLast,
+    voteKeyDilution,
   }
 }
 
+export function decodeAssetConfigTxn(data: Uint8Array): AssetConfigPayload {
+  const [configAsset, total, decimals, defaultFrozen, unitName, assetName, url, metadataHash, manager, reserve, freeze, clawback, note] =
+    ACFG_CODEC.decode(data) as [
+      bigint,
+      bigint,
+      bigint,
+      bigint,
+      string,
+      string,
+      string,
+      Uint8Array,
+      string,
+      string,
+      string,
+      string,
+      string,
+    ]
+  return {
+    configAsset,
+    total,
+    decimals,
+    defaultFrozen,
+    unitName,
+    assetName,
+    url,
+    metadataHash: toBytes(metadataHash as unknown as Uint8Array | number[]),
+    manager,
+    reserve,
+    freeze,
+    clawback,
+    note,
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Convenience constructors
+// ---------------------------------------------------------------------------
 
 export function createPaymentPayload(receiver: string, amount: bigint, note = ''): PaymentPayload {
   return { receiver, amount, hasClose: 0n, closeRemainderTo: ZERO_ADDR, note }
 }
 
+export function createAppCallPayload(
+  appId: bigint,
+  appArgs: Uint8Array[] = [],
+  opts: {
+    onCompletion?: bigint
+    accounts?: string[]
+    foreignApps?: bigint[]
+    foreignAssets?: bigint[]
+    note?: string
+  } = {},
+): AppCallPayload {
+  return {
+    appId,
+    onCompletion: opts.onCompletion ?? 0n,
+    appArgs,
+    accounts: opts.accounts ?? [],
+    foreignApps: opts.foreignApps ?? [],
+    foreignAssets: opts.foreignAssets ?? [],
+    note: opts.note ?? '',
+  }
+}
+
+// ---------------------------------------------------------------------------
+// algosdk.Transaction → SafeTxn conversion
+// ---------------------------------------------------------------------------
+
 function algosdkTxnToSafeTxn(txn: algosdk.Transaction): SafeTxn {
-  const base = createEmptySafeTxn()
   const note = txn.note ? new TextDecoder().decode(txn.note) : ''
 
   if (txn.type === algosdk.TransactionType.pay) {
     const pay = txn.payment
-    return {
-      ...base,
-      txType: TX_PAYMENT,
+    return createPaymentSafeTxn({
       receiver: pay?.receiver?.toString() ?? ZERO_ADDR,
       amount: pay?.amount ?? 0n,
       hasClose: pay?.closeRemainderTo ? 1n : 0n,
       closeRemainderTo: pay?.closeRemainderTo?.toString() ?? ZERO_ADDR,
       note,
-    }
+    })
   }
 
   if (txn.type === algosdk.TransactionType.axfer) {
     const axfer = txn.assetTransfer
-    return {
-      ...base,
-      txType: TX_ASSET,
+    return createAssetSafeTxn({
       xferAsset: axfer?.assetIndex ?? 0n,
       assetReceiver: axfer?.receiver?.toString() ?? ZERO_ADDR,
       assetAmount: axfer?.amount ?? 0n,
-      hasAssetClose: axfer?.closeRemainderTo ? 1n : 0n,
+      hasClose: axfer?.closeRemainderTo ? 1n : 0n,
       assetCloseTo: axfer?.closeRemainderTo?.toString() ?? ZERO_ADDR,
       note,
-    }
+    })
   }
 
   if (txn.type === algosdk.TransactionType.appl) {
     const appl = txn.applicationCall
-    const args = appl?.appArgs ?? []
-    return {
-      ...base,
-      txType: TX_APP,
+    return createAppCallSafeTxn({
       appId: appl?.appIndex ?? 0n,
-      numArgs: BigInt(Math.min(args.length, 4)),
-      arg0: args[0] ?? EMPTY_BYTES,
-      arg1: args[1] ?? EMPTY_BYTES,
-      arg2: args[2] ?? EMPTY_BYTES,
-      arg3: args[3] ?? EMPTY_BYTES,
+      onCompletion: BigInt(appl?.onComplete ?? 0),
+      appArgs: appl ? appl.appArgs.map((arg) => arg) : [],
+      accounts: appl ? appl.accounts.map((acct) => acct.toString()) : [],
+      foreignApps: appl ? appl.foreignApps.map((id) => BigInt(id)) : [],
+      foreignAssets: appl ? appl.foreignAssets.map((id) => BigInt(id)) : [],
       note,
-    }
+    })
   }
 
   if (txn.type === algosdk.TransactionType.keyreg) {
     const kr = txn.keyreg
-    return {
-      ...base,
-      txType: TX_KEYREG,
+    return createKeyRegSafeTxn({
       online: kr?.nonParticipation ? 0n : 1n,
       voteKey: kr?.voteKey ?? EMPTY_BYTES,
       selectionKey: kr?.selectionKey ?? EMPTY_BYTES,
@@ -271,8 +346,26 @@ function algosdkTxnToSafeTxn(txn: algosdk.Transaction): SafeTxn {
       voteFirst: kr?.voteFirst ?? 0n,
       voteLast: kr?.voteLast ?? 0n,
       voteKeyDilution: kr?.voteKeyDilution ?? 0n,
+    })
+  }
+
+  if (txn.type === algosdk.TransactionType.acfg) {
+    const acfg = txn.assetConfig
+    return createAssetConfigSafeTxn({
+      configAsset: acfg?.assetIndex ?? 0n,
+      total: acfg?.total ?? 0n,
+      decimals: BigInt(acfg?.decimals ?? 0),
+      defaultFrozen: acfg?.defaultFrozen ? 1n : 0n,
+      unitName: acfg?.unitName ?? '',
+      assetName: acfg?.assetName ?? '',
+      url: acfg?.assetURL ?? '',
+      metadataHash: acfg?.assetMetadataHash ?? EMPTY_BYTES,
+      manager: acfg?.manager?.toString() ?? ZERO_ADDR,
+      reserve: acfg?.reserve?.toString() ?? ZERO_ADDR,
+      freeze: acfg?.freeze?.toString() ?? ZERO_ADDR,
+      clawback: acfg?.clawback?.toString() ?? ZERO_ADDR,
       note,
-    }
+    })
   }
 
   throw new Error(`Unsupported transaction type: ${txn.type}`)
@@ -280,15 +373,4 @@ function algosdkTxnToSafeTxn(txn: algosdk.Transaction): SafeTxn {
 
 export function algosdkTxnsToSafeTxnGroup(txns: algosdk.Transaction[]): SafeTxnTuple[] {
   return toSafeTxnGroup(txns.map(algosdkTxnToSafeTxn))
-}
-
-export function createAppCallPayload(appId: bigint, args: Uint8Array[] = []): AppCallPayload {
-  return {
-    appId,
-    numArgs: BigInt(args.length),
-    arg0: args[0] ?? EMPTY_BYTES,
-    arg1: args[1] ?? EMPTY_BYTES,
-    arg2: args[2] ?? EMPTY_BYTES,
-    arg3: args[3] ?? EMPTY_BYTES,
-  }
 }

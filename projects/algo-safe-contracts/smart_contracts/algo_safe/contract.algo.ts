@@ -10,14 +10,13 @@ import {
   ensureBudget,
   Global,
   GlobalState,
-  itxn,
-  itxnCompose,
+  op,
   TransactionType,
   Txn,
   uint64,
   Uint64,
 } from '@algorandfoundation/algorand-typescript'
-import { abimethod } from '@algorandfoundation/algorand-typescript/arc4'
+import { abimethod, decodeArc4 } from '@algorandfoundation/algorand-typescript/arc4'
 
 /**
  * Algo Safe — policy-driven smart account for Algorand.
@@ -54,18 +53,29 @@ const TX_PAYMENT: uint64 = Uint64(1)
 const TX_ASSET: uint64 = Uint64(2)
 const TX_APP: uint64 = Uint64(3)
 const TX_KEYREG: uint64 = Uint64(4)
+const TX_ACFG: uint64 = Uint64(5) // asset configuration (create / reconfigure / destroy)
 
 // Maximum executable transactions in one transaction-group proposal. Algorand
 // protocol transaction groups currently allow up to 16 transactions; this cap
 // tracks that limit and can be raised if the protocol limit changes.
 const MAX_GROUP_TXNS: uint64 = Uint64(16)
 
+// Application-call resource limits (Algorand consensus parameters). The contract
+// rejects any app-call payload that exceeds these before staging the inner txn.
+const MAX_APP_ARGS: uint64 = Uint64(16) // MaxAppArgs
+const MAX_APP_TOTAL_ARG_LEN: uint64 = Uint64(2048) // MaxAppTotalArgLen
+const MAX_APP_ACCOUNTS: uint64 = Uint64(4) // MaxAppTxnAccounts
+const MAX_APP_FOREIGN_APPS: uint64 = Uint64(8) // MaxAppTxnForeignApps
+const MAX_APP_FOREIGN_ASSETS: uint64 = Uint64(8) // MaxAppTxnForeignAssets
+const MAX_APP_TOTAL_REFS: uint64 = Uint64(8) // MaxAppTotalTxnReferences (accounts + apps + assets)
+
 // Allowed-action bitmask (SignerGroup.allowedActions).
 const ACT_PAY: uint64 = Uint64(1)
 const ACT_AXFER: uint64 = Uint64(2)
 const ACT_APPL: uint64 = Uint64(4)
 const ACT_KEYREG: uint64 = Uint64(8)
-const ACT_ALL: uint64 = Uint64(15)
+const ACT_ACFG: uint64 = Uint64(16)
+const ACT_ALL: uint64 = Uint64(31)
 
 // Admin-privilege bitmask (SignerGroup.adminPrivileges).
 const PRIV_GROUP: uint64 = Uint64(1) // create/modify groups, members, thresholds, privileges, active
@@ -124,31 +134,68 @@ type Proposal = {
   numPayloads: uint64
 }
 
-type SafeTxn = {
-  txType: uint64
+// Per-transaction-type payload structs. Each type carries only the attributes
+// it actually needs, so a stored transaction occupies far fewer bytes than a
+// single union struct that reserves space for every field of every type.
+type PaymentTxn = {
   receiver: Account
   amount: uint64
   hasClose: uint64
   closeRemainderTo: Account
+  note: string
+}
+
+type AssetTxn = {
   xferAsset: uint64
   assetReceiver: Account
   assetAmount: uint64
   hasAssetClose: uint64
   assetCloseTo: Account
+  note: string
+}
+
+type AppTxn = {
   appId: uint64
-  numArgs: uint64
-  arg0: bytes
-  arg1: bytes
-  arg2: bytes
-  arg3: bytes
-  online: uint64
+  onCompletion: uint64
+  appArgs: bytes[]
+  accounts: Account[]
+  foreignApps: uint64[]
+  foreignAssets: uint64[]
+  note: string
+}
+
+type KeyRegTxn = {
+  online: uint64 // 1 = register online (keys supplied), 0 = go offline
   voteKey: bytes
   selectionKey: bytes
   stateProofKey: bytes
   voteFirst: uint64
   voteLast: uint64
   voteKeyDilution: uint64
+}
+
+type AssetConfigTxn = {
+  configAsset: uint64 // 0 = create a new asset, otherwise reconfigure/destroy this asset
+  total: uint64
+  decimals: uint64
+  defaultFrozen: uint64
+  unitName: string
+  assetName: string
+  url: string
+  metadataHash: bytes
+  manager: Account
+  reserve: Account
+  freeze: Account
+  clawback: Account
   note: string
+}
+
+// Tagged envelope: `txType` selects how `data` is decoded (one of the structs
+// above, ARC4-encoded). This keeps the payload array homogeneous on the wire
+// while letting each entry hold only its own type's fields.
+type SafeTxn = {
+  txType: uint64
+  data: bytes
 }
 
 // Flat ordered list of safe transactions stored per-payload in the box.
@@ -508,218 +555,233 @@ export class AlgoSafe extends Contract {
   private _executeTransactionGroup(proposalId: uint64, groupId: uint64, groupIn: SignerGroup, numPayloads: uint64): void {
     ensureBudget(Uint64(1400))
 
-    // Single pass over all payloads in order: validate, tally spend, stage inner txns.
+    // The staging pass below builds one inner transaction group with the raw
+    // `op.ITxnCreate` opcodes, which holds an inner group open from the first
+    // `begin` until the final `submit`. `ensureBudget` issues its own opup inner
+    // transactions, so it cannot run while that group is open. We therefore make
+    // two passes:
+    //   Pass 1 — decode, validate, tally spend, and reserve all opcode budget
+    //            (no inner group open yet).
+    //   Pass 2 — decode again and stage each inner transaction (no ensureBudget).
     let group = clone(groupIn)
-    let txIndex = Uint64(0)
+    let stagingBudget = Uint64(2000) // covers pass-2 framing + the final submit
 
     for (let p = Uint64(1); p <= numPayloads; p = p + Uint64(1)) {
       const key: uint64 = proposalId * TXG_KEY_MULT + p
       if (this.transactionGroups(key).exists) {
         const payload = clone(this.transactionGroups(key).value)
         for (let i = Uint64(0); i < payload.length; i = i + Uint64(1)) {
-          const tx = clone(payload[i])
-          this._validateSafeTxn(tx, groupIn)
-          assert(tx.txType !== TX_KEYREG, 'keyreg must be single tx')
-          group = this._accountSpend(group, tx)
-          this._stageSafeTxn(tx, txIndex === Uint64(0))
-          txIndex = txIndex + Uint64(1)
+          ensureBudget(Uint64(700))
+          const entry = clone(payload[i])
+          if (entry.txType === TX_PAYMENT) {
+            const tx = decodeArc4<PaymentTxn>(entry.data)
+            this._validatePayment(tx, groupIn)
+            const amount: uint64 = group.limitAssetId === Uint64(0) ? tx.amount : Uint64(0)
+            group = this._accountSpend(group, amount)
+            stagingBudget = stagingBudget + Uint64(800)
+          } else if (entry.txType === TX_ASSET) {
+            const tx = decodeArc4<AssetTxn>(entry.data)
+            this._validateAsset(tx, groupIn)
+            const tracked = group.limitAssetId !== Uint64(0) && tx.xferAsset === group.limitAssetId
+            const amount: uint64 = tracked ? tx.assetAmount : Uint64(0)
+            group = this._accountSpend(group, amount)
+            stagingBudget = stagingBudget + Uint64(800)
+          } else if (entry.txType === TX_APP) {
+            const tx = decodeArc4<AppTxn>(entry.data)
+            this._validateApp(tx, groupIn)
+            // Decoding + per-element field setting in pass 2 scales with the
+            // array sizes, so reserve budget proportional to them.
+            stagingBudget =
+              stagingBudget +
+              Uint64(1500) +
+              Uint64(tx.appArgs.length) * Uint64(400) +
+              (Uint64(tx.accounts.length) + Uint64(tx.foreignApps.length) + Uint64(tx.foreignAssets.length)) *
+                Uint64(200)
+          } else if (entry.txType === TX_KEYREG) {
+            decodeArc4<KeyRegTxn>(entry.data)
+            assert((groupIn.allowedActions & ACT_KEYREG) !== Uint64(0), 'keyreg not allowed')
+            stagingBudget = stagingBudget + Uint64(1000)
+          } else if (entry.txType === TX_ACFG) {
+            const tx = decodeArc4<AssetConfigTxn>(entry.data)
+            this._validateAssetConfig(tx, groupIn)
+            stagingBudget = stagingBudget + Uint64(1500)
+          } else {
+            assert(false, 'unknown tx type')
+          }
         }
       }
     }
 
     this.groups(groupId).value = clone(group)
-    itxnCompose.submit()
+
+    // Reserve everything pass 2 will need, then open and build the inner group.
+    ensureBudget(stagingBudget)
+
+    let txIndex = Uint64(0)
+    for (let p = Uint64(1); p <= numPayloads; p = p + Uint64(1)) {
+      const key: uint64 = proposalId * TXG_KEY_MULT + p
+      if (this.transactionGroups(key).exists) {
+        const payload = clone(this.transactionGroups(key).value)
+        for (let i = Uint64(0); i < payload.length; i = i + Uint64(1)) {
+          const entry = clone(payload[i])
+          const first = txIndex === Uint64(0)
+          if (entry.txType === TX_PAYMENT) {
+            this._stagePayment(decodeArc4<PaymentTxn>(entry.data), first)
+          } else if (entry.txType === TX_ASSET) {
+            this._stageAsset(decodeArc4<AssetTxn>(entry.data), first)
+          } else if (entry.txType === TX_APP) {
+            this._stageAppCall(decodeArc4<AppTxn>(entry.data), first)
+          } else if (entry.txType === TX_KEYREG) {
+            this._stageKeyReg(decodeArc4<KeyRegTxn>(entry.data), first)
+          } else {
+            this._stageAssetConfig(decodeArc4<AssetConfigTxn>(entry.data), first)
+          }
+          txIndex = txIndex + Uint64(1)
+        }
+      }
+    }
+
+    op.ITxnCreate.submit()
   }
 
-  private _stageSafeTxn(tx: SafeTxn, first: boolean): void {
-    if (tx.txType === TX_PAYMENT) {
-      if (tx.hasClose !== Uint64(0)) {
-        if (first) {
-          itxnCompose.begin({
-            type: TransactionType.Payment,
-            receiver: tx.receiver,
-            amount: tx.amount,
-            closeRemainderTo: tx.closeRemainderTo,
-            note: tx.note,
-            fee: Uint64(0),
-          })
-        } else {
-          itxnCompose.next({
-            type: TransactionType.Payment,
-            receiver: tx.receiver,
-            amount: tx.amount,
-            closeRemainderTo: tx.closeRemainderTo,
-            note: tx.note,
-            fee: Uint64(0),
-          })
-        }
-      } else if (first) {
-        itxnCompose.begin({
-          type: TransactionType.Payment,
-          receiver: tx.receiver,
-          amount: tx.amount,
-          note: tx.note,
-          fee: Uint64(0),
-        })
-      } else {
-        itxnCompose.next({
-          type: TransactionType.Payment,
-          receiver: tx.receiver,
-          amount: tx.amount,
-          note: tx.note,
-          fee: Uint64(0),
-        })
-      }
-    } else if (tx.txType === TX_ASSET) {
-      if (tx.hasAssetClose !== Uint64(0)) {
-        if (first) {
-          itxnCompose.begin({
-            type: TransactionType.AssetTransfer,
-            xferAsset: tx.xferAsset,
-            assetReceiver: tx.assetReceiver,
-            assetAmount: tx.assetAmount,
-            assetCloseTo: tx.assetCloseTo,
-            note: tx.note,
-            fee: Uint64(0),
-          })
-        } else {
-          itxnCompose.next({
-            type: TransactionType.AssetTransfer,
-            xferAsset: tx.xferAsset,
-            assetReceiver: tx.assetReceiver,
-            assetAmount: tx.assetAmount,
-            assetCloseTo: tx.assetCloseTo,
-            note: tx.note,
-            fee: Uint64(0),
-          })
-        }
-      } else if (first) {
-        itxnCompose.begin({
-          type: TransactionType.AssetTransfer,
-          xferAsset: tx.xferAsset,
-          assetReceiver: tx.assetReceiver,
-          assetAmount: tx.assetAmount,
-          note: tx.note,
-          fee: Uint64(0),
-        })
-      } else {
-        itxnCompose.next({
-          type: TransactionType.AssetTransfer,
-          xferAsset: tx.xferAsset,
-          assetReceiver: tx.assetReceiver,
-          assetAmount: tx.assetAmount,
-          note: tx.note,
-          fee: Uint64(0),
-        })
-      }
-    } else if (tx.txType === TX_APP) {
-      this._stageAppCall(tx, first)
-    } else {
-      assert(false, 'keyreg must be single tx')
+  // All staging uses the low-level `op.ITxnCreate` builder (the `itxn_begin` /
+  // `itxn_field` / `itxn_next` / `itxn_submit` opcodes). The reference-array
+  // setters (`setApplicationArgs`, `setAccounts`, `setAssets`, `setApplications`)
+  // append one element per call, so dynamic arrays are emitted with simple loops
+  // — far smaller than enumerating every possible length, which the typed
+  // `itxn`/`itxnCompose` APIs would require.
+  private _beginOrNext(first: boolean): void {
+    if (first) op.ITxnCreate.begin()
+    else op.ITxnCreate.next()
+  }
+
+  private _stagePayment(tx: PaymentTxn, first: boolean): void {
+    this._beginOrNext(first)
+    op.ITxnCreate.setTypeEnum(Uint64(TransactionType.Payment))
+    op.ITxnCreate.setFee(Uint64(0))
+    op.ITxnCreate.setReceiver(tx.receiver)
+    op.ITxnCreate.setAmount(tx.amount)
+    if (tx.hasClose !== Uint64(0)) op.ITxnCreate.setCloseRemainderTo(tx.closeRemainderTo)
+    if (tx.note !== '') op.ITxnCreate.setNote(Bytes(tx.note))
+  }
+
+  private _stageAsset(tx: AssetTxn, first: boolean): void {
+    this._beginOrNext(first)
+    op.ITxnCreate.setTypeEnum(Uint64(TransactionType.AssetTransfer))
+    op.ITxnCreate.setFee(Uint64(0))
+    op.ITxnCreate.setXferAsset(tx.xferAsset)
+    op.ITxnCreate.setAssetReceiver(tx.assetReceiver)
+    op.ITxnCreate.setAssetAmount(tx.assetAmount)
+    if (tx.hasAssetClose !== Uint64(0)) op.ITxnCreate.setAssetCloseTo(tx.assetCloseTo)
+    if (tx.note !== '') op.ITxnCreate.setNote(Bytes(tx.note))
+  }
+
+  private _stageAppCall(tx: AppTxn, first: boolean): void {
+    this._beginOrNext(first)
+    op.ITxnCreate.setTypeEnum(Uint64(TransactionType.ApplicationCall))
+    op.ITxnCreate.setFee(Uint64(0))
+    op.ITxnCreate.setApplicationId(tx.appId)
+    op.ITxnCreate.setOnCompletion(tx.onCompletion)
+    if (tx.note !== '') op.ITxnCreate.setNote(Bytes(tx.note))
+    for (let i = Uint64(0); i < Uint64(tx.appArgs.length); i = i + Uint64(1)) {
+      op.ITxnCreate.setApplicationArgs(tx.appArgs[i])
+    }
+    for (let i = Uint64(0); i < Uint64(tx.accounts.length); i = i + Uint64(1)) {
+      op.ITxnCreate.setAccounts(tx.accounts[i])
+    }
+    for (let i = Uint64(0); i < Uint64(tx.foreignAssets.length); i = i + Uint64(1)) {
+      op.ITxnCreate.setAssets(tx.foreignAssets[i])
+    }
+    for (let i = Uint64(0); i < Uint64(tx.foreignApps.length); i = i + Uint64(1)) {
+      op.ITxnCreate.setApplications(tx.foreignApps[i])
     }
   }
 
-  private _stageAppCall(tx: SafeTxn, first: boolean): void {
-    if (tx.numArgs === Uint64(0)) {
-      if (first) itxnCompose.begin({ type: TransactionType.ApplicationCall, appId: tx.appId, fee: Uint64(0) })
-      else itxnCompose.next({ type: TransactionType.ApplicationCall, appId: tx.appId, fee: Uint64(0) })
-    } else if (tx.numArgs === Uint64(1)) {
-      if (first)
-        itxnCompose.begin({
-          type: TransactionType.ApplicationCall,
-          appId: tx.appId,
-          appArgs: [tx.arg0],
-          fee: Uint64(0),
-        })
-      else
-        itxnCompose.next({ type: TransactionType.ApplicationCall, appId: tx.appId, appArgs: [tx.arg0], fee: Uint64(0) })
-    } else if (tx.numArgs === Uint64(2)) {
-      if (first)
-        itxnCompose.begin({
-          type: TransactionType.ApplicationCall,
-          appId: tx.appId,
-          appArgs: [tx.arg0, tx.arg1],
-          fee: Uint64(0),
-        })
-      else
-        itxnCompose.next({
-          type: TransactionType.ApplicationCall,
-          appId: tx.appId,
-          appArgs: [tx.arg0, tx.arg1],
-          fee: Uint64(0),
-        })
-    } else if (tx.numArgs === Uint64(3)) {
-      if (first)
-        itxnCompose.begin({
-          type: TransactionType.ApplicationCall,
-          appId: tx.appId,
-          appArgs: [tx.arg0, tx.arg1, tx.arg2],
-          fee: Uint64(0),
-        })
-      else
-        itxnCompose.next({
-          type: TransactionType.ApplicationCall,
-          appId: tx.appId,
-          appArgs: [tx.arg0, tx.arg1, tx.arg2],
-          fee: Uint64(0),
-        })
-    } else if (first) {
-      itxnCompose.begin({
-        type: TransactionType.ApplicationCall,
-        appId: tx.appId,
-        appArgs: [tx.arg0, tx.arg1, tx.arg2, tx.arg3],
-        fee: Uint64(0),
-      })
-    } else {
-      itxnCompose.next({
-        type: TransactionType.ApplicationCall,
-        appId: tx.appId,
-        appArgs: [tx.arg0, tx.arg1, tx.arg2, tx.arg3],
-        fee: Uint64(0),
-      })
-    }
-  }
-
-  private _executeKeyRegTx(tx: SafeTxn): void {
+  private _stageKeyReg(tx: KeyRegTxn, first: boolean): void {
+    this._beginOrNext(first)
+    op.ITxnCreate.setTypeEnum(Uint64(TransactionType.KeyRegistration))
+    op.ITxnCreate.setFee(Uint64(0))
     if (tx.online !== Uint64(0)) {
-      itxn
-        .keyRegistration({
-          voteKey: Bytes(tx.voteKey, { length: 32 }),
-          selectionKey: Bytes(tx.selectionKey, { length: 32 }),
-          stateProofKey: Bytes(tx.stateProofKey, { length: 64 }),
-          voteFirst: tx.voteFirst,
-          voteLast: tx.voteLast,
-          voteKeyDilution: tx.voteKeyDilution,
-          fee: Uint64(0),
-        })
-        .submit()
-    } else {
-      itxn.keyRegistration({ fee: Uint64(0) }).submit()
+      // Setters accept plain `bytes`; the AVM enforces the 32/32/64-byte sizes
+      // at submit time (off-chain builders supply correctly-sized keys).
+      op.ITxnCreate.setVotePk(tx.voteKey)
+      op.ITxnCreate.setSelectionPk(tx.selectionKey)
+      op.ITxnCreate.setStateProofPk(tx.stateProofKey)
+      op.ITxnCreate.setVoteFirst(tx.voteFirst)
+      op.ITxnCreate.setVoteLast(tx.voteLast)
+      op.ITxnCreate.setVoteKeyDilution(tx.voteKeyDilution)
     }
   }
 
-  private _validateSafeTxn(tx: SafeTxn, group: SignerGroup): void {
-    if (tx.txType === TX_PAYMENT) {
-      assert((group.allowedActions & ACT_PAY) !== Uint64(0), 'pay not allowed')
-      assert(tx.receiver !== Global.zeroAddress, 'receiver required')
-      if (tx.hasClose !== Uint64(0)) {
-        assert(tx.closeRemainderTo !== Global.zeroAddress, 'close target required')
-      }
-    } else if (tx.txType === TX_ASSET) {
-      assert((group.allowedActions & ACT_AXFER) !== Uint64(0), 'axfer not allowed')
-      assert(tx.assetReceiver !== Global.zeroAddress, 'asset receiver required')
-      if (tx.hasAssetClose !== Uint64(0)) {
-        assert(tx.assetCloseTo !== Global.zeroAddress, 'asset close target required')
-      }
-    } else if (tx.txType === TX_APP) {
-      assert((group.allowedActions & ACT_APPL) !== Uint64(0), 'appl not allowed')
-      assert(tx.appId !== Uint64(0), 'appId required')
-      assert(tx.numArgs <= Uint64(4), 'max 4 app args')
-    } else if (tx.txType === TX_KEYREG) {
-      assert((group.allowedActions & ACT_KEYREG) !== Uint64(0), 'keyreg not allowed')
+  private _stageAssetConfig(tx: AssetConfigTxn, first: boolean): void {
+    this._beginOrNext(first)
+    op.ITxnCreate.setTypeEnum(Uint64(TransactionType.AssetConfig))
+    op.ITxnCreate.setFee(Uint64(0))
+    if (tx.configAsset === Uint64(0)) {
+      // Create: set the immutable asset parameters. ConfigAsset is left unset
+      // (0); setting it to 0 would trigger a resource-availability check.
+      op.ITxnCreate.setConfigAssetTotal(tx.total)
+      op.ITxnCreate.setConfigAssetDecimals(tx.decimals)
+      op.ITxnCreate.setConfigAssetDefaultFrozen(tx.defaultFrozen !== Uint64(0))
+      if (tx.unitName !== '') op.ITxnCreate.setConfigAssetUnitName(Bytes(tx.unitName))
+      if (tx.assetName !== '') op.ITxnCreate.setConfigAssetName(Bytes(tx.assetName))
+      if (tx.url !== '') op.ITxnCreate.setConfigAssetUrl(Bytes(tx.url))
+      if (tx.metadataHash.length === Uint64(32)) op.ITxnCreate.setConfigAssetMetadataHash(tx.metadataHash)
     } else {
-      assert(false, 'unknown tx type')
+      // Reconfigure (or destroy, when all addresses are zero): only the asset id
+      // and the mutable address roles may be set; the immutable params must not.
+      op.ITxnCreate.setConfigAsset(tx.configAsset)
     }
+    op.ITxnCreate.setConfigAssetManager(tx.manager)
+    op.ITxnCreate.setConfigAssetReserve(tx.reserve)
+    op.ITxnCreate.setConfigAssetFreeze(tx.freeze)
+    op.ITxnCreate.setConfigAssetClawback(tx.clawback)
+    if (tx.note !== '') op.ITxnCreate.setNote(Bytes(tx.note))
+  }
+
+  private _validatePayment(tx: PaymentTxn, group: SignerGroup): void {
+    assert((group.allowedActions & ACT_PAY) !== Uint64(0), 'pay not allowed')
+    assert(tx.receiver !== Global.zeroAddress, 'receiver required')
+    if (tx.hasClose !== Uint64(0)) {
+      assert(tx.closeRemainderTo !== Global.zeroAddress, 'close target required')
+    }
+  }
+
+  private _validateAsset(tx: AssetTxn, group: SignerGroup): void {
+    assert((group.allowedActions & ACT_AXFER) !== Uint64(0), 'axfer not allowed')
+    assert(tx.assetReceiver !== Global.zeroAddress, 'asset receiver required')
+    if (tx.hasAssetClose !== Uint64(0)) {
+      assert(tx.assetCloseTo !== Global.zeroAddress, 'asset close target required')
+    }
+  }
+
+  private _validateApp(tx: AppTxn, group: SignerGroup): void {
+    assert((group.allowedActions & ACT_APPL) !== Uint64(0), 'appl not allowed')
+    assert(tx.appId !== Uint64(0), 'appId required') // create/update need programs and are not supported here
+    assert(tx.onCompletion <= Uint64(5), 'invalid onCompletion')
+    assert(tx.onCompletion !== Uint64(4), 'app update not supported')
+    const numArgs = Uint64(tx.appArgs.length)
+    const numAccounts = Uint64(tx.accounts.length)
+    const numApps = Uint64(tx.foreignApps.length)
+    const numAssets = Uint64(tx.foreignAssets.length)
+    assert(numArgs <= MAX_APP_ARGS, 'too many app args')
+    assert(numAccounts <= MAX_APP_ACCOUNTS, 'too many accounts')
+    assert(numApps <= MAX_APP_FOREIGN_APPS, 'too many foreign apps')
+    assert(numAssets <= MAX_APP_FOREIGN_ASSETS, 'too many foreign assets')
+    assert(numAccounts + numApps + numAssets <= MAX_APP_TOTAL_REFS, 'too many references')
+    let totalArgLen = Uint64(0)
+    for (let i = Uint64(0); i < numArgs; i = i + Uint64(1)) {
+      totalArgLen = totalArgLen + tx.appArgs[i].length
+    }
+    assert(totalArgLen <= MAX_APP_TOTAL_ARG_LEN, 'app args total length exceeded')
+  }
+
+  private _validateAssetConfig(tx: AssetConfigTxn, group: SignerGroup): void {
+    assert((group.allowedActions & ACT_ACFG) !== Uint64(0), 'acfg not allowed')
+    assert(
+      tx.metadataHash.length === Uint64(0) || tx.metadataHash.length === Uint64(32),
+      'metadataHash must be 0 or 32 bytes',
+    )
   }
 
   // Stores a payload chunk at the given slot. The clone loop for SafeTxnGroup
@@ -732,23 +794,14 @@ export class AlgoSafe extends Contract {
   }
 
   /**
-   * Apply daily and monthly spend limits for the group's configured tracked
-   * asset and return the updated group with usage counters advanced. A
-   * `limitAssetId` of 0 tracks ALGO payments; any other value tracks ASA
-   * transfers for that specific asset id. Resets the relevant period window
-   * first when it has elapsed. A limit of 0 means "no limit".
+   * Advance the group's daily and monthly usage counters by `amount` (the value
+   * already resolved by the caller against the group's tracked asset:
+   * `limitAssetId` 0 tracks ALGO payments, any other value tracks that ASA's
+   * transfers). Resets the relevant period window first when it has elapsed. An
+   * `amount` of 0 (untracked transaction) or a limit of 0 means "no limit".
    */
-  private _accountSpend(groupIn: SignerGroup, tx: SafeTxn): SignerGroup {
+  private _accountSpend(groupIn: SignerGroup, amount: uint64): SignerGroup {
     const group = clone(groupIn)
-    let amount = Uint64(0)
-
-    if (group.limitAssetId === Uint64(0)) {
-      if (tx.txType === TX_PAYMENT) {
-        amount = tx.amount
-      }
-    } else if (tx.txType === TX_ASSET && tx.xferAsset === group.limitAssetId) {
-      amount = tx.assetAmount
-    }
 
     if (amount === Uint64(0)) {
       return group

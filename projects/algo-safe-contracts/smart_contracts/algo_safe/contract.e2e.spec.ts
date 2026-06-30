@@ -14,15 +14,25 @@ import {
   FAR_EXPIRY,
   PRIV_ALL,
   PRIV_GROUP,
+  TX_ACFG,
   TX_APP,
   TX_ASSET,
+  TX_KEYREG,
   TX_PAYMENT,
   ZERO_ADDR,
+  algosdkTxnsToSafeTxnGroup,
   createAdminChange,
   createAppCallPayload,
+  createAppCallSafeTxn,
+  createAssetConfigSafeTxn,
   createAssetSafeTxn,
-  createEmptySafeTxn,
+  createKeyRegSafeTxn,
   createPaymentSafeTxn,
+  decodeAppTxn,
+  decodeAssetConfigTxn,
+  decodeAssetTxn,
+  decodeKeyRegTxn,
+  decodePaymentTxn,
   toSafeTxnGroup,
   type SafeTxn,
 } from '../../src'
@@ -32,16 +42,23 @@ function mkAdminChange(partial: Partial<AdminChange>): AdminChange {
   return createAdminChange(partial)
 }
 
+// Box key for a single-uint64-keyed BoxMap: ASCII prefix + 8-byte big-endian id.
+function boxKeyU64(prefix: string, n: bigint): Uint8Array {
+  const p = new TextEncoder().encode(prefix)
+  const b = new Uint8Array(8)
+  new DataView(b.buffer).setBigUint64(0, n, false)
+  const r = new Uint8Array(p.length + 8)
+  r.set(p)
+  r.set(b, p.length)
+  return r
+}
+
 function safePayment(receiver: string, amount: bigint, note = ''): SafeTxn {
   return createPaymentSafeTxn({ receiver, amount, hasClose: 0n, closeRemainderTo: ZERO_ADDR, note })
 }
 
 function safeAppCall(appId: bigint, args: Uint8Array[] = []): SafeTxn {
-  return {
-    ...createEmptySafeTxn(),
-    txType: TX_APP,
-    ...createAppCallPayload(appId, args),
-  }
+  return createAppCallSafeTxn(createAppCallPayload(appId, args))
 }
 
 function getObjectField(value: unknown, keys: string[]): Record<string, unknown> | undefined {
@@ -275,6 +292,56 @@ describe('AlgoSafe contract', () => {
     expect(recipInfo.balance.microAlgo).toBe((0.25).algo().microAlgo)
   })
 
+  test('converts a native algosdk transaction group into a safe payload and executes it', async () => {
+    const { client, deployer } = await deployAndBootstrap()
+    const targetAppId = await createBareNoOpApp(deployer)
+    const recipient = await localnet.context.generateAccount({ initialFunds: (0).algo() })
+    const suggestedParams = await localnet.algorand.client.algod.getTransactionParams().do()
+
+    // Build a normal algosdk atomic group (sender is irrelevant — the safe
+    // re-issues each as an inner transaction) and convert it to safe payloads.
+    const payTxn = algosdk.makePaymentTxnWithSuggestedParamsFromObject({
+      sender: client.appAddress,
+      receiver: recipient.addr,
+      amount: (0.3).algo().microAlgo,
+      note: new TextEncoder().encode('from-algosdk'),
+      suggestedParams,
+    })
+    const appTxn = algosdk.makeApplicationCallTxnFromObject({
+      sender: client.appAddress,
+      appIndex: targetAppId,
+      onComplete: algosdk.OnApplicationComplete.NoOpOC,
+      appArgs: [new TextEncoder().encode('algosdk-arg')],
+      suggestedParams,
+    })
+
+    const payload = algosdkTxnsToSafeTxnGroup([payTxn, appTxn])
+
+    const { return: pid } = await client.send.proposeTransactionGroup({
+      args: { groupId: 1n, payload, expiryRound: FAR_EXPIRY },
+      suppressLog: true,
+      staticFee: (0.2).algo(),
+    })
+
+    const stored = await client.send.getTransactionGroup({ args: { proposalId: pid!, payloadIndex: 1n }, suppressLog: true })
+    expect(stored.return!.length).toBe(2)
+    expect(stored.return![0][0]).toBe(TX_PAYMENT)
+    const decodedPay = decodePaymentTxn(stored.return![0][1])
+    expect(decodedPay.receiver).toBe(recipient.toString())
+    expect(decodedPay.amount).toBe((0.3).algo().microAlgo)
+    expect(decodedPay.note).toBe('from-algosdk')
+    expect(stored.return![1][0]).toBe(TX_APP)
+    const decodedApp = decodeAppTxn(stored.return![1][1])
+    expect(decodedApp.appId).toBe(targetAppId)
+    expect(decodedApp.appArgs.length).toBe(1)
+    expect(decodedApp.appArgs[0]).toEqual(new TextEncoder().encode('algosdk-arg'))
+
+    await client.send.executeProposal({ args: { proposalId: pid! }, ...execParams })
+
+    const recipInfo = await localnet.algorand.account.getInformation(recipient)
+    expect(recipInfo.balance.microAlgo).toBe((0.3).algo().microAlgo)
+  })
+
   test('groups several app calls into one safe approval and execution transaction', async () => {
     const { client, deployer } = await deployAndBootstrap()
     const targetAppId = await createBareNoOpApp(deployer)
@@ -294,9 +361,10 @@ describe('AlgoSafe contract', () => {
 
     const stored = await client.send.getTransactionGroup({ args: { proposalId: pid!, payloadIndex: 1n }, suppressLog: true })
     expect(stored.return!.length).toBe(3)
-    expect(stored.return![0][10]).toBe(targetAppId) // tx0 appId
-    expect(stored.return![1][10]).toBe(targetAppId) // tx1 appId
-    expect(stored.return![2][10]).toBe(targetAppId) // tx2 appId
+    expect(stored.return![0][0]).toBe(TX_APP)
+    expect(decodeAppTxn(stored.return![0][1]).appId).toBe(targetAppId) // tx0 appId
+    expect(decodeAppTxn(stored.return![1][1]).appId).toBe(targetAppId) // tx1 appId
+    expect(decodeAppTxn(stored.return![2][1]).appId).toBe(targetAppId) // tx2 appId
 
     await client.send.executeProposal({ args: { proposalId: pid! }, ...execParams })
 
@@ -581,8 +649,9 @@ describe('AlgoSafe contract', () => {
     const stored = await client.send.getTransactionGroup({ args: { proposalId: xferPid!, payloadIndex: 1n }, suppressLog: true })
     expect(stored.return!).toHaveLength(1)
     expect(stored.return![0][0]).toBe(TX_ASSET)
-    expect(stored.return![0][5]).toBe(assetId)
-    expect(stored.return![0][7]).toBe(100n)
+    const decodedXfer = decodeAssetTxn(stored.return![0][1])
+    expect(decodedXfer.xferAsset).toBe(assetId)
+    expect(decodedXfer.assetAmount).toBe(100n)
 
     const executeResult = await client.send.executeProposal({ args: { proposalId: xferPid! }, ...execParams })
     const pendingInfo = await localnet.algorand.client.algod.pendingTransactionInformation(executeResult.txIds[0]).do()
@@ -879,5 +948,271 @@ describe('AlgoSafe contract', () => {
         staticFee: (0.2).algo(),
       }),
     ).rejects.toThrow()
+  })
+
+  test('round-trips a mixed algosdk group through the SafeTxn byte encoding and back', async () => {
+    const { deployer } = await deployAndBootstrap()
+    const sp = await localnet.algorand.client.algod.getTransactionParams().do()
+    const sender = deployer.addr
+    const acctA = (await localnet.context.generateAccount({ initialFunds: (0).algo() })).toString()
+
+    const pay = algosdk.makePaymentTxnWithSuggestedParamsFromObject({
+      sender,
+      receiver: acctA,
+      amount: 12_345n,
+      note: new TextEncoder().encode('pay-note'),
+      suggestedParams: sp,
+    })
+    const axfer = algosdk.makeAssetTransferTxnWithSuggestedParamsFromObject({
+      sender,
+      receiver: acctA,
+      assetIndex: 777n,
+      amount: 9n,
+      suggestedParams: sp,
+    })
+    const appl = algosdk.makeApplicationCallTxnFromObject({
+      sender,
+      appIndex: 555n,
+      onComplete: algosdk.OnApplicationComplete.OptInOC,
+      appArgs: [new Uint8Array([1, 2, 3]), new Uint8Array([9])],
+      accounts: [acctA],
+      foreignApps: [111n, 222n],
+      foreignAssets: [333n],
+      suggestedParams: sp,
+    })
+    const voteKey = new Uint8Array(32).fill(1)
+    const selectionKey = new Uint8Array(32).fill(2)
+    const stateProofKey = new Uint8Array(64).fill(3)
+    const keyreg = algosdk.makeKeyRegistrationTxnWithSuggestedParamsFromObject({
+      sender,
+      voteKey,
+      selectionKey,
+      stateProofKey,
+      voteFirst: 1n,
+      voteLast: 1000n,
+      voteKeyDilution: 50n,
+      suggestedParams: sp,
+    })
+    const acfg = algosdk.makeAssetCreateTxnWithSuggestedParamsFromObject({
+      sender,
+      total: 1000n,
+      decimals: 2,
+      defaultFrozen: false,
+      unitName: 'RT',
+      assetName: 'RoundTrip',
+      assetURL: 'https://example.io',
+      manager: sender,
+      reserve: sender,
+      freeze: sender,
+      clawback: sender,
+      suggestedParams: sp,
+    })
+
+    const tuples = algosdkTxnsToSafeTxnGroup([pay, axfer, appl, keyreg, acfg])
+    expect(tuples.map((t) => t[0])).toEqual([TX_PAYMENT, TX_ASSET, TX_APP, TX_KEYREG, TX_ACFG])
+
+    const dp = decodePaymentTxn(tuples[0][1])
+    expect(dp.receiver).toBe(acctA)
+    expect(dp.amount).toBe(12_345n)
+    expect(dp.note).toBe('pay-note')
+
+    const da = decodeAssetTxn(tuples[1][1])
+    expect(da.xferAsset).toBe(777n)
+    expect(da.assetReceiver).toBe(acctA)
+    expect(da.assetAmount).toBe(9n)
+
+    const dapp = decodeAppTxn(tuples[2][1])
+    expect(dapp.appId).toBe(555n)
+    expect(dapp.onCompletion).toBe(1n) // OptIn
+    expect(dapp.appArgs).toEqual([new Uint8Array([1, 2, 3]), new Uint8Array([9])])
+    expect(dapp.accounts).toEqual([acctA])
+    expect(dapp.foreignApps).toEqual([111n, 222n])
+    expect(dapp.foreignAssets).toEqual([333n])
+
+    const dk = decodeKeyRegTxn(tuples[3][1])
+    expect(dk.online).toBe(1n)
+    expect(dk.voteKey).toEqual(voteKey)
+    expect(dk.selectionKey).toEqual(selectionKey)
+    expect(dk.stateProofKey).toEqual(stateProofKey)
+    expect(dk.voteFirst).toBe(1n)
+    expect(dk.voteLast).toBe(1000n)
+    expect(dk.voteKeyDilution).toBe(50n)
+
+    const dc = decodeAssetConfigTxn(tuples[4][1])
+    expect(dc.configAsset).toBe(0n)
+    expect(dc.total).toBe(1000n)
+    expect(dc.decimals).toBe(2n)
+    expect(dc.defaultFrozen).toBe(0n)
+    expect(dc.unitName).toBe('RT')
+    expect(dc.assetName).toBe('RoundTrip')
+    expect(dc.url).toBe('https://example.io')
+    expect(dc.manager).toBe(sender.toString())
+    expect(dc.reserve).toBe(sender.toString())
+  })
+
+  test('executes an app call carrying more than four arguments', async () => {
+    const { client, deployer } = await deployAndBootstrap()
+    const targetAppId = await createBareNoOpApp(deployer)
+    const enc = new TextEncoder()
+    const args = ['a', 'b', 'c', 'd', 'e', 'f'].map((s) => enc.encode(s))
+
+    const { return: pid } = await client.send.proposeTransactionGroup({
+      args: { groupId: 1n, payload: toSafeTxnGroup([safeAppCall(targetAppId, args)]), expiryRound: FAR_EXPIRY },
+      suppressLog: true,
+      staticFee: (0.2).algo(),
+    })
+
+    const stored = await client.send.getTransactionGroup({ args: { proposalId: pid!, payloadIndex: 1n }, suppressLog: true })
+    expect(decodeAppTxn(stored.return![0][1]).appArgs.length).toBe(6)
+
+    await client.send.executeProposal({ args: { proposalId: pid! }, ...execParams })
+    const after = await client.send.getProposal({ args: { proposalId: pid! }, suppressLog: true })
+    expect(after.return!.status).toBe(3n) // EXECUTED
+  })
+
+  test('executes an app call that references a foreign asset, app and account', async () => {
+    const { client, deployer } = await deployAndBootstrap()
+    const targetAppId = await createBareNoOpApp(deployer)
+    const created = await localnet.algorand.send.assetCreate({
+      sender: deployer,
+      total: 100n,
+      decimals: 0,
+      suppressLog: true,
+    })
+    const assetId = created.assetId
+    const someAccount = (await localnet.context.generateAccount({ initialFunds: (0).algo() })).toString()
+
+    const tx = createAppCallSafeTxn(
+      createAppCallPayload(targetAppId, [new TextEncoder().encode('x')], {
+        accounts: [someAccount],
+        foreignApps: [targetAppId],
+        foreignAssets: [assetId],
+      }),
+    )
+
+    const { return: pid } = await client.send.proposeTransactionGroup({
+      args: { groupId: 1n, payload: toSafeTxnGroup([tx]), expiryRound: FAR_EXPIRY },
+      suppressLog: true,
+      staticFee: (0.2).algo(),
+    })
+
+    const stored = await client.send.getTransactionGroup({ args: { proposalId: pid!, payloadIndex: 1n }, suppressLog: true })
+    const decoded = decodeAppTxn(stored.return![0][1])
+    expect(decoded.foreignAssets).toEqual([assetId])
+    expect(decoded.foreignApps).toEqual([targetAppId])
+    expect(decoded.accounts).toEqual([someAccount])
+
+    const appId = BigInt(client.appId)
+    await client.send.executeProposal({
+      args: { proposalId: pid! },
+      suppressLog: true,
+      staticFee: (0.05).algo(),
+      populateAppCallResources: false,
+      boxReferences: [
+        { appId, name: boxKeyU64('p', pid!) },
+        { appId, name: boxKeyU64('g', 1n) },
+        { appId, name: boxKeyU64('txg', pid! * 7n + 1n) },
+      ],
+      assetReferences: [assetId],
+      appReferences: [targetAppId],
+      accountReferences: [someAccount],
+    })
+
+    const after = await client.send.getProposal({ args: { proposalId: pid! }, suppressLog: true })
+    expect(after.return!.status).toBe(3n) // EXECUTED
+  })
+
+  test('creates a new ASA from the safe via an asset-config proposal', async () => {
+    const { client } = await deployAndBootstrap()
+
+    const tx = createAssetConfigSafeTxn({
+      configAsset: 0n,
+      total: 1000n,
+      decimals: 0n,
+      defaultFrozen: 0n,
+      unitName: 'SAFE',
+      assetName: 'Safe Asset',
+      url: 'https://safe.example',
+      metadataHash: new Uint8Array(0),
+      manager: client.appAddress.toString(),
+      reserve: client.appAddress.toString(),
+      freeze: ZERO_ADDR,
+      clawback: ZERO_ADDR,
+      note: '',
+    })
+
+    const { return: pid } = await client.send.proposeTransactionGroup({
+      args: { groupId: 1n, payload: toSafeTxnGroup([tx]), expiryRound: FAR_EXPIRY },
+      suppressLog: true,
+      staticFee: (0.2).algo(),
+    })
+
+    const stored = await client.send.getTransactionGroup({ args: { proposalId: pid!, payloadIndex: 1n }, suppressLog: true })
+    expect(stored.return![0][0]).toBe(TX_ACFG)
+    expect(decodeAssetConfigTxn(stored.return![0][1]).assetName).toBe('Safe Asset')
+
+    const executeResult = await client.send.executeProposal({ args: { proposalId: pid! }, ...execParams })
+    const pendingInfo = await localnet.algorand.client.algod.pendingTransactionInformation(executeResult.txIds[0]).do()
+    const acfgInner = getInnerTransactions(pendingInfo).find((innerTxn) => getInnerTransactionType(innerTxn) === 'acfg')
+    expect(acfgInner).toBeDefined()
+
+    // The safe (creator) holds the full supply of the newly created asset.
+    const info = await localnet.algorand.account.getInformation(client.appAddress)
+    const held = info.assets?.find((a) => a.amount === 1000n)
+    expect(held).toBeDefined()
+  })
+
+  test('executes an offline key registration from the safe', async () => {
+    const { client } = await deployAndBootstrap()
+
+    const tx = createKeyRegSafeTxn({
+      online: 0n,
+      voteKey: new Uint8Array(0),
+      selectionKey: new Uint8Array(0),
+      stateProofKey: new Uint8Array(0),
+      voteFirst: 0n,
+      voteLast: 0n,
+      voteKeyDilution: 0n,
+    })
+
+    const { return: pid } = await client.send.proposeTransactionGroup({
+      args: { groupId: 1n, payload: toSafeTxnGroup([tx]), expiryRound: FAR_EXPIRY },
+      suppressLog: true,
+      staticFee: (0.2).algo(),
+    })
+
+    const stored = await client.send.getTransactionGroup({ args: { proposalId: pid!, payloadIndex: 1n }, suppressLog: true })
+    expect(stored.return![0][0]).toBe(TX_KEYREG)
+
+    const executeResult = await client.send.executeProposal({ args: { proposalId: pid! }, ...execParams })
+    const pendingInfo = await localnet.algorand.client.algod.pendingTransactionInformation(executeResult.txIds[0]).do()
+    const krInner = getInnerTransactions(pendingInfo).find((innerTxn) => getInnerTransactionType(innerTxn) === 'keyreg')
+    expect(krInner).toBeDefined()
+  })
+
+  test('rejects an app call that exceeds the foreign-reference limit', async () => {
+    const { client, deployer } = await deployAndBootstrap()
+    const targetAppId = await createBareNoOpApp(deployer)
+
+    // 4 accounts + 4 apps + 1 asset = 9 references > MaxAppTotalTxnReferences (8).
+    const accounts = await Promise.all(
+      [0, 1, 2, 3].map(async () => (await localnet.context.generateAccount({ initialFunds: (0).algo() })).toString()),
+    )
+    const tx = createAppCallSafeTxn(
+      createAppCallPayload(targetAppId, [], {
+        accounts,
+        foreignApps: [targetAppId, targetAppId, targetAppId, targetAppId],
+        foreignAssets: [1n],
+      }),
+    )
+
+    const { return: pid } = await client.send.proposeTransactionGroup({
+      args: { groupId: 1n, payload: toSafeTxnGroup([tx]), expiryRound: FAR_EXPIRY },
+      suppressLog: true,
+      staticFee: (0.2).algo(),
+    })
+
+    // The reference-count check fires at execution time.
+    await expect(client.send.executeProposal({ args: { proposalId: pid! }, ...execParams })).rejects.toThrow()
   })
 })
