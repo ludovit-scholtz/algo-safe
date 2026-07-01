@@ -123,20 +123,21 @@ export function CreateProposalPage() {
           throw new Error('Enter a valid ALGO amount for the payment proposal.')
         }
 
+        // Versioned-client union types `payload` as the intersection of every
+        // contract version's shape; our builders emit the latest envelope, so
+        // cast to the param type. See algoSafeProposals for the read-side branch.
+        const payload = toSafeTxnGroup([
+          createPaymentSafeTxn({
+            receiver: receiver.trim(),
+            amount: rawAmount,
+            hasClose: 0n,
+            closeRemainderTo: getZeroAddress(),
+            note: note.trim(),
+          }),
+        ]) as unknown as never[]
+
         const result = await appClient.send.proposeTransactionGroup({
-          args: {
-            groupId: parsedGroupId,
-            payload: toSafeTxnGroup([
-              createPaymentSafeTxn({
-                receiver: receiver.trim(),
-                amount: rawAmount,
-                hasClose: 0n,
-                closeRemainderTo: getZeroAddress(),
-                note: note.trim(),
-              }),
-            ]),
-            expiryRound: proposalExpiryRound,
-          },
+          args: { groupId: parsedGroupId, payload, expiryRound: proposalExpiryRound },
           staticFee: PROPOSAL_CALL_FEE,
           suppressLog: true,
         })
@@ -168,21 +169,19 @@ export function CreateProposalPage() {
           )
         }
 
+        const payload = toSafeTxnGroup([
+          createAssetSafeTxn({
+            xferAsset: BigInt(resolvedAssetId),
+            assetReceiver: effectiveReceiver.trim(),
+            assetAmount: rawAmount,
+            hasClose: 0n,
+            assetCloseTo: getZeroAddress(),
+            note: note.trim(),
+          }),
+        ]) as unknown as never[]
+
         const result = await appClient.send.proposeTransactionGroup({
-          args: {
-            groupId: parsedGroupId,
-            payload: toSafeTxnGroup([
-              createAssetSafeTxn({
-                xferAsset: BigInt(resolvedAssetId),
-                assetReceiver: effectiveReceiver.trim(),
-                assetAmount: rawAmount,
-                hasClose: 0n,
-                assetCloseTo: getZeroAddress(),
-                note: note.trim(),
-              }),
-            ]),
-            expiryRound: proposalExpiryRound,
-          },
+          args: { groupId: parsedGroupId, payload, expiryRound: proposalExpiryRound },
           staticFee: PROPOSAL_CALL_FEE,
           suppressLog: true,
         })

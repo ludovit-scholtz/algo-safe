@@ -44,21 +44,22 @@ export async function proposeAssetOptIn(params: {
   const status = (await algodClient.status().do()) as unknown as Record<string, unknown>
   const expiryRound = getCurrentRound(status) + expiryRounds
 
+  // The versioned-client union types `payload` as the intersection of every
+  // contract version's shape, which no single value satisfies. Our builders
+  // always emit the latest `(txType, data)` envelope, so cast to the param type.
+  const payload = toSafeTxnGroup([
+    createAssetSafeTxn({
+      xferAsset: BigInt(assetId),
+      assetReceiver: safeAddress,
+      assetAmount: 0n,
+      hasClose: 0n,
+      assetCloseTo: getZeroAddress(),
+      note: params.note ?? 'Opt in to EURD',
+    }),
+  ]) as unknown as never[]
+
   const result = await appClient.send.proposeTransactionGroup({
-    args: {
-      groupId,
-      payload: toSafeTxnGroup([
-        createAssetSafeTxn({
-          xferAsset: BigInt(assetId),
-          assetReceiver: safeAddress,
-          assetAmount: 0n,
-          hasClose: 0n,
-          assetCloseTo: getZeroAddress(),
-          note: params.note ?? 'Opt in to EURD',
-        }),
-      ]),
-      expiryRound,
-    },
+    args: { groupId, payload, expiryRound },
     staticFee: PROPOSAL_CALL_FEE,
     suppressLog: true,
   })

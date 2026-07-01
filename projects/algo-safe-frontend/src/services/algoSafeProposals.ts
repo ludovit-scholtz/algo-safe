@@ -14,9 +14,16 @@ import {
   LATEST_CONTRACT_HASH,
   PRIV_GROUP,
   PRIV_POLICY,
+  TX_ACFG,
   TX_APP,
   TX_ASSET,
+  TX_KEYREG,
   TX_PAYMENT,
+  decodeAppTxn,
+  decodeAssetConfigTxn,
+  decodeAssetTxn,
+  decodeKeyRegTxn,
+  decodePaymentTxn,
   getAlgoSafeContractVersion,
   getClient,
   type AdminChange,
@@ -202,80 +209,186 @@ function mapStatus(status: bigint, expiryRound: bigint, currentRound: bigint): P
   return 'pending'
 }
 
+// The latest contract stores every queued transaction as a tagged `(txType, data)`
+// envelope, where `data` is the ARC4-encoded per-type payload. Older deployed
+// contracts return a flat 24-field tuple instead — see `LegacyTxTuple`.
+type EnvelopeTxTuple = [bigint, Uint8Array]
+type LegacyTxTuple = [
+  bigint, // txType
+  string, // receiver
+  bigint, // amount
+  bigint, // hasClose
+  string, // closeRemainderTo
+  bigint, // xferAsset
+  string, // assetReceiver
+  bigint, // assetAmount
+  bigint, // hasAssetClose
+  string, // assetCloseTo
+  bigint, // appId
+  bigint, // numArgs
+  Uint8Array, // arg0
+  Uint8Array, // arg1
+  Uint8Array, // arg2
+  Uint8Array, // arg3
+  bigint, // online
+  Uint8Array, // voteKey
+  Uint8Array, // selectionKey
+  Uint8Array, // stateProofKey
+  bigint, // voteFirst
+  bigint, // voteLast
+  bigint, // voteKeyDilution
+  string, // note
+]
+
+async function mapEnvelopeTxLine(
+  [txType, data]: EnvelopeTxTuple,
+  safeAddress: string,
+  resolveAsset: (assetId: number) => Promise<AssetMetadata>,
+): Promise<TxLine> {
+  if (txType === TX_PAYMENT) {
+    const { receiver, amount, note } = decodePaymentTxn(data)
+    return {
+      type: 'pay',
+      summary: `Send ${formatAlgo(amount)} ALGO to ${ellipseAddress(receiver)}`,
+      detail: note ? `${receiver} · Note: ${note}` : receiver,
+    }
+  }
+
+  if (txType === TX_ASSET) {
+    const { xferAsset, assetReceiver, assetAmount, note } = decodeAssetTxn(data)
+    const asset = await resolveAsset(Number(xferAsset))
+
+    if (assetAmount === 0n && assetReceiver === safeAddress) {
+      return {
+        type: 'axfer',
+        summary: `Opt in to ${formatAssetLabel(asset)}`,
+        detail: `${asset.name} · Safe address ${safeAddress}`,
+      }
+    }
+
+    return {
+      type: 'axfer',
+      summary: `Transfer ${formatAssetAmount(assetAmount, asset)} to ${ellipseAddress(assetReceiver)}`,
+      detail: `${asset.name} · ${assetReceiver}${note ? ` · Note: ${note}` : ''}`,
+    }
+  }
+
+  if (txType === TX_APP) {
+    const { appId, appArgs, note } = decodeAppTxn(data)
+    return {
+      type: 'appl',
+      summary: `Call app ${appId.toString()}`,
+      detail: `${appArgs.length} argument(s)${note ? ` · Note: ${note}` : ''}`,
+    }
+  }
+
+  if (txType === TX_ACFG) {
+    const { configAsset, assetName, unitName, note } = decodeAssetConfigTxn(data)
+    const label = assetName || unitName || (configAsset === 0n ? 'new asset' : `asset ${configAsset.toString()}`)
+    return {
+      type: 'acfg',
+      summary: configAsset === 0n ? `Create asset ${label}` : `Reconfigure asset ${configAsset.toString()}`,
+      detail: note ? `${label} · Note: ${note}` : label,
+    }
+  }
+
+  if (txType === TX_KEYREG) {
+    const { online, voteFirst, voteLast } = decodeKeyRegTxn(data)
+    return {
+      type: 'keyreg',
+      summary: online === 0n ? 'Take account offline' : 'Register participation keys',
+      detail: `Rounds ${voteFirst.toString()}-${voteLast.toString()}`,
+    }
+  }
+
+  return { type: 'appl', summary: `Transaction type ${txType.toString()}`, detail: 'Unrecognized transaction type' }
+}
+
+async function mapLegacyTxLine(
+  tx: LegacyTxTuple,
+  safeAddress: string,
+  resolveAsset: (assetId: number) => Promise<AssetMetadata>,
+): Promise<TxLine> {
+  const [
+    txType,
+    receiver,
+    amount,
+    ,
+    ,
+    xferAsset,
+    assetReceiver,
+    assetAmount,
+    ,
+    ,
+    appId,
+    numArgs,
+    ,
+    ,
+    ,
+    ,
+    online,
+    ,
+    ,
+    ,
+    voteFirst,
+    voteLast,
+    ,
+    note,
+  ] = tx
+
+  if (txType === TX_PAYMENT) {
+    return {
+      type: 'pay',
+      summary: `Send ${formatAlgo(amount)} ALGO to ${ellipseAddress(receiver)}`,
+      detail: note ? `${receiver} · Note: ${note}` : receiver,
+    }
+  }
+
+  if (txType === TX_ASSET) {
+    const asset = await resolveAsset(Number(xferAsset))
+
+    if (assetAmount === 0n && assetReceiver === safeAddress) {
+      return {
+        type: 'axfer',
+        summary: `Opt in to ${formatAssetLabel(asset)}`,
+        detail: `${asset.name} · Safe address ${safeAddress}`,
+      }
+    }
+
+    return {
+      type: 'axfer',
+      summary: `Transfer ${formatAssetAmount(assetAmount, asset)} to ${ellipseAddress(assetReceiver)}`,
+      detail: `${asset.name} · ${assetReceiver}${note ? ` · Note: ${note}` : ''}`,
+    }
+  }
+
+  if (txType === TX_APP) {
+    return {
+      type: 'appl',
+      summary: `Call app ${appId.toString()}`,
+      detail: `${numArgs.toString()} argument(s)`,
+    }
+  }
+
+  return {
+    type: 'keyreg',
+    summary: online === 0n ? 'Take account offline' : 'Register participation keys',
+    detail: `Rounds ${voteFirst.toString()}-${voteLast.toString()}`,
+  }
+}
+
 async function mapTxPreview(
   txns: TxTuple[],
+  isLatest: boolean,
   safeAddress: string,
   resolveAsset: (assetId: number) => Promise<AssetMetadata>,
 ): Promise<TxLine[]> {
   return Promise.all(
-    txns.map(async (tx) => {
-      const [
-        txType,
-        receiver,
-        amount,
-        _hasClose,
-        _closeRemainderTo,
-        xferAsset,
-        assetReceiver,
-        assetAmount,
-        _hasAssetClose,
-        _assetCloseTo,
-        appId,
-        numArgs,
-        _arg0,
-        _arg1,
-        _arg2,
-        _arg3,
-        online,
-        _voteKey,
-        _selectionKey,
-        _stateProofKey,
-        voteFirst,
-        voteLast,
-        _voteKeyDilution,
-        note,
-      ] = tx
-
-      if (txType === TX_PAYMENT) {
-        return {
-          type: 'pay',
-          summary: `Send ${formatAlgo(amount)} ALGO to ${ellipseAddress(receiver)}`,
-          detail: note ? `${receiver} · Note: ${note}` : receiver,
-        }
-      }
-
-      if (txType === TX_ASSET) {
-        const asset = await resolveAsset(Number(xferAsset))
-
-        if (assetAmount === 0n && assetReceiver === safeAddress) {
-          return {
-            type: 'axfer',
-            summary: `Opt in to ${formatAssetLabel(asset)}`,
-            detail: `${asset.name} · Safe address ${safeAddress}`,
-          }
-        }
-
-        return {
-          type: 'axfer',
-          summary: `Transfer ${formatAssetAmount(assetAmount, asset)} to ${ellipseAddress(assetReceiver)}`,
-          detail: `${asset.name} · ${assetReceiver}${note ? ` · Note: ${note}` : ''}`,
-        }
-      }
-
-      if (txType === TX_APP) {
-        return {
-          type: 'appl',
-          summary: `Call app ${appId.toString()}`,
-          detail: `${numArgs.toString()} argument(s)`,
-        }
-      }
-
-      return {
-        type: 'keyreg',
-        summary: online === 0n ? 'Take account offline' : 'Register participation keys',
-        detail: `Rounds ${voteFirst.toString()}-${voteLast.toString()}`,
-      }
-    }),
+    txns.map((tx) =>
+      isLatest
+        ? mapEnvelopeTxLine(tx as unknown as EnvelopeTxTuple, safeAddress, resolveAsset)
+        : mapLegacyTxLine(tx as unknown as LegacyTxTuple, safeAddress, resolveAsset),
+    ),
   )
 }
 
@@ -290,9 +403,26 @@ function deriveDescription(contractProposal: ContractProposal, txPreview: TxLine
   return `Signer group ${contractProposal.groupId.toString()} proposal from ${ellipseAddress(contractProposal.proposer)}. ${actionSummary}`
 }
 
-async function deriveAmount(txns: TxTuple[], resolveAsset: (assetId: number) => Promise<AssetMetadata>) {
+async function deriveAmount(txns: TxTuple[], isLatest: boolean, resolveAsset: (assetId: number) => Promise<AssetMetadata>) {
   if (txns.length !== 1) return undefined
-  const [txType, , amount, , , xferAsset, , assetAmount] = txns[0]
+
+  if (isLatest) {
+    const [txType, data] = txns[0] as unknown as EnvelopeTxTuple
+    if (txType === TX_PAYMENT) {
+      const { amount } = decodePaymentTxn(data)
+      return { amount: Number(amount) / 1_000_000, asset: 'ALGO' }
+    }
+    if (txType === TX_ASSET) {
+      const { xferAsset, assetAmount } = decodeAssetTxn(data)
+      if (assetAmount > 0n) {
+        const asset = await resolveAsset(Number(xferAsset))
+        return { amount: Number(formatUnits(assetAmount, asset.decimals)), asset: asset.symbol }
+      }
+    }
+    return undefined
+  }
+
+  const [txType, , amount, , , xferAsset, , assetAmount] = txns[0] as unknown as LegacyTxTuple
 
   if (txType === TX_PAYMENT) return { amount: Number(amount) / 1_000_000, asset: 'ALGO' }
   if (txType === TX_ASSET && assetAmount > 0n) {
@@ -382,8 +512,8 @@ async function hydrateProposal(
       : []
 
   const adminChange = txns.length === 0 ? await client.state.box.adminPayloads.value(proposalId).catch(() => undefined) : undefined
-  const txPreview = txns.length > 0 ? await mapTxPreview(txns, safe.address, resolveAsset) : []
-  const amountDetails = txns.length > 0 ? await deriveAmount(txns, resolveAsset) : undefined
+  const txPreview = txns.length > 0 ? await mapTxPreview(txns, isLatest, safe.address, resolveAsset) : []
+  const amountDetails = txns.length > 0 ? await deriveAmount(txns, isLatest, resolveAsset) : undefined
   const adminPresentation = adminChange ? await deriveAdminChangePresentation(adminChange, contractProposal, resolveAsset) : undefined
 
   return {
