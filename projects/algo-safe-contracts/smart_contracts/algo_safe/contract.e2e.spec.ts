@@ -1692,4 +1692,281 @@ describe('AlgoSafe contract', () => {
       client.send.getTransactionGroup({ args: { proposalId: pid!, payloadIndex: 1n, ensureBudgetValue: 0n }, suppressLog: true }),
     ).rejects.toThrow()
   })
+
+  test('rejects an ALGO close-remainder-to payment that would sweep more than the daily limit (H-01 regression)', async () => {
+    const { client } = await deployAndBootstrap()
+    const agent = await localnet.context.generateAccount({ initialFunds: (1).algo() })
+
+    // Agent group limited to 1 ALGO/day; the safe's app account (funded with
+    // 5 ALGO at deploy) holds far more than that.
+    await governAdminChange(
+      client,
+      1n,
+      mkAdminChange({
+        changeType: ADM_CREATE_GROUP,
+        groupName: 'Agent',
+        threshold: 1n,
+        memberAddr: agent.toString(),
+        allowedActions: ACT_PAY,
+        adminPrivileges: 0n,
+        dailyLimit: (1).algo().microAlgo,
+      }),
+    )
+
+    const receiver = await localnet.context.generateAccount({ initialFunds: (0).algo() })
+    const closeTo = await localnet.context.generateAccount({ initialFunds: (0).algo() })
+
+    // Declared `amount` is well within the limit, but `hasClose` sweeps the
+    // entire remaining balance to `closeTo` — must still be rejected.
+    const { return: pid } = await client.send.proposeTransactionGroup({
+      args: {
+        groupId: 2n,
+        payload: toSafeTxnGroup([
+          createPaymentSafeTxn({
+            receiver: receiver.toString(),
+            amount: (0.05).algo().microAlgo,
+            hasClose: 1n,
+            closeRemainderTo: closeTo.toString(),
+            note: '',
+          }),
+        ]),
+        expiryRound: FAR_EXPIRY,
+        execute: false,
+        ensureBudgetValue: 10000n,
+      },
+      sender: agent,
+      suppressLog: true,
+      staticFee: (0.2).algo(),
+    })
+
+    await expect(
+      client.send.executeProposal({ args: { proposalId: pid!, ensureBudgetValue: 6000n }, sender: agent, ...execParams }),
+    ).rejects.toThrow()
+  })
+
+  test('rejects an asset close-to transfer that would sweep more than the tracked-asset daily limit (H-01 regression)', async () => {
+    const { client, deployer } = await deployAndBootstrap()
+    const agent = await localnet.context.generateAccount({ initialFunds: (1).algo() })
+
+    const createAsset = await localnet.algorand.send.assetCreate({
+      sender: deployer,
+      total: 1_000_000n,
+      decimals: 0,
+      unitName: 'CLS',
+      assetName: 'Close Asset',
+      suppressLog: true,
+    })
+    const assetId = createAsset.assetId
+
+    await governAdminChange(
+      client,
+      1n,
+      mkAdminChange({
+        changeType: ADM_CREATE_GROUP,
+        groupName: 'Agent',
+        threshold: 1n,
+        memberAddr: agent.toString(),
+        allowedActions: ACT_AXFER,
+        adminPrivileges: 0n,
+        limitAssetId: assetId,
+        dailyLimit: 50n,
+      }),
+    )
+
+    // Safe opts in and is funded with 500 units — far more than the 50-unit limit.
+    const { return: optInPid } = await client.send.proposeTransactionGroup({
+      args: {
+        groupId: 1n,
+        payload: toSafeTxnGroup([
+          createAssetSafeTxn({
+            xferAsset: assetId,
+            assetReceiver: client.appAddress.toString(),
+            assetAmount: 0n,
+            hasClose: 0n,
+            assetCloseTo: ZERO_ADDR,
+            note: '',
+          }),
+        ]),
+        expiryRound: FAR_EXPIRY,
+        execute: false,
+        ensureBudgetValue: 10000n,
+      },
+      suppressLog: true,
+      staticFee: (0.2).algo(),
+    })
+    await client.send.executeProposal({ args: { proposalId: optInPid!, ensureBudgetValue: 6000n }, ...execParams })
+    await localnet.algorand.send.assetTransfer({
+      sender: deployer,
+      receiver: client.appAddress,
+      assetId,
+      amount: 500n,
+      suppressLog: true,
+    })
+
+    const receiver = await localnet.context.generateAccount({ initialFunds: (1).algo() })
+    await localnet.algorand.send.assetOptIn({ sender: receiver, assetId, suppressLog: true })
+    const closeTo = await localnet.context.generateAccount({ initialFunds: (1).algo() })
+    await localnet.algorand.send.assetOptIn({ sender: closeTo, assetId, suppressLog: true })
+
+    // Declared `assetAmount` is within the limit, but `hasAssetClose` sweeps
+    // the safe's entire 500-unit holding to `closeTo` — must be rejected.
+    const { return: pid } = await client.send.proposeTransactionGroup({
+      args: {
+        groupId: 2n,
+        payload: toSafeTxnGroup([
+          createAssetSafeTxn({
+            xferAsset: assetId,
+            assetReceiver: receiver.toString(),
+            assetAmount: 10n,
+            hasClose: 1n,
+            assetCloseTo: closeTo.toString(),
+            note: '',
+          }),
+        ]),
+        expiryRound: FAR_EXPIRY,
+        execute: false,
+        ensureBudgetValue: 10000n,
+      },
+      sender: agent,
+      suppressLog: true,
+      staticFee: (0.2).algo(),
+    })
+
+    await expect(
+      client.send.executeProposal({ args: { proposalId: pid!, ensureBudgetValue: 6000n }, sender: agent, ...execParams }),
+    ).rejects.toThrow()
+  })
+
+  test('enforces cooldownRounds between successive executions of a group (M-01 regression)', async () => {
+    const { client } = await deployAndBootstrap()
+    const agent = await localnet.context.generateAccount({ initialFunds: (1).algo() })
+
+    await governAdminChange(
+      client,
+      1n,
+      mkAdminChange({
+        changeType: ADM_CREATE_GROUP,
+        groupName: 'Agent',
+        threshold: 1n,
+        memberAddr: agent.toString(),
+        allowedActions: ACT_PAY,
+        adminPrivileges: 0n,
+        cooldownRounds: 1000n,
+      }),
+    )
+
+    const recipient = await localnet.context.generateAccount({ initialFunds: (0).algo() })
+
+    const { return: firstPid } = await client.send.proposeTransactionGroup({
+      args: {
+        groupId: 2n,
+        payload: toSafeTxnGroup([safePayment(recipient.toString(), (0.1).algo().microAlgo)]),
+        expiryRound: FAR_EXPIRY,
+        execute: false,
+        ensureBudgetValue: 10000n,
+      },
+      sender: agent,
+      suppressLog: true,
+      staticFee: (0.2).algo(),
+    })
+    await client.send.executeProposal({ args: { proposalId: firstPid!, ensureBudgetValue: 6000n }, sender: agent, ...execParams })
+
+    // Second proposal, approved and ready, but the group's cooldown has not elapsed.
+    const { return: secondPid } = await client.send.proposeTransactionGroup({
+      args: {
+        groupId: 2n,
+        payload: toSafeTxnGroup([safePayment(recipient.toString(), (0.1).algo().microAlgo)]),
+        expiryRound: FAR_EXPIRY,
+        execute: false,
+        ensureBudgetValue: 10000n,
+      },
+      sender: agent,
+      suppressLog: true,
+      staticFee: (0.2).algo(),
+    })
+    await expect(
+      client.send.executeProposal({ args: { proposalId: secondPid!, ensureBudgetValue: 6000n }, sender: agent, ...execParams }),
+    ).rejects.toThrow()
+  })
+
+  test('invalidates a pending proposal\'s recorded approvals when a group member is removed (M-02 regression)', async () => {
+    const { client } = await deployAndBootstrap()
+    const a = await localnet.context.generateAccount({ initialFunds: (1).algo() })
+    const b = await localnet.context.generateAccount({ initialFunds: (1).algo() })
+
+    // 2-of-2 Treasury group.
+    await governAdminChange(
+      client,
+      1n,
+      mkAdminChange({
+        changeType: ADM_CREATE_GROUP,
+        groupName: 'Treasury',
+        threshold: 1n,
+        memberAddr: a.toString(),
+        allowedActions: ACT_PAY,
+        adminPrivileges: 0n,
+      }),
+    )
+    await governAdminChange(
+      client,
+      1n,
+      mkAdminChange({ changeType: ADM_ADD_MEMBER, targetGroupId: 2n, memberAddr: b.toString() }),
+    )
+    await governAdminChange(
+      client,
+      1n,
+      mkAdminChange({ changeType: ADM_CHANGE_THRESHOLD, targetGroupId: 2n, threshold: 2n }),
+    )
+
+    const recipient = await localnet.context.generateAccount({ initialFunds: (0).algo() })
+
+    // A proposes (auto-approved 1-of-2); B approves independently, reaching threshold.
+    const { return: pid } = await client.send.proposeTransactionGroup({
+      args: {
+        groupId: 2n,
+        payload: toSafeTxnGroup([safePayment(recipient.toString(), (0.1).algo().microAlgo)]),
+        expiryRound: FAR_EXPIRY,
+        execute: false,
+        ensureBudgetValue: 10000n,
+      },
+      sender: a,
+      suppressLog: true,
+      staticFee: (0.2).algo(),
+    })
+    await client.send.approveProposal({ args: { proposalId: pid!, ensureBudgetValue: 0n }, sender: b, suppressLog: true })
+
+    // Now B (one of the two approvers) is removed from the group — e.g.
+    // incident response to a suspected compromised signer. Lower the
+    // threshold first so removal doesn't trip the below-threshold guard.
+    await governAdminChange(
+      client,
+      1n,
+      mkAdminChange({ changeType: ADM_CHANGE_THRESHOLD, targetGroupId: 2n, threshold: 1n }),
+    )
+    await governAdminChange(
+      client,
+      1n,
+      mkAdminChange({ changeType: ADM_REMOVE_MEMBER, targetGroupId: 2n, memberAddr: b.toString() }),
+    )
+
+    // The proposal's approvals were recorded before the removal; execution
+    // must now be rejected rather than trusting the stale approval set.
+    await expect(
+      client.send.executeProposal({ args: { proposalId: pid!, ensureBudgetValue: 6000n }, sender: a, ...execParams }),
+    ).rejects.toThrow()
+
+    // A fresh proposal (created after the removal) proceeds normally.
+    const { return: freshPid } = await client.send.proposeTransactionGroup({
+      args: {
+        groupId: 2n,
+        payload: toSafeTxnGroup([safePayment(recipient.toString(), (0.1).algo().microAlgo)]),
+        expiryRound: FAR_EXPIRY,
+        execute: true,
+        ensureBudgetValue: 10000n,
+      },
+      sender: a,
+      ...execParams,
+    })
+    expect(freshPid).toBeDefined()
+  })
 })

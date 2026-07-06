@@ -94,7 +94,7 @@ const ADM_SET_ACTIVE: uint64 = Uint64(7)
 // Period lengths for spending limits, in seconds.
 const DAY_SECONDS: uint64 = Uint64(86400)
 const MONTH_SECONDS: uint64 = Uint64(2592000) // 30 days
-const CONTRACT_VERSION = 'BIATEC-ALGO-SAFE-v1.3.1'
+const CONTRACT_VERSION = 'BIATEC-ALGO-SAFE-v1.4.0'
 
 // ---------------------------------------------------------------------------
 // Stored record types (plain TS types for box storage)
@@ -114,6 +114,8 @@ type SignerGroup = {
   monthlyUsage: uint64
   monthlyPeriodStart: uint64
   cooldownRounds: uint64
+  lastExecutionRound: uint64 // round of the group's last executed transaction-group proposal
+  membershipEpoch: uint64 // incremented every time a member is removed from this group
   active: uint64 // 1 = active, 0 = disabled
 }
 
@@ -132,6 +134,7 @@ type Proposal = {
   expiryRound: uint64
   proposer: Account
   numPayloads: uint64
+  epochAtCreation: uint64 // group.membershipEpoch snapshot at proposal creation
 }
 
 // Per-transaction-type payload structs. Each type carries only the attributes
@@ -321,6 +324,8 @@ export class AlgoSafe extends Contract {
       monthlyUsage: Uint64(0),
       monthlyPeriodStart: now,
       cooldownRounds: Uint64(0),
+      lastExecutionRound: Uint64(0),
+      membershipEpoch: Uint64(0),
       active: Uint64(1),
     }
     this.groups(gid).value = clone(grp)
@@ -452,6 +457,10 @@ export class AlgoSafe extends Contract {
     assert(Global.round <= proposal.expiryRound, 'proposal expired')
     assert(this.members({ groupId: proposal.groupId, account: Txn.sender }).exists, 'not a group member')
     assert(!this.approvals({ proposalId, account: Txn.sender }).exists, 'already approved')
+    assert(
+      this.groups(proposal.groupId).value.membershipEpoch === proposal.epochAtCreation,
+      'group membership changed since proposal creation',
+    )
 
     this._recordApproval(proposalId, proposal)
   }
@@ -616,8 +625,16 @@ export class AlgoSafe extends Contract {
     // two rather than trusting the stale snapshot alone.
     const requiredThreshold: uint64 = proposal.threshold >= group.threshold ? proposal.threshold : group.threshold
     assert(proposal.approvalsCount >= requiredThreshold, 'threshold not met')
+    // If a member was removed from the group after this proposal collected its
+    // approvals, those approvals can no longer be trusted (one of them may have
+    // come from the since-removed signer) — require a fresh proposal instead of
+    // trusting a stale approval set (see M-02 audit finding).
+    assert(group.membershipEpoch === proposal.epochAtCreation, 'group membership changed since proposal creation')
 
     if (proposal.payloadType === PT_TRANSACTION_GROUP) {
+      if (group.cooldownRounds !== Uint64(0)) {
+        assert(Global.round >= group.lastExecutionRound + group.cooldownRounds, 'group cooldown not elapsed')
+      }
       this._executeTransactionGroup(proposalId, proposal.groupId, group, proposal.numPayloads)
     } else {
       // Admin change: re-check privilege against current group state.
@@ -646,6 +663,7 @@ export class AlgoSafe extends Contract {
       expiryRound,
       proposer: Txn.sender,
       numPayloads: Uint64(0),
+      epochAtCreation: group.membershipEpoch,
     }
     this.proposals(pid).value = clone(proposal)
     this.nextProposalId.value = pid + Uint64(1)
@@ -707,13 +725,29 @@ export class AlgoSafe extends Contract {
           if (entry.txType === TX_PAYMENT) {
             const tx = decodeArc4<PaymentTxn>(entry.data)
             this._validatePayment(tx, groupIn)
-            const amount: uint64 = group.limitAssetId === Uint64(0) ? tx.amount : Uint64(0)
+            // A close-remainder-to payment sweeps the safe's entire ALGO
+            // balance, not just `tx.amount` — count the full balance against
+            // the limit so a close can't bypass it (see H-01 audit finding).
+            let amount: uint64 = Uint64(0)
+            if (group.limitAssetId === Uint64(0)) {
+              amount = tx.hasClose !== Uint64(0) ? op.balance(Global.currentApplicationAddress) : tx.amount
+            }
             group = this._accountSpend(group, amount)
           } else if (entry.txType === TX_ASSET) {
             const tx = decodeArc4<AssetTxn>(entry.data)
             this._validateAsset(tx, groupIn)
             const tracked = group.limitAssetId !== Uint64(0) && tx.xferAsset === group.limitAssetId
-            const amount: uint64 = tracked ? tx.assetAmount : Uint64(0)
+            // Likewise, an asset close-to sweeps the safe's entire holding of
+            // that ASA, not just `tx.assetAmount` (see H-01 audit finding).
+            let amount: uint64 = Uint64(0)
+            if (tracked) {
+              if (tx.hasAssetClose !== Uint64(0)) {
+                const [bal] = op.AssetHolding.assetBalance(Global.currentApplicationAddress, tx.xferAsset)
+                amount = bal
+              } else {
+                amount = tx.assetAmount
+              }
+            }
             group = this._accountSpend(group, amount)
           } else if (entry.txType === TX_APP) {
             const tx = decodeArc4<AppTxn>(entry.data)
@@ -731,6 +765,7 @@ export class AlgoSafe extends Contract {
       }
     }
 
+    group.lastExecutionRound = Global.round
     this.groups(groupId).value = clone(group)
 
     let txIndex = Uint64(0)
@@ -1097,6 +1132,8 @@ export class AlgoSafe extends Contract {
       monthlyUsage: Uint64(0),
       monthlyPeriodStart: now,
       cooldownRounds: change.cooldownRounds,
+      lastExecutionRound: Uint64(0),
+      membershipEpoch: Uint64(0),
       active: Uint64(1),
     }
     this.groups(gid).value = clone(grp)
@@ -1137,6 +1174,10 @@ export class AlgoSafe extends Contract {
 
     this.members({ groupId: gid, account: change.memberAddr }).delete()
     group.memberCount = group.memberCount - Uint64(1)
+    // Bump the epoch so any pending proposal's already-recorded approvals (which
+    // may include one from the just-removed signer) are invalidated and must be
+    // re-approved from scratch (see M-02 audit finding).
+    group.membershipEpoch = group.membershipEpoch + Uint64(1)
     this.groups(gid).value = clone(group)
 
     emit<MemberRemoved>({ groupId: gid, member: change.memberAddr })

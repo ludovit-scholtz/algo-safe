@@ -98,6 +98,9 @@ The contract (`contract.algo.ts`) is a single AVM application. Key concepts:
 - **Auth**: AVM verifies tx signatures before the program runs; contract checks `Txn.sender` against group membership
 - **Governance lockout guard**: `activePrivGroupCount` (GlobalState) tracks active groups holding `PRIV_GROUP`; blocks any admin change that would leave zero — checked both at proposal-validation and execution time
 - **Box pruning**: `pruneProposal(proposalId, ensureBudgetValue)` deletes a terminal (`STATUS_EXECUTED`/`STATUS_CANCELLED`), past-expiry proposal's box and payload boxes to reclaim MBR; `getActivePrivGroupCount()` is the read-only getter for the lockout counter above
+- **Spending-limit close-out accounting**: a payment/asset transfer with `hasClose`/`hasAssetClose` set sweeps the safe's *entire* remaining ALGO/ASA balance to the close address, not just the declared `amount`/`assetAmount` — the daily/monthly limit tally counts the live `op.balance`/`op.AssetHolding.assetBalance` in that case instead of the declared amount, so a close-out can't bypass a group's spending limit
+- **Cooldown enforcement**: `SignerGroup.cooldownRounds` (if nonzero) requires `Global.round >= group.lastExecutionRound + cooldownRounds` before a transaction-group proposal can execute; `lastExecutionRound` is updated on every execution
+- **Membership-epoch invalidation**: `SignerGroup.membershipEpoch` increments every time a member is removed (`_adminRemoveMember`); each proposal snapshots `epochAtCreation` at creation time, and both `approveProposal` and execution assert the group's live epoch still matches — removing a member invalidates every pending proposal's already-recorded approvals (they must be re-approved from scratch), closing the window where a since-removed (e.g. compromised) signer's stale approval still counted toward a threshold
 
 ## Working with the `algo-safe` npm package
 
