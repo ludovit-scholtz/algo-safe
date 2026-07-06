@@ -94,7 +94,7 @@ const ADM_SET_ACTIVE: uint64 = Uint64(7)
 // Period lengths for spending limits, in seconds.
 const DAY_SECONDS: uint64 = Uint64(86400)
 const MONTH_SECONDS: uint64 = Uint64(2592000) // 30 days
-const CONTRACT_VERSION = 'BIATEC-ALGO-SAFE-v1.3.0'
+const CONTRACT_VERSION = 'BIATEC-ALGO-SAFE-v1.3.1'
 
 // ---------------------------------------------------------------------------
 // Stored record types (plain TS types for box storage)
@@ -382,12 +382,14 @@ export class AlgoSafe extends Contract {
 
   /**
    * Append an additional payload chunk (slots 2–6) to an existing transaction-group
-   * proposal. Callable only by the original proposer, and only while
-   * `approvalsCount === 1` (i.e. no one but the proposer's own auto-approval has
-   * approved yet). This closes the window for a member to alter the executed
-   * transaction set after an independent signer has approved the proposal as it
-   * existed at that time — see the `approveProposal` / `_executeProposalInternal`
-   * comments for how approvals are bound to a payload.
+   * proposal. Callable only by the original proposer while they remain a *current*
+   * member of the group, and only while `approvalsCount === 1` (i.e. no one but the
+   * proposer's own auto-approval has approved yet). This closes the window for a
+   * member to alter the executed transaction set after an independent signer has
+   * approved the proposal as it existed at that time — see the `approveProposal` /
+   * `_executeProposalInternal` comments for how approvals are bound to a payload.
+   * The membership check also prevents a member removed from the group after
+   * proposing from continuing to rewrite their own now-orphaned proposal.
    */
   public appendTransactionGroupPayload(
     proposalId: uint64,
@@ -403,6 +405,7 @@ export class AlgoSafe extends Contract {
     const proposal = clone(this.proposals(proposalId).value)
     assert(proposal.payloadType === PT_TRANSACTION_GROUP, 'not a tx group')
     assert(proposal.status === STATUS_ACTIVE || proposal.status === STATUS_READY, 'proposal not pending')
+    this._assertMember(proposal.groupId)
     assert(Txn.sender === proposal.proposer, 'only proposer can append')
     assert(proposal.approvalsCount === Uint64(1), 'cannot modify payload after independent approval')
     this._storePayloadGroup(proposalId, payloadIndex, payload)

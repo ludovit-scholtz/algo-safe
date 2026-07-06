@@ -96,6 +96,8 @@ The contract (`contract.algo.ts`) is a single AVM application. Key concepts:
 - **Signer group**: M-of-N signers with `allowedActions` bitmask (PAY=1, AXFER=2, APPL=4, KEYREG=8) and `adminPrivileges` bitmask (GROUP=1, POLICY=2)
 - **Storage**: BoxMap for proposals and signer groups; GlobalState for config
 - **Auth**: AVM verifies tx signatures before the program runs; contract checks `Txn.sender` against group membership
+- **Governance lockout guard**: `activePrivGroupCount` (GlobalState) tracks active groups holding `PRIV_GROUP`; blocks any admin change that would leave zero — checked both at proposal-validation and execution time
+- **Box pruning**: `pruneProposal(proposalId, ensureBudgetValue)` deletes a terminal (`STATUS_EXECUTED`/`STATUS_CANCELLED`), past-expiry proposal's box and payload boxes to reclaim MBR; `getActivePrivGroupCount()` is the read-only getter for the lockout counter above
 
 ## Working with the `algo-safe` npm package
 

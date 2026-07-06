@@ -6,7 +6,7 @@ export {
   MemberFromTuple,
   ProposalFromTuple,
   SignerGroupFromTuple,
-} from '../clients/7e9528e198e8827f7acbd54acdf41c3ed9ca41622936d449f4574580401c33cf/AlgoSafeClient'
+} from '../clients/27bf717e5729c3e66009c526e92b8137c1773b6259f651c5fc69dcafa38f3e47/AlgoSafeClient'
 
 export type {
   AdminChange,
@@ -34,4 +34,4 @@ export type {
   Object9F556C53FromTuple,
   Proposal,
   SignerGroup,
-} from '../clients/7e9528e198e8827f7acbd54acdf41c3ed9ca41622936d449f4574580401c33cf/AlgoSafeClient'
+} from '../clients/27bf717e5729c3e66009c526e92b8137c1773b6259f651c5fc69dcafa38f3e47/AlgoSafeClient'

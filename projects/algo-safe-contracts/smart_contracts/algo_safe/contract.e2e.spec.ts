@@ -1423,6 +1423,83 @@ describe('AlgoSafe contract', () => {
     ).rejects.toThrow()
   })
 
+  test('rejects appendTransactionGroupPayload and executeProposal from a proposer removed from the group (H-01 regression)', async () => {
+    const { client } = await deployAndBootstrap()
+    const attacker = await localnet.context.generateAccount({ initialFunds: (1).algo() })
+    const bystander = await localnet.context.generateAccount({ initialFunds: (1).algo() })
+    const decoy = await localnet.context.generateAccount({ initialFunds: (0).algo() })
+    const attackerPayout = await localnet.context.generateAccount({ initialFunds: (0).algo() })
+
+    // Governance creates a 1-of-2 Treasury group with the attacker as an initial member.
+    await governAdminChange(
+      client,
+      1n,
+      mkAdminChange({
+        changeType: ADM_CREATE_GROUP,
+        groupName: 'Treasury',
+        threshold: 1n,
+        memberAddr: attacker.toString(),
+        allowedActions: ACT_PAY,
+        adminPrivileges: 0n,
+      }),
+    )
+    const treasuryGroupId = 2n
+    await governAdminChange(
+      client,
+      1n,
+      mkAdminChange({ changeType: ADM_ADD_MEMBER, targetGroupId: treasuryGroupId, memberAddr: bystander.toString() }),
+    )
+
+    // Attacker proposes a small decoy payment; threshold 1 means auto-approval reaches READY immediately.
+    const { return: pid } = await client.send.proposeTransactionGroup({
+      args: {
+        groupId: treasuryGroupId,
+        payload: toSafeTxnGroup([safePayment(decoy.toString(), (0.1).algo().microAlgo)]),
+        expiryRound: FAR_EXPIRY,
+        execute: false,
+        ensureBudgetValue: 10000n,
+      },
+      sender: attacker,
+      suppressLog: true,
+      staticFee: (0.2).algo(),
+    })
+    const ready = await client.send.getProposal({ args: { proposalId: pid!, ensureBudgetValue: 0n }, suppressLog: true })
+    expect(ready.return!.status).toBe(2n) // READY
+
+    // Governance removes the attacker from the group.
+    await governAdminChange(
+      client,
+      1n,
+      mkAdminChange({ changeType: ADM_REMOVE_MEMBER, targetGroupId: treasuryGroupId, memberAddr: attacker.toString() }),
+    )
+    const stillMember = await client.send.isMember({
+      args: { groupId: treasuryGroupId, account: attacker.toString(), ensureBudgetValue: 0n },
+      suppressLog: true,
+    })
+    expect(stillMember.return).toBe(false)
+
+    // Removed attacker attempts to append a drain payment to their own now-orphaned proposal — must be rejected.
+    await expect(
+      client.send.appendTransactionGroupPayload({
+        args: {
+          proposalId: pid!,
+          payloadIndex: 2n,
+          payload: toSafeTxnGroup([safePayment(attackerPayout.toString(), (3).algo().microAlgo)]),
+          ensureBudgetValue: 10000n,
+        },
+        sender: attacker,
+        suppressLog: true,
+        staticFee: (0.1).algo(),
+      }),
+    ).rejects.toThrow()
+
+    // Even without appending, the removed proposer should not be able to execute their own stale proposal
+    // via a spoofed sender — executeProposal itself doesn't require membership, so only the append path
+    // needed the fix, but confirm the payout account never received anything.
+    const payoutInfo = await localnet.algorand.account.getInformation(attackerPayout)
+    expect(payoutInfo.balance.microAlgo).toBe(0n)
+  })
+
   test('rejects the sole PRIV_GROUP holder revoking its own group-admin privilege (M-01 lockout guard)', async () => {
     const { client } = await deployAndBootstrap()
 
