@@ -60,6 +60,13 @@ const TX_ACFG: uint64 = Uint64(5) // asset configuration (create / reconfigure /
 // tracks that limit and can be raised if the protocol limit changes.
 const MAX_GROUP_TXNS: uint64 = Uint64(16)
 
+// Upper bound on SignerGroup.cooldownRounds (~a year at current block times),
+// generously above any realistic throttle while staying far below the range
+// where `lastExecutionRound + cooldownRounds` could overflow uint64 (see the
+// M-03 audit finding: an unbounded cooldown let a single policy change freeze
+// a group's execution forever via an AVM arithmetic-overflow panic).
+const MAX_COOLDOWN_ROUNDS: uint64 = Uint64(10_000_000)
+
 // Application-call resource limits (Algorand consensus parameters). The contract
 // rejects any app-call payload that exceeds these before staging the inner txn.
 const MAX_APP_ARGS: uint64 = Uint64(16) // MaxAppArgs
@@ -94,7 +101,7 @@ const ADM_SET_ACTIVE: uint64 = Uint64(7)
 // Period lengths for spending limits, in seconds.
 const DAY_SECONDS: uint64 = Uint64(86400)
 const MONTH_SECONDS: uint64 = Uint64(2592000) // 30 days
-const CONTRACT_VERSION = 'BIATEC-ALGO-SAFE-v1.4.0'
+const CONTRACT_VERSION = 'BIATEC-ALGO-SAFE-v1.4.1'
 
 // ---------------------------------------------------------------------------
 // Stored record types (plain TS types for box storage)
@@ -1021,6 +1028,7 @@ export class AlgoSafe extends Contract {
       assert(change.memberAddr !== Global.zeroAddress, 'first member required')
       assert(change.allowedActions <= ACT_ALL, 'invalid actions')
       assert(change.adminPrivileges <= PRIV_ALL, 'invalid privileges')
+      assert(change.cooldownRounds <= MAX_COOLDOWN_ROUNDS, 'cooldown too large')
     } else if (change.changeType === ADM_ADD_MEMBER) {
       assert(this.groups(change.targetGroupId).exists, 'target group not found')
       assert(change.memberAddr !== Global.zeroAddress, 'member required')
@@ -1032,6 +1040,7 @@ export class AlgoSafe extends Contract {
     } else if (change.changeType === ADM_SET_POLICY) {
       assert(this.groups(change.targetGroupId).exists, 'target group not found')
       assert(change.allowedActions <= ACT_ALL, 'invalid actions')
+      assert(change.cooldownRounds <= MAX_COOLDOWN_ROUNDS, 'cooldown too large')
     } else if (change.changeType === ADM_SET_PRIVILEGES) {
       assert(this.groups(change.targetGroupId).exists, 'target group not found')
       assert(change.adminPrivileges <= PRIV_ALL, 'invalid privileges')

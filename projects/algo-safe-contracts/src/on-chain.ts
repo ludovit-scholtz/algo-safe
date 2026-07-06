@@ -1,6 +1,7 @@
 import { AlgorandClient } from '@algorandfoundation/algokit-utils'
 import algosdk from 'algosdk'
 import { getClient } from './get-client'
+import type { SignerGroup } from './latest-client'
 import { getAlgoSafeContractVersion } from './version'
 
 export type AlgoSafeOnChainRef = {
@@ -18,9 +19,13 @@ export type AlgoSafeSignerGroupRecord = {
   limitAssetId: bigint
   dailyLimit: bigint
   dailyUsage: bigint
+  dailyPeriodStart: number
   monthlyLimit: bigint
   monthlyUsage: bigint
+  monthlyPeriodStart: number
   cooldownRounds: number
+  lastExecutionRound: number
+  membershipEpoch: number
   active: boolean
   isAdminGroup: boolean
 }
@@ -44,20 +49,11 @@ export type AlgoSafeSignerGroupDetailRecord = {
 }
 
 type TypedClient = Awaited<ReturnType<typeof buildAlgoSafeAppClient>>
-type RawSignerGroup = {
-  name: string
-  threshold: bigint
-  memberCount: bigint
-  adminPrivileges: bigint
-  allowedActions: bigint
-  limitAssetId: bigint
-  dailyLimit: bigint
-  dailyUsage: bigint
-  monthlyLimit: bigint
-  monthlyUsage: bigint
-  cooldownRounds: bigint
-  active: bigint
-}
+// `SignerGroup` is imported from the latest deployed contract's ABI shape (see
+// `latest-client.ts`). Older deployed versions that predate a given field
+// simply won't populate it at runtime — same tolerance already applied to
+// `Proposal.numPayloads` elsewhere in this library (see CLAUDE.md).
+type RawSignerGroup = SignerGroup
 type RawSignerGroupMember = {
   addr: string
   label: string
@@ -86,9 +82,13 @@ function mapSignerGroup(groupId: bigint, group: RawSignerGroup): AlgoSafeSignerG
     limitAssetId: group.limitAssetId ?? 0n,
     dailyLimit: group.dailyLimit,
     dailyUsage: group.dailyUsage,
+    dailyPeriodStart: Number(group.dailyPeriodStart),
     monthlyLimit: group.monthlyLimit,
     monthlyUsage: group.monthlyUsage,
+    monthlyPeriodStart: Number(group.monthlyPeriodStart),
     cooldownRounds: Number(group.cooldownRounds),
+    lastExecutionRound: Number(group.lastExecutionRound),
+    membershipEpoch: Number(group.membershipEpoch),
     active: group.active !== 0n,
     isAdminGroup: group.adminPrivileges !== 0n,
   }

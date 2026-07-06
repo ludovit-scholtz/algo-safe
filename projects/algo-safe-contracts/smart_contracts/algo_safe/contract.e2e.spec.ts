@@ -1889,6 +1889,80 @@ describe('AlgoSafe contract', () => {
     ).rejects.toThrow()
   })
 
+  test('rejects a cooldownRounds value above the configured maximum on group creation (M-03 regression)', async () => {
+    const { client } = await deployAndBootstrap()
+    const agent = await localnet.context.generateAccount({ initialFunds: (1).algo() })
+
+    await expect(
+      client.send.proposeAdminChange({
+        args: {
+          groupId: 1n,
+          change: mkAdminChange({
+            changeType: ADM_CREATE_GROUP,
+            groupName: 'Agent',
+            threshold: 1n,
+            memberAddr: agent.toString(),
+            allowedActions: ACT_PAY,
+            adminPrivileges: 0n,
+            cooldownRounds: 10_000_001n,
+          }),
+          expiryRound: FAR_EXPIRY,
+          ensureBudgetValue: 0n,
+        },
+        suppressLog: true,
+        staticFee: (0.2).algo(),
+      }),
+    ).rejects.toThrow()
+  })
+
+  test('rejects a cooldownRounds value above the configured maximum via ADM_SET_POLICY, closing the overflow DoS (M-03 regression)', async () => {
+    const { client } = await deployAndBootstrap()
+    const agent = await localnet.context.generateAccount({ initialFunds: (1).algo() })
+
+    await governAdminChange(
+      client,
+      1n,
+      mkAdminChange({
+        changeType: ADM_CREATE_GROUP,
+        groupName: 'Agent',
+        threshold: 1n,
+        memberAddr: agent.toString(),
+        allowedActions: ACT_PAY,
+        adminPrivileges: 0n,
+      }),
+    )
+
+    // The value that previously caused an unhandled AVM arithmetic-overflow
+    // panic at execution time (uint64 max) must now be rejected cleanly and
+    // immediately, at proposal time, well before it can ever reach `+`.
+    await expect(
+      client.send.proposeAdminChange({
+        args: {
+          groupId: 1n,
+          change: mkAdminChange({
+            changeType: ADM_SET_POLICY,
+            targetGroupId: 2n,
+            allowedActions: ACT_PAY,
+            cooldownRounds: 18446744073709551615n,
+          }),
+          expiryRound: FAR_EXPIRY,
+          ensureBudgetValue: 0n,
+        },
+        suppressLog: true,
+        staticFee: (0.2).algo(),
+      }),
+    ).rejects.toThrow()
+
+    // A value at the boundary is still accepted.
+    await governAdminChange(
+      client,
+      1n,
+      mkAdminChange({ changeType: ADM_SET_POLICY, targetGroupId: 2n, allowedActions: ACT_PAY, cooldownRounds: 10_000_000n }),
+    )
+    const group = await client.send.getSignerGroup({ args: { groupId: 2n, ensureBudgetValue: 0n }, suppressLog: true })
+    expect(group.return!.cooldownRounds).toBe(10_000_000n)
+  })
+
   test('invalidates a pending proposal\'s recorded approvals when a group member is removed (M-02 regression)', async () => {
     const { client } = await deployAndBootstrap()
     const a = await localnet.context.generateAccount({ initialFunds: (1).algo() })
