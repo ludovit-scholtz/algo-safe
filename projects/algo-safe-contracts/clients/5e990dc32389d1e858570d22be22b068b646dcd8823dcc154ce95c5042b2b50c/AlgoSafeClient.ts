@@ -47,7 +47,7 @@ class BinaryStateValue implements BinaryState {
   }
 
   asString(): string | undefined {
-    return this.value !== undefined ? Buffer.from(this.value).toString('utf-8') : undefined
+    return this.value !== undefined ? new TextDecoder().decode(this.value) : undefined
   }
 }
 

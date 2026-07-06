@@ -59,7 +59,7 @@ export async function proposeAssetOptIn(params: {
   ]) as unknown as never[]
 
   const result = await appClient.send.proposeTransactionGroup({
-    args: { groupId, payload, expiryRound },
+    args: { groupId, payload, expiryRound, execute: false, ensureBudgetValue: 0n } as any,
     staticFee: PROPOSAL_CALL_FEE,
     suppressLog: true,
   })

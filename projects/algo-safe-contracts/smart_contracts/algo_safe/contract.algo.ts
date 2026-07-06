@@ -94,7 +94,7 @@ const ADM_SET_ACTIVE: uint64 = Uint64(7)
 // Period lengths for spending limits, in seconds.
 const DAY_SECONDS: uint64 = Uint64(86400)
 const MONTH_SECONDS: uint64 = Uint64(2592000) // 30 days
-const CONTRACT_VERSION = 'BIATECH-ALGO-SAFE-v1.0.0'
+const CONTRACT_VERSION = 'BIATEC-ALGO-SAFE-v1.2.0'
 
 // ---------------------------------------------------------------------------
 // Stored record types (plain TS types for box storage)
@@ -340,11 +340,25 @@ export class AlgoSafe extends Contract {
    * total number of transactions exceeds the ~2 KB per-ABI-argument limit, call
    * appendTransactionGroupPayload (once per extra chunk, slots 2–6) before the
    * proposal is approved and executed. Stores the payload at slot 1.
+   *
+   * When `execute` is true, attempts to execute the proposal immediately after
+   * creating it — this only succeeds if the signer group's threshold is 1 (so
+   * the proposer's auto-approval alone satisfies it) and the transactions fall
+   * within the group's spending limits, letting a single app call both propose
+   * and execute a transaction group.
    */
-  public proposeTransactionGroup(groupId: uint64, payload: SafeTxnGroup, expiryRound: uint64): uint64 {
+  public proposeTransactionGroup(
+    groupId: uint64,
+    payload: SafeTxnGroup,
+    expiryRound: uint64,
+    execute: boolean,
+    ensureBudgetValue: uint64,
+  ): uint64 {
+    if (ensureBudgetValue > Uint64(1)) {
+      ensureBudget(ensureBudgetValue)
+    }
     assert(payload.length >= Uint64(1), 'empty tx group')
     assert(payload.length <= MAX_GROUP_TXNS, 'too many txs')
-    ensureBudget((payload.length + Uint64(3)) * Uint64(700))
     assert(this.paused.value === Uint64(0), 'safe paused')
     this._assertMember(groupId)
     assert(this.groups(groupId).value.active !== Uint64(0), 'group disabled')
@@ -353,6 +367,9 @@ export class AlgoSafe extends Contract {
     const p = clone(this.proposals(pid).value)
     p.numPayloads = Uint64(1)
     this.proposals(pid).value = clone(p)
+    if (execute) {
+      this._executeProposalInternal(pid)
+    }
     return pid
   }
 
@@ -361,17 +378,21 @@ export class AlgoSafe extends Contract {
    * proposal. Must be called before the proposal reaches STATUS_READY so all
    * chunks are present when the proposal is executed.
    */
-  public appendTransactionGroupPayload(proposalId: uint64, payloadIndex: uint64, payload: SafeTxnGroup): void {
+  public appendTransactionGroupPayload(
+    proposalId: uint64,
+    payloadIndex: uint64,
+    payload: SafeTxnGroup,
+    ensureBudgetValue: uint64,
+  ): void {
+    if (ensureBudgetValue > Uint64(1)) {
+      ensureBudget(ensureBudgetValue)
+    }
     assert(payloadIndex >= Uint64(2) && payloadIndex <= Uint64(6), 'invalid slot')
     assert(payload.length >= Uint64(1), 'empty payload')
     const proposal = clone(this.proposals(proposalId).value)
     assert(proposal.payloadType === PT_TRANSACTION_GROUP, 'not a tx group')
-    assert(
-      proposal.status === STATUS_ACTIVE || proposal.status === STATUS_READY,
-      'proposal not pending',
-    )
+    assert(proposal.status === STATUS_ACTIVE || proposal.status === STATUS_READY, 'proposal not pending')
     this._assertMember(proposal.groupId)
-    ensureBudget((payload.length + Uint64(3)) * Uint64(700))
     this._storePayloadGroup(proposalId, payloadIndex, payload)
     if (payloadIndex > proposal.numPayloads) {
       const updated = clone(proposal)
@@ -381,7 +402,15 @@ export class AlgoSafe extends Contract {
   }
 
   /** Create a governed signer-group administration proposal. */
-  public proposeAdminChange(groupId: uint64, change: AdminChange, expiryRound: uint64): uint64 {
+  public proposeAdminChange(
+    groupId: uint64,
+    change: AdminChange,
+    expiryRound: uint64,
+    ensureBudgetValue: uint64,
+  ): uint64 {
+    if (ensureBudgetValue > Uint64(1)) {
+      ensureBudget(ensureBudgetValue)
+    }
     // Proposer must be a member of an admin-capable group with the right privilege.
     this._assertMember(groupId)
     const group = clone(this.groups(groupId).value)
@@ -399,7 +428,10 @@ export class AlgoSafe extends Contract {
   // -------------------------------------------------------------------------
 
   /** Record the caller's approval of a proposal. */
-  public approveProposal(proposalId: uint64): void {
+  public approveProposal(proposalId: uint64, ensureBudgetValue: uint64): void {
+    if (ensureBudgetValue > Uint64(1)) {
+      ensureBudget(ensureBudgetValue)
+    }
     const proposal = clone(this.proposals(proposalId).value)
     assert(proposal.status === STATUS_ACTIVE || proposal.status === STATUS_READY, 'not approvable')
     assert(Global.round <= proposal.expiryRound, 'proposal expired')
@@ -410,7 +442,114 @@ export class AlgoSafe extends Contract {
   }
 
   /** Execute a proposal once its threshold has been met. */
-  public executeProposal(proposalId: uint64): void {
+  public executeProposal(proposalId: uint64, ensureBudgetValue: uint64): void {
+    if (ensureBudgetValue > Uint64(1)) {
+      ensureBudget(ensureBudgetValue)
+    }
+    this._executeProposalInternal(proposalId)
+  }
+
+  /** Cancel a pending proposal. Allowed for the proposer or any member of the proposal's group. */
+  public cancelProposal(proposalId: uint64, ensureBudgetValue: uint64): void {
+    if (ensureBudgetValue > Uint64(1)) {
+      ensureBudget(ensureBudgetValue)
+    }
+    const proposal = clone(this.proposals(proposalId).value)
+    assert(proposal.status === STATUS_ACTIVE || proposal.status === STATUS_READY, 'not cancellable')
+    const isProposer = Txn.sender === proposal.proposer
+    const isMember = this.members({ groupId: proposal.groupId, account: Txn.sender }).exists
+    assert(isProposer || isMember, 'not authorised to cancel')
+
+    proposal.status = STATUS_CANCELLED
+    this.proposals(proposalId).value = clone(proposal)
+    emit<ProposalCancelled>({ proposalId })
+  }
+
+  // -------------------------------------------------------------------------
+  // Read-only getters
+  // -------------------------------------------------------------------------
+
+  @abimethod({ readonly: true })
+  public getConfig(ensureBudgetValue: uint64): [string, uint64, uint64, uint64, uint64, string] {
+    if (ensureBudgetValue > Uint64(1)) {
+      ensureBudget(ensureBudgetValue)
+    }
+    return [
+      this.name.value,
+      this.groupCount.value,
+      this.nextGroupId.value,
+      this.nextProposalId.value,
+      this.paused.value,
+      this.version.value,
+    ]
+  }
+
+  @abimethod({ readonly: true })
+  public getSignerGroup(groupId: uint64, ensureBudgetValue: uint64): SignerGroup {
+    if (ensureBudgetValue > Uint64(1)) {
+      ensureBudget(ensureBudgetValue)
+    }
+    return clone(this.groups(groupId).value)
+  }
+
+  @abimethod({ readonly: true })
+  public getProposal(proposalId: uint64, ensureBudgetValue: uint64): Proposal {
+    if (ensureBudgetValue > Uint64(1)) {
+      ensureBudget(ensureBudgetValue)
+    }
+    return clone(this.proposals(proposalId).value)
+  }
+
+  @abimethod({ readonly: true })
+  public getTransactionGroup(proposalId: uint64, payloadIndex: uint64, ensureBudgetValue: uint64): SafeTxnGroup {
+    if (ensureBudgetValue > Uint64(1)) {
+      ensureBudget(ensureBudgetValue)
+    }
+    return clone(this.transactionGroups(proposalId * TXG_KEY_MULT + payloadIndex).value)
+  }
+
+  @abimethod({ readonly: true })
+  public getMember(groupId: uint64, account: Account, ensureBudgetValue: uint64): Member {
+    if (ensureBudgetValue > Uint64(1)) {
+      ensureBudget(ensureBudgetValue)
+    }
+    return clone(this.members({ groupId, account }).value)
+  }
+
+  @abimethod({ readonly: true })
+  public isMember(groupId: uint64, account: Account, ensureBudgetValue: uint64): boolean {
+    if (ensureBudgetValue > Uint64(1)) {
+      ensureBudget(ensureBudgetValue)
+    }
+    return this.members({ groupId, account }).exists
+  }
+
+  @abimethod({ readonly: true })
+  public hasApproved(proposalId: uint64, account: Account, ensureBudgetValue: uint64): boolean {
+    if (ensureBudgetValue > Uint64(1)) {
+      ensureBudget(ensureBudgetValue)
+    }
+    return this.approvals({ proposalId, account }).exists
+  }
+
+  // -------------------------------------------------------------------------
+  // Internal: proposal helpers
+  // -------------------------------------------------------------------------
+
+  private _assertMember(groupId: uint64): void {
+    assert(this.groups(groupId).exists, 'group not found')
+    assert(this.members({ groupId, account: Txn.sender }).exists, 'not a group member')
+  }
+
+  /**
+   * Execute a proposal once its threshold has been met. Shared by the public
+   * `executeProposal` entrypoint and `proposeTransactionGroup(..., execute: true)`,
+   * which calls this immediately after auto-approving the proposer — it only
+   * succeeds there if the group's threshold is 1 and the transactions are
+   * within the group's spending limits, since every other check below still
+   * applies.
+   */
+  private _executeProposalInternal(proposalId: uint64): void {
     assert(this.paused.value === Uint64(0), 'safe paused')
     const proposal = clone(this.proposals(proposalId).value)
     assert(proposal.status === STATUS_READY, 'not ready to execute')
@@ -432,74 +571,6 @@ export class AlgoSafe extends Contract {
     proposal.status = STATUS_EXECUTED
     this.proposals(proposalId).value = clone(proposal)
     emit<ProposalExecuted>({ proposalId })
-  }
-
-  /** Cancel a pending proposal. Allowed for the proposer or any member of the proposal's group. */
-  public cancelProposal(proposalId: uint64): void {
-    const proposal = clone(this.proposals(proposalId).value)
-    assert(proposal.status === STATUS_ACTIVE || proposal.status === STATUS_READY, 'not cancellable')
-    const isProposer = Txn.sender === proposal.proposer
-    const isMember = this.members({ groupId: proposal.groupId, account: Txn.sender }).exists
-    assert(isProposer || isMember, 'not authorised to cancel')
-
-    proposal.status = STATUS_CANCELLED
-    this.proposals(proposalId).value = clone(proposal)
-    emit<ProposalCancelled>({ proposalId })
-  }
-
-  // -------------------------------------------------------------------------
-  // Read-only getters
-  // -------------------------------------------------------------------------
-
-  @abimethod({ readonly: true })
-  public getConfig(): [string, uint64, uint64, uint64, uint64, string] {
-    return [
-      this.name.value,
-      this.groupCount.value,
-      this.nextGroupId.value,
-      this.nextProposalId.value,
-      this.paused.value,
-      this.version.value,
-    ]
-  }
-
-  @abimethod({ readonly: true })
-  public getSignerGroup(groupId: uint64): SignerGroup {
-    return clone(this.groups(groupId).value)
-  }
-
-  @abimethod({ readonly: true })
-  public getProposal(proposalId: uint64): Proposal {
-    return clone(this.proposals(proposalId).value)
-  }
-
-  @abimethod({ readonly: true })
-  public getTransactionGroup(proposalId: uint64, payloadIndex: uint64): SafeTxnGroup {
-    return clone(this.transactionGroups(proposalId * TXG_KEY_MULT + payloadIndex).value)
-  }
-
-  @abimethod({ readonly: true })
-  public getMember(groupId: uint64, account: Account): Member {
-    return clone(this.members({ groupId, account }).value)
-  }
-
-  @abimethod({ readonly: true })
-  public isMember(groupId: uint64, account: Account): boolean {
-    return this.members({ groupId, account }).exists
-  }
-
-  @abimethod({ readonly: true })
-  public hasApproved(proposalId: uint64, account: Account): boolean {
-    return this.approvals({ proposalId, account }).exists
-  }
-
-  // -------------------------------------------------------------------------
-  // Internal: proposal helpers
-  // -------------------------------------------------------------------------
-
-  private _assertMember(groupId: uint64): void {
-    assert(this.groups(groupId).exists, 'group not found')
-    assert(this.members({ groupId, account: Txn.sender }).exists, 'not a group member')
   }
 
   /** Create a proposal record, auto-approving the proposer. Returns the proposal id. */
@@ -552,59 +623,49 @@ export class AlgoSafe extends Contract {
   // Internal: execution of typed payloads
   // -------------------------------------------------------------------------
 
-  private _executeTransactionGroup(proposalId: uint64, groupId: uint64, groupIn: SignerGroup, numPayloads: uint64): void {
-    ensureBudget(Uint64(1400))
-
+  private _executeTransactionGroup(
+    proposalId: uint64,
+    groupId: uint64,
+    groupIn: SignerGroup,
+    numPayloads: uint64,
+  ): void {
     // The staging pass below builds one inner transaction group with the raw
     // `op.ITxnCreate` opcodes, which holds an inner group open from the first
     // `begin` until the final `submit`. `ensureBudget` issues its own opup inner
-    // transactions, so it cannot run while that group is open. We therefore make
-    // two passes:
-    //   Pass 1 — decode, validate, tally spend, and reserve all opcode budget
-    //            (no inner group open yet).
-    //   Pass 2 — decode again and stage each inner transaction (no ensureBudget).
+    // transactions, so it cannot run while that group is open — the caller
+    // (`executeProposal`/`proposeTransactionGroup`) must reserve enough budget
+    // up front via `ensureBudgetValue` before either pass below runs. We still
+    // make two passes:
+    //   Pass 1 — decode, validate, and tally spend (no inner group open yet).
+    //   Pass 2 — decode again and stage each inner transaction.
     let group = clone(groupIn)
-    let stagingBudget = Uint64(2000) // covers pass-2 framing + the final submit
 
     for (let p = Uint64(1); p <= numPayloads; p = p + Uint64(1)) {
       const key: uint64 = proposalId * TXG_KEY_MULT + p
       if (this.transactionGroups(key).exists) {
         const payload = clone(this.transactionGroups(key).value)
         for (let i = Uint64(0); i < payload.length; i = i + Uint64(1)) {
-          ensureBudget(Uint64(700))
           const entry = clone(payload[i])
           if (entry.txType === TX_PAYMENT) {
             const tx = decodeArc4<PaymentTxn>(entry.data)
             this._validatePayment(tx, groupIn)
             const amount: uint64 = group.limitAssetId === Uint64(0) ? tx.amount : Uint64(0)
             group = this._accountSpend(group, amount)
-            stagingBudget = stagingBudget + Uint64(800)
           } else if (entry.txType === TX_ASSET) {
             const tx = decodeArc4<AssetTxn>(entry.data)
             this._validateAsset(tx, groupIn)
             const tracked = group.limitAssetId !== Uint64(0) && tx.xferAsset === group.limitAssetId
             const amount: uint64 = tracked ? tx.assetAmount : Uint64(0)
             group = this._accountSpend(group, amount)
-            stagingBudget = stagingBudget + Uint64(800)
           } else if (entry.txType === TX_APP) {
             const tx = decodeArc4<AppTxn>(entry.data)
             this._validateApp(tx, groupIn)
-            // Decoding + per-element field setting in pass 2 scales with the
-            // array sizes, so reserve budget proportional to them.
-            stagingBudget =
-              stagingBudget +
-              Uint64(1500) +
-              Uint64(tx.appArgs.length) * Uint64(400) +
-              (Uint64(tx.accounts.length) + Uint64(tx.foreignApps.length) + Uint64(tx.foreignAssets.length)) *
-                Uint64(200)
           } else if (entry.txType === TX_KEYREG) {
             decodeArc4<KeyRegTxn>(entry.data)
             assert((groupIn.allowedActions & ACT_KEYREG) !== Uint64(0), 'keyreg not allowed')
-            stagingBudget = stagingBudget + Uint64(1000)
           } else if (entry.txType === TX_ACFG) {
             const tx = decodeArc4<AssetConfigTxn>(entry.data)
             this._validateAssetConfig(tx, groupIn)
-            stagingBudget = stagingBudget + Uint64(1500)
           } else {
             assert(false, 'unknown tx type')
           }
@@ -613,9 +674,6 @@ export class AlgoSafe extends Contract {
     }
 
     this.groups(groupId).value = clone(group)
-
-    // Reserve everything pass 2 will need, then open and build the inner group.
-    ensureBudget(stagingBudget)
 
     let txIndex = Uint64(0)
     for (let p = Uint64(1); p <= numPayloads; p = p + Uint64(1)) {

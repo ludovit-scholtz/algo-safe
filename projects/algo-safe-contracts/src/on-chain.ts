@@ -105,13 +105,16 @@ export async function buildAlgoSafeAppClient(algodClient: algosdk.Algodv2, safe:
 }
 
 async function getSignerGroupRecords(client: TypedClient) {
-  const configResult = await client.send.getConfig({ args: {}, suppressLog: true })
+  // `client` is a union across contract versions; older versions don't accept
+  // `ensureBudgetValue`, so the union's inferred args type can't be satisfied
+  // structurally. Cast narrowly on this call rather than fighting the union.
+  const configResult = await client.send.getConfig({ args: { ensureBudgetValue: 0n } as any, suppressLog: true })
   const nextGroupId = configResult.return?.[2] ?? 1n
   const groupIds = Array.from({ length: Math.max(0, Number(nextGroupId - 1n)) }, (_value, index) => BigInt(index + 1))
 
   return Promise.all(
     groupIds.map(async (groupId) => {
-      const result = await client.send.getSignerGroup({ args: { groupId }, suppressLog: true })
+      const result = await client.send.getSignerGroup({ args: { groupId, ensureBudgetValue: 0n } as any, suppressLog: true })
       return [groupId, result.return as RawSignerGroup] as const
     }),
   )
@@ -160,7 +163,10 @@ export async function fetchAlgoSafeSignerGroupDetail(
   const memberAddresses = await listMemberAddressesForGroup(algodClient, safe, targetGroupId)
   const memberResults = await Promise.all(
     memberAddresses.map(async (account) => {
-      const result = await client.send.getMember({ args: { groupId: targetGroupId, account }, suppressLog: true })
+      const result = await client.send.getMember({
+        args: { groupId: targetGroupId, account, ensureBudgetValue: 0n } as any,
+        suppressLog: true,
+      })
       return result.return as RawSignerGroupMember
     }),
   )
@@ -180,7 +186,7 @@ export async function fetchAlgoSafeSignerGroupDetail(
       ? await Promise.all(
           adminGroups.map(async ([adminGroupId]) => {
             const result = await client.send.isMember({
-              args: { groupId: adminGroupId, account: normalizedActiveAddress },
+              args: { groupId: adminGroupId, account: normalizedActiveAddress, ensureBudgetValue: 0n } as any,
               suppressLog: true,
             })
             return [adminGroupId.toString(), Boolean(result.return)] as const

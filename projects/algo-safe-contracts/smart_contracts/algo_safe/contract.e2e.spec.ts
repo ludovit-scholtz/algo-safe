@@ -170,11 +170,11 @@ describe('AlgoSafe contract', () => {
   /** Propose an admin change from the (1-of-1) admin group and execute it. */
   const governAdminChange = async (client: AlgoSafeClient, adminGroupId: bigint, change: AdminChange) => {
     const { return: pid } = await client.send.proposeAdminChange({
-      args: { groupId: adminGroupId, change, expiryRound: FAR_EXPIRY },
+      args: { groupId: adminGroupId, change, expiryRound: FAR_EXPIRY, ensureBudgetValue: 0n },
       suppressLog: true,
       staticFee: (0.2).algo(),
     })
-    await client.send.executeProposal({ args: { proposalId: pid! }, ...execParams })
+    await client.send.executeProposal({ args: { proposalId: pid!, ensureBudgetValue: 6000n }, ...execParams })
     return pid!
   }
 
@@ -207,7 +207,7 @@ describe('AlgoSafe contract', () => {
   test('initialises config and bootstraps the genesis admin group', async () => {
     const { client, deployer } = await deployAndBootstrap()
 
-    const config = await client.send.getConfig({ args: {}, suppressLog: true })
+    const config = await client.send.getConfig({ args: { ensureBudgetValue: 0n }, suppressLog: true })
     const [name, groupCount, nextGroupId, nextProposalId, paused, version] = config.return!
     expect(name).toBe('Test Safe')
     expect(groupCount).toBe(1n)
@@ -217,14 +217,14 @@ describe('AlgoSafe contract', () => {
     expect(typeof version).toBe('string')
     expect(version.length).toBeGreaterThan(0)
 
-    const group = await client.send.getSignerGroup({ args: { groupId: 1n }, suppressLog: true })
+    const group = await client.send.getSignerGroup({ args: { groupId: 1n, ensureBudgetValue: 0n }, suppressLog: true })
     expect(group.return!.threshold).toBe(1n)
     expect(group.return!.memberCount).toBe(1n)
     expect(group.return!.adminPrivileges).toBe(PRIV_ALL)
     expect(group.return!.allowedActions).toBe(ACT_ALL)
 
     const isMember = await client.send.isMember({
-      args: { groupId: 1n, account: deployer.toString() },
+      args: { groupId: 1n, account: deployer.toString(), ensureBudgetValue: 0n },
       suppressLog: true,
     })
     expect(isMember.return).toBe(true)
@@ -246,23 +246,89 @@ describe('AlgoSafe contract', () => {
     const recipient = await localnet.context.generateAccount({ initialFunds: (0).algo() })
 
     const { return: pid } = await client.send.proposeTransactionGroup({
-      args: { groupId: 1n, payload: toSafeTxnGroup([safePayment(recipient.toString(), (1).algo().microAlgo)]), expiryRound: FAR_EXPIRY },
+      args: { groupId: 1n, payload: toSafeTxnGroup([safePayment(recipient.toString(), (1).algo().microAlgo)]), expiryRound: FAR_EXPIRY, execute: false, ensureBudgetValue: 10000n },
       suppressLog: true,
       staticFee: (0.2).algo(),
     })
 
     // Proposer auto-approves; 1-of-1 becomes ready immediately.
-    const proposal = await client.send.getProposal({ args: { proposalId: pid! }, suppressLog: true })
+    const proposal = await client.send.getProposal({ args: { proposalId: pid!, ensureBudgetValue: 0n }, suppressLog: true })
     expect(proposal.return!.approvalsCount).toBe(1n)
     expect(proposal.return!.status).toBe(2n) // READY
 
-    await client.send.executeProposal({ args: { proposalId: pid! }, ...execParams })
+    await client.send.executeProposal({ args: { proposalId: pid!, ensureBudgetValue: 6000n }, ...execParams })
 
     const recipInfo = await localnet.algorand.account.getInformation(recipient)
     expect(recipInfo.balance.microAlgo).toBe((1).algo().microAlgo)
 
-    const after = await client.send.getProposal({ args: { proposalId: pid! }, suppressLog: true })
+    const after = await client.send.getProposal({ args: { proposalId: pid!, ensureBudgetValue: 0n }, suppressLog: true })
     expect(after.return!.status).toBe(3n) // EXECUTED
+  })
+
+  test('proposes and executes an ALGO payment in one call (execute: true, 1-of-1 group)', async () => {
+    const { client } = await deployAndBootstrap()
+    const recipient = await localnet.context.generateAccount({ initialFunds: (0).algo() })
+
+    const { return: pid } = await client.send.proposeTransactionGroup({
+      args: {
+        groupId: 1n,
+        payload: toSafeTxnGroup([safePayment(recipient.toString(), (1).algo().microAlgo)]),
+        expiryRound: FAR_EXPIRY,
+        execute: true,
+        ensureBudgetValue: 6000n,
+      },
+      ...execParams,
+    })
+
+    const recipInfo = await localnet.algorand.account.getInformation(recipient)
+    expect(recipInfo.balance.microAlgo).toBe((1).algo().microAlgo)
+
+    const after = await client.send.getProposal({ args: { proposalId: pid!, ensureBudgetValue: 0n }, suppressLog: true })
+    expect(after.return!.status).toBe(3n) // EXECUTED
+  })
+
+  test('rejects execute: true when the group threshold requires more than one approval', async () => {
+    const { client, deployer } = await deployAndBootstrap()
+    const recipient = await localnet.context.generateAccount({ initialFunds: (0).algo() })
+    const a = await localnet.context.generateAccount({ initialFunds: (1).algo() })
+
+    await governAdminChange(
+      client,
+      1n,
+      mkAdminChange({ changeType: ADM_CREATE_GROUP, groupName: 'Multisig', threshold: 1n, memberAddr: a.toString() }),
+    )
+    const multisigGroupId = 2n
+    await governAdminChange(
+      client,
+      1n,
+      mkAdminChange({
+        changeType: ADM_ADD_MEMBER,
+        targetGroupId: multisigGroupId,
+        memberAddr: deployer.toString(),
+        memberType: 1n,
+        memberLabel: 'second',
+      }),
+    )
+    await governAdminChange(
+      client,
+      1n,
+      mkAdminChange({ changeType: ADM_CHANGE_THRESHOLD, targetGroupId: multisigGroupId, threshold: 2n }),
+    )
+
+    await expect(
+      client.send.proposeTransactionGroup({
+        args: {
+          groupId: multisigGroupId,
+          payload: toSafeTxnGroup([safePayment(recipient.toString(), (1).algo().microAlgo)]),
+          expiryRound: FAR_EXPIRY,
+          execute: true,
+          ensureBudgetValue: 6000n,
+        },
+        sender: a,
+        suppressLog: true,
+        staticFee: (0.2).algo(),
+      }),
+    ).rejects.toThrow()
   })
 
   test('approves and executes a mixed ordered payment plus app-call transaction group', async () => {
@@ -276,17 +342,17 @@ describe('AlgoSafe contract', () => {
     ]
 
     const { return: pid } = await client.send.proposeTransactionGroup({
-      args: { groupId: 1n, payload: toSafeTxnGroup(txs), expiryRound: FAR_EXPIRY },
+      args: { groupId: 1n, payload: toSafeTxnGroup(txs), expiryRound: FAR_EXPIRY, execute: false, ensureBudgetValue: 10000n },
       suppressLog: true,
       staticFee: (0.2).algo(),
     })
 
-    const stored = await client.send.getTransactionGroup({ args: { proposalId: pid!, payloadIndex: 1n }, suppressLog: true })
+    const stored = await client.send.getTransactionGroup({ args: { proposalId: pid!, payloadIndex: 1n, ensureBudgetValue: 0n }, suppressLog: true })
     expect(stored.return!.length).toBe(2)
     expect(stored.return![0][0]).toBe(TX_PAYMENT) // tx0 txType
     expect(stored.return![1][0]).toBe(TX_APP) // tx1 txType
 
-    await client.send.executeProposal({ args: { proposalId: pid! }, ...execParams })
+    await client.send.executeProposal({ args: { proposalId: pid!, ensureBudgetValue: 6000n }, ...execParams })
 
     const recipInfo = await localnet.algorand.account.getInformation(recipient)
     expect(recipInfo.balance.microAlgo).toBe((0.25).algo().microAlgo)
@@ -318,12 +384,12 @@ describe('AlgoSafe contract', () => {
     const payload = algosdkTxnsToSafeTxnGroup([payTxn, appTxn])
 
     const { return: pid } = await client.send.proposeTransactionGroup({
-      args: { groupId: 1n, payload, expiryRound: FAR_EXPIRY },
+      args: { groupId: 1n, payload, expiryRound: FAR_EXPIRY, execute: false, ensureBudgetValue: 10000n },
       suppressLog: true,
       staticFee: (0.2).algo(),
     })
 
-    const stored = await client.send.getTransactionGroup({ args: { proposalId: pid!, payloadIndex: 1n }, suppressLog: true })
+    const stored = await client.send.getTransactionGroup({ args: { proposalId: pid!, payloadIndex: 1n, ensureBudgetValue: 0n }, suppressLog: true })
     expect(stored.return!.length).toBe(2)
     expect(stored.return![0][0]).toBe(TX_PAYMENT)
     const decodedPay = decodePaymentTxn(stored.return![0][1])
@@ -336,7 +402,7 @@ describe('AlgoSafe contract', () => {
     expect(decodedApp.appArgs.length).toBe(1)
     expect(decodedApp.appArgs[0]).toEqual(new TextEncoder().encode('algosdk-arg'))
 
-    await client.send.executeProposal({ args: { proposalId: pid! }, ...execParams })
+    await client.send.executeProposal({ args: { proposalId: pid!, ensureBudgetValue: 6000n }, ...execParams })
 
     const recipInfo = await localnet.algorand.account.getInformation(recipient)
     expect(recipInfo.balance.microAlgo).toBe((0.3).algo().microAlgo)
@@ -354,21 +420,21 @@ describe('AlgoSafe contract', () => {
     ]
 
     const { return: pid } = await client.send.proposeTransactionGroup({
-      args: { groupId: 1n, payload: toSafeTxnGroup(txs), expiryRound: FAR_EXPIRY },
+      args: { groupId: 1n, payload: toSafeTxnGroup(txs), expiryRound: FAR_EXPIRY, execute: false, ensureBudgetValue: 10000n },
       suppressLog: true,
       staticFee: (0.2).algo(),
     })
 
-    const stored = await client.send.getTransactionGroup({ args: { proposalId: pid!, payloadIndex: 1n }, suppressLog: true })
+    const stored = await client.send.getTransactionGroup({ args: { proposalId: pid!, payloadIndex: 1n, ensureBudgetValue: 0n }, suppressLog: true })
     expect(stored.return!.length).toBe(3)
     expect(stored.return![0][0]).toBe(TX_APP)
     expect(decodeAppTxn(stored.return![0][1]).appId).toBe(targetAppId) // tx0 appId
     expect(decodeAppTxn(stored.return![1][1]).appId).toBe(targetAppId) // tx1 appId
     expect(decodeAppTxn(stored.return![2][1]).appId).toBe(targetAppId) // tx2 appId
 
-    await client.send.executeProposal({ args: { proposalId: pid! }, ...execParams })
+    await client.send.executeProposal({ args: { proposalId: pid!, ensureBudgetValue: 6000n }, ...execParams })
 
-    const after = await client.send.getProposal({ args: { proposalId: pid! }, suppressLog: true })
+    const after = await client.send.getProposal({ args: { proposalId: pid!, ensureBudgetValue: 0n }, suppressLog: true })
     expect(after.return!.status).toBe(3n) // EXECUTED
   })
 
@@ -416,7 +482,7 @@ describe('AlgoSafe contract', () => {
     // propose: accesses groups(1), members({1,deployer}), proposals(1),
     //   approvals({1,deployer}), transactionGroups(pid*7+1)
     await client.send.proposeTransactionGroup({
-      args: { groupId: 1n, payload: toSafeTxnGroup(pays1), expiryRound: FAR_EXPIRY },
+      args: { groupId: 1n, payload: toSafeTxnGroup(pays1), expiryRound: FAR_EXPIRY, execute: false, ensureBudgetValue: 10000n },
       suppressLog: true,
       staticFee: (0.2).algo(),
       populateAppCallResources: false,
@@ -432,7 +498,7 @@ describe('AlgoSafe contract', () => {
     // append: accesses proposals(1), groups(1), members({1,deployer}),
     //   transactionGroups(pid*7+2)
     await client.send.appendTransactionGroupPayload({
-      args: { proposalId: pid, payloadIndex: 2n, payload: toSafeTxnGroup(pays2) },
+      args: { proposalId: pid, payloadIndex: 2n, payload: toSafeTxnGroup(pays2), ensureBudgetValue: 10000n },
       suppressLog: true,
       staticFee: (0.1).algo(),
       populateAppCallResources: false,
@@ -444,17 +510,17 @@ describe('AlgoSafe contract', () => {
       ],
     })
 
-    const stored1 = await client.send.getTransactionGroup({ args: { proposalId: pid, payloadIndex: 1n }, suppressLog: true })
+    const stored1 = await client.send.getTransactionGroup({ args: { proposalId: pid, payloadIndex: 1n, ensureBudgetValue: 0n }, suppressLog: true })
     expect(stored1.return!.length).toBe(3)
     expect(stored1.return![0][0]).toBe(TX_PAYMENT)
-    const stored2 = await client.send.getTransactionGroup({ args: { proposalId: pid, payloadIndex: 2n }, suppressLog: true })
+    const stored2 = await client.send.getTransactionGroup({ args: { proposalId: pid, payloadIndex: 2n, ensureBudgetValue: 0n }, suppressLog: true })
     expect(stored2.return!.length).toBe(3)
     expect(stored2.return![0][0]).toBe(TX_PAYMENT)
 
     // execute: accesses proposals(1), groups(1), transactionGroups(8), transactionGroups(9),
     //   and recipient account (required for inner payment Receiver field)
     await client.send.executeProposal({
-      args: { proposalId: pid },
+      args: { proposalId: pid, ensureBudgetValue: 6000n },
       suppressLog: true,
       staticFee: (0.05).algo(),
       populateAppCallResources: false,
@@ -467,7 +533,7 @@ describe('AlgoSafe contract', () => {
       accountReferences: [recipient.toString()],
     })
 
-    const after = await client.send.getProposal({ args: { proposalId: pid }, suppressLog: true })
+    const after = await client.send.getProposal({ args: { proposalId: pid, ensureBudgetValue: 0n }, suppressLog: true })
     expect(after.return!.status).toBe(3n) // EXECUTED
 
     // (1+2+3 + 4+5+6) × 10_000 = 210_000 µAlgo received by recipient
@@ -480,12 +546,12 @@ describe('AlgoSafe contract', () => {
     const recipient = await localnet.context.generateAccount({ initialFunds: (0).algo() })
 
     const { return: pid } = await client.send.proposeTransactionGroup({
-      args: { groupId: 1n, payload: toSafeTxnGroup([safePayment(recipient.toString(), (1).algo().microAlgo)]), expiryRound: FAR_EXPIRY },
+      args: { groupId: 1n, payload: toSafeTxnGroup([safePayment(recipient.toString(), (1).algo().microAlgo)]), expiryRound: FAR_EXPIRY, execute: false, ensureBudgetValue: 10000n },
       suppressLog: true,
       staticFee: (0.2).algo(),
     })
-    await client.send.executeProposal({ args: { proposalId: pid! }, ...execParams })
-    await expect(client.send.executeProposal({ args: { proposalId: pid! }, ...execParams })).rejects.toThrow()
+    await client.send.executeProposal({ args: { proposalId: pid!, ensureBudgetValue: 6000n }, ...execParams })
+    await expect(client.send.executeProposal({ args: { proposalId: pid!, ensureBudgetValue: 6000n }, ...execParams })).rejects.toThrow()
   })
 
   test('creates a multisig group through governance and requires M-of-N approvals', async () => {
@@ -519,14 +585,14 @@ describe('AlgoSafe contract', () => {
       mkAdminChange({ changeType: ADM_CHANGE_THRESHOLD, targetGroupId: 2n, threshold: 2n }),
     )
 
-    const group = await client.send.getSignerGroup({ args: { groupId: 2n }, suppressLog: true })
+    const group = await client.send.getSignerGroup({ args: { groupId: 2n, ensureBudgetValue: 0n }, suppressLog: true })
     expect(group.return!.memberCount).toBe(2n)
     expect(group.return!.threshold).toBe(2n)
 
     // Member A proposes a payment (auto-approve = 1 of 2).
     const recipient = await localnet.context.generateAccount({ initialFunds: (0).algo() })
     const { return: pid } = await client.send.proposeTransactionGroup({
-      args: { groupId: 2n, payload: toSafeTxnGroup([safePayment(recipient.toString(), (1).algo().microAlgo)]), expiryRound: FAR_EXPIRY },
+      args: { groupId: 2n, payload: toSafeTxnGroup([safePayment(recipient.toString(), (1).algo().microAlgo)]), expiryRound: FAR_EXPIRY, execute: false, ensureBudgetValue: 10000n },
       sender: a,
       suppressLog: true,
       staticFee: (0.2).algo(),
@@ -534,12 +600,12 @@ describe('AlgoSafe contract', () => {
 
     // Not enough approvals yet.
     await expect(
-      client.send.executeProposal({ args: { proposalId: pid! }, sender: a, ...execParams }),
+      client.send.executeProposal({ args: { proposalId: pid!, ensureBudgetValue: 6000n }, sender: a, ...execParams }),
     ).rejects.toThrow()
 
     // Member B approves (2 of 2), now executable.
-    await client.send.approveProposal({ args: { proposalId: pid! }, sender: b, suppressLog: true })
-    await client.send.executeProposal({ args: { proposalId: pid! }, sender: b, ...execParams })
+    await client.send.approveProposal({ args: { proposalId: pid!, ensureBudgetValue: 0n }, sender: b, suppressLog: true })
+    await client.send.executeProposal({ args: { proposalId: pid!, ensureBudgetValue: 6000n }, sender: b, ...execParams })
 
     const recipInfo = await localnet.algorand.account.getInformation(recipient)
     expect(recipInfo.balance.microAlgo).toBe((1).algo().microAlgo)
@@ -550,18 +616,18 @@ describe('AlgoSafe contract', () => {
     const recipient = await localnet.context.generateAccount({ initialFunds: (0).algo() })
 
     const { return: pid } = await client.send.proposeTransactionGroup({
-      args: { groupId: 1n, payload: toSafeTxnGroup([safePayment(recipient.toString(), (1).algo().microAlgo)]), expiryRound: FAR_EXPIRY },
+      args: { groupId: 1n, payload: toSafeTxnGroup([safePayment(recipient.toString(), (1).algo().microAlgo)]), expiryRound: FAR_EXPIRY, execute: false, ensureBudgetValue: 10000n },
       suppressLog: true,
       staticFee: (0.2).algo(),
     })
 
     const stranger = await localnet.context.generateAccount({ initialFunds: (1).algo() })
     await expect(
-      client.send.approveProposal({ args: { proposalId: pid! }, sender: stranger, suppressLog: true }),
+      client.send.approveProposal({ args: { proposalId: pid!, ensureBudgetValue: 0n }, sender: stranger, suppressLog: true }),
     ).rejects.toThrow()
 
     // Proposer already auto-approved, so approving again must fail.
-    await expect(client.send.approveProposal({ args: { proposalId: pid! }, suppressLog: true })).rejects.toThrow()
+    await expect(client.send.approveProposal({ args: { proposalId: pid!, ensureBudgetValue: 0n }, suppressLog: true })).rejects.toThrow()
   })
 
   test('rejects proposals from non-members', async () => {
@@ -571,7 +637,7 @@ describe('AlgoSafe contract', () => {
 
     await expect(
       client.send.proposeTransactionGroup({
-        args: { groupId: 1n, payload: toSafeTxnGroup([safePayment(recipient.toString(), (1).algo().microAlgo)]), expiryRound: FAR_EXPIRY },
+        args: { groupId: 1n, payload: toSafeTxnGroup([safePayment(recipient.toString(), (1).algo().microAlgo)]), expiryRound: FAR_EXPIRY, execute: false, ensureBudgetValue: 10000n },
         sender: stranger,
         suppressLog: true,
         staticFee: (0.2).algo(),
@@ -608,11 +674,13 @@ describe('AlgoSafe contract', () => {
           }),
         ]),
         expiryRound: FAR_EXPIRY,
+        execute: false,
+        ensureBudgetValue: 10000n,
       },
       suppressLog: true,
       staticFee: (0.2).algo(),
     })
-    await client.send.executeProposal({ args: { proposalId: optInPid! }, ...execParams })
+    await client.send.executeProposal({ args: { proposalId: optInPid!, ensureBudgetValue: 6000n }, ...execParams })
 
     // Fund the safe with 500 units.
     await localnet.algorand.send.assetTransfer({
@@ -641,19 +709,21 @@ describe('AlgoSafe contract', () => {
           }),
         ]),
         expiryRound: FAR_EXPIRY,
+        execute: false,
+        ensureBudgetValue: 10000n,
       },
       suppressLog: true,
       staticFee: (0.2).algo(),
     })
 
-    const stored = await client.send.getTransactionGroup({ args: { proposalId: xferPid!, payloadIndex: 1n }, suppressLog: true })
+    const stored = await client.send.getTransactionGroup({ args: { proposalId: xferPid!, payloadIndex: 1n, ensureBudgetValue: 0n }, suppressLog: true })
     expect(stored.return!).toHaveLength(1)
     expect(stored.return![0][0]).toBe(TX_ASSET)
     const decodedXfer = decodeAssetTxn(stored.return![0][1])
     expect(decodedXfer.xferAsset).toBe(assetId)
     expect(decodedXfer.assetAmount).toBe(100n)
 
-    const executeResult = await client.send.executeProposal({ args: { proposalId: xferPid! }, ...execParams })
+    const executeResult = await client.send.executeProposal({ args: { proposalId: xferPid!, ensureBudgetValue: 6000n }, ...execParams })
     const pendingInfo = await localnet.algorand.client.algod.pendingTransactionInformation(executeResult.txIds[0]).do()
     const assetInnerTxn = getInnerTransactions(pendingInfo).find(
       (innerTxn) => getInnerTransactionType(innerTxn) === 'axfer',
@@ -691,25 +761,25 @@ describe('AlgoSafe contract', () => {
 
     // A payment within the limit succeeds and records usage.
     const { return: okPid } = await client.send.proposeTransactionGroup({
-      args: { groupId: 2n, payload: toSafeTxnGroup([safePayment(recipient.toString(), (0.4).algo().microAlgo)]), expiryRound: FAR_EXPIRY },
+      args: { groupId: 2n, payload: toSafeTxnGroup([safePayment(recipient.toString(), (0.4).algo().microAlgo)]), expiryRound: FAR_EXPIRY, execute: false, ensureBudgetValue: 10000n },
       sender: agent,
       suppressLog: true,
       staticFee: (0.2).algo(),
     })
-    await client.send.executeProposal({ args: { proposalId: okPid! }, sender: agent, ...execParams })
+    await client.send.executeProposal({ args: { proposalId: okPid!, ensureBudgetValue: 6000n }, sender: agent, ...execParams })
 
-    const group = await client.send.getSignerGroup({ args: { groupId: 2n }, suppressLog: true })
+    const group = await client.send.getSignerGroup({ args: { groupId: 2n, ensureBudgetValue: 0n }, suppressLog: true })
     expect(group.return!.dailyUsage).toBe((0.4).algo().microAlgo)
 
     // A payment exceeding the remaining limit is rejected at execution.
     const { return: badPid } = await client.send.proposeTransactionGroup({
-      args: { groupId: 2n, payload: toSafeTxnGroup([safePayment(recipient.toString(), (0.8).algo().microAlgo)]), expiryRound: FAR_EXPIRY },
+      args: { groupId: 2n, payload: toSafeTxnGroup([safePayment(recipient.toString(), (0.8).algo().microAlgo)]), expiryRound: FAR_EXPIRY, execute: false, ensureBudgetValue: 10000n },
       sender: agent,
       suppressLog: true,
       staticFee: (0.2).algo(),
     })
     await expect(
-      client.send.executeProposal({ args: { proposalId: badPid! }, sender: agent, ...execParams }),
+      client.send.executeProposal({ args: { proposalId: badPid!, ensureBudgetValue: 6000n }, sender: agent, ...execParams }),
     ).rejects.toThrow()
   })
 
@@ -743,7 +813,7 @@ describe('AlgoSafe contract', () => {
       }),
     )
 
-    let group = await client.send.getSignerGroup({ args: { groupId: 2n }, suppressLog: true })
+    let group = await client.send.getSignerGroup({ args: { groupId: 2n, ensureBudgetValue: 0n }, suppressLog: true })
     expect(group.return!.limitAssetId).toBe(assetId)
     expect(group.return!.dailyLimit).toBe(150n)
     expect(group.return!.monthlyLimit).toBe(300n)
@@ -763,11 +833,13 @@ describe('AlgoSafe contract', () => {
           }),
         ]),
         expiryRound: FAR_EXPIRY,
+        execute: false,
+        ensureBudgetValue: 10000n,
       },
       suppressLog: true,
       staticFee: (0.2).algo(),
     })
-    await client.send.executeProposal({ args: { proposalId: safeOptInPid! }, ...execParams })
+    await client.send.executeProposal({ args: { proposalId: safeOptInPid!, ensureBudgetValue: 6000n }, ...execParams })
 
     await localnet.algorand.send.assetTransfer({
       sender: deployer,
@@ -794,14 +866,16 @@ describe('AlgoSafe contract', () => {
           }),
         ]),
         expiryRound: FAR_EXPIRY,
+        execute: false,
+        ensureBudgetValue: 10000n,
       },
       sender: agent,
       suppressLog: true,
       staticFee: (0.2).algo(),
     })
-    await client.send.executeProposal({ args: { proposalId: assetPid! }, sender: agent, ...execParams })
+    await client.send.executeProposal({ args: { proposalId: assetPid!, ensureBudgetValue: 6000n }, sender: agent, ...execParams })
 
-    group = await client.send.getSignerGroup({ args: { groupId: 2n }, suppressLog: true })
+    group = await client.send.getSignerGroup({ args: { groupId: 2n, ensureBudgetValue: 0n }, suppressLog: true })
     expect(group.return!.dailyUsage).toBe(100n)
     expect(group.return!.monthlyUsage).toBe(100n)
 
@@ -818,7 +892,7 @@ describe('AlgoSafe contract', () => {
       }),
     )
 
-    group = await client.send.getSignerGroup({ args: { groupId: 2n }, suppressLog: true })
+    group = await client.send.getSignerGroup({ args: { groupId: 2n, ensureBudgetValue: 0n }, suppressLog: true })
     expect(group.return!.limitAssetId).toBe(0n)
     expect(group.return!.dailyUsage).toBe(0n)
     expect(group.return!.monthlyUsage).toBe(0n)
@@ -830,15 +904,14 @@ describe('AlgoSafe contract', () => {
       args: {
         groupId: 2n,
         payload: toSafeTxnGroup([safePayment(algoRecipient.toString(), (1).algo().microAlgo)]),
-        expiryRound: FAR_EXPIRY,
-      },
+        expiryRound: FAR_EXPIRY, execute: false, ensureBudgetValue: 10000n },
       sender: agent,
       suppressLog: true,
       staticFee: (0.2).algo(),
     })
-    await client.send.executeProposal({ args: { proposalId: algoPid! }, sender: agent, ...execParams })
+    await client.send.executeProposal({ args: { proposalId: algoPid!, ensureBudgetValue: 6000n }, sender: agent, ...execParams })
 
-    group = await client.send.getSignerGroup({ args: { groupId: 2n }, suppressLog: true })
+    group = await client.send.getSignerGroup({ args: { groupId: 2n, ensureBudgetValue: 0n }, suppressLog: true })
     expect(group.return!.dailyUsage).toBe((1).algo().microAlgo)
     expect(group.return!.monthlyUsage).toBe((1).algo().microAlgo)
   })
@@ -865,7 +938,7 @@ describe('AlgoSafe contract', () => {
 
     // Proposal succeeds (action check happens at execution, not proposal time).
     const { return: pid } = await client.send.proposeTransactionGroup({
-      args: { groupId: 2n, payload: toSafeTxnGroup([safePayment(recipient.toString(), (1).algo().microAlgo)]), expiryRound: FAR_EXPIRY },
+      args: { groupId: 2n, payload: toSafeTxnGroup([safePayment(recipient.toString(), (1).algo().microAlgo)]), expiryRound: FAR_EXPIRY, execute: false, ensureBudgetValue: 10000n },
       sender: agent,
       suppressLog: true,
       staticFee: (0.2).algo(),
@@ -873,7 +946,7 @@ describe('AlgoSafe contract', () => {
 
     // Execution fails: ACT_PAY is not in allowedActions for this group.
     await expect(
-      client.send.executeProposal({ args: { proposalId: pid! }, sender: agent, ...execParams }),
+      client.send.executeProposal({ args: { proposalId: pid!, ensureBudgetValue: 6000n }, sender: agent, ...execParams }),
     ).rejects.toThrow()
   })
 
@@ -900,7 +973,7 @@ describe('AlgoSafe contract', () => {
       mkAdminChange({ changeType: ADM_ADD_MEMBER, targetGroupId: 2n, memberAddr: b.toString() }),
     )
 
-    let group = await client.send.getSignerGroup({ args: { groupId: 2n }, suppressLog: true })
+    let group = await client.send.getSignerGroup({ args: { groupId: 2n, ensureBudgetValue: 0n }, suppressLog: true })
     expect(group.return!.memberCount).toBe(2n)
 
     await governAdminChange(
@@ -908,11 +981,11 @@ describe('AlgoSafe contract', () => {
       1n,
       mkAdminChange({ changeType: ADM_REMOVE_MEMBER, targetGroupId: 2n, memberAddr: b.toString() }),
     )
-    group = await client.send.getSignerGroup({ args: { groupId: 2n }, suppressLog: true })
+    group = await client.send.getSignerGroup({ args: { groupId: 2n, ensureBudgetValue: 0n }, suppressLog: true })
     expect(group.return!.memberCount).toBe(1n)
 
     const stillMember = await client.send.isMember({
-      args: { groupId: 2n, account: b.toString() },
+      args: { groupId: 2n, account: b.toString(), ensureBudgetValue: 0n },
       suppressLog: true,
     })
     expect(stillMember.return).toBe(false)
@@ -923,17 +996,17 @@ describe('AlgoSafe contract', () => {
     const recipient = await localnet.context.generateAccount({ initialFunds: (0).algo() })
 
     const { return: pid } = await client.send.proposeTransactionGroup({
-      args: { groupId: 1n, payload: toSafeTxnGroup([safePayment(recipient.toString(), (1).algo().microAlgo)]), expiryRound: FAR_EXPIRY },
+      args: { groupId: 1n, payload: toSafeTxnGroup([safePayment(recipient.toString(), (1).algo().microAlgo)]), expiryRound: FAR_EXPIRY, execute: false, ensureBudgetValue: 10000n },
       suppressLog: true,
       staticFee: (0.2).algo(),
     })
-    await client.send.cancelProposal({ args: { proposalId: pid! }, suppressLog: true })
+    await client.send.cancelProposal({ args: { proposalId: pid!, ensureBudgetValue: 0n }, suppressLog: true })
 
-    const proposal = await client.send.getProposal({ args: { proposalId: pid! }, suppressLog: true })
+    const proposal = await client.send.getProposal({ args: { proposalId: pid!, ensureBudgetValue: 0n }, suppressLog: true })
     expect(proposal.return!.status).toBe(4n) // CANCELLED
 
     // A cancelled proposal cannot be executed.
-    await expect(client.send.executeProposal({ args: { proposalId: pid! }, ...execParams })).rejects.toThrow()
+    await expect(client.send.executeProposal({ args: { proposalId: pid!, ensureBudgetValue: 6000n }, ...execParams })).rejects.toThrow()
   })
 
   test('rejects proposals whose expiry is not in the future', async () => {
@@ -943,7 +1016,7 @@ describe('AlgoSafe contract', () => {
     const round = await currentRound()
     await expect(
       client.send.proposeTransactionGroup({
-        args: { groupId: 1n, payload: toSafeTxnGroup([safePayment(recipient.toString(), (1).algo().microAlgo)]), expiryRound: round },
+        args: { groupId: 1n, payload: toSafeTxnGroup([safePayment(recipient.toString(), (1).algo().microAlgo)]), expiryRound: round, execute: false, ensureBudgetValue: 10000n },
         suppressLog: true,
         staticFee: (0.2).algo(),
       }),
@@ -1057,16 +1130,16 @@ describe('AlgoSafe contract', () => {
     const args = ['a', 'b', 'c', 'd', 'e', 'f'].map((s) => enc.encode(s))
 
     const { return: pid } = await client.send.proposeTransactionGroup({
-      args: { groupId: 1n, payload: toSafeTxnGroup([safeAppCall(targetAppId, args)]), expiryRound: FAR_EXPIRY },
+      args: { groupId: 1n, payload: toSafeTxnGroup([safeAppCall(targetAppId, args)]), expiryRound: FAR_EXPIRY, execute: false, ensureBudgetValue: 10000n },
       suppressLog: true,
       staticFee: (0.2).algo(),
     })
 
-    const stored = await client.send.getTransactionGroup({ args: { proposalId: pid!, payloadIndex: 1n }, suppressLog: true })
+    const stored = await client.send.getTransactionGroup({ args: { proposalId: pid!, payloadIndex: 1n, ensureBudgetValue: 0n }, suppressLog: true })
     expect(decodeAppTxn(stored.return![0][1]).appArgs.length).toBe(6)
 
-    await client.send.executeProposal({ args: { proposalId: pid! }, ...execParams })
-    const after = await client.send.getProposal({ args: { proposalId: pid! }, suppressLog: true })
+    await client.send.executeProposal({ args: { proposalId: pid!, ensureBudgetValue: 6000n }, ...execParams })
+    const after = await client.send.getProposal({ args: { proposalId: pid!, ensureBudgetValue: 0n }, suppressLog: true })
     expect(after.return!.status).toBe(3n) // EXECUTED
   })
 
@@ -1091,12 +1164,12 @@ describe('AlgoSafe contract', () => {
     )
 
     const { return: pid } = await client.send.proposeTransactionGroup({
-      args: { groupId: 1n, payload: toSafeTxnGroup([tx]), expiryRound: FAR_EXPIRY },
+      args: { groupId: 1n, payload: toSafeTxnGroup([tx]), expiryRound: FAR_EXPIRY, execute: false, ensureBudgetValue: 10000n },
       suppressLog: true,
       staticFee: (0.2).algo(),
     })
 
-    const stored = await client.send.getTransactionGroup({ args: { proposalId: pid!, payloadIndex: 1n }, suppressLog: true })
+    const stored = await client.send.getTransactionGroup({ args: { proposalId: pid!, payloadIndex: 1n, ensureBudgetValue: 0n }, suppressLog: true })
     const decoded = decodeAppTxn(stored.return![0][1])
     expect(decoded.foreignAssets).toEqual([assetId])
     expect(decoded.foreignApps).toEqual([targetAppId])
@@ -1104,7 +1177,7 @@ describe('AlgoSafe contract', () => {
 
     const appId = BigInt(client.appId)
     await client.send.executeProposal({
-      args: { proposalId: pid! },
+      args: { proposalId: pid!, ensureBudgetValue: 6000n },
       suppressLog: true,
       staticFee: (0.05).algo(),
       populateAppCallResources: false,
@@ -1118,7 +1191,7 @@ describe('AlgoSafe contract', () => {
       accountReferences: [someAccount],
     })
 
-    const after = await client.send.getProposal({ args: { proposalId: pid! }, suppressLog: true })
+    const after = await client.send.getProposal({ args: { proposalId: pid!, ensureBudgetValue: 0n }, suppressLog: true })
     expect(after.return!.status).toBe(3n) // EXECUTED
   })
 
@@ -1142,16 +1215,16 @@ describe('AlgoSafe contract', () => {
     })
 
     const { return: pid } = await client.send.proposeTransactionGroup({
-      args: { groupId: 1n, payload: toSafeTxnGroup([tx]), expiryRound: FAR_EXPIRY },
+      args: { groupId: 1n, payload: toSafeTxnGroup([tx]), expiryRound: FAR_EXPIRY, execute: false, ensureBudgetValue: 10000n },
       suppressLog: true,
       staticFee: (0.2).algo(),
     })
 
-    const stored = await client.send.getTransactionGroup({ args: { proposalId: pid!, payloadIndex: 1n }, suppressLog: true })
+    const stored = await client.send.getTransactionGroup({ args: { proposalId: pid!, payloadIndex: 1n, ensureBudgetValue: 0n }, suppressLog: true })
     expect(stored.return![0][0]).toBe(TX_ACFG)
     expect(decodeAssetConfigTxn(stored.return![0][1]).assetName).toBe('Safe Asset')
 
-    const executeResult = await client.send.executeProposal({ args: { proposalId: pid! }, ...execParams })
+    const executeResult = await client.send.executeProposal({ args: { proposalId: pid!, ensureBudgetValue: 6000n }, ...execParams })
     const pendingInfo = await localnet.algorand.client.algod.pendingTransactionInformation(executeResult.txIds[0]).do()
     const acfgInner = getInnerTransactions(pendingInfo).find((innerTxn) => getInnerTransactionType(innerTxn) === 'acfg')
     expect(acfgInner).toBeDefined()
@@ -1176,15 +1249,15 @@ describe('AlgoSafe contract', () => {
     })
 
     const { return: pid } = await client.send.proposeTransactionGroup({
-      args: { groupId: 1n, payload: toSafeTxnGroup([tx]), expiryRound: FAR_EXPIRY },
+      args: { groupId: 1n, payload: toSafeTxnGroup([tx]), expiryRound: FAR_EXPIRY, execute: false, ensureBudgetValue: 10000n },
       suppressLog: true,
       staticFee: (0.2).algo(),
     })
 
-    const stored = await client.send.getTransactionGroup({ args: { proposalId: pid!, payloadIndex: 1n }, suppressLog: true })
+    const stored = await client.send.getTransactionGroup({ args: { proposalId: pid!, payloadIndex: 1n, ensureBudgetValue: 0n }, suppressLog: true })
     expect(stored.return![0][0]).toBe(TX_KEYREG)
 
-    const executeResult = await client.send.executeProposal({ args: { proposalId: pid! }, ...execParams })
+    const executeResult = await client.send.executeProposal({ args: { proposalId: pid!, ensureBudgetValue: 6000n }, ...execParams })
     const pendingInfo = await localnet.algorand.client.algod.pendingTransactionInformation(executeResult.txIds[0]).do()
     const krInner = getInnerTransactions(pendingInfo).find((innerTxn) => getInnerTransactionType(innerTxn) === 'keyreg')
     expect(krInner).toBeDefined()
@@ -1207,12 +1280,12 @@ describe('AlgoSafe contract', () => {
     )
 
     const { return: pid } = await client.send.proposeTransactionGroup({
-      args: { groupId: 1n, payload: toSafeTxnGroup([tx]), expiryRound: FAR_EXPIRY },
+      args: { groupId: 1n, payload: toSafeTxnGroup([tx]), expiryRound: FAR_EXPIRY, execute: false, ensureBudgetValue: 10000n },
       suppressLog: true,
       staticFee: (0.2).algo(),
     })
 
     // The reference-count check fires at execution time.
-    await expect(client.send.executeProposal({ args: { proposalId: pid! }, ...execParams })).rejects.toThrow()
+    await expect(client.send.executeProposal({ args: { proposalId: pid!, ensureBudgetValue: 6000n }, ...execParams })).rejects.toThrow()
   })
 })

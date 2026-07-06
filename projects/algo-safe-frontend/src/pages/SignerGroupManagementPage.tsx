@@ -305,7 +305,7 @@ export function SignerGroupManagementPage() {
       const status = (await algodClient.status().do()) as unknown as Record<string, unknown>
       const expiryRound = getCurrentRound(status) + 2000n
       const result = await appClient.send.proposeAdminChange({
-        args: [BigInt(selectedAdminGroupId), toAdminChangeTuple(change) as unknown as AdminChange, expiryRound],
+        args: [BigInt(selectedAdminGroupId), toAdminChangeTuple(change) as unknown as AdminChange, expiryRound, 0n] as any,
         staticFee: PROPOSAL_CALL_FEE,
         suppressLog: true,
       })

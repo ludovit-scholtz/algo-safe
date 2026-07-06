@@ -137,7 +137,7 @@ export function CreateProposalPage() {
         ]) as unknown as never[]
 
         const result = await appClient.send.proposeTransactionGroup({
-          args: { groupId: parsedGroupId, payload, expiryRound: proposalExpiryRound },
+          args: { groupId: parsedGroupId, payload, expiryRound: proposalExpiryRound, execute: false, ensureBudgetValue: 0n } as any,
           staticFee: PROPOSAL_CALL_FEE,
           suppressLog: true,
         })
@@ -181,7 +181,7 @@ export function CreateProposalPage() {
         ]) as unknown as never[]
 
         const result = await appClient.send.proposeTransactionGroup({
-          args: { groupId: parsedGroupId, payload, expiryRound: proposalExpiryRound },
+          args: { groupId: parsedGroupId, payload, expiryRound: proposalExpiryRound, execute: false, ensureBudgetValue: 0n } as any,
           staticFee: PROPOSAL_CALL_FEE,
           suppressLog: true,
         })

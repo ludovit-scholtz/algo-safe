@@ -201,7 +201,8 @@ export function RegisterAgentPage() {
             activeFlag: 1n,
           }),
           expiryRound,
-        },
+          ensureBudgetValue: 0n,
+        } as any,
         staticFee: PROPOSAL_CALL_FEE,
         suppressLog: true,
       })

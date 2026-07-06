@@ -26,6 +26,7 @@ This npm package ships:
   - [Asset configuration (create / reconfigure / destroy)](#asset-configuration-create--reconfigure--destroy)
   - [Convert native algosdk transactions](#convert-native-algosdk-transactions)
 - [The proposal lifecycle](#the-proposal-lifecycle)
+- [Opcode budget (`ensureBudgetValue`)](#opcode-budget-ensurebudgetvalue)
 - [Large groups: multiple payload chunks](#large-groups-multiple-payload-chunks)
 - [Governance (admin changes)](#governance-admin-changes)
 - [Reading on-chain state](#reading-on-chain-state)
@@ -101,13 +102,13 @@ const deployer = await algorand.account.fromEnvironment('DEPLOYER')
 
 // 1. Create the application.
 const factory = algorand.client.getTypedAppFactory(AlgoSafeFactory, { defaultSender: deployer.addr })
-const { appClient } = await factory.send.create.createApplication({ args: { name: 'Treasury Safe' } })
+const { appClient } = await factory.send.create.createApplication({ args: { name: 'Treasury Safe', ensureBudgetValue: 0n } })
 
 // 2. Fund the app account so it can pay box MBR and inner-transaction fees.
 await algorand.send.payment({ sender: deployer.addr, receiver: appClient.appAddress, amount: (5).algo() })
 
 // 3. Bootstrap: creates group #1 as a 1-of-1 admin group whose sole member is the creator.
-await appClient.send.bootstrap({ args: { groupName: 'Admins' } })
+await appClient.send.bootstrap({ args: { groupName: 'Admins', ensureBudgetValue: 0n } })
 
 // 4. Propose a payment from group #1. The proposer auto-approves; a 1-of-1 group is immediately READY.
 const { return: proposalId } = await appClient.send.proposeTransactionGroup({
@@ -123,13 +124,17 @@ const { return: proposalId } = await appClient.send.proposeTransactionGroup({
       }),
     ]),
     expiryRound: FAR_EXPIRY,
+    execute: false,     // set true to execute in this same call once threshold + limits allow it
+    ensureBudgetValue: 0n,
   },
   staticFee: (0.2).algo(),
 })
 
 // 5. Execute. `coverAppCallInnerTransactionFees` pays the inner transactions' fees from the outer call.
+// `ensureBudgetValue` reserves opcode budget up front for the inner-transaction staging below —
+// see "Opcode budget" for how to size it.
 await appClient.send.executeProposal({
-  args: { proposalId: proposalId! },
+  args: { proposalId: proposalId!, ensureBudgetValue: 6000n },
   coverAppCallInnerTransactionFees: true,
   maxFee: (0.02).algo(),
 })
@@ -176,12 +181,20 @@ A transaction-group proposal carries a `payload` — an array of tagged envelope
 
 ```ts
 await client.send.proposeTransactionGroup({
-  args: { groupId, payload: toSafeTxnGroup([ /* …safe txns… */ ]), expiryRound: FAR_EXPIRY },
+  args: {
+    groupId,
+    payload: toSafeTxnGroup([ /* …safe txns… */ ]),
+    expiryRound: FAR_EXPIRY,
+    execute: false,
+    ensureBudgetValue: 0n,
+  },
   staticFee: (0.2).algo(),
 })
 ```
 
 The proposing group's `allowedActions` must permit every transaction type in the payload, and spend limits (if configured) are enforced at execution time.
+
+Pass `execute: true` to attempt execution in the same call — see [the proposal lifecycle](#the-proposal-lifecycle) and [opcode budget](#opcode-budget-ensurebudgetvalue) for when that succeeds and how to size `ensureBudgetValue` for it.
 
 ### Payment
 
@@ -315,7 +328,7 @@ import { algosdkTxnsToSafeTxnGroup } from 'algo-safe'
 const payload = algosdkTxnsToSafeTxnGroup([payTxn, appCallTxn]) // SafeTxnTuple[]
 
 await client.send.proposeTransactionGroup({
-  args: { groupId: 1n, payload, expiryRound: FAR_EXPIRY },
+  args: { groupId: 1n, payload, expiryRound: FAR_EXPIRY, execute: false, ensureBudgetValue: 0n },
   staticFee: (0.2).algo(),
 })
 ```
@@ -326,27 +339,91 @@ await client.send.proposeTransactionGroup({
 
 ```ts
 // Create (proposer auto-approves).
-const { return: proposalId } = await client.send.proposeTransactionGroup({ args: { /* … */ } , staticFee: (0.2).algo() })
+const { return: proposalId } = await client.send.proposeTransactionGroup({
+  args: { /* …groupId, payload, expiryRound… */, execute: false, ensureBudgetValue: 0n },
+  staticFee: (0.2).algo(),
+})
 
 // Other members approve until the threshold is met.
-await client.send.approveProposal({ args: { proposalId: proposalId! }, sender: memberB })
+await client.send.approveProposal({ args: { proposalId: proposalId!, ensureBudgetValue: 0n }, sender: memberB })
 
 // Anyone can read progress.
-const p = await client.send.getProposal({ args: { proposalId: proposalId! } })
+const p = await client.send.getProposal({ args: { proposalId: proposalId!, ensureBudgetValue: 0n } })
 // p.return.status === 2n  → READY
 
 // Execute once READY.
 await client.send.executeProposal({
-  args: { proposalId: proposalId! },
+  args: { proposalId: proposalId!, ensureBudgetValue: 6000n },
   coverAppCallInnerTransactionFees: true,
   maxFee: (0.02).algo(),
 })
 
 // Or cancel while pending (proposer or any group member).
-await client.send.cancelProposal({ args: { proposalId: proposalId! } })
+await client.send.cancelProposal({ args: { proposalId: proposalId!, ensureBudgetValue: 0n } })
 ```
 
 Proposals carry an `expiryRound`; create with a comfortably future round (`FAR_EXPIRY` is provided for tests/convenience) and they cannot be approved or executed once expired.
+
+### Propose-and-execute in one call
+
+For a 1-of-1 group (or any group whose threshold the proposer's auto-approval alone satisfies), pass `execute: true` to `proposeTransactionGroup` to skip the separate `executeProposal` call entirely:
+
+```ts
+const { return: proposalId } = await client.send.proposeTransactionGroup({
+  args: {
+    groupId: 1n, // 1-of-1 group
+    payload: toSafeTxnGroup([ /* …safe txns… */ ]),
+    expiryRound: FAR_EXPIRY,
+    execute: true,
+    ensureBudgetValue: 6000n, // sized like executeProposal — see "Opcode budget" below
+  },
+  coverAppCallInnerTransactionFees: true,
+  maxFee: (0.02).algo(),
+})
+// proposal is already STATUS_EXECUTED(3n) here
+```
+
+If the group's threshold requires more than the proposer's own approval, or the transactions exceed the group's spending limits, the whole call fails (the proposal is never created) — same as calling `executeProposal` on a proposal that isn't `STATUS_READY` or that fails a spend-limit check.
+
+---
+
+## Opcode budget (`ensureBudgetValue`)
+
+Every public ABI method takes a trailing `ensureBudgetValue: uint64` argument. When it's greater than `1`, the method's *first* action is `ensureBudget(ensureBudgetValue)` — topping up the call's AVM opcode budget (via opup inner transactions) to at least that value before doing any other work. Passing `0n` (or `1n`) skips the top-up entirely, which is correct for the great majority of calls.
+
+**Why the caller decides this, not the contract.** `ensureBudget`'s opup inner transactions must run *before* the contract opens its own inner-transaction group (`op.ITxnCreate` can't interleave with opup's `itxn_begin`/`itxn_submit`), so the budget has to be reserved once, up front, sized for the specific call about to run. The contract can't know that size in advance — it depends on how many transactions are in the payload, how large each is, and how many payload slots are being executed — so the caller supplies it.
+
+**When you actually need it:** only for `executeProposal` and `proposeTransactionGroup(..., execute: true)`, and only when the proposal executes a transaction group (not an admin change). Every other method — including read-only getters — accepts `ensureBudgetValue: 0n`.
+
+| Method | Recommended `ensureBudgetValue` | Why |
+|---|---|---|
+| `createApplication` | `0n` | No decoding or inner transactions. |
+| `bootstrap` | `0n` | Fixed-size box writes only. |
+| `proposeTransactionGroup` (`execute: false`) | `0n` | Storing a payload chunk doesn't decode or stage inner transactions. |
+| `proposeTransactionGroup` (`execute: true`) | Same as `executeProposal` below | It runs the identical execution path after auto-approving. |
+| `appendTransactionGroupPayload` | `0n` | Same as `proposeTransactionGroup(execute: false)` — storage only. |
+| `proposeAdminChange` | `0n` | Validation only; no inner transactions. |
+| `approveProposal` | `0n` | A single box write. |
+| `executeProposal` | See formula below | Decodes every transaction in every payload slot, then stages them as inner transactions — the only method whose opcode cost scales with the proposal's contents. |
+| `cancelProposal` | `0n` | A single status update. |
+| All `get*` / `isMember` / `hasApproved` readonly getters | `0n` | Single box reads. |
+
+**Sizing `executeProposal` (and `proposeTransactionGroup(..., execute: true)`).** The cost is dominated by decoding + validating each transaction (pass 1) and staging each as an inner transaction (pass 2). A conservative estimate, summed over every transaction across every payload slot on the proposal:
+
+```
+ensureBudgetValue = 3400
+                  + (number of transactions × 700)
+                  + Σ per-transaction extra:
+                      800   for a payment or asset transfer
+                      1000  for a key registration
+                      1500  for an asset configuration
+                      1500 + 400×(appArgs.length) + 200×(accounts.length + foreignApps.length + foreignAssets.length)
+                            for an application call
+```
+
+For example, a single payment: `3400 + 700 + 800 = 4900`. Six payments: `3400 + 4200 + 4800 = 12400`. Round up generously — overshooting costs a few extra opup inner transactions (and their fees, which `coverAppCallInnerTransactionFees` + a comfortable `maxFee` will cover); undershooting fails the call with an opcode-budget error partway through staging.
+
+For admin-change proposals (`proposeAdminChange` → `executeProposal`), `0n` is enough — there's no transaction-group decoding or staging.
 
 ---
 
@@ -356,12 +433,12 @@ A single ABI argument is limited to ~2 KB, so very large transaction groups are 
 
 ```ts
 const { return: pid } = await client.send.proposeTransactionGroup({
-  args: { groupId: 1n, payload: toSafeTxnGroup(firstChunk), expiryRound: FAR_EXPIRY },
+  args: { groupId: 1n, payload: toSafeTxnGroup(firstChunk), expiryRound: FAR_EXPIRY, execute: false, ensureBudgetValue: 0n },
   staticFee: (0.2).algo(),
 })
 
 await client.send.appendTransactionGroupPayload({
-  args: { proposalId: pid!, payloadIndex: 2n, payload: toSafeTxnGroup(secondChunk) },
+  args: { proposalId: pid!, payloadIndex: 2n, payload: toSafeTxnGroup(secondChunk), ensureBudgetValue: 0n },
   staticFee: (0.1).algo(),
 })
 ```
@@ -379,10 +456,14 @@ import { createAdminChange, ADM_CREATE_GROUP, ADM_ADD_MEMBER, ADM_CHANGE_THRESHO
 
 async function govern(change) {
   const { return: pid } = await client.send.proposeAdminChange({
-    args: { groupId: 1n, change, expiryRound: FAR_EXPIRY },
+    args: { groupId: 1n, change, expiryRound: FAR_EXPIRY, ensureBudgetValue: 0n },
     staticFee: (0.2).algo(),
   })
-  await client.send.executeProposal({ args: { proposalId: pid! }, coverAppCallInnerTransactionFees: true, maxFee: (0.02).algo() })
+  await client.send.executeProposal({
+    args: { proposalId: pid!, ensureBudgetValue: 0n }, // admin changes don't decode/stage a transaction group
+    coverAppCallInnerTransactionFees: true,
+    maxFee: (0.02).algo(),
+  })
 }
 
 // Create a pay-only Treasury group with member A:
@@ -409,15 +490,15 @@ Admin change types: `ADM_CREATE_GROUP`, `ADM_ADD_MEMBER`, `ADM_REMOVE_MEMBER`, `
 Read-only ABI getters on the client:
 
 ```ts
-const config = await client.send.getConfig({ args: {} })
+const config = await client.send.getConfig({ args: { ensureBudgetValue: 0n } })
 // [name, groupCount, nextGroupId, nextProposalId, paused, version]
 
-const group   = await client.send.getSignerGroup({ args: { groupId: 1n } })
-const member  = await client.send.getMember({ args: { groupId: 1n, account } })
-const isMem   = await client.send.isMember({ args: { groupId: 1n, account } })
-const prop    = await client.send.getProposal({ args: { proposalId: 1n } })
-const approved= await client.send.hasApproved({ args: { proposalId: 1n, account } })
-const stored  = await client.send.getTransactionGroup({ args: { proposalId: 1n, payloadIndex: 1n } })
+const group   = await client.send.getSignerGroup({ args: { groupId: 1n, ensureBudgetValue: 0n } })
+const member  = await client.send.getMember({ args: { groupId: 1n, account, ensureBudgetValue: 0n } })
+const isMem   = await client.send.isMember({ args: { groupId: 1n, account, ensureBudgetValue: 0n } })
+const prop    = await client.send.getProposal({ args: { proposalId: 1n, ensureBudgetValue: 0n } })
+const approved= await client.send.hasApproved({ args: { proposalId: 1n, account, ensureBudgetValue: 0n } })
+const stored  = await client.send.getTransactionGroup({ args: { proposalId: 1n, payloadIndex: 1n, ensureBudgetValue: 0n } })
 ```
 
 Higher-level helpers (no manual client wiring; they detect the version, page boxes, and shape the results for UIs):
@@ -439,7 +520,7 @@ const detail = await fetchAlgoSafeSignerGroupDetail(algod, { appId, address }, '
 ```ts
 import { TX_PAYMENT, TX_ASSET, TX_APP, TX_KEYREG, TX_ACFG, decodePaymentTxn, decodeAssetTxn, decodeAppTxn, decodeKeyRegTxn, decodeAssetConfigTxn } from 'algo-safe'
 
-const stored = await client.send.getTransactionGroup({ args: { proposalId: 1n, payloadIndex: 1n } })
+const stored = await client.send.getTransactionGroup({ args: { proposalId: 1n, payloadIndex: 1n, ensureBudgetValue: 0n } })
 for (const [txType, data] of stored.return!) {
   if (txType === TX_PAYMENT) console.log(decodePaymentTxn(data))
   else if (txType === TX_ASSET) console.log(decodeAssetTxn(data))

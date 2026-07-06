@@ -1,7 +1,7 @@
 import { AlgorandClient } from '@algorandfoundation/algokit-utils'
 import { useQueryClient } from '@tanstack/react-query'
 import { useNetwork, useWallet, WalletId, type Wallet } from '@txnlab/use-wallet-react'
-import { getAlgoSafeContractVersion, getClient } from 'algo-safe'
+import { LATEST_CONTRACT_HASH, getAlgoSafeContractVersion, getClient } from 'algo-safe'
 import algosdk from 'algosdk'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -83,12 +83,17 @@ function AuthenticatedSafeSelection() {
       const senderAddress = algosdk.Address.fromString(activeAddress)
       const algorand = AlgorandClient.fromClients({ algod: algodClient })
       const clientVersion = await getAlgoSafeContractVersion(algodClient, BigInt(parsedAppId))
+      const isLatest = !clientVersion || clientVersion === LATEST_CONTRACT_HASH
       const appClient = algorand.client.getTypedAppClientById(getClient(clientVersion ?? 'latest'), {
         appId: BigInt(parsedAppId),
         defaultSender: senderAddress,
       })
 
-      const configResult = await appClient.send.getConfig({ args: {}, suppressLog: true })
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const configResult = await (appClient.send as any).getConfig({
+        args: isLatest ? { ensureBudgetValue: 0n } : {},
+        suppressLog: true,
+      })
       const safeName = extractRecoveredSafeName(configResult.return)
       if (!safeName) {
         throw new Error('The selected app did not return a valid Algo Safe name.')

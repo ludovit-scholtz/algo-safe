@@ -36,6 +36,6 @@ export async function deploy() {
     args: { groupName: 'Admins' },
   })
 
-  const config = await appClient.send.getConfig({ args: {} })
+  const config = await appClient.send.getConfig({ args: { ensureBudgetValue: 0n } })
   console.log(`Deployed Algo Safe (${appClient.appClient.appId}); config:`, config.return)
 }

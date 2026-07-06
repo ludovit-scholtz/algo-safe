@@ -46,6 +46,10 @@ const STATUS_CANCELLED = 4n
 
 const PAYLOAD_TRANSACTION_GROUP = 1n
 const METHOD_EXECUTE_PROPOSAL = 'executeProposal(uint64)void'
+const METHOD_EXECUTE_PROPOSAL_LATEST = 'executeProposal(uint64,uint64)void'
+// Generous headroom for on-chain execution's inner-transaction staging; EXECUTION_CALL_FEE
+// already budgets enough ALGO to cover the opup inner calls this requests.
+const EXECUTION_ENSURE_BUDGET = 20000n
 
 type AlgoSafeClientInstance = InstanceType<ReturnType<typeof getClient>>
 type TxTuple = Awaited<ReturnType<AlgoSafeClientInstance['getTransactionGroup']>>[number]
@@ -501,14 +505,23 @@ async function hydrateProposal(
   resolveAsset: (assetId: number) => Promise<AssetMetadata>,
   activeAddress?: string | null,
 ) {
-  const contractProposal = (await client.getProposal({ args: [proposalId] })) as ContractProposal
-  const userHasApproved = activeAddress ? await client.hasApproved({ args: [proposalId, activeAddress] }) : false
+  // The client type unions every historical contract version; only the latest
+  // one accepts `ensureBudgetValue`, so these calls need a narrow `as any` cast
+  // rather than fighting the union (same pattern as getTransactionGroup below).
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const contractProposal = (await (client as any).getProposal({
+    args: isLatest ? [proposalId, 0n] : [proposalId],
+  })) as ContractProposal
+  const userHasApproved = activeAddress
+    ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (client as any).hasApproved({ args: isLatest ? [proposalId, activeAddress, 0n] : [proposalId, activeAddress] })
+    : false
 
-  // Latest contract (1a77ba21+) requires payloadIndex as second arg; older contracts only take proposalId.
+  // Latest contract (1a77ba21+) requires payloadIndex (and ensureBudgetValue) as extra args; older contracts only take proposalId.
   const txns =
     contractProposal.payloadType === PAYLOAD_TRANSACTION_GROUP
       ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await (client as any).getTransactionGroup({ args: isLatest ? [proposalId, 0n] : [proposalId] }).catch(() => [])
+        await (client as any).getTransactionGroup({ args: isLatest ? [proposalId, 0n, 0n] : [proposalId] }).catch(() => [])
       : []
 
   const adminChange = txns.length === 0 ? await client.state.box.adminPayloads.value(proposalId).catch(() => undefined) : undefined
@@ -536,7 +549,8 @@ async function hydrateProposal(
 
 export async function fetchLiveProposals(context: Omit<ProposalContext, 'transactionSigner'>) {
   const { client, isLatest } = await buildAppClient(context)
-  const config = await client.getConfig()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const config = await (client as any).getConfig({ args: isLatest ? { ensureBudgetValue: 0n } : {} })
   const nextProposalId = config[3] ?? 1n
   const status = (await context.algodClient.status().do()) as unknown as Record<string, unknown>
   const currentRound = getCurrentRound(status)
@@ -589,15 +603,19 @@ async function waitForTransactionConfirmation(algodClient: algosdk.Algodv2, txId
 
 export async function approveLiveProposal(context: ProposalContext, proposalId: string) {
   assertWalletContext(context)
-  const { client } = await buildAppClient(context)
-  await client.send.approveProposal({ args: [BigInt(proposalId)], suppressLog: true })
+  const { client, isLatest } = await buildAppClient(context)
+  const args = isLatest ? [BigInt(proposalId), 0n] : [BigInt(proposalId)]
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (client.send as any).approveProposal({ args, suppressLog: true })
   return fetchLiveProposal(context, proposalId)
 }
 
 export async function cancelLiveProposal(context: ProposalContext, proposalId: string) {
   assertWalletContext(context)
-  const { client } = await buildAppClient(context)
-  await client.send.cancelProposal({ args: [BigInt(proposalId)], suppressLog: true })
+  const { client, isLatest } = await buildAppClient(context)
+  const args = isLatest ? [BigInt(proposalId), 0n] : [BigInt(proposalId)]
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (client.send as any).cancelProposal({ args, suppressLog: true })
   return fetchLiveProposal(context, proposalId)
 }
 
@@ -607,12 +625,15 @@ export async function executeLiveProposal(
   lifecycle?: ExecuteProposalLifecycle,
 ): Promise<ExecuteProposalResult> {
   assertWalletContext(context)
-  const { client } = await buildAppClient(context)
+  const { client, isLatest } = await buildAppClient(context)
   const proposalIdValue = BigInt(proposalId)
-  const contractProposal = (await client.getProposal({ args: [proposalIdValue] })) as ContractProposal
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const contractProposal = (await (client as any).getProposal({
+    args: isLatest ? [proposalIdValue, 0n] : [proposalIdValue],
+  })) as ContractProposal
   const submissionParams = {
-    method: METHOD_EXECUTE_PROPOSAL,
-    args: [proposalIdValue],
+    method: isLatest ? METHOD_EXECUTE_PROPOSAL_LATEST : METHOD_EXECUTE_PROPOSAL,
+    args: isLatest ? [proposalIdValue, EXECUTION_ENSURE_BUDGET] : [proposalIdValue],
     maxFee: EXECUTION_CALL_FEE,
     populateAppCallResources: true,
     coverAppCallInnerTransactionFees: true,
