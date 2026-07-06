@@ -101,7 +101,7 @@ const ADM_SET_ACTIVE: uint64 = Uint64(7)
 // Period lengths for spending limits, in seconds.
 const DAY_SECONDS: uint64 = Uint64(86400)
 const MONTH_SECONDS: uint64 = Uint64(2592000) // 30 days
-const CONTRACT_VERSION = 'BIATEC-ALGO-SAFE-v1.4.1'
+const CONTRACT_VERSION = 'BIATEC-ALGO-SAFE-v1.4.2'
 
 // ---------------------------------------------------------------------------
 // Stored record types (plain TS types for box storage)
@@ -639,7 +639,16 @@ export class AlgoSafe extends Contract {
     assert(group.membershipEpoch === proposal.epochAtCreation, 'group membership changed since proposal creation')
 
     if (proposal.payloadType === PT_TRANSACTION_GROUP) {
-      if (group.cooldownRounds !== Uint64(0)) {
+      // `lastExecutionRound === 0` is the "never executed" sentinel (a group's
+      // first-ever execution can't legitimately land on round 0, since the app
+      // must already exist by then) — the cooldown gates successive
+      // executions, not the first one, so skip the check on that sentinel.
+      // Gating the first execution too meant a nonzero cooldownRounds set at
+      // group creation silently required the chain to already be past round
+      // `cooldownRounds` before the group could ever execute anything, which
+      // only surfaced on a freshly reset chain (e.g. CI's fresh localnet vs. a
+      // long-lived dev localnet already far past that round).
+      if (group.cooldownRounds !== Uint64(0) && group.lastExecutionRound !== Uint64(0)) {
         assert(Global.round >= group.lastExecutionRound + group.cooldownRounds, 'group cooldown not elapsed')
       }
       this._executeTransactionGroup(proposalId, proposal.groupId, group, proposal.numPayloads)
