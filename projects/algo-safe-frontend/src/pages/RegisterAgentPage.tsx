@@ -17,7 +17,8 @@ import { useSafeId } from '../lib/SafeContext'
 import type { AssetSymbol } from '../services/types'
 
 const TX_VALIDITY_WINDOW = 200
-const PROPOSAL_CALL_FEE = algo(0.2)
+// Fee cap only — actual fee comes from simulation via `coverAppCallInnerTransactionFees`.
+const PROPOSAL_MAX_FEE = algo(0.05)
 const GOVERNANCE_GROUP_ID = 1n
 const GOVERNED_CREATE_GROUP = 1n
 const AGENT_MEMBER_TYPE = 4n
@@ -202,8 +203,13 @@ export function RegisterAgentPage() {
           }),
           expiryRound,
           ensureBudgetValue: 0n,
+          // The versioned-client union types the args as the intersection of every
+          // contract version's shape, which no single value satisfies — narrow cast.
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } as any,
-        staticFee: PROPOSAL_CALL_FEE,
+        maxFee: PROPOSAL_MAX_FEE,
+        coverAppCallInnerTransactionFees: true,
+        populateAppCallResources: true,
         suppressLog: true,
       })
 

@@ -1,7 +1,6 @@
-import { algo, AlgorandClient } from '@algorandfoundation/algokit-utils'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useWallet } from '@txnlab/use-wallet-react'
-import { createAssetSafeTxn, createPaymentSafeTxn, getAlgoSafeContractVersion, getClient, toSafeTxnGroup } from 'algo-safe'
+import { ACT_AXFER, ACT_PAY, createAssetSafeTxn, createPaymentSafeTxn, toSafeTxnGroup } from 'algo-safe'
 import algosdk from 'algosdk'
 import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
@@ -15,10 +14,8 @@ import { useOnChainSafeHoldings } from '../hooks/useOnChainSafeHoldings'
 import { getKnownAssets } from '../lib/assetMetadata'
 import { formatUnits, getZeroAddress } from '../lib/onChainSafe'
 import { useSafeId } from '../lib/SafeContext'
+import { fetchSelfExecuteCapability, proposeLiveTransactionGroup } from '../services/algoSafeProposals'
 import type { NetworkId } from '../services/types'
-
-const TX_VALIDITY_WINDOW = 200
-const PROPOSAL_CALL_FEE = algo(0.2)
 
 type ProposalKind = 'payment' | 'asset-transfer' | 'opt-in'
 
@@ -38,14 +35,6 @@ function parseBaseUnits(value: string, decimals: number) {
   return BigInt(normalized || '0')
 }
 
-function getCurrentRound(status: Record<string, unknown>) {
-  const candidate = status.lastRound ?? status['last-round']
-  if (typeof candidate === 'number') return BigInt(candidate)
-  if (typeof candidate === 'bigint') return candidate
-  if (typeof candidate === 'string' && candidate.trim()) return BigInt(candidate)
-  return 0n
-}
-
 export function CreateProposalPage() {
   const safeId = useSafeId()
   const navigate = useNavigate()
@@ -60,9 +49,20 @@ export function CreateProposalPage() {
   const [amount, setAmount] = useState('')
   const [assetId, setAssetId] = useState('')
   const [note, setNote] = useState('')
-  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [submitMode, setSubmitMode] = useState<'prepare' | 'execute' | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [createdProposal, setCreatedProposal] = useState<CreatedProposal | null>(null)
+  const isSubmitting = submitMode !== null
+
+  const requiredAction = proposalKind === 'payment' ? ACT_PAY : ACT_AXFER
+  const parsedGroupIdInput = /^\d+$/.test(groupId) && BigInt(groupId) > 0n ? BigInt(groupId) : null
+  const { data: selfExecuteCapability } = useQuery({
+    queryKey: ['self-execute-capability', safeId, groupId, activeAddress, proposalKind],
+    queryFn: () => fetchSelfExecuteCapability({ algodClient, safe: safe!, activeAddress }, parsedGroupIdInput!, requiredAction),
+    enabled: Boolean(safe && activeAddress && parsedGroupIdInput !== null),
+    staleTime: 30_000,
+  })
+  const canSelfExecute = selfExecuteCapability?.canSelfExecute ?? false
 
   const assetOptions = useMemo(() => (holdings ?? []).filter((holding) => !holding.isNative), [holdings])
   const selectedAsset = assetOptions.find((holding) => String(holding.assetId) === assetId)
@@ -74,8 +74,7 @@ export function CreateProposalPage() {
   const effectiveReceiver = proposalKind === 'opt-in' ? (safe?.address ?? '') : receiver
   const showsAssetIdInput = proposalKind === 'asset-transfer' || proposalKind === 'opt-in'
 
-  async function handleSaveProposal(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault()
+  async function submitProposal(executeNow: boolean) {
     setErrorMessage(null)
     setCreatedProposal(null)
 
@@ -102,31 +101,19 @@ export function CreateProposalPage() {
     }
 
     try {
-      setIsSubmitting(true)
+      setSubmitMode(executeNow ? 'execute' : 'prepare')
 
-      const senderAddress = algosdk.Address.fromString(activeAddress)
-      const algorand = AlgorandClient.fromClients({ algod: algodClient }).setDefaultValidityWindow(TX_VALIDITY_WINDOW)
-      algorand.setSigner(senderAddress, transactionSigner)
-
-      const clientVersion = await getAlgoSafeContractVersion(algodClient, BigInt(safe.appId))
-      const appClient = algorand.client.getTypedAppClientById(getClient(clientVersion ?? 'latest'), {
-        appId: BigInt(safe.appId),
-        defaultSender: senderAddress,
-      })
-
-      const status = (await algodClient.status().do()) as unknown as Record<string, unknown>
-      const proposalExpiryRound = getCurrentRound(status) + BigInt(parsedExpiryRounds)
-
+      // Versioned-client union types `payload` as the intersection of every
+      // contract version's shape; our builders emit the latest envelope, so
+      // cast to the param type. See algoSafeProposals for the read-side branch.
+      let payload: never[]
       if (proposalKind === 'payment') {
         const rawAmount = parseBaseUnits(amount, 6)
         if (rawAmount === null || rawAmount < 0n) {
           throw new Error('Enter a valid ALGO amount for the payment proposal.')
         }
 
-        // Versioned-client union types `payload` as the intersection of every
-        // contract version's shape; our builders emit the latest envelope, so
-        // cast to the param type. See algoSafeProposals for the read-side branch.
-        const payload = toSafeTxnGroup([
+        payload = toSafeTxnGroup([
           createPaymentSafeTxn({
             receiver: receiver.trim(),
             amount: rawAmount,
@@ -135,20 +122,6 @@ export function CreateProposalPage() {
             note: note.trim(),
           }),
         ]) as unknown as never[]
-
-        const result = await appClient.send.proposeTransactionGroup({
-          args: { groupId: parsedGroupId, payload, expiryRound: proposalExpiryRound, execute: false, ensureBudgetValue: 0n } as any,
-          staticFee: PROPOSAL_CALL_FEE,
-          suppressLog: true,
-        })
-
-        const proposalId = result.return?.toString() ?? ''
-        const txId = result.txIds[0] ?? ''
-
-        setCreatedProposal({ proposalId, txId })
-        await queryClient.invalidateQueries({ queryKey: ['proposals', safeId] })
-        await queryClient.invalidateQueries({ queryKey: ['proposal', safeId, proposalId] })
-        navigate(`/safe/${safeId}/proposals/${proposalId}`, { state: { txId } })
       } else {
         const resolvedAssetId = assetId.trim()
         if (!resolvedAssetId || !/^\d+$/.test(resolvedAssetId)) {
@@ -169,7 +142,7 @@ export function CreateProposalPage() {
           )
         }
 
-        const payload = toSafeTxnGroup([
+        payload = toSafeTxnGroup([
           createAssetSafeTxn({
             xferAsset: BigInt(resolvedAssetId),
             assetReceiver: effectiveReceiver.trim(),
@@ -179,25 +152,21 @@ export function CreateProposalPage() {
             note: note.trim(),
           }),
         ]) as unknown as never[]
-
-        const result = await appClient.send.proposeTransactionGroup({
-          args: { groupId: parsedGroupId, payload, expiryRound: proposalExpiryRound, execute: false, ensureBudgetValue: 0n } as any,
-          staticFee: PROPOSAL_CALL_FEE,
-          suppressLog: true,
-        })
-
-        const proposalId = result.return?.toString() ?? ''
-        const txId = result.txIds[0] ?? ''
-
-        setCreatedProposal({ proposalId, txId })
-        await queryClient.invalidateQueries({ queryKey: ['proposals', safeId] })
-        await queryClient.invalidateQueries({ queryKey: ['proposal', safeId, proposalId] })
-        navigate(`/safe/${safeId}/proposals/${proposalId}`, { state: { txId } })
       }
+
+      const { proposalId, txId } = await proposeLiveTransactionGroup(
+        { algodClient, safe, activeAddress, transactionSigner },
+        { groupId: parsedGroupId, payload, expiryRounds: BigInt(parsedExpiryRounds), executeNow },
+      )
+
+      setCreatedProposal({ proposalId, txId })
+      await queryClient.invalidateQueries({ queryKey: ['proposals', safeId] })
+      await queryClient.invalidateQueries({ queryKey: ['proposal', safeId, proposalId] })
+      navigate(`/safe/${safeId}/proposals/${proposalId}`, { state: { txId } })
     } catch (error) {
       setErrorMessage(error instanceof Error && error.message.trim() ? error.message : 'Failed to save the proposal on-chain.')
     } finally {
-      setIsSubmitting(false)
+      setSubmitMode(null)
     }
   }
 
@@ -220,7 +189,13 @@ export function CreateProposalPage() {
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]">
         <Card>
-          <form className="space-y-5" onSubmit={(event) => void handleSaveProposal(event)}>
+          <form
+            className="space-y-5"
+            onSubmit={(event) => {
+              event.preventDefault()
+              void submitProposal(false)
+            }}
+          >
             <div className="grid gap-4 md:grid-cols-2">
               <FormField label="Proposal Type" hint="Choose the transaction type the safe should execute once approved.">
                 <select className={inputCls} value={proposalKind} onChange={(event) => setProposalKind(event.target.value as ProposalKind)}>
@@ -374,16 +349,35 @@ export function CreateProposalPage() {
               </div>
             )}
 
+            {canSelfExecute && (
+              <p className="text-xs text-on-surface-variant">
+                Your signer group is 1-of-1, so your proposal is approved by itself — you can execute it in the same transaction.
+              </p>
+            )}
             <div className="flex items-center justify-end gap-3">
               <Link to={`/safe/${safeId}/proposals`}>
                 <Button type="button" variant="ghost">
                   Cancel
                 </Button>
               </Link>
-              <Button type="submit" disabled={isSubmitting || !safe}>
-                {isSubmitting ? <Icon name="sync" className="animate-spin text-base" /> : <Icon name="save" className="text-base" />}
-                {isSubmitting ? 'Saving Proposal...' : 'Save Proposal'}
+              <Button type="submit" variant={canSelfExecute ? 'secondary' : 'primary'} disabled={isSubmitting || !safe}>
+                {submitMode === 'prepare' ? (
+                  <Icon name="sync" className="animate-spin text-base" />
+                ) : (
+                  <Icon name="save" className="text-base" />
+                )}
+                {submitMode === 'prepare' ? 'Saving Proposal...' : canSelfExecute ? 'Prepare Transaction' : 'Save Proposal'}
               </Button>
+              {canSelfExecute && (
+                <Button type="button" disabled={isSubmitting || !safe} onClick={() => void submitProposal(true)}>
+                  {submitMode === 'execute' ? (
+                    <Icon name="sync" className="animate-spin text-base" />
+                  ) : (
+                    <Icon name="bolt" className="text-base" />
+                  )}
+                  {submitMode === 'execute' ? 'Executing...' : 'Execute Right Away'}
+                </Button>
+              )}
             </div>
           </form>
         </Card>

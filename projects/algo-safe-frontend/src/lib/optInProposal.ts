@@ -6,7 +6,10 @@ import { getZeroAddress } from './onChainSafe'
 // Mirrors CreateProposalPage's opt-in branch so the dashboard shortcut produces
 // an identical on-chain opt-in proposal (ASA transfer of amount 0 to the safe).
 const TX_VALIDITY_WINDOW = 200
-const PROPOSAL_CALL_FEE = algo(0.2)
+// Fee cap only — the actual fee comes from simulation via
+// `coverAppCallInnerTransactionFees` (a plain propose has no inner txns, so it
+// settles at the network min fee).
+const PROPOSAL_MAX_FEE = algo(0.05)
 
 function getCurrentRound(status: Record<string, unknown>) {
   const candidate = status.lastRound ?? status['last-round']
@@ -59,8 +62,12 @@ export async function proposeAssetOptIn(params: {
   ]) as unknown as never[]
 
   const result = await appClient.send.proposeTransactionGroup({
+    // Same union-intersection issue as the payload cast above — narrow cast.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     args: { groupId, payload, expiryRound, execute: false, ensureBudgetValue: 0n } as any,
-    staticFee: PROPOSAL_CALL_FEE,
+    maxFee: PROPOSAL_MAX_FEE,
+    coverAppCallInnerTransactionFees: true,
+    populateAppCallResources: true,
     suppressLog: true,
   })
 

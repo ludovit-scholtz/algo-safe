@@ -37,7 +37,11 @@ import { ellipseAddress } from '../utils/ellipseAddress'
 import type { PolicyCheck, Proposal, ProposalStatus, Safe, TxLine } from './types'
 
 const TX_VALIDITY_WINDOW = 200
+// Fee *caps* only — actual fees are derived from simulation via
+// `coverAppCallInnerTransactionFees`, so callers pay exactly the outer min fee
+// plus one min fee per inner transaction (payload staging + opup budget calls).
 const EXECUTION_CALL_FEE = algo(0.2)
+const PROPOSAL_MAX_FEE = algo(0.05)
 
 const STATUS_ACTIVE = 1n
 const STATUS_READY = 2n
@@ -47,9 +51,11 @@ const STATUS_CANCELLED = 4n
 const PAYLOAD_TRANSACTION_GROUP = 1n
 const METHOD_EXECUTE_PROPOSAL = 'executeProposal(uint64)void'
 const METHOD_EXECUTE_PROPOSAL_LATEST = 'executeProposal(uint64,uint64)void'
-// Generous headroom for on-chain execution's inner-transaction staging; EXECUTION_CALL_FEE
-// already budgets enough ALGO to cover the opup inner calls this requests.
-const EXECUTION_ENSURE_BUDGET = 20000n
+// Opcode-budget headroom for on-chain execution's decode/validate/stage passes.
+// Every ~700 requested spawns one opup inner call (one min fee each), so keep this
+// as tight as the contract e2e suite proves sufficient — larger values directly
+// overcharge the caller. 6000 matches the value the e2e tests execute with.
+const EXECUTION_ENSURE_BUDGET = 6000n
 
 type AlgoSafeClientInstance = InstanceType<ReturnType<typeof getClient>>
 type TxTuple = Awaited<ReturnType<AlgoSafeClientInstance['getTransactionGroup']>>[number]
@@ -496,6 +502,30 @@ async function deriveAdminChangePresentation(
   return { title, description, txPreview: [{ type: 'appl', summary: title, detail: description }] }
 }
 
+// The latest contract keys payloads by slot (1..numPayloads) and requires the
+// payloadIndex (and ensureBudgetValue) args; older contracts only take proposalId.
+async function fetchTransactionGroupPayloads(
+  client: AlgoSafeClientInstance,
+  isLatest: boolean,
+  proposalId: bigint,
+  numPayloads: bigint,
+): Promise<TxTuple[]> {
+  if (!isLatest) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return (client as any).getTransactionGroup({ args: [proposalId] }).catch(() => [])
+  }
+
+  // Proposals created before numPayloads existed report 0; they still have slot 1.
+  const slots = numPayloads > 0n ? Number(numPayloads) : 1
+  const chunks = await Promise.all(
+    Array.from({ length: slots }, (_value, index) =>
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (client as any).getTransactionGroup({ args: [proposalId, BigInt(index + 1), 0n] }).catch(() => []),
+    ),
+  )
+  return chunks.flat()
+}
+
 async function hydrateProposal(
   client: AlgoSafeClientInstance,
   isLatest: boolean,
@@ -517,11 +547,9 @@ async function hydrateProposal(
       await (client as any).hasApproved({ args: isLatest ? [proposalId, activeAddress, 0n] : [proposalId, activeAddress] })
     : false
 
-  // Latest contract (1a77ba21+) requires payloadIndex (and ensureBudgetValue) as extra args; older contracts only take proposalId.
   const txns =
     contractProposal.payloadType === PAYLOAD_TRANSACTION_GROUP
-      ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await (client as any).getTransactionGroup({ args: isLatest ? [proposalId, 0n, 0n] : [proposalId] }).catch(() => [])
+      ? await fetchTransactionGroupPayloads(client, isLatest, proposalId, contractProposal.numPayloads ?? 0n)
       : []
 
   const adminChange = txns.length === 0 ? await client.state.box.adminPayloads.value(proposalId).catch(() => undefined) : undefined
@@ -617,6 +645,90 @@ export async function cancelLiveProposal(context: ProposalContext, proposalId: s
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await (client.send as any).cancelProposal({ args, suppressLog: true })
   return fetchLiveProposal(context, proposalId)
+}
+
+export type SelfExecuteCapability = {
+  canSelfExecute: boolean
+  isMember: boolean
+  threshold: bigint
+  allowedActions: bigint
+  groupActive: boolean
+  isLatest: boolean
+}
+
+/**
+ * Checks whether the connected wallet can propose and execute a transaction
+ * group in a single call: latest contract, active 1-of-1 signer group the
+ * wallet belongs to, with all `requiredActions` bits enabled.
+ */
+export async function fetchSelfExecuteCapability(
+  context: Omit<ProposalContext, 'transactionSigner'>,
+  groupId: bigint,
+  requiredActions: bigint,
+): Promise<SelfExecuteCapability | null> {
+  if (!context.activeAddress) return null
+
+  try {
+    const { client, isLatest } = await buildAppClient(context)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const group = await (client as any).getSignerGroup({ args: isLatest ? [groupId, 0n] : [groupId] })
+    const isMember = Boolean(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (client as any).isMember({ args: isLatest ? [groupId, context.activeAddress, 0n] : [groupId, context.activeAddress] }),
+    )
+    const groupActive = group.active !== 0n
+    const canSelfExecute =
+      isLatest && isMember && groupActive && group.threshold === 1n && (group.allowedActions & requiredActions) === requiredActions
+
+    return { canSelfExecute, isMember, threshold: group.threshold, allowedActions: group.allowedActions, groupActive, isLatest }
+  } catch {
+    return null
+  }
+}
+
+export type ProposeTransactionGroupResult = {
+  proposalId: string
+  txId: string
+  executed: boolean
+}
+
+/**
+ * Submits a transaction-group proposal. With `executeNow` the contract executes
+ * it in the same call (proposer auto-approval must satisfy the group threshold).
+ * Fees are derived from simulation so the caller covers exactly the inner
+ * transactions the call produces; the prepare path needs no extra opcode budget.
+ */
+export async function proposeLiveTransactionGroup(
+  context: ProposalContext,
+  params: { groupId: bigint; payload: readonly unknown[]; expiryRounds: bigint; executeNow?: boolean },
+): Promise<ProposeTransactionGroupResult> {
+  assertWalletContext(context)
+  const { client, isLatest } = await buildAppClient(context)
+  const executeNow = Boolean(params.executeNow)
+
+  if (executeNow && !isLatest) {
+    throw new Error('Propose-and-execute in one call requires the latest safe contract version.')
+  }
+
+  const status = (await context.algodClient.status().do()) as unknown as Record<string, unknown>
+  const expiryRound = getCurrentRound(status) + params.expiryRounds
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const result = await (client.send as any).proposeTransactionGroup({
+    args: {
+      groupId: params.groupId,
+      payload: params.payload,
+      expiryRound,
+      execute: executeNow,
+      ensureBudgetValue: executeNow ? EXECUTION_ENSURE_BUDGET : 0n,
+    },
+    maxFee: PROPOSAL_MAX_FEE,
+    coverAppCallInnerTransactionFees: true,
+    populateAppCallResources: true,
+    suppressLog: true,
+  })
+
+  return { proposalId: result.return?.toString() ?? '', txId: result.txIds[0] ?? '', executed: executeNow }
 }
 
 export async function executeLiveProposal(

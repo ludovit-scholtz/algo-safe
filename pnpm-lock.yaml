@@ -127,8 +127,8 @@ importers:
         specifier: ^18.3.1
         version: 18.3.1(react@18.3.1)
       react-router-dom:
-        specifier: ^7.18.0
-        version: 7.18.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        specifier: ^7.18.1
+        version: 7.18.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       tslib:
         specifier: ^2.8.1
         version: 2.8.1
@@ -2489,8 +2489,8 @@ packages:
   base64-js@1.5.1:
     resolution: {integrity: sha512-AKpaYlHn8t4SVbOHCy+b5+KKgvR4vrsD8vbvrbiQJps7fKDTkjkDry6ji0rUJjC0kzbNePLwzxq8iypo41qeWA==}
 
-  baseline-browser-mapping@2.10.40:
-    resolution: {integrity: sha512-BSSLZ9/Cjjv7Gtj5B68ZzXcXUg8iOf3fme+FCuh8rC/Go+Kmh8cox7M3A8dolou16s64QjLPOSdngh7GxXvkSw==}
+  baseline-browser-mapping@2.10.42:
+    resolution: {integrity: sha512-c/jurFrDLyui7o1J86yLkRu4LMsTYcBohveus7/I2Hzdn9KIP2bdJPTue/lR1KH46enoPbD77GKeSYNdyPoD3Q==}
     engines: {node: '>=6.0.0'}
     hasBin: true
 
@@ -2621,8 +2621,8 @@ packages:
     resolution: {integrity: sha512-Gmy6FhYlCY7uOElZUSbxo2UCDH8owEk996gkbrpsgGtrJLM3J7jGxl9Ic7Qwwj4ivOE5AWZWRMecDdF7hqGjFA==}
     engines: {node: '>=10'}
 
-  caniuse-lite@1.0.30001799:
-    resolution: {integrity: sha512-hG1bReV+OUU+MOqK4t/ZWI0tZOyz3rqS9XuhOUz1cIcbwBKjOyJEJuw9ER5JuNyqxNk8u/JUVbGibBOL1yrjFw==}
+  caniuse-lite@1.0.30001800:
+    resolution: {integrity: sha512-MMHtuAz9Ys840zAY5F4k6fV5GaivZ9sPk+nz0mY+GYVzRBnYkN0mpqkSR92oWRQ19yQWo4HvBV/FnC16AJX8MA==}
 
   chai@6.2.2:
     resolution: {integrity: sha512-NUPRluOfOiTKBKvWPtSD4PhFvWCqOi0BGStNWs57X9js7XGTprSmFoz5F0tWhR4WPjNeR9jXqdC7/UpSJTnlRg==}
@@ -2880,8 +2880,8 @@ packages:
   eastasianwidth@0.2.0:
     resolution: {integrity: sha512-I88TYZWc9XiYHRQ4/3c5rjjfgkjhLyW2luGIheGERbNQ6OY7yTybanSpDXZa8y7VUP9YmDcYa+eyq4ca7iLqWA==}
 
-  electron-to-chromium@1.5.380:
-    resolution: {integrity: sha512-W6d5AbuEoRayO447cqrg6lKJIlscgRnnxOZl/08kfV71BQDoEBC7Wwis68z87LjyK6f4kWyTaubuDbhHKrZkbA==}
+  electron-to-chromium@1.5.387:
+    resolution: {integrity: sha512-TaxwufTFDufvPEoXdhwVrA3UdFWBeWGkYoJ1K8ldF1xe6gKfth6iRNS5lTQ5JPNOHdGQm8PT1QYKUqFLCiUefQ==}
 
   elliptic@6.6.1:
     resolution: {integrity: sha512-RaddvvMatK2LJHqFJ+YA4WysVN5Ita9E35botqIYspQ4TkRAlCicdzKOjlyv/1Za5RyTNn7di//eEV0uTAfe3g==}
@@ -3314,8 +3314,8 @@ packages:
     resolution: {integrity: sha512-B4FFZ6q/T2jhhksgkbEW3HBvWIfDW85snkQgawt07S7J5QXTk6BkNV+0yAeZrM5QpMAdYlocGoljn0sJ/WQkFw==}
     engines: {node: '>=10.17.0'}
 
-  idb-keyval@6.2.5:
-    resolution: {integrity: sha512-eKQkTnS0relYsSOYomx8ozIbmdsQCKUdhyuIaQ2DZgKuaxtyQQMkyD/wlnQN32pO3yutN1b1L8uqwcDKaJd7/Q==}
+  idb-keyval@6.2.6:
+    resolution: {integrity: sha512-FY64UEhw+5liMzMQ1R9Mw6AF0+wyBrg1CIA1z4CjI/EvT5ty/SvQcWZgd8s9sgaNhX10Y8UzScTh89tEAls5nA==}
 
   ieee754@1.2.1:
     resolution: {integrity: sha512-dcyqhDvX1C46lXZcVqCpK+FtMRQVdIMN6/Df5js2zouUsqG7I6sFxitIC+7KYK29KdXOLHdu9zL4sFnoVQnqaA==}
@@ -4046,6 +4046,10 @@ packages:
     resolution: {integrity: sha512-QP88BAKvMam/3NxH6vj2o21R6MjxZUAd6nlwAS/pnGvN9IVLocLHxGYIzFhg6fUQ+5th6P4dv4eW9jX3DSIj7A==}
     engines: {node: '>=12'}
 
+  picomatch@4.0.5:
+    resolution: {integrity: sha512-RvwwcruNjI1ncT5xRakeyS9Lf8lcItv34KD+aif+VH9kduAyfYBipGh12274xtenIPZ119/R9BdTBa8gAwSh0A==}
+    engines: {node: '>=12'}
+
   pify@2.3.0:
     resolution: {integrity: sha512-udgsAY+fTnvv7kI7aaxbqwWNb0AHiB0qBO89PZKPkoTmGOgdbrHDKD+0B2X4uTfJ/FT1R09r9gTsjUjNJotuog==}
     engines: {node: '>=0.10.0'}
@@ -4256,15 +4260,15 @@ packages:
     resolution: {integrity: sha512-z6F7K9bV85EfseRCp2bzrpyQ0Gkw1uLoCel9XBVWPg/TjRj94SkJzUTGfOa4bs7iJvBWtQG0Wq7wnI0syw3EBQ==}
     engines: {node: '>=0.10.0'}
 
-  react-router-dom@7.18.0:
-    resolution: {integrity: sha512-Fi0yY6kgtKae/Th2xibdWK0KSdYZ4B53Gyf6wRtomOKWgpNm7H7+DyfDhncdz9FKbpS+1jmDhg3F4WoGJ+yFOA==}
+  react-router-dom@7.18.1:
+    resolution: {integrity: sha512-KaZh+X/6UtEp28x51AUYZDMg9NGoz2ja3dNHa+ta/tk40vCzKhQ/RypCWBMLbmDr6//E24Vv5uPsrqXFozdkAg==}
     engines: {node: '>=20.0.0'}
     peerDependencies:
       react: '>=18'
       react-dom: '>=18'
 
-  react-router@7.18.0:
-    resolution: {integrity: sha512-pTTGt8J+ji1NOmYnjzT+bAJy/1zD+Jp4ziO6cL7T3ZLvXKtusO7BpFqlRXitqpcPVqllsIXFHRMt+2/k3Xn6HQ==}
+  react-router@7.18.1:
+    resolution: {integrity: sha512-GDLgg3i3uM0aeJO3Fm+TCS+sDQ7gu12T6x0qdTEzcwqEfleci7JwugVNIF3U//0FWKnJT7ptG+20B2jfDqnZAg==}
     engines: {node: '>=20.0.0'}
     peerDependencies:
       react: '>=18'
@@ -7047,8 +7051,8 @@ snapshots:
   '@walletconnect/keyvaluestorage@1.1.1':
     dependencies:
       '@walletconnect/safe-json': 1.0.2
-      idb-keyval: 6.2.5
-      unstorage: 1.17.5(idb-keyval@6.2.5)
+      idb-keyval: 6.2.6
+      unstorage: 1.17.5(idb-keyval@6.2.6)
     transitivePeerDependencies:
       - '@azure/app-configuration'
       - '@azure/cosmos'
@@ -7438,7 +7442,7 @@ snapshots:
   autoprefixer@10.5.2(postcss@8.5.16):
     dependencies:
       browserslist: 4.28.4
-      caniuse-lite: 1.0.30001799
+      caniuse-lite: 1.0.30001800
       fraction.js: 5.3.4
       picocolors: 1.1.1
       postcss: 8.5.16
@@ -7506,7 +7510,7 @@ snapshots:
 
   base64-js@1.5.1: {}
 
-  baseline-browser-mapping@2.10.40: {}
+  baseline-browser-mapping@2.10.42: {}
 
   bignumber.js@9.3.1: {}
 
@@ -7591,9 +7595,9 @@ snapshots:
 
   browserslist@4.28.4:
     dependencies:
-      baseline-browser-mapping: 2.10.40
-      caniuse-lite: 1.0.30001799
-      electron-to-chromium: 1.5.380
+      baseline-browser-mapping: 2.10.42
+      caniuse-lite: 1.0.30001800
+      electron-to-chromium: 1.5.387
       node-releases: 2.0.50
       update-browserslist-db: 1.2.3(browserslist@4.28.4)
 
@@ -7653,7 +7657,7 @@ snapshots:
 
   camelcase@6.3.0: {}
 
-  caniuse-lite@1.0.30001799: {}
+  caniuse-lite@1.0.30001800: {}
 
   chai@6.2.2: {}
 
@@ -7886,7 +7890,7 @@ snapshots:
 
   eastasianwidth@0.2.0: {}
 
-  electron-to-chromium@1.5.380: {}
+  electron-to-chromium@1.5.387: {}
 
   elliptic@6.6.1:
     dependencies:
@@ -8484,7 +8488,7 @@ snapshots:
 
   human-signals@2.1.0: {}
 
-  idb-keyval@6.2.5: {}
+  idb-keyval@6.2.6: {}
 
   ieee754@1.2.1: {}
 
@@ -8758,7 +8762,7 @@ snapshots:
       jest-regex-util: 30.4.0
       jest-util: 30.4.1
       jest-worker: 30.4.1
-      picomatch: 4.0.4
+      picomatch: 4.0.5
       walker: 1.0.8
     optionalDependencies:
       fsevents: 2.3.3
@@ -8802,7 +8806,7 @@ snapshots:
       chalk: 4.1.2
       graceful-fs: 4.2.11
       jest-util: 30.4.1
-      picomatch: 4.0.4
+      picomatch: 4.0.5
       pretty-format: 30.4.1
       slash: 3.0.0
       stack-utils: 2.0.6
@@ -8933,7 +8937,7 @@ snapshots:
       chalk: 4.1.2
       ci-info: 4.4.0
       graceful-fs: 4.2.11
-      picomatch: 4.0.4
+      picomatch: 4.0.5
 
   jest-validate@30.4.1:
     dependencies:
@@ -9407,6 +9411,8 @@ snapshots:
 
   picomatch@4.0.4: {}
 
+  picomatch@4.0.5: {}
+
   pify@2.3.0: {}
 
   pino-abstract-transport@2.0.0:
@@ -9603,13 +9609,13 @@ snapshots:
 
   react-refresh@0.17.0: {}
 
-  react-router-dom@7.18.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
+  react-router-dom@7.18.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
     dependencies:
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
-      react-router: 7.18.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      react-router: 7.18.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
 
-  react-router@7.18.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
+  react-router@7.18.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
     dependencies:
       cookie: 1.1.1
       react: 18.3.1
@@ -10227,7 +10233,7 @@ snapshots:
       '@unrs/resolver-binding-win32-ia32-msvc': 1.12.2
       '@unrs/resolver-binding-win32-x64-msvc': 1.12.2
 
-  unstorage@1.17.5(idb-keyval@6.2.5):
+  unstorage@1.17.5(idb-keyval@6.2.6):
     dependencies:
       anymatch: 3.1.3
       chokidar: 5.0.0
@@ -10238,7 +10244,7 @@ snapshots:
       ofetch: 1.5.1
       ufo: 1.6.4
     optionalDependencies:
-      idb-keyval: 6.2.5
+      idb-keyval: 6.2.6
 
   upath@2.0.1: {}
 
