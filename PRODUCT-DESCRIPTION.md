@@ -73,6 +73,8 @@ Examples:
 
 Signer groups must be first-class objects in both the contract model and the frontend. Users should never have to infer group state from raw addresses. Any change to signer groups, thresholds, admin privileges, or policies must itself be represented as a co-signed governed proposal so the contract can enforce administrative changes with the same threshold rules as fund movement.
 
+**Governance safety.** The safe is intentionally non-upgradable, so there is no recovery path if governance is ever locked out. The contract rejects any `ADM_SET_PRIVILEGES` or `ADM_SET_ACTIVE` change that would strip `PRIV_GROUP` from, or deactivate, the last remaining active group holding it — but operators should still design topology defensively: maintain at least two independent groups with `PRIV_GROUP` where practical, and never approve a change that would leave governance dependent on a single admin group.
+
 ### Account Types
 
 When a user adds an account to a signer group, they choose an account type. The safe treats account type as metadata plus a verification rule, so different cryptographic schemes can coexist in the same safe.

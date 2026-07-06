@@ -10,7 +10,9 @@ import {
   ADM_CHANGE_THRESHOLD,
   ADM_CREATE_GROUP,
   ADM_REMOVE_MEMBER,
+  ADM_SET_ACTIVE,
   ADM_SET_POLICY,
+  ADM_SET_PRIVILEGES,
   FAR_EXPIRY,
   PRIV_ALL,
   PRIV_GROUP,
@@ -1287,5 +1289,330 @@ describe('AlgoSafe contract', () => {
 
     // The reference-count check fires at execution time.
     await expect(client.send.executeProposal({ args: { proposalId: pid!, ensureBudgetValue: 6000n }, ...execParams })).rejects.toThrow()
+  })
+
+  // -------------------------------------------------------------------------
+  // Security-audit regression tests (2026-07-06 report)
+  // -------------------------------------------------------------------------
+
+  test('rejects appending a transaction-group payload chunk after an independent approval (C-01 regression)', async () => {
+    const { client } = await deployAndBootstrap()
+    const attacker = await localnet.context.generateAccount({ initialFunds: (1).algo() })
+    const honestMember = await localnet.context.generateAccount({ initialFunds: (1).algo() })
+    const decoy = await localnet.context.generateAccount({ initialFunds: (0).algo() })
+    const attackerPayout = await localnet.context.generateAccount({ initialFunds: (0).algo() })
+
+    // Governance creates a 2-of-2 Treasury group with an attacker and an honest member.
+    await governAdminChange(
+      client,
+      1n,
+      mkAdminChange({
+        changeType: ADM_CREATE_GROUP,
+        groupName: 'Treasury',
+        threshold: 1n,
+        memberAddr: attacker.toString(),
+        allowedActions: ACT_PAY,
+        adminPrivileges: 0n,
+      }),
+    )
+    const treasuryGroupId = 2n
+    await governAdminChange(
+      client,
+      1n,
+      mkAdminChange({ changeType: ADM_ADD_MEMBER, targetGroupId: treasuryGroupId, memberAddr: honestMember.toString() }),
+    )
+    await governAdminChange(
+      client,
+      1n,
+      mkAdminChange({ changeType: ADM_CHANGE_THRESHOLD, targetGroupId: treasuryGroupId, threshold: 2n }),
+    )
+
+    // Attacker proposes an innocuous small payment (auto-approves, 1 of 2).
+    const { return: pid } = await client.send.proposeTransactionGroup({
+      args: {
+        groupId: treasuryGroupId,
+        payload: toSafeTxnGroup([safePayment(decoy.toString(), (0.5).algo().microAlgo)]),
+        expiryRound: FAR_EXPIRY,
+        execute: false,
+        ensureBudgetValue: 10000n,
+      },
+      sender: attacker,
+      suppressLog: true,
+      staticFee: (0.2).algo(),
+    })
+
+    // Honest member reviews the single visible payment and approves — proposal reaches READY.
+    await client.send.approveProposal({ args: { proposalId: pid!, ensureBudgetValue: 0n }, sender: honestMember, suppressLog: true })
+    const ready = await client.send.getProposal({ args: { proposalId: pid!, ensureBudgetValue: 0n }, suppressLog: true })
+    expect(ready.return!.approvalsCount).toBe(2n)
+    expect(ready.return!.status).toBe(2n) // READY
+
+    // Attacker attempts to append a large drain payment after approvals are locked in — must be rejected.
+    await expect(
+      client.send.appendTransactionGroupPayload({
+        args: {
+          proposalId: pid!,
+          payloadIndex: 2n,
+          payload: toSafeTxnGroup([safePayment(attackerPayout.toString(), (19).algo().microAlgo)]),
+          ensureBudgetValue: 10000n,
+        },
+        sender: attacker,
+        suppressLog: true,
+        staticFee: (0.1).algo(),
+      }),
+    ).rejects.toThrow()
+
+    // Execution only ever moves the single, honestly reviewed payment.
+    await client.send.executeProposal({ args: { proposalId: pid!, ensureBudgetValue: 6000n }, sender: honestMember, ...execParams })
+    const decoyInfo = await localnet.algorand.account.getInformation(decoy)
+    expect(decoyInfo.balance.microAlgo).toBe((0.5).algo().microAlgo)
+  })
+
+  test('rejects appendTransactionGroupPayload from a group member who is not the proposer', async () => {
+    const { client } = await deployAndBootstrap()
+    const a = await localnet.context.generateAccount({ initialFunds: (1).algo() })
+    const b = await localnet.context.generateAccount({ initialFunds: (1).algo() })
+    const recipient = await localnet.context.generateAccount({ initialFunds: (0).algo() })
+
+    await governAdminChange(
+      client,
+      1n,
+      mkAdminChange({
+        changeType: ADM_CREATE_GROUP,
+        groupName: 'Ops',
+        threshold: 1n,
+        memberAddr: a.toString(),
+        allowedActions: ACT_PAY,
+        adminPrivileges: 0n,
+      }),
+    )
+    const groupId = 2n
+    await governAdminChange(
+      client,
+      1n,
+      mkAdminChange({ changeType: ADM_ADD_MEMBER, targetGroupId: groupId, memberAddr: b.toString() }),
+    )
+    // Threshold stays 1, so A's proposal reaches READY on auto-approval alone —
+    // isolating the proposer check from the approvalsCount===1 check.
+
+    const { return: pid } = await client.send.proposeTransactionGroup({
+      args: {
+        groupId,
+        payload: toSafeTxnGroup([safePayment(recipient.toString(), (0.1).algo().microAlgo)]),
+        expiryRound: FAR_EXPIRY,
+        execute: false,
+        ensureBudgetValue: 10000n,
+      },
+      sender: a,
+      suppressLog: true,
+      staticFee: (0.2).algo(),
+    })
+
+    await expect(
+      client.send.appendTransactionGroupPayload({
+        args: {
+          proposalId: pid!,
+          payloadIndex: 2n,
+          payload: toSafeTxnGroup([safePayment(recipient.toString(), (0.2).algo().microAlgo)]),
+          ensureBudgetValue: 10000n,
+        },
+        sender: b,
+        suppressLog: true,
+        staticFee: (0.1).algo(),
+      }),
+    ).rejects.toThrow()
+  })
+
+  test('rejects the sole PRIV_GROUP holder revoking its own group-admin privilege (M-01 lockout guard)', async () => {
+    const { client } = await deployAndBootstrap()
+
+    const initialCount = await client.send.getActivePrivGroupCount({ args: { ensureBudgetValue: 0n }, suppressLog: true })
+    expect(initialCount.return).toBe(1n)
+
+    await expect(
+      client.send.proposeAdminChange({
+        args: {
+          groupId: 1n,
+          change: mkAdminChange({ changeType: ADM_SET_PRIVILEGES, targetGroupId: 1n, adminPrivileges: 0n }),
+          expiryRound: FAR_EXPIRY,
+          ensureBudgetValue: 0n,
+        },
+        suppressLog: true,
+        staticFee: (0.2).algo(),
+      }),
+    ).rejects.toThrow()
+
+    const countAfter = await client.send.getActivePrivGroupCount({ args: { ensureBudgetValue: 0n }, suppressLog: true })
+    expect(countAfter.return).toBe(1n)
+  })
+
+  test('rejects deactivating the sole active PRIV_GROUP holder (M-01 lockout guard)', async () => {
+    const { client } = await deployAndBootstrap()
+
+    await expect(
+      client.send.proposeAdminChange({
+        args: {
+          groupId: 1n,
+          change: mkAdminChange({ changeType: ADM_SET_ACTIVE, targetGroupId: 1n, activeFlag: 0n }),
+          expiryRound: FAR_EXPIRY,
+          ensureBudgetValue: 0n,
+        },
+        suppressLog: true,
+        staticFee: (0.2).algo(),
+      }),
+    ).rejects.toThrow()
+  })
+
+  test('allows revoking PRIV_GROUP while another active group still holds it, but blocks removing the last one (M-01)', async () => {
+    const { client } = await deployAndBootstrap()
+    const b = await localnet.context.generateAccount({ initialFunds: (1).algo() })
+
+    // Create a second group that also holds PRIV_GROUP.
+    await governAdminChange(
+      client,
+      1n,
+      mkAdminChange({
+        changeType: ADM_CREATE_GROUP,
+        groupName: 'Backup Admins',
+        threshold: 1n,
+        memberAddr: b.toString(),
+        allowedActions: 0n,
+        adminPrivileges: PRIV_GROUP,
+      }),
+    )
+    let count = await client.send.getActivePrivGroupCount({ args: { ensureBudgetValue: 0n }, suppressLog: true })
+    expect(count.return).toBe(2n)
+
+    // Group 1 revokes its own PRIV_GROUP — allowed, since group 2 still holds it.
+    await governAdminChange(
+      client,
+      1n,
+      mkAdminChange({ changeType: ADM_SET_PRIVILEGES, targetGroupId: 1n, adminPrivileges: 0n }),
+    )
+    count = await client.send.getActivePrivGroupCount({ args: { ensureBudgetValue: 0n }, suppressLog: true })
+    expect(count.return).toBe(1n)
+
+    // Group 2 is now the sole holder — it cannot strip its own PRIV_GROUP either.
+    await expect(
+      client.send.proposeAdminChange({
+        args: {
+          groupId: 2n,
+          change: mkAdminChange({ changeType: ADM_SET_PRIVILEGES, targetGroupId: 2n, adminPrivileges: 0n }),
+          expiryRound: FAR_EXPIRY,
+          ensureBudgetValue: 0n,
+        },
+        sender: b,
+        suppressLog: true,
+        staticFee: (0.2).algo(),
+      }),
+    ).rejects.toThrow()
+  })
+
+  test('requires the live group threshold at execution when it was raised after the proposal was already READY (M-02 defense in depth)', async () => {
+    const { client } = await deployAndBootstrap()
+    const a = await localnet.context.generateAccount({ initialFunds: (1).algo() })
+    const b = await localnet.context.generateAccount({ initialFunds: (1).algo() })
+    const recipient = await localnet.context.generateAccount({ initialFunds: (0).algo() })
+
+    // Treasury group starts 1-of-2 (threshold 1, two members).
+    await governAdminChange(
+      client,
+      1n,
+      mkAdminChange({
+        changeType: ADM_CREATE_GROUP,
+        groupName: 'Treasury',
+        threshold: 1n,
+        memberAddr: a.toString(),
+        allowedActions: ACT_PAY,
+        adminPrivileges: 0n,
+      }),
+    )
+    const groupId = 2n
+    await governAdminChange(
+      client,
+      1n,
+      mkAdminChange({ changeType: ADM_ADD_MEMBER, targetGroupId: groupId, memberAddr: b.toString() }),
+    )
+
+    // A proposes a payment; auto-approves under threshold=1 → immediately READY.
+    const { return: pid } = await client.send.proposeTransactionGroup({
+      args: {
+        groupId,
+        payload: toSafeTxnGroup([safePayment(recipient.toString(), (0.3).algo().microAlgo)]),
+        expiryRound: FAR_EXPIRY,
+        execute: false,
+        ensureBudgetValue: 10000n,
+      },
+      sender: a,
+      suppressLog: true,
+      staticFee: (0.2).algo(),
+    })
+    const ready = await client.send.getProposal({ args: { proposalId: pid!, ensureBudgetValue: 0n }, suppressLog: true })
+    expect(ready.return!.status).toBe(2n) // READY under the threshold=1 snapshot
+
+    // Governance raises the group's live threshold to 2 (e.g. responding to a suspected compromise).
+    await governAdminChange(
+      client,
+      1n,
+      mkAdminChange({ changeType: ADM_CHANGE_THRESHOLD, targetGroupId: groupId, threshold: 2n }),
+    )
+
+    // Execution now requires the live threshold (2), not the stale snapshot (1).
+    await expect(
+      client.send.executeProposal({ args: { proposalId: pid!, ensureBudgetValue: 6000n }, sender: a, ...execParams }),
+    ).rejects.toThrow()
+
+    // Once a second, independent approval brings approvalsCount to 2, execution succeeds.
+    await client.send.approveProposal({ args: { proposalId: pid!, ensureBudgetValue: 0n }, sender: b, suppressLog: true })
+    await client.send.executeProposal({ args: { proposalId: pid!, ensureBudgetValue: 6000n }, sender: b, ...execParams })
+
+    const recipInfo = await localnet.algorand.account.getInformation(recipient)
+    expect(recipInfo.balance.microAlgo).toBe((0.3).algo().microAlgo)
+  })
+
+  test('prunes box storage for a terminal, expired proposal but not before (L-01)', async () => {
+    const { client, deployer } = await deployAndBootstrap()
+    const recipient = await localnet.context.generateAccount({ initialFunds: (0).algo() })
+
+    const round = await currentRound()
+    const expiryRound = round + 20n
+
+    const { return: pid } = await client.send.proposeTransactionGroup({
+      args: {
+        groupId: 1n,
+        payload: toSafeTxnGroup([safePayment(recipient.toString(), (0.1).algo().microAlgo)]),
+        expiryRound,
+        execute: false,
+        ensureBudgetValue: 10000n,
+      },
+      suppressLog: true,
+      staticFee: (0.2).algo(),
+    })
+
+    // Not terminal yet (still READY, unexecuted) — prune must be rejected.
+    await expect(
+      client.send.pruneProposal({ args: { proposalId: pid!, ensureBudgetValue: 0n }, suppressLog: true }),
+    ).rejects.toThrow()
+
+    await client.send.executeProposal({ args: { proposalId: pid!, ensureBudgetValue: 6000n }, ...execParams })
+
+    // Terminal (EXECUTED) but not yet past expiry — still rejected.
+    await expect(
+      client.send.pruneProposal({ args: { proposalId: pid!, ensureBudgetValue: 0n }, suppressLog: true }),
+    ).rejects.toThrow()
+
+    // Advance rounds past expiry with a few unrelated payments.
+    for (let i = 0; i < 25; i += 1) {
+      await localnet.algorand.send.payment({ amount: (0).algo(), sender: deployer, receiver: deployer, suppressLog: true })
+    }
+
+    await client.send.pruneProposal({ args: { proposalId: pid!, ensureBudgetValue: 0n }, suppressLog: true })
+
+    await expect(
+      client.send.getProposal({ args: { proposalId: pid!, ensureBudgetValue: 0n }, suppressLog: true }),
+    ).rejects.toThrow()
+    await expect(
+      client.send.getTransactionGroup({ args: { proposalId: pid!, payloadIndex: 1n, ensureBudgetValue: 0n }, suppressLog: true }),
+    ).rejects.toThrow()
   })
 })

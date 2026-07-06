@@ -94,7 +94,7 @@ const ADM_SET_ACTIVE: uint64 = Uint64(7)
 // Period lengths for spending limits, in seconds.
 const DAY_SECONDS: uint64 = Uint64(86400)
 const MONTH_SECONDS: uint64 = Uint64(2592000) // 30 days
-const CONTRACT_VERSION = 'BIATEC-ALGO-SAFE-v1.2.0'
+const CONTRACT_VERSION = 'BIATEC-ALGO-SAFE-v1.3.0'
 
 // ---------------------------------------------------------------------------
 // Stored record types (plain TS types for box storage)
@@ -255,6 +255,10 @@ export class AlgoSafe extends Contract {
   groupCount = GlobalState<uint64>({ key: 'gcnt' })
   paused = GlobalState<uint64>({ key: 'paused' })
   version = GlobalState<string>({ key: 'ver' })
+  // Count of active groups currently holding PRIV_GROUP. Maintained
+  // incrementally (see _applyAdminChange / bootstrap) so governance changes
+  // that would drop it to 0 can be rejected without scanning every group.
+  activePrivGroupCount = GlobalState<uint64>({ key: 'apgc' })
 
   // Box storage.
   groups = BoxMap<uint64, SignerGroup>({ keyPrefix: 'g' })
@@ -284,6 +288,7 @@ export class AlgoSafe extends Contract {
     this.groupCount.value = Uint64(0)
     this.paused.value = Uint64(0)
     this.version.value = CONTRACT_VERSION
+    this.activePrivGroupCount.value = Uint64(0)
     emit<SafeCreated>({ name, creator: Txn.sender })
   }
 
@@ -326,6 +331,8 @@ export class AlgoSafe extends Contract {
     this.nextGroupId.value = gid + Uint64(1)
     this.groupCount.value = this.groupCount.value + Uint64(1)
     this.bootstrapped.value = Uint64(1)
+    // Genesis group holds PRIV_ALL (includes PRIV_GROUP) and is active.
+    this.activePrivGroupCount.value = Uint64(1)
 
     emit<GroupCreated>({ groupId: gid, name: groupName, threshold: Uint64(1) })
     emit<MemberAdded>({ groupId: gid, member: Txn.sender, accountType: Uint64(1) })
@@ -375,8 +382,12 @@ export class AlgoSafe extends Contract {
 
   /**
    * Append an additional payload chunk (slots 2–6) to an existing transaction-group
-   * proposal. Must be called before the proposal reaches STATUS_READY so all
-   * chunks are present when the proposal is executed.
+   * proposal. Callable only by the original proposer, and only while
+   * `approvalsCount === 1` (i.e. no one but the proposer's own auto-approval has
+   * approved yet). This closes the window for a member to alter the executed
+   * transaction set after an independent signer has approved the proposal as it
+   * existed at that time — see the `approveProposal` / `_executeProposalInternal`
+   * comments for how approvals are bound to a payload.
    */
   public appendTransactionGroupPayload(
     proposalId: uint64,
@@ -392,7 +403,8 @@ export class AlgoSafe extends Contract {
     const proposal = clone(this.proposals(proposalId).value)
     assert(proposal.payloadType === PT_TRANSACTION_GROUP, 'not a tx group')
     assert(proposal.status === STATUS_ACTIVE || proposal.status === STATUS_READY, 'proposal not pending')
-    this._assertMember(proposal.groupId)
+    assert(Txn.sender === proposal.proposer, 'only proposer can append')
+    assert(proposal.approvalsCount === Uint64(1), 'cannot modify payload after independent approval')
     this._storePayloadGroup(proposalId, payloadIndex, payload)
     if (payloadIndex > proposal.numPayloads) {
       const updated = clone(proposal)
@@ -465,6 +477,35 @@ export class AlgoSafe extends Contract {
     emit<ProposalCancelled>({ proposalId })
   }
 
+  /**
+   * Reclaim box MBR for a proposal that finished (EXECUTED/CANCELLED) and is
+   * past its expiry round, by deleting its proposal record and any
+   * transaction-group/admin payload boxes. Callable by any member of the
+   * proposal's group. Approval boxes (keyed per-signer, with no on-chain list
+   * of who approved) are not deleted here.
+   */
+  public pruneProposal(proposalId: uint64, ensureBudgetValue: uint64): void {
+    if (ensureBudgetValue > Uint64(1)) {
+      ensureBudget(ensureBudgetValue)
+    }
+    const proposal = clone(this.proposals(proposalId).value)
+    assert(proposal.status === STATUS_EXECUTED || proposal.status === STATUS_CANCELLED, 'proposal not terminal')
+    assert(Global.round > proposal.expiryRound, 'not yet expired')
+    this._assertMember(proposal.groupId)
+
+    if (proposal.payloadType === PT_TRANSACTION_GROUP) {
+      for (let p = Uint64(1); p <= proposal.numPayloads; p = p + Uint64(1)) {
+        const key: uint64 = proposalId * TXG_KEY_MULT + p
+        if (this.transactionGroups(key).exists) {
+          this.transactionGroups(key).delete()
+        }
+      }
+    } else if (this.adminPayloads(proposalId).exists) {
+      this.adminPayloads(proposalId).delete()
+    }
+    this.proposals(proposalId).delete()
+  }
+
   // -------------------------------------------------------------------------
   // Read-only getters
   // -------------------------------------------------------------------------
@@ -532,6 +573,15 @@ export class AlgoSafe extends Contract {
     return this.approvals({ proposalId, account }).exists
   }
 
+  /** Count of active signer groups currently holding PRIV_GROUP. Never reaches 0. */
+  @abimethod({ readonly: true })
+  public getActivePrivGroupCount(ensureBudgetValue: uint64): uint64 {
+    if (ensureBudgetValue > Uint64(1)) {
+      ensureBudget(ensureBudgetValue)
+    }
+    return this.activePrivGroupCount.value
+  }
+
   // -------------------------------------------------------------------------
   // Internal: proposal helpers
   // -------------------------------------------------------------------------
@@ -553,11 +603,16 @@ export class AlgoSafe extends Contract {
     assert(this.paused.value === Uint64(0), 'safe paused')
     const proposal = clone(this.proposals(proposalId).value)
     assert(proposal.status === STATUS_READY, 'not ready to execute')
-    assert(proposal.approvalsCount >= proposal.threshold, 'threshold not met')
     assert(Global.round <= proposal.expiryRound, 'proposal expired')
 
     const group = clone(this.groups(proposal.groupId).value)
     assert(group.active !== Uint64(0), 'group disabled')
+    // Defense in depth: `proposal.threshold` is a snapshot taken at proposal
+    // creation. If the group's live threshold was later raised (e.g. in
+    // response to a suspected compromised signer), require the higher of the
+    // two rather than trusting the stale snapshot alone.
+    const requiredThreshold: uint64 = proposal.threshold >= group.threshold ? proposal.threshold : group.threshold
+    assert(proposal.approvalsCount >= requiredThreshold, 'threshold not met')
 
     if (proposal.payloadType === PT_TRANSACTION_GROUP) {
       this._executeTransactionGroup(proposalId, proposal.groupId, group, proposal.numPayloads)
@@ -900,6 +955,28 @@ export class AlgoSafe extends Contract {
     }
   }
 
+  /**
+   * True if applying `change` would strip PRIV_GROUP (via ADM_SET_PRIVILEGES) or
+   * deactivate (via ADM_SET_ACTIVE) the last remaining active PRIV_GROUP holder,
+   * which would permanently lock governance out of the non-upgradable contract.
+   * Reads `group` fresh so it reflects state at validation/apply time.
+   */
+  private _wouldRemoveLastGroupAdmin(change: AdminChange, group: SignerGroup): boolean {
+    const hasGroupPriv = (group.adminPrivileges & PRIV_GROUP) !== Uint64(0)
+    if (!hasGroupPriv || group.active === Uint64(0)) {
+      return false
+    }
+    if (change.changeType === ADM_SET_PRIVILEGES) {
+      const willHaveGroupPriv = (change.adminPrivileges & PRIV_GROUP) !== Uint64(0)
+      return !willHaveGroupPriv && this.activePrivGroupCount.value <= Uint64(1)
+    }
+    if (change.changeType === ADM_SET_ACTIVE) {
+      const willBeActive = change.activeFlag !== Uint64(0)
+      return !willBeActive && this.activePrivGroupCount.value <= Uint64(1)
+    }
+    return false
+  }
+
   private _validateAdminChange(change: AdminChange): void {
     if (change.changeType === ADM_CREATE_GROUP) {
       assert(change.threshold >= Uint64(1), 'threshold >= 1')
@@ -920,8 +997,16 @@ export class AlgoSafe extends Contract {
     } else if (change.changeType === ADM_SET_PRIVILEGES) {
       assert(this.groups(change.targetGroupId).exists, 'target group not found')
       assert(change.adminPrivileges <= PRIV_ALL, 'invalid privileges')
+      assert(
+        !this._wouldRemoveLastGroupAdmin(change, clone(this.groups(change.targetGroupId).value)),
+        'must keep at least one active group admin',
+      )
     } else if (change.changeType === ADM_SET_ACTIVE) {
       assert(this.groups(change.targetGroupId).exists, 'target group not found')
+      assert(
+        !this._wouldRemoveLastGroupAdmin(change, clone(this.groups(change.targetGroupId).value)),
+        'must keep at least one active group admin',
+      )
     } else {
       assert(false, 'unknown change type')
     }
@@ -959,13 +1044,32 @@ export class AlgoSafe extends Contract {
       emit<GroupUpdated>({ groupId: change.targetGroupId })
     } else if (change.changeType === ADM_SET_PRIVILEGES) {
       const group = clone(this.groups(change.targetGroupId).value)
+      // Re-check against current state at apply time (state may have shifted
+      // since proposal creation, e.g. another admin change executed first).
+      assert(!this._wouldRemoveLastGroupAdmin(change, group), 'must keep at least one active group admin')
+      const hadGroupPriv = (group.adminPrivileges & PRIV_GROUP) !== Uint64(0)
+      const willHaveGroupPriv = (change.adminPrivileges & PRIV_GROUP) !== Uint64(0)
+      if (group.active !== Uint64(0) && hadGroupPriv && !willHaveGroupPriv) {
+        this.activePrivGroupCount.value = this.activePrivGroupCount.value - Uint64(1)
+      } else if (group.active !== Uint64(0) && !hadGroupPriv && willHaveGroupPriv) {
+        this.activePrivGroupCount.value = this.activePrivGroupCount.value + Uint64(1)
+      }
       group.adminPrivileges = change.adminPrivileges
       this.groups(change.targetGroupId).value = clone(group)
       emit<GroupUpdated>({ groupId: change.targetGroupId })
     } else {
       // ADM_SET_ACTIVE
       const group = clone(this.groups(change.targetGroupId).value)
-      group.active = change.activeFlag === Uint64(0) ? Uint64(0) : Uint64(1)
+      assert(!this._wouldRemoveLastGroupAdmin(change, group), 'must keep at least one active group admin')
+      const hasGroupPriv = (group.adminPrivileges & PRIV_GROUP) !== Uint64(0)
+      const wasActive = group.active !== Uint64(0)
+      const willBeActive = change.activeFlag !== Uint64(0)
+      if (hasGroupPriv && wasActive && !willBeActive) {
+        this.activePrivGroupCount.value = this.activePrivGroupCount.value - Uint64(1)
+      } else if (hasGroupPriv && !wasActive && willBeActive) {
+        this.activePrivGroupCount.value = this.activePrivGroupCount.value + Uint64(1)
+      }
+      group.active = willBeActive ? Uint64(1) : Uint64(0)
       this.groups(change.targetGroupId).value = clone(group)
       emit<GroupUpdated>({ groupId: change.targetGroupId })
     }
@@ -999,6 +1103,9 @@ export class AlgoSafe extends Contract {
 
     this.nextGroupId.value = gid + Uint64(1)
     this.groupCount.value = this.groupCount.value + Uint64(1)
+    if ((change.adminPrivileges & PRIV_GROUP) !== Uint64(0)) {
+      this.activePrivGroupCount.value = this.activePrivGroupCount.value + Uint64(1)
+    }
 
     emit<GroupCreated>({ groupId: gid, name: change.groupName, threshold: change.threshold })
     emit<MemberAdded>({ groupId: gid, member: change.memberAddr, accountType: change.memberType })
