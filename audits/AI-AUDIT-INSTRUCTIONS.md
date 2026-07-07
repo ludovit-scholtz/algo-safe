@@ -380,6 +380,49 @@ Follow the audit template structure exactly:
 11. **Compliance and Standards** - Standards adherence
 12. **Appendix** - Supporting information
 
+The Risk Assessment section (§8) MUST reference `audits/RISK-REGISTRY.md` rather than re-deriving a standalone risk model from scratch — see "Risk Registry Maintenance" below for the required update process.
+
+---
+
+## Risk Registry Maintenance
+
+`audits/RISK-REGISTRY.md` is a **living document**, distinct from any single audit report: audit reports are point-in-time snapshots of a specific commit, while the registry persists and accumulates across audits, tracking how each risk's status and likelihood evolve as the contract, its usage, and the surrounding threat landscape change. Every audit MUST update it as part of completing the audit — an audit that adds findings to a report but leaves the registry untouched is incomplete.
+
+### What belongs in the registry (broader than a single audit's findings)
+
+The registry is not simply "this audit's findings re-labeled." It should cover the full risk surface a professional custody-contract risk assessment would include:
+
+- **Code-level risks tied to a specific finding** in the current or a past audit report (cross-reference the finding ID and file/line).
+- **Structural/design risks** that are not bugs but inherent properties worth tracking (e.g. fixed-window vs. sliding-window rate limiting, irreversible actions like rekey, non-upgradability tradeoffs).
+- **Operational/human risks** that no code change can fully close (key compromise, insider threat, threshold misconfiguration, coercion) — these belong in the registry precisely because they persist regardless of code quality, and a registry that omits them understates real-world risk.
+- **Platform/ecosystem risks** (Algorand consensus parameter drift, compiler/toolchain miscompilation, dependency vulnerabilities, cryptographic assumptions including long-horizon ones like post-quantum signatures).
+- **Integration/upgrade risks** spanning the frontend, client libraries, and migration tooling, even where those are out of a given audit's direct code-review scope — the registry should still carry a risk entry for them (marked accordingly) since they affect the system's overall security posture.
+
+### Required fields per risk entry
+
+Every entry needs: a stable ID (`R-NN`, never reused after retirement — retire by marking `Closed`/`Superseded`, don't delete and don't renumber), Category, Severity if realized, **5-Year Probability** (see below), Residual Risk, Status, and — where applicable — a cross-reference to the audit finding ID that substantiates it.
+
+### Estimating the 5-Year Probability
+
+This is the field requiring the most judgment. For each risk, estimate the probability it manifests as a **realized incident** (not "is theoretically possible") against a representative deployed, funded instance, over a 5-year forward-looking window, given mitigations in place at the time of the estimate. Calibrate using:
+
+1. **Does a concrete, currently-open code finding substantiate this risk?** An open High/Critical finding should push probability meaningfully higher than a purely theoretical/structural risk with no known exploitable path.
+2. **Historical base rates for the risk class**, drawn from the broader smart-contract/multisig/custody industry (e.g. key compromise and threshold misconfiguration are the dominant real-world loss categories across the industry, independent of any single contract's code quality — score operational/human risks accordingly rather than assuming code correctness caps them near zero).
+3. **How much the risk depends on factors outside the contract's control.** Operational and human-factor risks (phishing, coercion, regulatory change) should generally score *higher* probability than pure code-logic risks in a mature, well-tested contract, precisely because a code fix cannot fully close them.
+4. **Whether the risk is protocol-enforced** (e.g. AVM-level reentrancy prevention) — these should score very low probability with status `N/A (protocol-enforced)`, since the mitigation doesn't depend on this contract's code at all.
+5. **Write down the reasoning**, not just the number — every entry's probability estimate must include a short justification paragraph explaining the calibration (see the existing entries in `RISK-REGISTRY.md` for the expected depth). A bare percentage with no reasoning is not acceptable; a future auditor (human or AI) must be able to judge whether the number still holds.
+
+Do not treat these percentages as precise measurements — they are professional judgment calls for prioritization, explicitly labeled as such. Avoid false precision (prefer round numbers like 5%, 10%, 15%, 20% over spuriously specific ones like 7.3%) except at the low end, where `<1%` is an appropriate and meaningful distinction from `2-5%`.
+
+### Update procedure for every audit
+
+1. **Read the existing registry first** (do not recreate it from scratch on top of a prior audit unless explicitly asked to produce a from-scratch registry, e.g. for a first-ever audit or an intentional reset).
+2. **Re-score every entry whose status is `Open` or `Partially Mitigated`** against the current commit — has anything changed that should move the probability or status? If a prior finding was fixed, update its status to `Mitigated` and lower its probability, keeping the entry (with its history) rather than deleting it.
+3. **Add new entries** for any newly-identified finding from the current audit, and for any newly-relevant structural/operational/platform risk not previously captured.
+4. **Update the "Last updated" / "Reviewed against commit" header fields** at the top of the registry.
+5. **Append a row to the Change Log** at the bottom summarizing what changed and citing the audit report that drove the change.
+6. **Cross-check severity classifications stay consistent** with the Vulnerability Severity Classification scale used in audit reports (Critical/High/Medium/Low) — the registry and audit reports must use the same severity vocabulary.
+
 ---
 
 ## Analysis Techniques
@@ -578,6 +621,7 @@ Before submitting the audit:
 - [ ] No placeholder text remains
 - [ ] Report is well-formatted and readable
 - [ ] Executive summary accurately reflects findings
+- [ ] `audits/RISK-REGISTRY.md` has been read, re-scored where warranted, and updated with any new risks from this audit (see "Risk Registry Maintenance" above) — its header and Change Log reflect this audit's commit and date
 
 ---
 
@@ -657,6 +701,6 @@ After completing the audit:
 
 ---
 
-**Version**: 2.0
-**Last Updated**: 2026-07-06
+**Version**: 3.0
+**Last Updated**: 2026-07-07
 **Maintained by**: algo-safe project

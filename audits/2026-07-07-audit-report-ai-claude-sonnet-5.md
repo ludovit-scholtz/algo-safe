@@ -1,0 +1,458 @@
+# Algo Safe — Independent Security Audit Report
+
+**AI Model**: Claude Sonnet 5 (claude-sonnet-5)
+**Provider**: Anthropic
+**Audit Date**: 2026-07-07
+**Commit Hash**: 5e4e27ace2cba026ea6eb7209e31006257234669
+**Commit Date**: 2026-07-07T10:25:34+02:00
+**Contract Version String**: `BIATEC-ALGO-SAFE-v1.6.0` (`contract.algo.ts:109`)
+**Contract Version Bump Check**: `contract.algo.ts` was **not** modified by the audited commit (`feat: implement safe migration and upgrade functionality` touched only the off-chain library/frontend — `git log` shows no changes to `contract.algo.ts` since the prior client hash was generated). `pnpm build` reproduced the identical approval-program hash below with no new `clients/<hash>/` folder, confirming no version bump was owed.
+
+> **Independence note**: this report was produced from a first-principles reading of `contract.algo.ts` and the `algo-safe-contracts` library, without reference to any prior audit report in `audits/`. Where the contract's own code comments reference previously-fixed findings (e.g. inline notes citing "H-01", "M-01", "M-02", "M-03" fixes), those are treated only as evidence that a specific mechanism exists and is tested — not as a substitute for independently verifying the mechanism is actually sound. All findings below were derived fresh; any numeric coincidence with historical finding IDs mentioned in code comments is coincidental (finding IDs are scoped to this document only).
+
+---
+
+## Contract Bytecode Hashes
+
+Computed via `pnpm run compute-bytecode-hashes` against the freshly-built `smart_contracts/artifacts/algo_safe/AlgoSafe.arc56.json`:
+
+- **Approval Program SHA256**: `0f44ee7b45b2b85adc8bef13d4e66715df3caed1129258e2657ce6a2f038b5d3`
+- **Clear Program SHA256**: `ed90f0d2da1f1d1abd773c45230651a292a90edbc12a7bf859a493a12a640ce7`
+
+This matches `LATEST_CONTRACT_HASH` in `src/versioned-clients.generated.ts` and the folder name `clients/0f44ee7b45b2b85adc8bef13d4e66715df3caed1129258e2657ce6a2f038b5d3/` — the npm package's version registry is in sync with the compiled artifact audited here.
+
+**Approval program size**: 7,499 bytes (measured via LocalNet algod `/v2/teal/compile` on the compiled TEAL). **Ceiling**: 8,192 bytes (`MaxExtraAppProgramPages=3`). **Margin**: 693 bytes (**8.5%** headroom). See [I-01](#i-01-shrinking-program-size-margin) for a trend note.
+
+---
+
+## 1. Executive Summary
+
+Algo Safe is a single-file, policy-driven M-of-N smart account for Algorand (`contract.algo.ts`, 1,432 lines). It is a mature contract on its seventh-plus reviewed iteration (`v1.6.0`): the code contains extensive inline evidence of prior hardening (governance-lockout guard, membership-epoch invalidation, cooldown-overflow protection, close-out sweep accounting), and the current test suite (50 e2e scenarios) is substantially regression-oriented — most tests are explicitly named after the defect class they guard against.
+
+This fresh review did not find any **Critical** issues. Access control, the proposal state machine, spend-limit accounting, and the governance-lockout guard are internally consistent and match their documented invariants. One **High**-severity finding was identified: a multi-chunk transaction-group proposal's not-yet-independently-approved content can be swapped by its proposer in the narrow window between a second signer deciding to approve and that approval landing on-chain, because `approveProposal` authorizes a proposal *ID*, not a commitment to specific payload *content* — this is a real front-running/bait-and-switch vector for a malicious or compromised proposer, scoped to proposals spanning more than one payload chunk. Three **Medium** findings were identified: the `paused` global is documented as "(reserved)" but has no admin-change path to ever set it, meaning there is currently no way to freeze the safe in an emergency; multi-chunk payloads have no aggregate-length check, so a proposal can accumulate more transactions than the AVM's single inner-transaction-group limit allows, guaranteeing execution failure after real coordination effort has been spent; and mixing the two bootstrap code paths (`bootstrap()` after `bootstrapGroup()`) silently desyncs the `activePrivGroupCount` governance-lockout counter (fail-safe direction, but a genuine state bug). One **Low** finding recommends a defensive self-call check for clearer failure semantics. Several **Informational** items round out best-practice recommendations.
+
+The off-chain TypeScript library (`src/*.ts`) was checked line-by-line against the on-chain ARC4 struct layouts: every codec (`PaymentTxn`, `AssetTxn`, `AppTxn`, `KeyRegTxn`, `AssetConfigTxn`, `RekeyTxn`) and every bitmask constant (`ACT_*`, `PRIV_*`, `ADM_*`, `TX_*`) matches the contract byte-for-byte and value-for-value — no ABI drift was found.
+
+**Overall assessment**: the contract is well-engineered for a custody system of its kind and the identified issues are narrow and addressable without architectural change. The High finding should be remediated (or explicitly documented as an operational constraint requiring off-chain procedure) before the contract is relied upon for large-value multi-chunk proposals.
+
+---
+
+## 2. Scope and Methodology
+
+### In Scope
+
+- `projects/algo-safe-contracts/smart_contracts/algo_safe/contract.algo.ts` (primary trust boundary — full line-by-line review)
+- `projects/algo-safe-contracts/src/*.ts` (off-chain builders/decoders/version-detection/migration helpers)
+- `projects/algo-safe-contracts/smart_contracts/algo_safe/contract.e2e.spec.ts` (test coverage mapping)
+- `CLAUDE.md`, `PRODUCT-DESCRIPTION.md`, `AGENTS.md` (documentation accuracy)
+- Fresh build and full test-suite execution against the audited commit
+
+### Out of Scope (per `AI-AUDIT-INSTRUCTIONS.md` Phase 2 scoping, and noted here for transparency)
+
+- `projects/algo-safe-frontend/**` (React UI) — not reviewed beyond a targeted grep confirming the ABI-decoder migration debt flagged in `CLAUDE.md` still has references in `algoSafeProposals.ts`; a full frontend review was not performed
+- `projects/algo-safe-x402-client`, `projects/algo-safe-x402-facilitator`, `projects/algo-safe-x402-shop` — separate services, not part of the `AlgoSafe` contract's trust boundary
+- Formal verification / symbolic execution / fuzzing — this audit is manual structured code review plus the existing dynamic test suite, not automated program analysis
+
+### Methodology
+
+1. Full read-through of `contract.algo.ts` (all 1,432 lines), tracing every public method to every state mutation and enumerating the asserts that gate each one.
+2. State-machine analysis of the proposal lifecycle (`ACTIVE → READY → EXECUTED/CANCELLED`), cross-checking every place `proposal.status`, `approvalsCount`, `numPayloads`, `membershipEpoch`, and `activePrivGroupCount` are read or written.
+3. Data-flow tracing of a `SafeTxn` payload from ARC4 bytes → box storage → `decodeArc4` → validation (pass 1) → staging (pass 2) → inner-transaction submission, verifying nothing is staged that wasn't validated.
+4. Byte-for-byte comparison of every ARC4 codec type string in `safe-tx.ts` against the corresponding on-chain struct's field order, and every bitmask constant in `constants.ts` against the contract's constant block.
+5. Attack modeling against the checklist in `AI-AUDIT-INSTRUCTIONS.md` (governance escalation, front-running, double-execution, box-key collision, budget exhaustion, malformed ARC4 payloads).
+6. Fresh build (`pnpm build`) and full test run (`pnpm test`) against LocalNet, with bytecode-hash and program-size verification.
+7. Test-coverage gap analysis: every one of the 50 `contract.e2e.spec.ts` scenarios was mapped to a checklist item; gaps are listed in §5.
+
+---
+
+## 3. Findings
+
+### High
+
+#### H-01: Multi-Chunk Proposal Content Can Be Bait-and-Switched Between an Approver's Decision and Its On-Chain Confirmation
+
+**Severity**: High
+**Status**: Open
+**Component**: AlgoSafe (`contract.algo.ts`)
+**File**: `smart_contracts/algo_safe/contract.algo.ts:553-576` (`appendTransactionGroupPayload`), `:605-620` (`approveProposal`)
+
+**Description**:
+
+`appendTransactionGroupPayload`'s docstring (lines 542-551) states it "closes the window for a member to alter the executed transaction set after an independent signer has approved the proposal as it existed at that time," and the code enforces this via `assert(proposal.approvalsCount === Uint64(1), 'cannot modify payload after independent approval')` (line 569). This correctly blocks edits **after** a second approval has already been recorded on-chain.
+
+It does **not** close the window **before** that second approval lands. `approveProposal` (line 605) authorizes a proposal by ID only — the `Approval` record (`{signer, round}`, line 288-291) carries no commitment to the payload content the signer believed they were approving. Consider:
+
+1. Proposer creates a transaction-group proposal spanning more than one payload chunk (necessary for a proposal whose total ARC4-encoded size exceeds one ~2 KB ABI argument — ordinary batch payments/app-call groups). Slot 1 is fixed at creation and can never be edited, but slots 2–6 remain editable by the proposer for as long as `approvalsCount === 1` (i.e. only the proposer's own auto-approval exists).
+2. A second signer reviews the full proposal off-chain (e.g. via `getTransactionGroup` across all stored chunks) and independently decides to approve. They construct and broadcast an `approveProposal` transaction.
+3. Before that transaction is confirmed, the proposer — who is the only account permitted to call `appendTransactionGroupPayload` (line 568: `assert(Txn.sender === proposal.proposer, ...)`) — submits an edit to a slot-2-through-6 chunk (e.g. with a higher fee, or simply first in the same round). At the moment this edit executes, `approvalsCount` is still `1`, so the guard does not block it.
+4. The second signer's approval now confirms and increments `approvalsCount` to 2 (meeting a 2-of-N threshold), applying to the **new**, unreviewed content rather than what was shown to them.
+
+This is not a race the honest signer can defend against purely off-chain: nothing in the ABI ties the specific `approveProposal` call to a specific payload snapshot, so even re-reading `getTransactionGroup` immediately before signing does not eliminate the gap between "read" and "the transaction's actual execution order on-chain."
+
+**Impact**:
+
+For any transaction-group proposal spanning more than one payload chunk, a malicious or compromised proposer can obtain a second signer's approval for content the signer never reviewed, potentially routing funds to an attacker-controlled destination once the (now fraudulently obtained) threshold is met. This is exactly the "Front-Running" attack class called out in the audit checklist ("Can a competing approval or admin change front-run a pending proposal to change its effective authorization mid-flight?").
+
+**Scope/Precondition**: only reachable when (a) the proposal requires more than one payload chunk, and (b) the proposer is malicious or their signing key/session is compromised. Single-chunk proposals (the common case for small transaction groups) are unaffected, since slot 1 is immutable from the moment it is written.
+
+**Proof of Concept** (sketch, extending the existing `'splits a 6-payment group across two payload slots...'` test at line 452):
+
+```typescript
+// 1. Proposer creates a 2-chunk proposal: slot 1 = 3 harmless payments to Alice,
+//    slot 2 = 3 harmless payments to Alice. Threshold = 2, group has 3 members.
+// 2. Bob (an independent member) reviews both chunks via getTransactionGroup,
+//    is satisfied, and signs+broadcasts approveProposal.
+// 3. Before Bob's txn confirms, Carol (the proposer) calls
+//    appendTransactionGroupPayload(proposalId, 2, [payment-to-attacker]) —
+//    still legal because approvalsCount === 1 (only Carol's auto-approval exists).
+// 4. Bob's approveProposal lands, approvalsCount becomes 2, status -> READY.
+// 5. executeProposal moves funds per the *attacker* payload in slot 2, which
+//    Bob never saw.
+```
+
+**Recommendation**:
+
+Bind each approval to a commitment on the current payload content, mirroring the existing `epochAtCreation`/`membershipEpoch` pattern used for membership changes:
+
+1. Add a `payloadVersion: uint64` field to `Proposal`, incremented by `appendTransactionGroupPayload` on every successful write (including the initial write in `proposeTransactionGroup`).
+2. Have `approveProposal` accept an expected `payloadVersion` argument and `assert(proposal.payloadVersion === expectedVersion, 'payload changed since review')`, so a stale approval fails closed instead of silently applying to different content — the signer must re-review and resubmit, at which point they are approving the true current content.
+3. Alternatively (simpler, more conservative): once `approvalsCount === 1` and payload editing is still open, require that any `appendTransactionGroupPayload` call **resets `approvalsCount` to 0** and clears the existing approval box for the proposer (forcing them to re-approve, which re-establishes a single, unambiguous point after which content is frozen — equivalent in spirit to how `membershipEpoch` invalidates stale approvals). This avoids adding a new caller-supplied argument at the cost of one extra approval box write.
+4. Add an e2e regression test exercising the exact race above (approve-in-flight, then append, then attempt the stale approval — expect it to fail or apply to new content only with clear signal).
+
+---
+
+### Medium
+
+#### M-01: `paused` Has No Admin-Change Path to Ever Be Set, and Existing Checks Are Inconsistent
+
+**Severity**: Medium
+**Status**: Open
+**Component**: AlgoSafe (`contract.algo.ts`)
+**File**: `smart_contracts/algo_safe/contract.algo.ts:321,356,528,689,785`
+
+**Description**:
+
+`paused` (`GlobalState<uint64>`, key `'paused'`) is set to `Uint64(0)` exactly once, in `createApplication` (line 356), and is never assigned anywhere else in the file. There is no `ADM_*` discriminator (the full list — `ADM_CREATE_GROUP` through `ADM_REMOVE_REKEYED_ADDR`, lines 95-104 — contains nothing that touches `paused`), so no governed admin-change path, and no other public method, can ever set it to `1`. `PRODUCT-DESCRIPTION.md:453` documents this field as `+paused : uint64 (reserved)`, confirming this is a known, intentional placeholder rather than an oversight — but the checks that already exist around it create a partial, dead safety mechanism today:
+
+- `proposeTransactionGroup` (line 528) and `_executeProposalInternal` (line 785) check `assert(this.paused.value === Uint64(0), 'safe paused')`.
+- `proposeAdminChange` (578-598), `approveProposal` (605-620), `appendTransactionGroupPayload` (553-576), and `cancelProposal` (631-644) do **not** check it.
+
+Since `paused` can never leave `0`, none of this is currently exploitable — but it means the contract, as shipped, has **no emergency circuit breaker at all**. If a signer key is suspected compromised, an admin group's only lever is to race a governed admin change (itself subject to the same M-of-N approval delay as any other action) rather than an immediate freeze.
+
+**Impact**:
+
+Custody systems of this kind typically want a fast, low-friction way to halt value movement while a slower governance response (e.g. removing a compromised signer) is coordinated. That capability does not currently exist for Algo Safe. Separately, if `paused` is wired up in the future without revisiting every mutating entry point, the inconsistency identified above (4 of 6 relevant methods not checking it) would resurface as a real pause-bypass bug at that time.
+
+**Recommendation**:
+
+1. Add an `ADM_SET_PAUSED` (or similar) admin-change discriminator, gated by `PRIV_GROUP` (consistent with `_assertPrivilegeForChange`'s default branch), applied via `_applyAdminChange`.
+2. When implemented, ensure **every** state-mutating public method checks `paused` consistently (`proposeTransactionGroup`, `appendTransactionGroupPayload`, `proposeAdminChange`, `approveProposal`, `executeProposal`/`_executeProposalInternal`) — deciding deliberately, and documenting, whether `cancelProposal` should remain exempt (arguably it should, so pending proposals can still be cleaned up while paused).
+3. Until implemented, update `CLAUDE.md`/`PRODUCT-DESCRIPTION.md` to state explicitly that no emergency-pause capability exists yet, so integrators do not assume otherwise from the presence of the `paused` field and its partial checks.
+
+---
+
+#### M-02: No Aggregate Transaction-Count Bound Across Multi-Chunk Payloads
+
+**Severity**: Medium
+**Status**: Open
+**Component**: AlgoSafe (`contract.algo.ts`)
+**File**: `smart_contracts/algo_safe/contract.algo.ts:526-527` (`proposeTransactionGroup`), `:562-563` (`appendTransactionGroupPayload`), `:886-985` (`_executeTransactionGroup`)
+
+**Description**:
+
+`proposeTransactionGroup` bounds the first payload chunk to `MAX_GROUP_TXNS` (16, line 62) via `assert(payload.length <= MAX_GROUP_TXNS, 'too many txs')` (line 527). `appendTransactionGroupPayload`, which writes chunks 2 through 6, only asserts `payload.length >= Uint64(1)` (line 563) — there is no check on that chunk's length individually, and no check on the **running total** across all chunks already stored for the proposal.
+
+`_executeTransactionGroup` stages every entry from every chunk (`p` from 1 to `numPayloads`) into a **single** inner-transaction group: `_beginOrNext` (lines 993-996) calls `.begin()` only for the very first entry across the whole proposal and `.next()` for every subsequent entry regardless of which chunk it came from, with one `op.ITxnCreate.submit()` (line 984) at the end. A single inner-transaction group is subject to the same `MaxTxGroupSize` (16) the top-level atomic group is — so a proposal whose chunks sum to more than 16 transactions is guaranteed to fail at the AVM level during `executeProposal`, reverting the entire call atomically.
+
+**Impact**:
+
+No funds move and no state commits when this triggers (atomicity means the failure is safe), so this is not a fund-loss issue. It is a **denial-of-service/griefing vector against the coordination process**: a proposer (malicious, careless, or simply testing the limits of the six-slot design) can construct a proposal whose total size looks plausible, collect real signatures/gas from real signers across a multi-day approval cycle, and only discover at execution time that it can never succeed — wasting signer effort and leaving box MBR (the `transactionGroups` boxes) that must be identified and reclaimed via `pruneProposal` once the proposal expires.
+
+**Recommendation**:
+
+Track a running total against the proposal (e.g. add a `totalTxns: uint64` field to `Proposal`, incremented by both `proposeTransactionGroup` and `appendTransactionGroupPayload`) and assert `runningTotal + payload.length <= MAX_GROUP_TXNS` in `appendTransactionGroupPayload`, failing fast at append time with a clear error rather than at execution time with a generic AVM panic. Add a regression test that attempts to append past the aggregate limit and asserts it is rejected immediately.
+
+---
+
+#### M-03: Mixing `bootstrap()` and `bootstrapGroup()` Desyncs `activePrivGroupCount`
+
+**Severity**: Medium
+**Status**: Open
+**Component**: AlgoSafe (`contract.algo.ts`)
+**File**: `smart_contracts/algo_safe/contract.algo.ts:370-408` (`bootstrap`), `:418-471` (`bootstrapGroup`)
+
+**Description**:
+
+The contract offers two alternative genesis paths, both gated only by `assert(this.bootstrapped.value === Uint64(0), ...)` and callable by the creator: the simple `bootstrap(groupName)` (one 1-of-1 admin group) and the clone-friendly `bootstrapGroup(seed, members, ensureBudgetValue)` (repeatable, fully-configured groups, used by the migration path in `src/migration.ts`). Nothing prevents calling both in sequence on the same un-bootstrapped safe.
+
+`bootstrapGroup` correctly **increments** `activePrivGroupCount` when the seeded group holds `PRIV_GROUP` (line 465-467: `this.activePrivGroupCount.value = this.activePrivGroupCount.value + Uint64(1)`). `bootstrap`, however, unconditionally **assigns** `this.activePrivGroupCount.value = Uint64(1)` (line 404) — with no regard for any count already accumulated from prior `bootstrapGroup` calls. If a caller invokes `bootstrapGroup` one or more times (each correctly incrementing the counter) and then also calls `bootstrap`, the true count is silently discarded and reset to `1`.
+
+**Impact**:
+
+This under-counts (fail-safe direction): `_wouldRemoveLastGroupAdmin` (line 1232) becomes *more* conservative than necessary, potentially blocking a legitimate later privilege change or deactivation on the mistaken belief that doing so would leave zero `PRIV_GROUP` holders, when in fact more than one genuinely exists. It does not enable an actual governance lockout and is not exploitable by anyone other than the creator during their own setup — but it is a real, persistent state-consistency bug that would require a support/diagnostic effort to untangle if triggered (the mismatch is invisible from `getSignerGroup`/`getConfig` output; only `getActivePrivGroupCount` would reveal it, and only if someone thought to compare it against a manual count of groups).
+
+**Recommendation**:
+
+Prevent the two bootstrap paths from being mixed: add `assert(this.groupCount.value === Uint64(0), 'bootstrapGroup already used')` to `bootstrap()` (or symmetrically, have `bootstrap()` increment rather than assign — `this.activePrivGroupCount.value = this.activePrivGroupCount.value + Uint64(1)` — which is correct either way since `bootstrap()` is only reachable once per safe). The `assert` approach is preferable since it also documents that the two paths are meant to be alternatives, not composable.
+
+---
+
+### Low
+
+#### L-01: No Defensive Check Against a Transaction-Group Proposal Targeting the Safe's Own `appId`
+
+**Severity**: Low
+**Status**: Open
+**Component**: AlgoSafe (`contract.algo.ts`)
+**File**: `smart_contracts/algo_safe/contract.algo.ts:1125-1144` (`_validateApp`)
+
+**Description**:
+
+`_validateApp` checks `ACT_APPL`, rejects `appId === 0` and `onCompletion === 4` (update), and bounds argument/reference counts — but does not reject `tx.appId === Global.currentApplicationId`. `PRODUCT-DESCRIPTION.md:430` correctly documents that "an application cannot call itself, even indirectly through inner transactions; the AVM enforces this," which this auditor independently confirms is accurate protocol behavior (the ledger evaluator tracks the active call stack and rejects a call that would re-enter an application already on it). A self-targeting `TX_APP` entry would therefore fail deterministically at the `op.ITxnCreate` staging/submit step inside `_executeTransactionGroup`, reverting the entire execution atomically — no funds move, no state corrupts.
+
+**Impact**:
+
+Purely a diagnosability/defense-in-depth gap: a proposer who (accidentally or as a probing attempt) includes a self-targeting app call gets a generic AVM-level failure at execution time instead of a clear, contract-level rejection at proposal-validation time. No security impact given the protocol-level backstop, but relying solely on that backstop rather than asserting the invariant explicitly is a less robust engineering posture, especially since the assumption ("AVM blocks self-calls") is currently verified only by documentation, not by an executable test in this codebase.
+
+**Recommendation**:
+
+Add `assert(tx.appId !== Global.currentApplicationId, 'self-call not allowed')` to `_validateApp`, and add a regression test asserting the proposal is rejected at proposal-creation/validation time (not merely that it fails at execution) — this also guards against a future protocol or contract change accidentally relaxing the self-call prohibition without anyone noticing.
+
+---
+
+### Informational
+
+#### I-01: Shrinking Program-Size Margin
+
+Current margin is 693 bytes (8.5%) against the 8,192-byte ceiling. This has been consumed steadily as features were added (rekey support, the rekeyed-address registry, clone-friendly bootstrap). Recommend tracking this number per release (e.g. in CI) and treating <5% headroom as a signal to review for opcode-level size reductions before adding further functionality, consistent with the guidance already in `CLAUDE.md`.
+
+#### I-02: `ACT_APPL` Is a Broad Trust Grant
+
+A group holding `ACT_APPL` can, subject to its own M-of-N threshold, cause the safe to call **any** application ID with the safe's authority for that single inner call (bounded only by the resource-reference limits, not by an allowlist of callable app IDs). This is consistent with how general-purpose smart accounts are expected to work (equivalent to Gnosis Safe's arbitrary-call capability), but it means `ACT_APPL` should be treated by governance as comparably sensitive to `ACT_REKEY`, not as a "lesser" action bit. Recommend calling this out explicitly in end-user-facing documentation/UI copy wherever a group's `allowedActions` are configured.
+
+#### I-03: Off-Chain Group Enumeration Has No Pagination
+
+`getSignerGroupRecords` (`src/on-chain.ts:107-121`) and `fetchSafeCloneConfig` (`src/migration.ts:130-190`) fetch every group ID from `1` to `nextGroupId - 1` (including deactivated groups, which are never deleted) in parallel on every call. Fine at the group counts a smart-account safe realistically reaches, but worth revisiting (pagination or filtering to active groups server-side) if a safe accumulates a very large number of historical groups over its lifetime.
+
+---
+
+## 4. Test Suite Execution (Mandatory)
+
+**Command executed**: `pnpm build && pnpm test` (from `projects/algo-safe-contracts/`, LocalNet already running via `algokit localnet start`, verified via `docker ps` — `algokit_sandbox_algod`, `_indexer`, `_conduit`, `_postgres` all `Up`).
+
+**Build result**: succeeded. `puya-ts 1.1.0` / `puya 5.3.2`. No new client hash was generated (`sync-versioned-client` reported the existing hash `0f44ee7b45b2b85adc8bef13d4e66715df3caed1129258e2657ce6a2f038b5d3`), consistent with `contract.algo.ts` being unchanged since that hash was last generated.
+
+**Test result**: `vitest run --coverage`
+
+```
+ Test Files  4 passed (4)
+      Tests  58 passed (58)
+   Duration  99.91s
+```
+
+All 58 tests across 4 files passed; **zero failures**. The 4 files are `contract.e2e.spec.ts` (50 tests — the on-chain contract, against a real LocalNet deployment via `algorandFixture`), `version.spec.ts`, `get-client.spec.ts`, and `on-chain.e2e.spec.ts` (8 tests combined — the off-chain library).
+
+**On coverage percentages**: the emitted V8 coverage summary (`Statements 9.99%`, `Branches 16.31%`, `Functions 14.44%`, `Lines 10.74%`) is **not a meaningful signal about contract-logic test thoroughness** and should not be read as "the contract is 10% tested." Two reasons:
+
+1. `contract.algo.ts` is Algorand TypeScript compiled to AVM bytecode and executed inside `algod`, not inside the Node/V8 process Vitest instruments — its coverage is not (and cannot be) measured by this tool at all. The relevant question for the on-chain logic is scenario coverage against the checklist (§5), not statement coverage.
+2. The aggregate percentage is dragged down by the ~13 auto-generated `AlgoSafeClient.ts` files (one per versioned client, thousands of lines each of typed ABI boilerplate that a normal test run only exercises a small fraction of by construction). The hand-written library code that *is* measurable shows strong, credible coverage: `on-chain.ts` 98.14%, `migration.ts` 91.3%, `safe-tx.ts` 89.55%, `version.ts` 88.88%.
+
+This is a correct and expected pattern for this project shape; it is not itself a finding.
+
+---
+
+## 5. Missing Test Scenarios
+
+### Missing Test: Payload Bait-and-Switch Race (H-01)
+
+**Description**: Verify that a second signer's approval cannot be silently redirected to content the proposer swapped in after the signer decided to approve but before their transaction confirmed.
+
+**Risk if Untested**: H-01 (front-running / bait-and-switch) ships unnoticed and has no regression guard once fixed.
+
+**Test Steps**:
+1. Create a 2-chunk proposal (3 members, threshold 2) with benign content in both chunks.
+2. Have a second member construct (but not yet submit) an `approveProposal` call.
+3. Submit `appendTransactionGroupPayload` from the proposer changing chunk 2's content.
+4. Submit the second member's `approveProposal`.
+5. Execute and assert the outcome matches the fix's intended semantics (approval fails, or applies only to a payload version the signer explicitly re-confirmed).
+
+**Expected Behavior**: The stale approval must not silently authorize the swapped content.
+
+**Priority**: Critical (test), tracks a High finding.
+
+### Missing Test: Aggregate Chunk-Length Limit (M-02)
+
+**Description**: Verify a proposal whose chunks sum to more than `MAX_GROUP_TXNS` (16) is rejected at append time, not merely at execution time.
+
+**Risk if Untested**: The DoS/griefing vector in M-02 has no regression guard once a running-total check is added.
+
+**Test Steps**: propose 16 txns in slot 1, append 1 more in slot 2, assert `appendTransactionGroupPayload` reverts immediately with a clear message.
+
+**Priority**: High.
+
+### Missing Test: Bootstrap-Path Mixing (M-03)
+
+**Description**: Call `bootstrapGroup` (with `PRIV_GROUP`) then `bootstrap`, and assert `getActivePrivGroupCount` reflects the true total (or that mixing is rejected outright, per the recommended fix).
+
+**Priority**: Medium.
+
+### Missing Test: Self-Targeting App Call (L-01)
+
+**Description**: Propose a `TX_APP` entry with `appId` equal to the safe's own application ID and assert it is rejected at validation, not merely at execution.
+
+**Priority**: Low.
+
+### Missing Test: Exact-Boundary Proposal Expiry
+
+**Description**: Approve/execute at `Global.round === proposal.expiryRound` exactly (the boundary the `<=` comparison at line 611/788 is meant to include) and one round past it, to lock in the off-by-one behavior with an explicit test rather than relying on comparison operators being read correctly forever.
+
+**Priority**: Medium.
+
+### Missing Test: Concurrent/Interleaved Approvals Racing Threshold
+
+**Description**: Two members approve in the same round (same atomic transaction group where possible, or back-to-back), asserting `approvalsCount`/`status` land correctly with no double-count and no lost update.
+
+**Priority**: Medium.
+
+### Missing Test: Maximum-Size Payload at the True Boundary
+
+**Description**: A proposal using all 6 slots summing to exactly `MAX_GROUP_TXNS` (16) should execute successfully; one more (17th) transaction in any arrangement should fail. Currently only a 2-slot/6-transaction case is tested (line 452); the true boundary (16 total, and 17 total) is not.
+
+**Priority**: Medium (pairs with M-02).
+
+---
+
+## 6. Documentation Gaps
+
+### Documentation Gap: `paused` Field Has No Activation Path
+
+**Missing Information**: `PRODUCT-DESCRIPTION.md:453` labels `paused` "(reserved)" but nowhere states that, as of `v1.6.0`, there is no way to set it and no emergency-pause capability exists.
+
+**User Impact**: An integrator or auditor skimming the class diagram could reasonably assume a working pause mechanism exists (since it is checked in two places in the code) when it does not.
+
+**Recommended Documentation**: A short prose note next to the field: "Reserved for a future emergency-freeze admin change; not yet wired to any admin-change type — the safe cannot currently be paused."
+
+**Location**: `PRODUCT-DESCRIPTION.md`, near line 453.
+
+**Priority**: Medium.
+
+### Documentation Gap: Aggregate Chunk-Length Responsibility
+
+**Missing Information**: Neither `CLAUDE.md` nor `PRODUCT-DESCRIPTION.md` states that the six payload chunks share a single aggregate `MAX_GROUP_TXNS` budget that the contract does not currently enforce across chunks (M-02).
+
+**User Impact**: A client-library integrator building their own proposal-construction UI could reasonably (and incorrectly) assume each of the 6 slots independently allows up to 16 transactions.
+
+**Recommended Documentation**: Document the true aggregate limit explicitly until M-02 is fixed in code.
+
+**Location**: `CLAUDE.md`, "Contract architecture" section.
+
+**Priority**: Medium.
+
+### Documentation Gap: `ACT_APPL` Trust Level
+
+**Missing Information**: No existing document states that `ACT_APPL` should be treated as a high-trust grant comparable to `ACT_REKEY` (I-02).
+
+**Recommended Documentation**: A short callout in `CLAUDE.md`'s signer-group bitmask description.
+
+**Priority**: Low.
+
+---
+
+## 7. Security Best Practices — Compliance Checklist
+
+| Check | Verdict | Notes |
+|---|---|---|
+| Reentrancy | **Pass (protocol-enforced)** | AVM disallows direct/indirect self-calls; contract does not add its own defensive check (L-01). |
+| Integer overflow/underflow | **Pass** | All `uint64` arithmetic relies on the AVM's checked `+`/`-` opcodes (revert on overflow/underflow); `MAX_COOLDOWN_ROUNDS` bounds the one field that could otherwise approach unsafe magnitudes. |
+| Access control | **Pass, with H-01 caveat** | Membership/privilege checks are re-validated at execution time against live state; the one gap is content-vs-approval binding (H-01), not caller authorization. |
+| State consistency | **Partial** | `numPayloads`/`approvalsCount`/`membershipEpoch` bookkeeping is sound; `activePrivGroupCount` has the bootstrap-mixing gap (M-03). |
+| Asset safety (validate-before-stage) | **Pass** | Two-pass structure in `_executeTransactionGroup` confirmed: nothing is staged in pass 2 that wasn't decoded+validated in pass 1. |
+| Governance lockout | **Pass, with M-03 caveat** | `_wouldRemoveLastGroupAdmin` correctly blocks the last-admin removal/deactivation in the governed path; the bootstrap-only path can desync the counter (fail-safe direction). |
+| Replay/double-execution | **Pass** | `STATUS_EXECUTED` is a one-way terminal state set only inside `_executeProposalInternal`, checked via `assert(proposal.status === STATUS_READY, ...)` before any mutation. |
+| Front-running | **Fail** | H-01. |
+| Box storage collisions | **Pass** | `TXG_KEY_MULT=7 > 6` (max payload index) verified collision-free by construction; composite keys for `members`/`approvals` use fixed-width account keys. |
+| App-call resource limits | **Pass** | `MAX_APP_ARGS`/`MAX_APP_TOTAL_ARG_LEN`/`MAX_APP_ACCOUNTS`/`MAX_APP_FOREIGN_APPS`/`MAX_APP_FOREIGN_ASSETS`/`MAX_APP_TOTAL_REFS` match current Algorand consensus parameters and are enforced pre-stage. |
+| Inner-txn budget sequencing | **Pass** | `ensureBudget` is only ever called before the `op.ITxnCreate` group opens, in every public entrypoint. |
+| Approval-program size | **Pass** | 7,499 / 8,192 bytes (8.5% margin) — see I-01. |
+| Pause mechanism | **Fail (non-functional)** | M-01. |
+| Threshold manipulation | **Pass** | Threshold bounds (`>=1`, `<= memberCount`) enforced at both proposal-validation and apply time. |
+| Spending-limit bypass | **Pass** | Close-out sweeps counted by live balance, not declared amount; multi-chunk/multi-proposal splitting does not reduce cumulative usage tracked per period. |
+| Member removal lockout | **Pass** | `_adminRemoveMember` asserts `memberCount - 1 >= threshold`. |
+| ABI/constant drift (contract vs. `src/*.ts`) | **Pass** | Verified byte-for-byte for all 6 codecs and all bitmask/discriminator constants. |
+| Version detection | **Pass** | `getAlgoSafeContractVersion` hashes the live approval program and only returns `'latest'` for genuinely unrecognized hashes. |
+
+---
+
+## 8. Risk Assessment
+
+**Overall residual risk: Low-Medium.** No Critical findings; the one High finding (H-01) requires a malicious or compromised proposer *and* a multi-chunk proposal to be reachable, which meaningfully bounds its likelihood in typical usage (most transaction groups fit in one chunk), but its impact when triggered is direct fund misdirection, which is why it is rated High rather than Medium despite the precondition. The Medium findings are either dead-but-harmless code (M-01), fail-safe-direction state bugs (M-03), or availability/griefing issues with no fund-loss path (M-02).
+
+A structured, longer-horizon view of these and other risk categories — including probability estimates for the next five years — has been captured separately in [`audits/RISK-REGISTRY.md`](./RISK-REGISTRY.md), which should be treated as a living document updated by every subsequent audit (see the process now documented in `AI-AUDIT-INSTRUCTIONS.md` §"Risk Registry Maintenance").
+
+---
+
+## 9. Recommendations (Prioritized)
+
+1. **[Before relying on multi-chunk proposals for high-value transfers]** Fix H-01 — bind approvals to payload content (payload-version commitment or approval-reset-on-edit).
+2. **[Near-term]** Fix M-02 — add the aggregate chunk-length check; add the corresponding regression test.
+3. **[Near-term]** Fix M-03 — guard against mixing `bootstrap()`/`bootstrapGroup()`, or make `bootstrap()` increment instead of assign.
+4. **[Near-term]** Decide the fate of `paused` (M-01): implement `ADM_SET_PAUSED` with consistent enforcement, or explicitly document it as unimplemented and remove the misleadingly-partial checks.
+5. **[Housekeeping]** Add the self-appId defensive check (L-01).
+6. **[Housekeeping]** Add the missing test scenarios in §5, particularly the exact-boundary expiry and true max-aggregate-payload cases, which are cheap to add and close real gaps in an otherwise strong suite.
+7. **[Documentation]** Close the three documentation gaps in §6.
+8. **[Process]** Track approval-program size margin per release (I-01).
+
+---
+
+## 10. Testing Recommendations
+
+Beyond the specific missing-test entries in §5:
+
+- Add a "malformed ARC4 payload" test: store a `SafeTxn` entry whose `txType` claims `TX_PAYMENT` but whose `data` bytes don't decode to a valid `PaymentTxn` tuple, confirming `decodeArc4` fails closed rather than misinterpreting adjacent bytes.
+- Add a box-underfunding test: attempt a proposal/approval/admin-change on a safe whose account has insufficient balance for the new box's MBR, confirming a clear failure rather than partial state commitment.
+- Add a "removing the last admin-privileged member from the *only* admin group" end-to-end scenario that goes through `_adminRemoveMember` down to `threshold` (already covered) *and* separately confirms `activePrivGroupCount` semantics aren't affected by member-count changes (only by `ADM_SET_PRIVILEGES`/`ADM_SET_ACTIVE`), since these are logically independent counters that could drift apart under future changes.
+
+---
+
+## 11. Compliance and Standards
+
+- **ARC-4** (ABI method/argument encoding): conformant; all tuple codecs verified against on-chain struct layouts.
+- **ARC-28** (events): conformant; all state-changing paths that create/modify/execute entities emit a corresponding typed event (`SafeCreated`, `GroupCreated`, `MemberAdded`, `MemberRemoved`, `GroupUpdated`, `ProposalCreated`, `ProposalApproved`, `ProposalExecuted`, `ProposalCancelled`, `RekeyedAddressAdded`, `RekeyedAddressRemoved`).
+- **ARC-56** (application spec): generated artifact used as the source of truth for both the typed client and the bytecode-hash verification in this report.
+- **General smart-contract security best practices** (checks-effects-interactions analog): the two-pass validate-then-stage pattern in `_executeTransactionGroup` is the AVM-appropriate equivalent — all checks/effects on contract state happen in pass 1 before any external interaction (inner-txn staging) in pass 2. Followed consistently.
+- **Immutability-by-design**: the contract is non-upgradable and non-deletable, correctly documented as an intentional custody-safety property; this raises the bar on getting `contract.algo.ts` right the first time (no admin "fix it later" escape hatch), which this audit's findings should be read in light of.
+
+---
+
+## 12. Appendix
+
+### A. Files Reviewed
+
+- `smart_contracts/algo_safe/contract.algo.ts` (1,432 lines) — full review
+- `smart_contracts/algo_safe/contract.e2e.spec.ts` (2,508 lines, 50 tests) — mapped against checklist
+- `src/safe-tx.ts` (428 lines), `src/on-chain.ts` (210 lines), `src/migration.ts` (278 lines), `src/constants.ts` (41 lines), `src/version.ts` (67 lines), `src/get-client.ts` (25 lines), `src/latest-client.ts` (41 lines), `src/versioned-clients.generated.ts` (64 lines), `src/admin.ts` (22 lines), `src/index.ts`, `src/artifacts.ts`
+- `CLAUDE.md`, `PRODUCT-DESCRIPTION.md` (relevant sections)
+
+### B. Findings Index
+
+| ID | Title | Severity | File:Line |
+|---|---|---|---|
+| H-01 | Multi-chunk payload bait-and-switch before approval confirms | High | contract.algo.ts:553-576, 605-620 |
+| M-01 | `paused` unreachable / inconsistently checked | Medium | contract.algo.ts:321,356,528,785 |
+| M-02 | No aggregate chunk-length bound | Medium | contract.algo.ts:526-527, 562-563, 886-985 |
+| M-03 | `bootstrap()`/`bootstrapGroup()` mixing desyncs `activePrivGroupCount` | Medium | contract.algo.ts:370-408, 418-471 |
+| L-01 | No defensive self-appId check | Low | contract.algo.ts:1125-1144 |
+| I-01 | Shrinking program-size margin | Informational | — |
+| I-02 | `ACT_APPL` broad trust grant | Informational | — |
+| I-03 | Off-chain group enumeration unpaginated | Informational | src/on-chain.ts:107-121, src/migration.ts:130-190 |
+
+### C. Verification Notes / Limitations
+
+- LocalNet was available and the full test suite ran successfully to completion; no scenario in this report is based on an untested or unverifiable claim about current behavior.
+- This audit is manual review augmented by the existing dynamic test suite; it is not a substitute for formal verification or fuzzing, neither of which was performed.
+- The frontend (`algo-safe-frontend`) was not audited; a targeted grep confirmed `algoSafeProposals.ts` still contains references flagged in `CLAUDE.md` as needing migration to the tagged-envelope decoders, but a full assessment of frontend correctness/security was out of scope for this pass.
+- H-01's proof-of-concept is a sketch based on confirmed code paths (every assert and line cited was read directly from the audited commit), not an executed exploit — no live funds or safes were put at risk in producing this report.
+
+---
+
+**Report prepared by**: Claude Sonnet 5 (Anthropic), acting as an independent AI security auditor per `audits/AI-AUDIT-INSTRUCTIONS.md`.
