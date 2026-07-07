@@ -115,6 +115,7 @@ export function CreateProposalPage() {
 
         payload = toSafeTxnGroup([
           createPaymentSafeTxn({
+            sender: getZeroAddress(),
             receiver: receiver.trim(),
             amount: rawAmount,
             hasClose: 0n,
@@ -144,6 +145,7 @@ export function CreateProposalPage() {
 
         payload = toSafeTxnGroup([
           createAssetSafeTxn({
+            sender: getZeroAddress(),
             xferAsset: BigInt(resolvedAssetId),
             assetReceiver: effectiveReceiver.trim(),
             assetAmount: rawAmount,

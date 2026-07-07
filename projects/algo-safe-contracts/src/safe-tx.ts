@@ -1,11 +1,17 @@
 import algosdk from 'algosdk'
-import { EMPTY_BYTES, TX_ACFG, TX_APP, TX_ASSET, TX_KEYREG, TX_PAYMENT } from './constants'
+import { EMPTY_BYTES, TX_ACFG, TX_APP, TX_ASSET, TX_KEYREG, TX_PAYMENT, TX_REKEY } from './constants'
 
 // ---------------------------------------------------------------------------
 // Per-transaction-type payloads
 // ---------------------------------------------------------------------------
 
+// `sender` (payment / asset / rekey): the account the inner transaction is
+// sent from. The zero address means the safe's application account itself;
+// any other value must be an account rekeyed to the safe's application
+// address (the AVM rejects inner transactions from any other sender).
+
 export type PaymentPayload = {
+  sender: string
   receiver: string
   amount: bigint
   hasClose: bigint
@@ -14,6 +20,7 @@ export type PaymentPayload = {
 }
 
 export type AssetPayload = {
+  sender: string
   xferAsset: bigint
   assetReceiver: string
   assetAmount: bigint
@@ -58,6 +65,17 @@ export type AssetConfigPayload = {
   note: string
 }
 
+// Rekey `sender` (zero address = the safe's application account) to `rekeyTo`.
+// Executed as a 0-amount self-payment carrying RekeyTo; requires the group's
+// ACT_REKEY action bit. Rekeying the safe itself hands full control of the
+// safe address to `rekeyTo` (e.g. a newly deployed safe contract's application
+// address during a migration).
+export type RekeyPayload = {
+  sender: string
+  rekeyTo: string
+  note: string
+}
+
 // ---------------------------------------------------------------------------
 // Tagged envelope: every transaction is stored on-chain as `(txType, data)`,
 // where `data` is the ARC4 tuple encoding of exactly one of the structs below.
@@ -69,13 +87,14 @@ export type AssetConfigPayload = {
 // structs in `contract.algo.ts` (field order included).
 // ---------------------------------------------------------------------------
 
-const PAYMENT_CODEC = algosdk.ABIType.from('(address,uint64,uint64,address,string)')
-const ASSET_CODEC = algosdk.ABIType.from('(uint64,address,uint64,uint64,address,string)')
+const PAYMENT_CODEC = algosdk.ABIType.from('(address,address,uint64,uint64,address,string)')
+const ASSET_CODEC = algosdk.ABIType.from('(address,uint64,address,uint64,uint64,address,string)')
 const APP_CODEC = algosdk.ABIType.from('(uint64,uint64,byte[][],address[],uint64[],uint64[],string)')
 const KEYREG_CODEC = algosdk.ABIType.from('(uint64,byte[],byte[],byte[],uint64,uint64,uint64)')
 const ACFG_CODEC = algosdk.ABIType.from(
   '(uint64,uint64,uint64,uint64,string,string,string,byte[],address,address,address,address,string)',
 )
+const REKEY_CODEC = algosdk.ABIType.from('(address,address,string)')
 
 export type SafeTxn = {
   txType: bigint
@@ -100,6 +119,7 @@ export function toSafeTxnGroup(txns: SafeTxn[]): SafeTxnTuple[] {
 
 export function createPaymentSafeTxn(payload: PaymentPayload): SafeTxn {
   const data = PAYMENT_CODEC.encode([
+    payload.sender,
     payload.receiver,
     payload.amount,
     payload.hasClose,
@@ -111,6 +131,7 @@ export function createPaymentSafeTxn(payload: PaymentPayload): SafeTxn {
 
 export function createAssetSafeTxn(payload: AssetPayload): SafeTxn {
   const data = ASSET_CODEC.encode([
+    payload.sender,
     payload.xferAsset,
     payload.assetReceiver,
     payload.assetAmount,
@@ -119,6 +140,11 @@ export function createAssetSafeTxn(payload: AssetPayload): SafeTxn {
     payload.note,
   ])
   return { txType: TX_ASSET, data }
+}
+
+export function createRekeySafeTxn(payload: RekeyPayload): SafeTxn {
+  const data = REKEY_CODEC.encode([payload.sender, payload.rekeyTo, payload.note])
+  return { txType: TX_REKEY, data }
 }
 
 export function createAppCallSafeTxn(payload: AppCallPayload): SafeTxn {
@@ -172,18 +198,20 @@ export function createAssetConfigSafeTxn(payload: AssetConfigPayload): SafeTxn {
 // ---------------------------------------------------------------------------
 
 export function decodePaymentTxn(data: Uint8Array): PaymentPayload {
-  const [receiver, amount, hasClose, closeRemainderTo, note] = PAYMENT_CODEC.decode(data) as [
+  const [sender, receiver, amount, hasClose, closeRemainderTo, note] = PAYMENT_CODEC.decode(data) as [
+    string,
     string,
     bigint,
     bigint,
     string,
     string,
   ]
-  return { receiver, amount, hasClose, closeRemainderTo, note }
+  return { sender, receiver, amount, hasClose, closeRemainderTo, note }
 }
 
 export function decodeAssetTxn(data: Uint8Array): AssetPayload {
-  const [xferAsset, assetReceiver, assetAmount, hasClose, assetCloseTo, note] = ASSET_CODEC.decode(data) as [
+  const [sender, xferAsset, assetReceiver, assetAmount, hasClose, assetCloseTo, note] = ASSET_CODEC.decode(data) as [
+    string,
     bigint,
     string,
     bigint,
@@ -191,7 +219,12 @@ export function decodeAssetTxn(data: Uint8Array): AssetPayload {
     string,
     string,
   ]
-  return { xferAsset, assetReceiver, assetAmount, hasClose, assetCloseTo, note }
+  return { sender, xferAsset, assetReceiver, assetAmount, hasClose, assetCloseTo, note }
+}
+
+export function decodeRekeyTxn(data: Uint8Array): RekeyPayload {
+  const [sender, rekeyTo, note] = REKEY_CODEC.decode(data) as [string, string, string]
+  return { sender, rekeyTo, note }
 }
 
 export function decodeAppTxn(data: Uint8Array): AppCallPayload {
@@ -268,7 +301,12 @@ export function decodeAssetConfigTxn(data: Uint8Array): AssetConfigPayload {
 // ---------------------------------------------------------------------------
 
 export function createPaymentPayload(receiver: string, amount: bigint, note = ''): PaymentPayload {
-  return { receiver, amount, hasClose: 0n, closeRemainderTo: ZERO_ADDR, note }
+  return { sender: ZERO_ADDR, receiver, amount, hasClose: 0n, closeRemainderTo: ZERO_ADDR, note }
+}
+
+/** Rekey the safe's application account itself to `rekeyTo`. */
+export function createRekeyPayload(rekeyTo: string, note = ''): RekeyPayload {
+  return { sender: ZERO_ADDR, rekeyTo, note }
 }
 
 export function createAppCallPayload(
@@ -299,10 +337,23 @@ export function createAppCallPayload(
 
 function algosdkTxnToSafeTxn(txn: algosdk.Transaction): SafeTxn {
   const note = txn.note ? new TextDecoder().decode(txn.note) : ''
+  // The stored sender is passed through as-is; at execution time the AVM only
+  // accepts the safe's application account or an account rekeyed to it.
+  const sender = txn.sender?.toString() ?? ZERO_ADDR
+
+  if (txn.rekeyTo) {
+    const isPureRekey =
+      txn.type === algosdk.TransactionType.pay && (txn.payment?.amount ?? 0n) === 0n && !txn.payment?.closeRemainderTo
+    if (!isPureRekey) {
+      throw new Error('rekeyTo is only supported on a zero-amount payment with no close (stored as a rekey entry)')
+    }
+    return createRekeySafeTxn({ sender, rekeyTo: txn.rekeyTo.toString(), note })
+  }
 
   if (txn.type === algosdk.TransactionType.pay) {
     const pay = txn.payment
     return createPaymentSafeTxn({
+      sender,
       receiver: pay?.receiver?.toString() ?? ZERO_ADDR,
       amount: pay?.amount ?? 0n,
       hasClose: pay?.closeRemainderTo ? 1n : 0n,
@@ -314,6 +365,7 @@ function algosdkTxnToSafeTxn(txn: algosdk.Transaction): SafeTxn {
   if (txn.type === algosdk.TransactionType.axfer) {
     const axfer = txn.assetTransfer
     return createAssetSafeTxn({
+      sender,
       xferAsset: axfer?.assetIndex ?? 0n,
       assetReceiver: axfer?.receiver?.toString() ?? ZERO_ADDR,
       assetAmount: axfer?.amount ?? 0n,

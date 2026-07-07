@@ -3,7 +3,8 @@ export const ACT_AXFER = 2n
 export const ACT_APPL = 4n
 export const ACT_KEYREG = 8n
 export const ACT_ACFG = 16n
-export const ACT_ALL = 31n
+export const ACT_REKEY = 32n
+export const ACT_ALL = 63n
 
 export const PRIV_GROUP = 1n  // create/modify groups, members, thresholds, privileges, active
 export const PRIV_POLICY = 2n // change spending/action policy
@@ -14,6 +15,7 @@ export const TX_ASSET = 2n
 export const TX_APP = 3n
 export const TX_KEYREG = 4n
 export const TX_ACFG = 5n
+export const TX_REKEY = 6n
 
 // Application-call resource limits (Algorand consensus parameters).
 export const MAX_APP_ARGS = 16n

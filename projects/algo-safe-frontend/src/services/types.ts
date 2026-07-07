@@ -48,7 +48,7 @@ export interface Policy {
 
 export type ProposalStatus = 'draft' | 'pending' | 'ready' | 'executed' | 'rejected' | 'expired' | 'blocked' | 'cancelled'
 export interface TxLine {
-  type: 'pay' | 'axfer' | 'appl' | 'keyreg' | 'acfg'
+  type: 'pay' | 'axfer' | 'appl' | 'keyreg' | 'acfg' | 'rekey'
   summary: string
   detail: string
 }

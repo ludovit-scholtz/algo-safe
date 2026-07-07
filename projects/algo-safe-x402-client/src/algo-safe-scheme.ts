@@ -62,7 +62,7 @@ export class AlgoSafeExactAvmScheme implements SchemeNetworkClient {
     const payloadType =
       safeConfig.proposalId === undefined
         ? TX_ASSET
-        : (await safeClient.getProposal({ args: [proposalId] })).payloadType;
+        : (await safeClient.getProposal({ args: [proposalId] as never })).payloadType;
     const executeBoxReferences = getExecuteBoxReferences(
       safeConfig.appId,
       proposalId,
@@ -178,7 +178,7 @@ export class AlgoSafeExactAvmScheme implements SchemeNetworkClient {
   }
 
   private async getNextProposalId(safeClient: AlgoSafeClientInstance): Promise<bigint> {
-    const result = await safeClient.getConfig({ args: [] });
+    const result = await safeClient.getConfig({ args: [] as never });
     const nextProposalId = result?.[3];
 
     if (typeof nextProposalId !== 'bigint') {
@@ -204,7 +204,13 @@ export class AlgoSafeExactAvmScheme implements SchemeNetworkClient {
     );
     const expiryRound = firstValid + DEFAULT_VALIDITY_WINDOW;
     const note = `x402-safe-payment-v${x402Version}-${Date.now()}`;
-    return safeClient.createTransaction.proposeAssetTransfer({
+    // proposeAssetTransfer only exists on older deployed contract versions
+    // (removed from the latest ABI), so it is absent from the client union —
+    // this flow targets an older safe resolved by version detection above.
+    const createTransaction = safeClient.createTransaction as unknown as {
+      proposeAssetTransfer: (params: unknown) => Promise<{ transactions: unknown[] }>;
+    };
+    return createTransaction.proposeAssetTransfer({
       args: {
         groupId,
         payload: {

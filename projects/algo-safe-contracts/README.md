@@ -116,6 +116,7 @@ const { return: proposalId } = await appClient.send.proposeTransactionGroup({
     groupId: 1n,
     payload: toSafeTxnGroup([
       createPaymentSafeTxn({
+        sender: ZERO_ADDR,   // zero address = the safe itself; or an address rekeyed to the safe
         receiver: 'RECIPIENT_ADDRESS...',
         amount: (1).algo().microAlgo,
         hasClose: 0n,
@@ -202,6 +203,8 @@ Pass `execute: true` to attempt execution in the same call — see [the proposal
 import { createPaymentSafeTxn, createPaymentPayload, ZERO_ADDR } from 'algo-safe'
 
 const pay = createPaymentSafeTxn({
+  sender: ZERO_ADDR,            // zero address = the safe itself; any other value must be
+                                // an account rekeyed to the safe's application address
   receiver: 'RECIPIENT...',
   amount: (2.5).algo().microAlgo,
   hasClose: 0n,                 // set to 1n to close the account
@@ -222,6 +225,7 @@ import { createAssetSafeTxn, ZERO_ADDR } from 'algo-safe'
 
 // Opt the safe in to an ASA:
 const optIn = createAssetSafeTxn({
+  sender: ZERO_ADDR,   // zero address = the safe itself; or an address rekeyed to the safe
   xferAsset: assetId,
   assetReceiver: client.appAddress.toString(),
   assetAmount: 0n,
@@ -232,6 +236,7 @@ const optIn = createAssetSafeTxn({
 
 // Send 100 units:
 const send = createAssetSafeTxn({
+  sender: ZERO_ADDR,
   xferAsset: assetId,
   assetReceiver: 'RECIPIENT...',
   assetAmount: 100n,
@@ -318,9 +323,42 @@ const create = createAssetConfigSafeTxn({
 })
 ```
 
+### Spending from rekeyed accounts
+
+Any Algorand address can be rekeyed to the safe's application address; from then on the safe can spend from it. Set `sender` on a payment or asset-transfer payload to that address (the zero address always means the safe's own account). The AVM authorizes an inner-transaction sender exactly when it is the application account or an account rekeyed to it, so no extra contract configuration is needed — but spending limits still apply, and a close-out from a rekeyed sender counts that account's full swept balance against the group's limit.
+
+```ts
+const fromRekeyed = createPaymentSafeTxn({
+  sender: 'REKEYED_TO_SAFE_ADDRESS...',
+  receiver: 'RECIPIENT...',
+  amount: (1).algo().microAlgo,
+  hasClose: 0n,
+  closeRemainderTo: ZERO_ADDR,
+  note: '',
+})
+```
+
+### Rekey (migration / release)
+
+Rekeying is reserved for **admin consensus**: the executing group must hold both the `ACT_REKEY` action bit (a deliberately separate bit that `ACT_ALL`-era groups created before v1.5.0 do not hold) **and** the group-admin privilege (`PRIV_GROUP`), and — like any proposal — the rekey only executes once that group's M-of-N approval threshold is met. Both requirements are checked at execution time against the group's live state, because a rekey permanently transfers control of the sender account. Executed as a 0-amount self-payment carrying `RekeyTo`.
+
+- `sender: ZERO_ADDR` rekeys **the safe's own application account** — e.g. to a newly deployed safe contract's application address to migrate custody without moving assets. After this executes, the old contract can no longer spend from the address.
+- `sender: <rekeyed address>, rekeyTo: <that same address>` **releases** a previously captured external account back to its own key.
+
+```ts
+import { createRekeySafeTxn, createRekeyPayload, ZERO_ADDR } from 'algo-safe'
+
+// Migrate the safe to a new deployment:
+const migrate = createRekeySafeTxn({ sender: ZERO_ADDR, rekeyTo: newSafeAppAddress, note: 'migrate' })
+// or: createRekeySafeTxn(createRekeyPayload(newSafeAppAddress, 'migrate'))
+
+// Release a rekeyed external account back to its own key:
+const release = createRekeySafeTxn({ sender: externalAddr, rekeyTo: externalAddr, note: '' })
+```
+
 ### Convert native algosdk transactions
 
-Already have `algosdk.Transaction` objects (e.g. built by another SDK or a dApp)? Convert a whole atomic group into a safe payload in one call. Payment, asset transfer, app call, key registration and asset config are supported. The sender of the source transactions is irrelevant — the safe re-issues each as an inner transaction.
+Already have `algosdk.Transaction` objects (e.g. built by another SDK or a dApp)? Convert a whole atomic group into a safe payload in one call. Payment, asset transfer, app call, key registration and asset config are supported. The source transactions' `sender` is carried through for payments and asset transfers — build them with the safe's address (or an address rekeyed to the safe) as sender. A zero-amount, no-close payment carrying `rekeyTo` converts to a rekey entry; `rekeyTo` on any other transaction shape throws.
 
 ```ts
 import { algosdkTxnsToSafeTxnGroup } from 'algo-safe'
@@ -518,7 +556,7 @@ const detail = await fetchAlgoSafeSignerGroupDetail(algod, { appId, address }, '
 `getTransactionGroup` returns the raw `(txType, data)` tuples. Decode the `data` blob per type:
 
 ```ts
-import { TX_PAYMENT, TX_ASSET, TX_APP, TX_KEYREG, TX_ACFG, decodePaymentTxn, decodeAssetTxn, decodeAppTxn, decodeKeyRegTxn, decodeAssetConfigTxn } from 'algo-safe'
+import { TX_PAYMENT, TX_ASSET, TX_APP, TX_KEYREG, TX_ACFG, TX_REKEY, decodePaymentTxn, decodeAssetTxn, decodeAppTxn, decodeKeyRegTxn, decodeAssetConfigTxn, decodeRekeyTxn } from 'algo-safe'
 
 const stored = await client.send.getTransactionGroup({ args: { proposalId: 1n, payloadIndex: 1n, ensureBudgetValue: 0n } })
 for (const [txType, data] of stored.return!) {
@@ -527,6 +565,7 @@ for (const [txType, data] of stored.return!) {
   else if (txType === TX_APP) console.log(decodeAppTxn(data))
   else if (txType === TX_KEYREG) console.log(decodeKeyRegTxn(data))
   else if (txType === TX_ACFG) console.log(decodeAssetConfigTxn(data))
+  else if (txType === TX_REKEY) console.log(decodeRekeyTxn(data))
 }
 ```
 
@@ -545,11 +584,12 @@ Always import these from `algo-safe` — never redefine them locally; they must 
 | `ACT_APPL` | 4 | application calls |
 | `ACT_KEYREG` | 8 | key registration |
 | `ACT_ACFG` | 16 | asset configuration |
-| `ACT_ALL` | 31 | all of the above |
+| `ACT_REKEY` | 32 | rekeying the safe or a rekeyed sender |
+| `ACT_ALL` | 63 | all of the above |
 
 **Admin-privilege bitmask** (`SignerGroup.adminPrivileges`): `PRIV_GROUP` (1), `PRIV_POLICY` (2), `PRIV_ALL` (7).
 
-**Transaction type discriminators:** `TX_PAYMENT` (1), `TX_ASSET` (2), `TX_APP` (3), `TX_KEYREG` (4), `TX_ACFG` (5).
+**Transaction type discriminators:** `TX_PAYMENT` (1), `TX_ASSET` (2), `TX_APP` (3), `TX_KEYREG` (4), `TX_ACFG` (5), `TX_REKEY` (6).
 
 **Admin change types:** `ADM_CREATE_GROUP` (1), `ADM_ADD_MEMBER` (2), `ADM_REMOVE_MEMBER` (3), `ADM_CHANGE_THRESHOLD` (4), `ADM_SET_POLICY` (5), `ADM_SET_PRIVILEGES` (6), `ADM_SET_ACTIVE` (7).
 
@@ -569,13 +609,13 @@ Always import these from `algo-safe` — never redefine them locally; they must 
 | `LATEST_CONTRACT_HASH`, `DEFAULT_CLIENT_VERSION` | Current version hash / default selector. |
 | `buildAlgoSafeAppClient(algod, { appId, address })` | Version-detect and return a ready typed client. |
 | `toSafeTxnGroup(txns)` / `toSafeTxnTuple(txn)` | Convert builder output into the ABI payload shape. |
-| `createPaymentSafeTxn` / `createAssetSafeTxn` / `createAppCallSafeTxn` / `createKeyRegSafeTxn` / `createAssetConfigSafeTxn` | Build one typed safe transaction. |
-| `createPaymentPayload` / `createAppCallPayload` | Convenience payload constructors. |
+| `createPaymentSafeTxn` / `createAssetSafeTxn` / `createAppCallSafeTxn` / `createKeyRegSafeTxn` / `createAssetConfigSafeTxn` / `createRekeySafeTxn` | Build one typed safe transaction. |
+| `createPaymentPayload` / `createAppCallPayload` / `createRekeyPayload` | Convenience payload constructors. |
 | `algosdkTxnsToSafeTxnGroup(txns)` | Convert native `algosdk.Transaction[]` → payload. |
-| `decodePaymentTxn` / `decodeAssetTxn` / `decodeAppTxn` / `decodeKeyRegTxn` / `decodeAssetConfigTxn` | Decode a stored `data` blob back into a typed payload. |
+| `decodePaymentTxn` / `decodeAssetTxn` / `decodeAppTxn` / `decodeKeyRegTxn` / `decodeAssetConfigTxn` / `decodeRekeyTxn` | Decode a stored `data` blob back into a typed payload. |
 | `createAdminChange(partial)` | Build an `AdminChange` with defaults filled in. |
 | `fetchAlgoSafeSignerGroups` / `fetchAlgoSafeSignerGroupDetail` | Off-chain read helpers for UIs. |
-| Types: `SafeTxn`, `SafeTxnTuple`, `PaymentPayload`, `AssetPayload`, `AppCallPayload`, `KeyRegPayload`, `AssetConfigPayload`, `AdminChange`, `Proposal`, `SignerGroup`, `Member`, `ContractHash`, `ContractVersion`, `AlgoSafeOnChainRef`, `AlgoSafeSignerGroupRecord`, … | |
+| Types: `SafeTxn`, `SafeTxnTuple`, `PaymentPayload`, `AssetPayload`, `AppCallPayload`, `KeyRegPayload`, `AssetConfigPayload`, `RekeyPayload`, `AdminChange`, `Proposal`, `SignerGroup`, `Member`, `ContractHash`, `ContractVersion`, `AlgoSafeOnChainRef`, `AlgoSafeSignerGroupRecord`, … | |
 
 ---
 

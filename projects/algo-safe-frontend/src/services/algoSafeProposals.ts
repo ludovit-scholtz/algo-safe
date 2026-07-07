@@ -1,9 +1,11 @@
 import { algo, AlgorandClient } from '@algorandfoundation/algokit-utils'
 import {
+  ACT_ACFG,
   ACT_APPL,
   ACT_AXFER,
   ACT_KEYREG,
   ACT_PAY,
+  ACT_REKEY,
   ADM_ADD_MEMBER,
   ADM_CHANGE_THRESHOLD,
   ADM_CREATE_GROUP,
@@ -19,11 +21,14 @@ import {
   TX_ASSET,
   TX_KEYREG,
   TX_PAYMENT,
+  TX_REKEY,
+  ZERO_ADDR,
   decodeAppTxn,
   decodeAssetConfigTxn,
   decodeAssetTxn,
   decodeKeyRegTxn,
   decodePaymentTxn,
+  decodeRekeyTxn,
   getAlgoSafeContractVersion,
   getClient,
   type AdminChange,
@@ -131,6 +136,8 @@ function describeAllowedActions(mask: bigint) {
   if ((mask & ACT_AXFER) !== 0n) labels.push('ASA transfers')
   if ((mask & ACT_APPL) !== 0n) labels.push('app calls')
   if ((mask & ACT_KEYREG) !== 0n) labels.push('key registration')
+  if ((mask & ACT_ACFG) !== 0n) labels.push('asset configuration')
+  if ((mask & ACT_REKEY) !== 0n) labels.push('rekeying')
   return humanList(labels)
 }
 
@@ -256,16 +263,17 @@ async function mapEnvelopeTxLine(
   resolveAsset: (assetId: number) => Promise<AssetMetadata>,
 ): Promise<TxLine> {
   if (txType === TX_PAYMENT) {
-    const { receiver, amount, note } = decodePaymentTxn(data)
+    const { sender, receiver, amount, note } = decodePaymentTxn(data)
+    const fromLabel = sender !== ZERO_ADDR ? ` from rekeyed account ${ellipseAddress(sender)}` : ''
     return {
       type: 'pay',
-      summary: `Send ${formatAlgo(amount)} ALGO to ${ellipseAddress(receiver)}`,
+      summary: `Send ${formatAlgo(amount)} ALGO to ${ellipseAddress(receiver)}${fromLabel}`,
       detail: note ? `${receiver} · Note: ${note}` : receiver,
     }
   }
 
   if (txType === TX_ASSET) {
-    const { xferAsset, assetReceiver, assetAmount, note } = decodeAssetTxn(data)
+    const { sender, xferAsset, assetReceiver, assetAmount, note } = decodeAssetTxn(data)
     const asset = await resolveAsset(Number(xferAsset))
 
     if (assetAmount === 0n && assetReceiver === safeAddress) {
@@ -276,10 +284,21 @@ async function mapEnvelopeTxLine(
       }
     }
 
+    const fromLabel = sender !== ZERO_ADDR ? ` from rekeyed account ${ellipseAddress(sender)}` : ''
     return {
       type: 'axfer',
-      summary: `Transfer ${formatAssetAmount(assetAmount, asset)} to ${ellipseAddress(assetReceiver)}`,
+      summary: `Transfer ${formatAssetAmount(assetAmount, asset)} to ${ellipseAddress(assetReceiver)}${fromLabel}`,
       detail: `${asset.name} · ${assetReceiver}${note ? ` · Note: ${note}` : ''}`,
+    }
+  }
+
+  if (txType === TX_REKEY) {
+    const { sender, rekeyTo, note } = decodeRekeyTxn(data)
+    const target = sender === ZERO_ADDR ? 'the safe account' : `rekeyed account ${ellipseAddress(sender)}`
+    return {
+      type: 'rekey',
+      summary: `Rekey ${target} to ${ellipseAddress(rekeyTo)}`,
+      detail: `${rekeyTo}${note ? ` · Note: ${note}` : ''}`,
     }
   }
 

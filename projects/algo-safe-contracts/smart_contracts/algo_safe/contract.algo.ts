@@ -54,6 +54,7 @@ const TX_ASSET: uint64 = Uint64(2)
 const TX_APP: uint64 = Uint64(3)
 const TX_KEYREG: uint64 = Uint64(4)
 const TX_ACFG: uint64 = Uint64(5) // asset configuration (create / reconfigure / destroy)
+const TX_REKEY: uint64 = Uint64(6) // rekey the safe (or a rekeyed sender) to a new auth address
 
 // Maximum executable transactions in one transaction-group proposal. Algorand
 // protocol transaction groups currently allow up to 16 transactions; this cap
@@ -82,7 +83,8 @@ const ACT_AXFER: uint64 = Uint64(2)
 const ACT_APPL: uint64 = Uint64(4)
 const ACT_KEYREG: uint64 = Uint64(8)
 const ACT_ACFG: uint64 = Uint64(16)
-const ACT_ALL: uint64 = Uint64(31)
+const ACT_REKEY: uint64 = Uint64(32)
+const ACT_ALL: uint64 = Uint64(63)
 
 // Admin-privilege bitmask (SignerGroup.adminPrivileges).
 const PRIV_GROUP: uint64 = Uint64(1) // create/modify groups, members, thresholds, privileges, active
@@ -101,7 +103,7 @@ const ADM_SET_ACTIVE: uint64 = Uint64(7)
 // Period lengths for spending limits, in seconds.
 const DAY_SECONDS: uint64 = Uint64(86400)
 const MONTH_SECONDS: uint64 = Uint64(2592000) // 30 days
-const CONTRACT_VERSION = 'BIATEC-ALGO-SAFE-v1.4.2'
+const CONTRACT_VERSION = 'BIATEC-ALGO-SAFE-v1.5.1'
 
 // ---------------------------------------------------------------------------
 // Stored record types (plain TS types for box storage)
@@ -147,7 +149,15 @@ type Proposal = {
 // Per-transaction-type payload structs. Each type carries only the attributes
 // it actually needs, so a stored transaction occupies far fewer bytes than a
 // single union struct that reserves space for every field of every type.
+//
+// `sender` (payment / asset / rekey): the account the inner transaction is
+// sent from. The zero address means the safe's application account itself.
+// Any other value must be an account whose auth address has been rekeyed to
+// the safe's application address — the AVM rejects inner transactions from
+// any other sender — which lets the safe spend from external addresses that
+// have been rekeyed to it.
 type PaymentTxn = {
+  sender: Account
   receiver: Account
   amount: uint64
   hasClose: uint64
@@ -156,6 +166,7 @@ type PaymentTxn = {
 }
 
 type AssetTxn = {
+  sender: Account
   xferAsset: uint64
   assetReceiver: Account
   assetAmount: uint64
@@ -197,6 +208,17 @@ type AssetConfigTxn = {
   reserve: Account
   freeze: Account
   clawback: Account
+  note: string
+}
+
+// Rekey `sender` (zero = the safe's application account) to `rekeyTo`. Emitted
+// as a 0-amount self-payment carrying RekeyTo. Rekeying the safe itself hands
+// full control of the safe address to `rekeyTo` (e.g. a newly deployed safe
+// contract's application address during a migration); rekeying a previously
+// rekeyed external sender back to its own address releases it from the safe.
+type RekeyTxn = {
+  sender: Account
+  rekeyTo: Account
   note: string
 }
 
@@ -741,24 +763,24 @@ export class AlgoSafe extends Contract {
           if (entry.txType === TX_PAYMENT) {
             const tx = decodeArc4<PaymentTxn>(entry.data)
             this._validatePayment(tx, groupIn)
-            // A close-remainder-to payment sweeps the safe's entire ALGO
-            // balance, not just `tx.amount` — count the full balance against
-            // the limit so a close can't bypass it (see H-01 audit finding).
+            // A close-remainder-to payment sweeps the sending account's entire
+            // ALGO balance, not just `tx.amount` — count the full balance
+            // against the limit so a close can't bypass it (H-01 audit finding).
             let amount: uint64 = Uint64(0)
             if (group.limitAssetId === Uint64(0)) {
-              amount = tx.hasClose !== Uint64(0) ? op.balance(Global.currentApplicationAddress) : tx.amount
+              amount = tx.hasClose !== Uint64(0) ? op.balance(this._resolveSender(tx.sender)) : tx.amount
             }
             group = this._accountSpend(group, amount)
           } else if (entry.txType === TX_ASSET) {
             const tx = decodeArc4<AssetTxn>(entry.data)
             this._validateAsset(tx, groupIn)
             const tracked = group.limitAssetId !== Uint64(0) && tx.xferAsset === group.limitAssetId
-            // Likewise, an asset close-to sweeps the safe's entire holding of
-            // that ASA, not just `tx.assetAmount` (see H-01 audit finding).
+            // Likewise, an asset close-to sweeps the sending account's entire
+            // holding of that ASA, not just `tx.assetAmount` (H-01 audit finding).
             let amount: uint64 = Uint64(0)
             if (tracked) {
               if (tx.hasAssetClose !== Uint64(0)) {
-                const [bal] = op.AssetHolding.assetBalance(Global.currentApplicationAddress, tx.xferAsset)
+                const [bal] = op.AssetHolding.assetBalance(this._resolveSender(tx.sender), tx.xferAsset)
                 amount = bal
               } else {
                 amount = tx.assetAmount
@@ -774,6 +796,9 @@ export class AlgoSafe extends Contract {
           } else if (entry.txType === TX_ACFG) {
             const tx = decodeArc4<AssetConfigTxn>(entry.data)
             this._validateAssetConfig(tx, groupIn)
+          } else if (entry.txType === TX_REKEY) {
+            const tx = decodeArc4<RekeyTxn>(entry.data)
+            this._validateRekey(tx, groupIn)
           } else {
             assert(false, 'unknown tx type')
           }
@@ -800,8 +825,10 @@ export class AlgoSafe extends Contract {
             this._stageAppCall(decodeArc4<AppTxn>(entry.data), first)
           } else if (entry.txType === TX_KEYREG) {
             this._stageKeyReg(decodeArc4<KeyRegTxn>(entry.data), first)
-          } else {
+          } else if (entry.txType === TX_ACFG) {
             this._stageAssetConfig(decodeArc4<AssetConfigTxn>(entry.data), first)
+          } else if (entry.txType === TX_REKEY) {
+            this._stageRekey(decodeArc4<RekeyTxn>(entry.data), first)
           }
           txIndex = txIndex + Uint64(1)
         }
@@ -822,10 +849,22 @@ export class AlgoSafe extends Contract {
     else op.ITxnCreate.next()
   }
 
+  /** The account a stored `sender` field denotes: zero address = the safe itself. */
+  private _resolveSender(sender: Account): Account {
+    return sender === Global.zeroAddress ? Global.currentApplicationAddress : sender
+  }
+
+  // `itxn_begin`/`itxn_next` initialise Sender to the application account, so
+  // an explicit setSender is only needed for a rekeyed external sender.
+  private _setSenderIfSet(sender: Account): void {
+    if (sender !== Global.zeroAddress) op.ITxnCreate.setSender(sender)
+  }
+
   private _stagePayment(tx: PaymentTxn, first: boolean): void {
     this._beginOrNext(first)
     op.ITxnCreate.setTypeEnum(Uint64(TransactionType.Payment))
     op.ITxnCreate.setFee(Uint64(0))
+    this._setSenderIfSet(tx.sender)
     op.ITxnCreate.setReceiver(tx.receiver)
     op.ITxnCreate.setAmount(tx.amount)
     if (tx.hasClose !== Uint64(0)) op.ITxnCreate.setCloseRemainderTo(tx.closeRemainderTo)
@@ -836,10 +875,25 @@ export class AlgoSafe extends Contract {
     this._beginOrNext(first)
     op.ITxnCreate.setTypeEnum(Uint64(TransactionType.AssetTransfer))
     op.ITxnCreate.setFee(Uint64(0))
+    this._setSenderIfSet(tx.sender)
     op.ITxnCreate.setXferAsset(tx.xferAsset)
     op.ITxnCreate.setAssetReceiver(tx.assetReceiver)
     op.ITxnCreate.setAssetAmount(tx.assetAmount)
     if (tx.hasAssetClose !== Uint64(0)) op.ITxnCreate.setAssetCloseTo(tx.assetCloseTo)
+    if (tx.note !== '') op.ITxnCreate.setNote(Bytes(tx.note))
+  }
+
+  // A rekey is a 0-amount self-payment carrying RekeyTo. After it executes,
+  // `rekeyTo` — not the safe — controls the sender account, so ACT_REKEY
+  // should only be granted to high-trust groups.
+  private _stageRekey(tx: RekeyTxn, first: boolean): void {
+    this._beginOrNext(first)
+    op.ITxnCreate.setTypeEnum(Uint64(TransactionType.Payment))
+    op.ITxnCreate.setFee(Uint64(0))
+    this._setSenderIfSet(tx.sender)
+    op.ITxnCreate.setReceiver(this._resolveSender(tx.sender))
+    op.ITxnCreate.setAmount(Uint64(0))
+    op.ITxnCreate.setRekeyTo(tx.rekeyTo)
     if (tx.note !== '') op.ITxnCreate.setNote(Bytes(tx.note))
   }
 
@@ -949,6 +1003,20 @@ export class AlgoSafe extends Contract {
       tx.metadataHash.length === Uint64(0) || tx.metadataHash.length === Uint64(32),
       'metadataHash must be 0 or 32 bytes',
     )
+  }
+
+  private _validateRekey(tx: RekeyTxn, group: SignerGroup): void {
+    assert((group.allowedActions & ACT_REKEY) !== Uint64(0), 'rekey not allowed')
+    // A rekey permanently hands control of the sender account to `rekeyTo`, so
+    // it is reserved for admin consensus: on top of the ACT_REKEY action bit,
+    // the executing group must hold the group-admin privilege. Validation runs
+    // at execution time against the group's live state, so the proposal only
+    // executes once an admin-capable group's M-of-N threshold has been met.
+    assert((group.adminPrivileges & PRIV_GROUP) !== Uint64(0), 'rekey requires group admin privilege')
+    // The zero address never rekeys anything (it is the protocol's "no rekey"
+    // sentinel); releasing an account back to its own key is expressed by
+    // rekeying it to its own address.
+    assert(tx.rekeyTo !== Global.zeroAddress, 'rekey target required')
   }
 
   // Stores a payload chunk at the given slot. The clone loop for SafeTxnGroup

@@ -52,6 +52,7 @@ export async function proposeAssetOptIn(params: {
   // always emit the latest `(txType, data)` envelope, so cast to the param type.
   const payload = toSafeTxnGroup([
     createAssetSafeTxn({
+      sender: getZeroAddress(),
       xferAsset: BigInt(assetId),
       assetReceiver: safeAddress,
       assetAmount: 0n,

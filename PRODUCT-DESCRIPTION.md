@@ -24,7 +24,7 @@ Common needs:
 
 - **Shared custody without operational chaos**: Teams need M-of-N approval, clear roles, and a reliable way to rotate members without moving funds to a new account each time.
 - **Wallet compatibility**: Users should connect with familiar Algorand wallets through `@txnlab/use-wallet`, including Pera, Defly, Exodus, Daffi, LocalNet/KMD, and WalletConnect-capable providers where supported.
-- **Atomic transaction clarity**: Algorand transaction groups are all-or-nothing. Users need to see the exact ordered payload and inner transaction group preview before signing, including payments, ASA transfers, application calls, and key registration transactions.
+- **Atomic transaction clarity**: Algorand transaction groups are all-or-nothing. Users need to see the exact ordered payload and inner transaction group preview before signing, including payments, ASA transfers, application calls, key registration, asset configuration, and rekey transactions.
 - **Application-call-first UX**: dApps often need the safe to authorize a single high-level action that expands into a complete atomic group. The UI should let a user prepare one safe execution request, then review the resulting group before collecting signed approval app calls.
 - **ASA-aware treasury management**: Teams hold ALGO and many ASAs. The safe must show asset balances, opt-in requirements, decimals, metadata, and receiver readiness.
 - **Validator and governance operations**: Algorand accounts may need key registration (`keyreg`) and governance-related actions. These should be approvable through the same policy flow as payments.
@@ -83,7 +83,7 @@ Supported account types:
 
 - **Standard account**: A normal Ed25519 Algorand account controlled by a single key (Pera, Defly, Exodus, Daffi, Ledger, KMD, etc.).
 - **Multisig account**: An Algorand multisignature account with its own ordered addresses, threshold, and version.
-- **Rekeyed / operational account**: An account whose authorization address has been rekeyed for operational control.
+- **Rekeyed / operational account**: An account whose authorization address has been rekeyed for operational control. (Separately from signer identity, accounts rekeyed *to the safe* become spendable sources for payment and asset-transfer proposals — see Rekeyed Accounts As Safe-Controlled Addresses.)
 - **Agent account**: An automation/MCP-controlled account constrained by strict policy limits.
 - **Quantum-secure account**: A post-quantum account whose signatures are verified against a quantum-resistant scheme.
 
@@ -102,19 +102,19 @@ This lets teams future-proof high-value safes against quantum attacks while keep
 
 ### Spending And Action Policies
 
-Policies determine what a signer group can approve.
+Policies determine what a signer group can approve. The deployed contract enforces:
 
-Policy examples:
+- **Action allow-list**: each group's `allowedActions` bitmask gates which transaction types the group can execute (`pay`, `axfer`, `appl`, `keyreg`, `acfg`, `rekey`).
+- **Daily limit** for one configured spending asset per signer group (`limitAssetId = 0` means ALGO).
+- **Monthly limit** for the same tracked asset per signer group.
+- **Close-out sweep accounting**: a payment or asset transfer with a close-to address sweeps the sending account's *entire* remaining ALGO/ASA balance, not just the declared amount — the contract counts the live balance against the limit in that case, so a close-out cannot bypass a group's spending limit.
+- **Execution cooldown**: a group with nonzero `cooldownRounds` must wait that many rounds between successive transaction-group executions (the group's first-ever execution is exempt). Cooldowns are capped at 10,000,000 rounds so a misconfigured value can never freeze a group permanently.
+- **Membership-epoch invalidation**: removing a member from a group increments its `membershipEpoch`; every pending proposal snapshots the epoch at creation, and both approval and execution require the epochs to still match — so removing a (possibly compromised) signer instantly invalidates all approvals collected so far and forces re-approval from scratch.
+- **Threshold hardening at execution**: a proposal snapshots the group threshold at creation, but execution requires the *higher* of the snapshot and the group's live threshold, so raising a threshold in response to an incident immediately applies to already-pending proposals.
 
-- Daily limit for one configured spending asset per signer group (`limitAssetId = 0` means ALGO)
-- Monthly limit for one configured spending asset per signer group (`limitAssetId = 0` means ALGO)
-- Per-ASA transfer limits for signer groups that track a specific ASA in policy
-- Allowed receiver lists for agent spending
-- Required admin approval for unknown receivers
-- Required admin approval for `keyreg`, application update/delete, close-out, or large ASA transfers
-- Cooldown period for signer removal or threshold changes
+Daily and monthly limits store their current usage directly in the signer group record, alongside the tracked `limitAssetId`. The contract updates the group's current daily and monthly usage whenever a proposal executes movement of the configured tracked asset: `limitAssetId = 0` counts ALGO payments, while any nonzero `limitAssetId` counts ASA transfers for that specific asset. Period windows (24 h daily, 30-day monthly) reset lazily on the first spend after they elapse. Limit usage is not stored in a separate box.
 
-Daily and monthly limits store their current usage directly in the signer group record, alongside the tracked `limitAssetId`. The contract must update the group's current daily and monthly usage whenever a proposal executes movement of the configured tracked asset: `limitAssetId = 0` counts ALGO payments, while any nonzero `limitAssetId` counts ASA transfers for that specific asset. Limit usage is not stored in a separate box.
+Frontend-level policy concepts such as allowed receiver lists and required admin approval for unknown receivers remain product-roadmap items layered on top of these on-chain rules.
 
 ### Transaction Proposals
 
@@ -133,20 +133,31 @@ Every proposal must show:
 - Expiration round or time
 - Network and genesis hash
 
-Proposals do not store a `groupTxnHash`. The approved content for executable actions is always the canonical ordered transaction list itself, stored as a typed `TransactionGroupPayload`. A single payment, asset transfer, or app call is represented as a one-item transaction group. Mixed groups such as `pay + appl` or several `appl` calls are first-class proposals. On execution, the contract emits the approved ordered list as one AVM inner transaction group from the application account. Signer-group administration remains a separate governed admin payload.
+Proposals do not store a `groupTxnHash`. The approved content for executable actions is always the canonical ordered transaction list itself, stored on-chain as tagged `(txType, data)` envelopes. A single payment, asset transfer, or app call is represented as a one-item transaction group. Mixed groups such as `pay + appl` or several `appl` calls are first-class proposals. Large groups that exceed the ~2 KB per-ABI-argument limit are split across up to six payload chunks, appended by the proposer before anyone else approves; once an independent signer has approved, the payload is immutable. On execution, the contract emits the approved ordered list as one AVM inner transaction group. Signer-group administration remains a separate governed admin payload.
 
 ---
 
 ## Supported Algorand Actions
 
-Algo Safe should support the actions Algorand users actually need, starting with these core transaction types:
+Algo Safe supports the actions Algorand users actually need. The deployed contract executes these transaction types from governed proposals:
 
-- **Payment (`pay`)**: Send ALGO, fund accounts, pay service providers, close accounts only when explicitly allowed.
-- **Asset transfer (`axfer`)**: Send ASAs, opt in to assets, opt out of assets, and handle ASA decimals safely.
-- **Application call (`appl`)**: Call dApps, governance contracts, DeFi protocols, and the Algo Safe contract itself.
+- **Payment (`pay`)**: Send ALGO, fund accounts, pay service providers, close accounts only when explicitly allowed. Payments can be sent from the safe's own address or from any external address that has been rekeyed to the safe.
+- **Asset transfer (`axfer`)**: Send ASAs, opt in to assets, opt out of assets, and handle ASA decimals safely — again from the safe itself or from a rekeyed external address.
+- **Application call (`appl`)**: Call dApps, governance contracts, DeFi protocols, and the Algo Safe contract itself, with full `onCompletion`, application arguments, and foreign account/app/asset references (app create and update are intentionally not supported through the safe).
 - **Key registration (`keyreg`)**: Register participation keys, go online/offline, and manage validator participation workflows.
+- **Asset configuration (`acfg`)**: Create new ASAs owned by the safe, reconfigure the mutable address roles (manager/reserve/freeze/clawback) of assets the safe manages, or destroy them.
+- **Rekey (`rekey`)**: Under admin consensus, rekey the safe's application account itself to another address — for example a newly deployed safe contract during a migration — or release a previously rekeyed external account back to its own key. Executed as a zero-amount self-payment carrying `RekeyTo`, and doubly gated: the executing group must hold the dedicated `ACT_REKEY` action bit **and** the group-admin privilege (`PRIV_GROUP`), with the group's M-of-N threshold met like any proposal.
+
+Each signer group's `allowedActions` bitmask (`ACT_PAY=1`, `ACT_AXFER=2`, `ACT_APPL=4`, `ACT_KEYREG=8`, `ACT_ACFG=16`, `ACT_REKEY=32`) controls which of these the group may approve.
 
 Algorand atomic groups may contain a mix of transaction types. The frontend must make that power understandable instead of hiding it: signers approve the exact ordered list, not a vague action label.
+
+### Rekeyed Accounts As Safe-Controlled Addresses
+
+Algorand's rekeying primitive lets any account hand its signing authority to another address. Algo Safe uses this in both directions:
+
+- **Inbound — spend from rekeyed addresses.** Any Algorand address can be rekeyed to the safe's application address. From then on, payment and asset-transfer entries in a proposal can name that address as their `sender`, and the safe executes them as inner transactions from that account (the AVM itself enforces that an inner-transaction sender is either the application account or an account rekeyed to it). A zero-address `sender` means the safe's own account. This lets one safe govern a whole fleet of addresses — legacy accounts, per-purpose deposit addresses, validator accounts — without moving funds first. Spending limits still apply: a close-out from a rekeyed sender counts that account's full swept balance against the group's limit.
+- **Outbound — migration and release.** A rekey proposal (`RekeyTxn`) can rekey the safe's own application account to a newly deployed safe (or any other address), migrating custody without moving assets, or rekey a previously captured external account back to its own key to release it. Because a rekey permanently transfers control, it is reserved for admin consensus: the executing group must hold both the dedicated `ACT_REKEY` action bit (which existing groups do not hold unless governance explicitly grants it) and the group-admin privilege (`PRIV_GROUP`), and the rekey executes only once that admin group's M-of-N threshold is met — both checked at execution time against the group's live state.
 
 ---
 
@@ -326,7 +337,7 @@ flowchart TB
 
     subgraph Library["algo-safe npm library (public API — single source of truth)"]
         API["Public API<br/>safe create · signer groups · proposals · approvals · execute · queries"]
-        BUILD["Transaction group builder<br/>pay · axfer · appl · keyreg"]
+        BUILD["Transaction group builder<br/>pay · axfer · appl · keyreg · acfg · rekey"]
         POLICY["Policy & threshold logic<br/>limits · allowlists · M-of-N"]
         CLIENT["Generated typed clients + ARC-56 app spec"]
         API --> BUILD
@@ -373,7 +384,7 @@ The library must:
 - Compile the Algorand TypeScript smart contracts and ship the ARC-56 app spec(s) and generated typed clients.
 - Export a stable, documented, semver-versioned public API surface.
 - Provide high-level methods for every safe operation, including safe creation, signer-group management, proposal building, approval/co-signing, execution, read/query helpers, and EURD onramp/offramp via the Quantoz Payments API.
-- Build the exact Algorand atomic transaction groups (`pay`, `axfer`, `appl`, `keyreg`) internally so callers never assemble raw transactions by hand.
+- Build the exact Algorand atomic transaction groups (`pay`, `axfer`, `appl`, `keyreg`, `acfg`, `rekey`) internally so callers never assemble raw transactions by hand.
 - Accept a wallet/signer handoff (for example an Algorand `TransactionSigner`) so the library performs signing through the caller's wallet rather than holding keys.
 - Be framework-agnostic and usable from any TypeScript/JavaScript environment: web frontends, Node.js backends, scripts, bots, and AI/MCP agents.
 - Hide AVM and ARC-56 implementation details behind typed methods, while still exposing the assembled transaction group for inspection.
@@ -406,9 +417,9 @@ The contract is written in **Algorand TypeScript** (PuyaTs) and compiled to **TE
 
 - **One application, two programs.** Every Algorand app is an **Approval Program** (all app calls except ClearState) plus a **Clear State Program** (cleanup only). No critical authorization logic lives in Clear State, because users can always clear their local state.
 - **Two fundamental types.** At the AVM level everything is `uint64` or `bytes` (≤ 4096 bytes). Higher-level shapes (structs, addresses, ABI tuples) are ARC-4 encodings over `bytes`.
-- **The safe address is the application account.** The smart account that holds ALGO and ASAs (including EURD) is the **application's account**. All payments, ASA transfers, app calls, and key registrations are executed as **inner transactions** signed by the application, each with `fee: 0` (the caller covers fees via fee pooling).
+- **The safe address is the application account.** The smart account that holds ALGO and ASAs (including EURD) is the **application's account**. All payments, ASA transfers, app calls, key registrations, asset configurations, and rekeys are executed as **inner transactions** signed by the application, each with `fee: 0` (the caller covers fees via fee pooling). Payments and asset transfers may alternatively be sent **from any external account rekeyed to the application address** — the AVM authorizes an inner-transaction sender exactly when it is the app account or rekeyed to it — so one safe can govern many addresses.
 - **No re-entrancy.** An application cannot call itself, even indirectly through inner transactions; the AVM enforces this.
-- **Hard limits drive storage choices.** Global state is capped (64 KV pairs, key+value <= 128 bytes), so per-group, per-member, per-proposal, and per-approval records live in **box storage** (`Box` / `BoxMap`), whose MBR is funded by the app account. Algorand protocol transaction groups can contain up to 16 transactions; the Algo Safe contract stores a variable-length list of executable inner transactions per transaction-group proposal (bounded by `MAX_GROUP_TXNS`, currently 16, so it tracks the protocol limit). The opcode budget is 700 per app call; execution calls `ensureBudget` to raise the available budget in proportion to the group length, pooled across the group and inner app calls.
+- **Hard limits drive storage choices.** Global state is capped (64 KV pairs, key+value <= 128 bytes), so per-group, per-member, per-proposal, and per-approval records live in **box storage** (`Box` / `BoxMap`), whose MBR is funded by the app account. Algorand protocol transaction groups can contain up to 16 transactions; the Algo Safe contract stores a variable-length list of executable inner transactions per transaction-group proposal (bounded by `MAX_GROUP_TXNS`, currently 16, so it tracks the protocol limit), split across up to six payload-chunk boxes when it exceeds one ~2 KB ABI argument. The opcode budget is 700 per app call; every ABI method takes an `ensureBudgetValue` argument that raises the available budget via opup inner transactions before execution's decode/validate/stage passes run. Terminal proposals past expiry can be pruned (`pruneProposal`) to reclaim their box MBR.
 - **Approval authentication comes from the signed app call.** A standard approval is an `approveProposal` application call signed by the signer account. The AVM has already verified the transaction signature before the approval program runs, so the contract checks `Txn.sender` against the signer group and records only the approval fact. The `Approval` box never stores a signature. Explicit opcodes such as `falcon_verify` are used only for signer types that cannot be authenticated directly as the transaction sender.
 
 ### Storage Layout
@@ -424,21 +435,24 @@ classDiagram
     }
 
     class GlobalState {
-        +name : bytes
-        +groupCount : uint64
+        +name : string
+        +creator : Account
+        +bootstrapped : uint64
         +nextGroupId : uint64
         +nextProposalId : uint64
-        +paused : bool
-        +version : uint64
+        +groupCount : uint64
+        +paused : uint64 (reserved)
+        +version : string (CONTRACT_VERSION)
+        +activePrivGroupCount : uint64 (governance lockout guard)
     }
 
     class SignerGroup {
         «BoxMap key: groupId»
-        +name : bytes
+        +name : string
         +threshold : uint64
         +memberCount : uint64
-        +adminPrivileges : uint64 (bitmask group/policy/app admin)
-        +allowedActions : uint64 (bitmask pay/axfer/appl/keyreg)
+        +adminPrivileges : uint64 (bitmask GROUP=1 / POLICY=2)
+        +allowedActions : uint64 (bitmask pay/axfer/appl/keyreg/acfg/rekey)
         +limitAssetId : uint64 (0 = ALGO, nonzero = tracked ASA for daily/monthly limits)
         +dailyLimit : uint64
         +dailyUsage : uint64
@@ -446,56 +460,95 @@ classDiagram
         +monthlyLimit : uint64
         +monthlyUsage : uint64
         +monthlyPeriodStart : uint64
-        +cooldownRounds : uint64
+        +cooldownRounds : uint64 (capped at 10,000,000)
+        +lastExecutionRound : uint64
+        +membershipEpoch : uint64 (bumped on member removal)
+        +active : uint64
     }
 
     class Member {
-        «BoxMap key: groupId+identity»
-        +accountType : uint8 (standard/multisig/rekeyed/agent/quantum)
-        +label : bytes
-        +ed25519Address : Account (native Algorand address)
-        +falconAddress : Account (native Algorand address representing Falcon identity)
+        «BoxMap key: groupId+account»
+        +accountType : uint64 (1 standard / 2 multisig / 3 rekeyed / 4 agent / 5 quantum)
+        +label : string
+        +addr : Account
     }
 
     class Proposal {
         «BoxMap key: proposalId»
         +groupId : uint64
-        +status : uint8
-        +payloadType : uint8 (transactionGroup/adminChange)
+        +status : uint64 (1 active / 2 ready / 3 executed / 4 cancelled)
+        +payloadType : uint64 (1 transactionGroup / 5 adminChange)
         +approvalsCount : uint64
-        +threshold : uint64
+        +threshold : uint64 (snapshot at creation)
         +expiryRound : uint64
         +proposer : Account
+        +numPayloads : uint64 (payload chunks in use, 1..6)
+        +epochAtCreation : uint64 (membershipEpoch snapshot)
     }
 
     class TransactionGroupPayload {
-        «BoxMap key: proposalId»
-        +txns : SafeTxn[]  «ordered, 1..MAX_GROUP_TXNS»
+        «BoxMap key: proposalId*7+payloadIndex»
+        +txns : SafeTxn[]  «ordered, group total 1..MAX_GROUP_TXNS»
     }
 
     class SafeTxn {
-        +txType : uint64 (pay/axfer/appl/keyreg)
+        +txType : uint64 (1 pay / 2 axfer / 3 appl / 4 keyreg / 5 acfg / 6 rekey)
+        +data : bytes (ARC4-encoded per-type struct)
+    }
+
+    class PaymentTxn {
+        +sender : Account (zero = safe itself, else rekeyed-to-safe address)
         +receiver : Account
         +amount : uint64
+        +hasClose / closeRemainderTo
+        +note : string
+    }
+
+    class AssetTxn {
+        +sender : Account (zero = safe itself, else rekeyed-to-safe address)
         +xferAsset : uint64
         +assetReceiver : Account
         +assetAmount : uint64
-        +appId : uint64
-        +arg0..arg3 : bytes
-        +voteKey/selectionKey/stateProofKey : bytes
-        +closeRemainderTo : Account optional
-        +note : bytes
+        +hasAssetClose / assetCloseTo
+        +note : string
     }
 
-    class SignerGroupChange {
+    class AppTxn {
+        +appId : uint64
+        +onCompletion : uint64 (update rejected)
+        +appArgs : bytes[]
+        +accounts / foreignApps / foreignAssets
+        +note : string
+    }
+
+    class KeyRegTxn {
+        +online : uint64
+        +voteKey / selectionKey / stateProofKey : bytes
+        +voteFirst / voteLast / voteKeyDilution : uint64
+    }
+
+    class AssetConfigTxn {
+        +configAsset : uint64 (0 = create, else reconfigure/destroy)
+        +total / decimals / defaultFrozen
+        +unitName / assetName / url / metadataHash
+        +manager / reserve / freeze / clawback : Account
+        +note : string
+    }
+
+    class RekeyTxn {
+        +sender : Account (zero = safe itself)
+        +rekeyTo : Account (new auth address)
+        +note : string
+    }
+
+    class AdminChange {
         «BoxMap key: proposalId»
-        +changeType : uint8 (createGroup/addMember/removeMember/changeThreshold/setPolicy/setAdminPrivileges)
+        +changeType : uint64 (1 createGroup / 2 addMember / 3 removeMember / 4 changeThreshold / 5 setPolicy / 6 setPrivileges / 7 setActive)
         +targetGroupId : uint64
-        +newGroup : SignerGroup optional
-        +member : Member optional
-        +newThreshold : uint64 optional
-        +newPolicy : bytes optional
-        +newAdminPrivileges : uint64 optional
+        +groupName / memberAddr / memberType / memberLabel
+        +threshold / adminPrivileges / allowedActions
+        +limitAssetId / dailyLimit / monthlyLimit / cooldownRounds
+        +activeFlag : uint64
     }
 
     class Approval {
@@ -508,66 +561,73 @@ classDiagram
     Application "1" --> "*" SignerGroup : BoxMap
     SignerGroup "1" --> "*" Member : BoxMap
     Application "1" --> "*" Proposal : BoxMap
-    Proposal "1" --> "0..1" TransactionGroupPayload : BoxMap
-    Proposal "1" --> "0..1" SignerGroupChange : BoxMap
+    Proposal "1" --> "0..6" TransactionGroupPayload : BoxMap
+    Proposal "1" --> "0..1" AdminChange : BoxMap
     Proposal "1" --> "*" Approval : BoxMap
+    TransactionGroupPayload "1" --> "*" SafeTxn : ordered list
+    SafeTxn <|-- PaymentTxn : txType 1
+    SafeTxn <|-- AssetTxn : txType 2
+    SafeTxn <|-- AppTxn : txType 3
+    SafeTxn <|-- KeyRegTxn : txType 4
+    SafeTxn <|-- AssetConfigTxn : txType 5
+    SafeTxn <|-- RekeyTxn : txType 6
 ```
 
-`TransactionGroupPayload` is the executable payload shape used by the contract. It is an ordered, dynamically sized array of typed `SafeTxn` entries (`SafeTxn[]`). `txType` selects whether an entry is emitted as `pay`, `axfer`, `appl`, or `keyreg`. A one-action proposal is still a transaction group with a single entry. The group length is bounded by `MAX_GROUP_TXNS` (currently 16, matching the Algorand protocol group limit); key-registration is constrained to a one-entry group, while payment, asset transfer, and app-call entries can be mixed and executed as one atomic inner group.
+`TransactionGroupPayload` is the executable payload shape used by the contract. Each stored transaction is a tagged envelope `(txType, data)` where `data` is the ARC4 encoding of exactly one per-type struct — so an entry occupies only the bytes its own type needs, and the payload array stays homogeneous on the wire. A one-action proposal is still a transaction group with a single entry. The combined group length across all payload chunks is bounded by `MAX_GROUP_TXNS` (currently 16, matching the Algorand protocol group limit); any mix of payment, asset transfer, app call, key registration, asset config, and rekey entries executes as one atomic inner group. Proposals whose encoded payload exceeds one ~2 KB ABI argument spread it across up to six chunk slots (`proposalId*7 + payloadIndex` box keys), appended by the proposer via `appendTransactionGroupPayload` — allowed only while the proposer's own auto-approval is the sole approval, so no independent signer ever approves a payload that can still change.
 
 ### ABI Method Surface
 
-Convention-based lifecycle methods handle create/update/delete; the rest are ARC-4 ABI methods grouped by responsibility. Read-only getters use `@abimethod({ readonly: true })` so clients can query without a state-changing call.
+The application is intentionally **non-updatable and non-deletable** for custody safety — there is no upgrade or teardown path (migration is done by rekeying the safe account to a new deployment under admin consensus). `createApplication` initialises global state; `bootstrap` (creator-only, callable once) creates the genesis 1-of-1 admin group. Every other privileged change flows through governed proposals. Read-only getters use `@abimethod({ readonly: true })` so clients can query without a state-changing call; every method takes an `ensureBudgetValue` argument so callers can raise the opcode budget in the same call.
 
 ```mermaid
 flowchart TB
-    subgraph Lifecycle["Lifecycle (convention-routed)"]
-        C1["createApplication() — init safe + initial admin groups"]
-        C2["updateApplication() — admin-governed upgrade"]
-        C3["deleteApplication() — admin-governed teardown"]
-    end
-
-    subgraph Admin["Signer-group administration (governed)"]
-        A1["createSignerGroup(name, threshold, policy)"]
-        A2["addSigner(groupId, accountType, address, label)"]
-        A3["removeSigner(groupId, identity)"]
-        A4["changeThreshold(groupId, threshold)"]
-        A5["setPolicy(groupId, limitAssetId, limits, allowedActions)"]
+    subgraph Lifecycle["Lifecycle"]
+        C1["createApplication(name) — init global state"]
+        C2["bootstrap(groupName) — creator-only, once: genesis 1-of-1 admin group"]
     end
 
     subgraph Proposals["Proposal lifecycle"]
-        P1["proposeTransactionGroup(groupId, txs, expiry)"]
-        P1A["proposeAdminChange(groupId, change, expiry)"]
-        P1B["proposePayment / proposeAssetTransfer / proposeAppCall / proposeKeyRegistration wrappers"]
-        P2["approveProposal(proposalId)"]
-        P3["executeProposal(proposalId) → inner txns"]
-        P4["cancelProposal(proposalId)"]
+        P1["proposeTransactionGroup(groupId, payload, expiryRound, execute, budget)"]
+        P1A["appendTransactionGroupPayload(proposalId, payloadIndex 2..6, payload, budget)"]
+        P1B["proposeAdminChange(groupId, change, expiryRound, budget)"]
+        P2["approveProposal(proposalId, budget)"]
+        P3["executeProposal(proposalId, budget) → inner txn group"]
+        P4["cancelProposal(proposalId, budget)"]
+        P5["pruneProposal(proposalId, budget) — reclaim box MBR of terminal, expired proposals"]
     end
 
-    subgraph Verify["On-chain validation (private subroutines)"]
-        V1["assertSenderIsMember()"]
-        V2["verifyExternalSchemeIfNeeded()"]
-        V3["checkPolicy() — threshold + limits + allowlist"]
+    subgraph AdminChanges["AdminChange payload types (applied by executeProposal)"]
+        A1["ADM_CREATE_GROUP — new group + first member"]
+        A2["ADM_ADD_MEMBER / ADM_REMOVE_MEMBER"]
+        A3["ADM_CHANGE_THRESHOLD"]
+        A4["ADM_SET_POLICY — actions, tracked asset, limits, cooldown"]
+        A5["ADM_SET_PRIVILEGES / ADM_SET_ACTIVE — lockout-guarded"]
     end
 
     subgraph Reads["Read-only getters"]
-        R1["getSafeConfig()"]
+        R1["getConfig()"]
         R2["getSignerGroup(groupId)"]
         R3["getProposal(proposalId)"]
-        R4["getTransactionGroup(proposalId)"]
+        R4["getTransactionGroup(proposalId, payloadIndex)"]
+        R5["getMember(groupId, account) / isMember(groupId, account)"]
+        R6["hasApproved(proposalId, account)"]
+        R7["getActivePrivGroupCount()"]
     end
 
-    P2 --> V1
-    P2 --> V2
-    P3 --> V3
-    A1 --> P1A
-    A2 --> P1A
-    A3 --> P1A
-    A4 --> P1A
-    A5 --> P1A
+    P1B --> A1
+    P1B --> A2
+    P1B --> A3
+    P1B --> A4
+    P1B --> A5
+    P3 --> A1
 ```
 
-Every administrative change (`createSignerGroup`, `addSigner`, `removeSigner`, `changeThreshold`, `setPolicy`, `setAdminPrivileges`, update/delete) is itself a **governed action**: it is created as a signer-group change proposal, approved by any signer group that has the required admin privilege under M-of-N, and only then executed. The contract never trusts a single caller for privileged changes, and it supports more than one admin-capable signer group.
+Every administrative change (create group, add/remove member, change threshold, set policy, set privileges, set active) is itself a **governed action**: it is created as an `AdminChange` proposal via `proposeAdminChange`, approved under the proposing group's M-of-N threshold, and only then applied by `executeProposal`. The contract never trusts a single caller for privileged changes, and it supports more than one admin-capable signer group.
+
+Two behaviors worth calling out:
+
+- **Propose-and-execute in one call.** `proposeTransactionGroup(..., execute: true)` auto-approves the proposer and immediately attempts execution — it succeeds only for a 1-of-1 group whose policy allows the transactions, letting single-signer groups (typically agents) pay in one app call.
+- **Admin privileges are safe-wide, not self-scoped.** `PRIV_GROUP` lets a group administer *any* group in the safe, and `PRIV_POLICY` lets it change *any* group's spending policy. A **governance lockout guard** (`activePrivGroupCount`) rejects — at both proposal validation and execution time — any change that would strip `PRIV_GROUP` from, or deactivate, the last remaining active group holding it, since the non-upgradable contract has no other recovery path.
 
 ### Proposal State Machine
 
@@ -607,41 +667,26 @@ sequenceDiagram
     participant Inner as Inner transactions
     participant Chain as Algorand (algod)
 
-    Caller->>App: executeProposal(proposalId)
-    App->>Store: load Proposal + SignerGroup + typed payload
-    App->>App: assert status == ReadyToExecute
-    App->>App: assert approvalsCount >= threshold
-    App->>App: assert round <= expiryRound
-    App->>App: checkPolicy(limits, allowlist, allowedActions)
-    App->>Inner: compose pay / axfer / appl / keyreg inner group (fee = 0)
+    Caller->>App: executeProposal(proposalId, ensureBudgetValue)
+    App->>Store: load Proposal + SignerGroup + payload chunks
+    App->>App: assert status == READY, round <= expiryRound
+    App->>App: assert approvalsCount >= max(snapshot, live threshold)
+    App->>App: assert membershipEpoch unchanged since creation
+    App->>App: assert group active + cooldown elapsed
+    App->>App: pass 1 — decode, validate actions, tally spend vs limits
+    App->>Inner: pass 2 — stage pay / axfer / appl / keyreg / acfg / rekey (fee = 0, sender = safe or rekeyed address)
     Inner->>Chain: atomic inner group
     Chain-->>App: success or rollback
-    App->>Store: update SignerGroup daily/monthly usage + status = Executed
+    App->>Store: update usage + lastExecutionRound + status = EXECUTED
     App-->>Caller: emit Executed event (ARC-28) + txn ids
 ```
 
-For transaction proposals, execution follows the same shape as the contract implementation:
+For transaction proposals, execution makes **two passes** over the stored payload chunks:
 
-```ts
-private _executeTransactionGroup(proposalId: uint64, groupId: uint64, group: SignerGroup): void {
-  const payload = clone(this.transactionGroups(proposalId).value)
-  const count: uint64 = payload.length
-  ensureBudget((count + Uint64(1)) * Uint64(700))
+1. **Validate and account** — every entry is decoded from its `(txType, data)` envelope and checked against the group's `allowedActions` and per-type rules (receiver present, app-call reference limits, no app update, rekey target present, …). Payments and transfers of the tracked asset are tallied against the daily/monthly limits, counting the sending account's full live balance when a close-out is present. The group's usage counters and `lastExecutionRound` are written back before staging.
+2. **Stage and submit** — each entry is emitted as an inner transaction with `fee: 0` (the caller covers fees via fee pooling) using the low-level `ITxnCreate` builder, setting the inner sender to a rekeyed external address when the entry carries one, and the whole group is submitted atomically.
 
-  let spend: uint64 = Uint64(0)
-  for (let i: uint64 = Uint64(0); i < count; i = i + Uint64(1)) {
-    const tx = clone(payload[i])
-    this._validateSafeTxn(tx, group)
-    if (tx.txType === TX_PAYMENT) spend = spend + tx.amount
-    this._stageSafeTxn(tx, i === Uint64(0))
-  }
-
-  this.groups(groupId).value = clone(this._accountSpend(group, spend))
-  itxnCompose.submit()
-}
-```
-
-After a successful value-moving execution, the contract increments `dailyUsage` and `monthlyUsage` on the approving `SignerGroup` box, resetting the current period first when `dailyPeriodStart` or `monthlyPeriodStart` has expired. The policy check and the final usage write happen in the same app call so limit accounting cannot drift from execution.
+The opcode budget for both passes is raised by the `ensureBudgetValue` argument the caller supplies (opup inner calls cannot run while the inner group is being staged). The policy check and the final usage write happen in the same app call so limit accounting cannot drift from execution.
 
 ### How EURD Maps Onto This Model
 
@@ -682,9 +727,11 @@ Before any approval app call is signed, the frontend must show the exact ordered
 Required builder capabilities:
 
 - Compose single-transaction and multi-transaction proposals
-- Support `pay`, `axfer`, `appl`, and `keyreg` from guided forms
+- Support `pay`, `axfer`, `appl`, `keyreg`, and asset configuration (`acfg`) from guided forms
+- Support choosing a rekeyed-to-the-safe sending address for payments and asset transfers, defaulting to the safe's own address
+- Build rekey proposals (safe migration to a new deployment, or releasing a rekeyed account) with explicit, unmistakable warnings about the transfer of control
 - Bundle several app calls into one ordered Algo Safe approval flow for Ledger and other slow/manual signing devices
-- Import unsigned transactions from JSON/base64 for advanced users
+- Import unsigned transactions from JSON/base64 for advanced users (including native `algosdk.Transaction` conversion via the library)
 - Decode and display application arguments, accounts, apps, assets, and boxes where possible
 - Simulate or dry-run proposals before approval collection where supported
 - Flag dangerous fields such as close remainder, asset close-to, rekey-to, app update/delete, and unknown receivers
@@ -885,11 +932,13 @@ Purpose: Create safe actions from guided workflows.
 
 Proposal types:
 
-- Send ALGO
-- Send ASA
+- Send ALGO (from the safe or a rekeyed address)
+- Send ASA (from the safe or a rekeyed address)
 - Opt in to ASA
 - Call application
 - Register participation keys
+- Create / reconfigure / destroy ASA (asset config)
+- Rekey the safe or release a rekeyed account
 - Build custom atomic group
 - Onramp EUR to EURD (Quantoz)
 - Offramp EURD to EUR (Quantoz)
@@ -899,6 +948,7 @@ Proposal types:
 - Remove signer
 - Change threshold
 - Change policy limits
+- Change group privileges / activate / deactivate group
 
 Required states:
 
@@ -1081,7 +1131,7 @@ Algo Safe succeeds when an Algorand team can:
 1. Create a safe from the frontend
 2. Connect with their preferred wallet
 3. Add signer groups and members through governed proposals
-4. Prepare payment, ASA, app-call, and key-registration actions without hand-writing transaction JSON
+4. Prepare payment, ASA, app-call, key-registration, asset-configuration, and rekey actions without hand-writing transaction JSON
 5. Review the exact typed payload and inner transaction group preview before signing
 6. Collect approval app calls across multiple people and wallets
 7. Execute only after policy and threshold requirements are met

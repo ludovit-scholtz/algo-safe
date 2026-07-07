@@ -6,6 +6,7 @@ import {
   ACT_ALL,
   ACT_AXFER,
   ACT_PAY,
+  ACT_REKEY,
   ADM_ADD_MEMBER,
   ADM_CHANGE_THRESHOLD,
   ADM_CREATE_GROUP,
@@ -21,6 +22,7 @@ import {
   TX_ASSET,
   TX_KEYREG,
   TX_PAYMENT,
+  TX_REKEY,
   ZERO_ADDR,
   algosdkTxnsToSafeTxnGroup,
   createAdminChange,
@@ -30,11 +32,13 @@ import {
   createAssetSafeTxn,
   createKeyRegSafeTxn,
   createPaymentSafeTxn,
+  createRekeySafeTxn,
   decodeAppTxn,
   decodeAssetConfigTxn,
   decodeAssetTxn,
   decodeKeyRegTxn,
   decodePaymentTxn,
+  decodeRekeyTxn,
   toSafeTxnGroup,
   type SafeTxn,
 } from '../../src'
@@ -56,7 +60,7 @@ function boxKeyU64(prefix: string, n: bigint): Uint8Array {
 }
 
 function safePayment(receiver: string, amount: bigint, note = ''): SafeTxn {
-  return createPaymentSafeTxn({ receiver, amount, hasClose: 0n, closeRemainderTo: ZERO_ADDR, note })
+  return createPaymentSafeTxn({ sender: ZERO_ADDR, receiver, amount, hasClose: 0n, closeRemainderTo: ZERO_ADDR, note })
 }
 
 function safeAppCall(appId: bigint, args: Uint8Array[] = []): SafeTxn {
@@ -667,6 +671,7 @@ describe('AlgoSafe contract', () => {
         groupId: 1n,
         payload: toSafeTxnGroup([
           createAssetSafeTxn({
+            sender: ZERO_ADDR,
             xferAsset: assetId,
             assetReceiver: client.appAddress.toString(),
             assetAmount: 0n,
@@ -702,6 +707,7 @@ describe('AlgoSafe contract', () => {
         groupId: 1n,
         payload: toSafeTxnGroup([
           createAssetSafeTxn({
+            sender: ZERO_ADDR,
             xferAsset: assetId,
             assetReceiver: recipient.toString(),
             assetAmount: 100n,
@@ -826,6 +832,7 @@ describe('AlgoSafe contract', () => {
         groupId: 1n,
         payload: toSafeTxnGroup([
           createAssetSafeTxn({
+            sender: ZERO_ADDR,
             xferAsset: assetId,
             assetReceiver: client.appAddress.toString(),
             assetAmount: 0n,
@@ -859,6 +866,7 @@ describe('AlgoSafe contract', () => {
         groupId: 2n,
         payload: toSafeTxnGroup([
           createAssetSafeTxn({
+            sender: ZERO_ADDR,
             xferAsset: assetId,
             assetReceiver: assetRecipient.toString(),
             assetAmount: 100n,
@@ -1723,6 +1731,7 @@ describe('AlgoSafe contract', () => {
         groupId: 2n,
         payload: toSafeTxnGroup([
           createPaymentSafeTxn({
+            sender: ZERO_ADDR,
             receiver: receiver.toString(),
             amount: (0.05).algo().microAlgo,
             hasClose: 1n,
@@ -1779,6 +1788,7 @@ describe('AlgoSafe contract', () => {
         groupId: 1n,
         payload: toSafeTxnGroup([
           createAssetSafeTxn({
+            sender: ZERO_ADDR,
             xferAsset: assetId,
             assetReceiver: client.appAddress.toString(),
             assetAmount: 0n,
@@ -1815,6 +1825,7 @@ describe('AlgoSafe contract', () => {
         groupId: 2n,
         payload: toSafeTxnGroup([
           createAssetSafeTxn({
+            sender: ZERO_ADDR,
             xferAsset: assetId,
             assetReceiver: receiver.toString(),
             assetAmount: 10n,
@@ -1832,6 +1843,214 @@ describe('AlgoSafe contract', () => {
       staticFee: (0.2).algo(),
     })
 
+    await expect(
+      client.send.executeProposal({ args: { proposalId: pid!, ensureBudgetValue: 6000n }, sender: agent, ...execParams }),
+    ).rejects.toThrow()
+  })
+
+  test('spends from an external account rekeyed to the safe via the payment sender field', async () => {
+    const { client } = await deployAndBootstrap()
+    const external = await localnet.context.generateAccount({ initialFunds: (2).algo() })
+    const recipient = await localnet.context.generateAccount({ initialFunds: (0).algo() })
+
+    // The external account hands control to the safe with a normal rekey.
+    await localnet.algorand.send.payment({
+      sender: external,
+      receiver: external,
+      amount: (0).algo(),
+      rekeyTo: client.appAddress,
+      suppressLog: true,
+    })
+
+    const { return: pid } = await client.send.proposeTransactionGroup({
+      args: {
+        groupId: 1n,
+        payload: toSafeTxnGroup([
+          createPaymentSafeTxn({
+            sender: external.toString(),
+            receiver: recipient.toString(),
+            amount: (0.5).algo().microAlgo,
+            hasClose: 0n,
+            closeRemainderTo: ZERO_ADDR,
+            note: '',
+          }),
+        ]),
+        expiryRound: FAR_EXPIRY,
+        execute: false,
+        ensureBudgetValue: 10000n,
+      },
+      suppressLog: true,
+      staticFee: (0.2).algo(),
+    })
+    await client.send.executeProposal({ args: { proposalId: pid!, ensureBudgetValue: 6000n }, ...execParams })
+
+    const recipInfo = await localnet.algorand.account.getInformation(recipient)
+    expect(recipInfo.balance.microAlgo).toBe((0.5).algo().microAlgo)
+    // 2 ALGO funded − 0.001 rekey fee − 0.5 payment (inner fee 0, pooled by the caller).
+    const externalInfo = await localnet.algorand.account.getInformation(external)
+    expect(externalInfo.balance.microAlgo).toBe((1.499).algo().microAlgo)
+  })
+
+  test('releases a rekeyed external account back to its own key via a governed rekey proposal', async () => {
+    const { client } = await deployAndBootstrap()
+    const external = await localnet.context.generateAccount({ initialFunds: (2).algo() })
+
+    await localnet.algorand.send.payment({
+      sender: external,
+      receiver: external,
+      amount: (0).algo(),
+      rekeyTo: client.appAddress,
+      suppressLog: true,
+    })
+    const rekeyed = await localnet.algorand.account.getInformation(external)
+    expect(rekeyed.authAddr?.toString()).toBe(client.appAddress.toString())
+
+    const rekeyTxn = createRekeySafeTxn({ sender: external.toString(), rekeyTo: external.toString(), note: '' })
+    const { return: pid } = await client.send.proposeTransactionGroup({
+      args: { groupId: 1n, payload: toSafeTxnGroup([rekeyTxn]), expiryRound: FAR_EXPIRY, execute: false, ensureBudgetValue: 10000n },
+      suppressLog: true,
+      staticFee: (0.2).algo(),
+    })
+
+    const stored = await client.send.getTransactionGroup({ args: { proposalId: pid!, payloadIndex: 1n, ensureBudgetValue: 0n }, suppressLog: true })
+    expect(stored.return![0][0]).toBe(TX_REKEY)
+    const decoded = decodeRekeyTxn(stored.return![0][1])
+    expect(decoded.sender).toBe(external.toString())
+    expect(decoded.rekeyTo).toBe(external.toString())
+
+    await client.send.executeProposal({ args: { proposalId: pid!, ensureBudgetValue: 6000n }, ...execParams })
+
+    // Rekeying an account to its own address clears its auth-addr.
+    const released = await localnet.algorand.account.getInformation(external)
+    expect(released.authAddr === undefined || released.authAddr.toString() === external.toString()).toBe(true)
+
+    // The external account can sign for itself again.
+    const probe = await localnet.context.generateAccount({ initialFunds: (0).algo() })
+    await localnet.algorand.send.payment({
+      sender: external,
+      receiver: probe,
+      amount: (0.1).algo(),
+      suppressLog: true,
+    })
+    const probeInfo = await localnet.algorand.account.getInformation(probe)
+    expect(probeInfo.balance.microAlgo).toBe((0.1).algo().microAlgo)
+  })
+
+  test('rekeys the safe itself to a new address through admin consensus (migration path)', async () => {
+    const { client } = await deployAndBootstrap()
+    const newController = await localnet.context.generateAccount({ initialFunds: (1).algo() })
+
+    // sender zero address = the safe's own application account.
+    const rekeyTxn = createRekeySafeTxn({ sender: ZERO_ADDR, rekeyTo: newController.toString(), note: 'migrate' })
+    const { return: pid } = await client.send.proposeTransactionGroup({
+      args: { groupId: 1n, payload: toSafeTxnGroup([rekeyTxn]), expiryRound: FAR_EXPIRY, execute: false, ensureBudgetValue: 10000n },
+      suppressLog: true,
+      staticFee: (0.2).algo(),
+    })
+    await client.send.executeProposal({ args: { proposalId: pid!, ensureBudgetValue: 6000n }, ...execParams })
+
+    // The safe address is now controlled by the new address, not the app.
+    const safeInfo = await localnet.algorand.account.getInformation(client.appAddress)
+    expect(safeInfo.authAddr?.toString()).toBe(newController.toString())
+  })
+
+  test('executes a rekey only after the admin group threshold is fully met (2-of-2)', async () => {
+    const { client, deployer } = await deployAndBootstrap()
+    const secondAdmin = await localnet.context.generateAccount({ initialFunds: (1).algo() })
+    const newController = await localnet.context.generateAccount({ initialFunds: (1).algo() })
+
+    // Grow the genesis admin group to 2-of-2 (threshold change last, while 1-of-1 still governs).
+    await governAdminChange(
+      client,
+      1n,
+      mkAdminChange({
+        changeType: ADM_ADD_MEMBER,
+        targetGroupId: 1n,
+        memberAddr: secondAdmin.toString(),
+        memberType: 1n,
+        memberLabel: 'second admin',
+      }),
+    )
+    await governAdminChange(client, 1n, mkAdminChange({ changeType: ADM_CHANGE_THRESHOLD, targetGroupId: 1n, threshold: 2n }))
+
+    const rekeyTxn = createRekeySafeTxn({ sender: ZERO_ADDR, rekeyTo: newController.toString(), note: '' })
+    const { return: pid } = await client.send.proposeTransactionGroup({
+      args: { groupId: 1n, payload: toSafeTxnGroup([rekeyTxn]), expiryRound: FAR_EXPIRY, execute: false, ensureBudgetValue: 10000n },
+      sender: deployer,
+      suppressLog: true,
+      staticFee: (0.2).algo(),
+    })
+
+    // Only the proposer's auto-approval so far — execution must fail short of the threshold.
+    await expect(
+      client.send.executeProposal({ args: { proposalId: pid!, ensureBudgetValue: 6000n }, ...execParams }),
+    ).rejects.toThrow()
+    const safeBefore = await localnet.algorand.account.getInformation(client.appAddress)
+    expect(safeBefore.authAddr).toBeUndefined()
+
+    // Second admin approves; the threshold is met and the rekey executes.
+    await client.send.approveProposal({ args: { proposalId: pid!, ensureBudgetValue: 0n }, sender: secondAdmin, suppressLog: true })
+    await client.send.executeProposal({ args: { proposalId: pid!, ensureBudgetValue: 6000n }, ...execParams })
+
+    const safeAfter = await localnet.algorand.account.getInformation(client.appAddress)
+    expect(safeAfter.authAddr?.toString()).toBe(newController.toString())
+  })
+
+  test('rejects a rekey proposal from a group without the ACT_REKEY action', async () => {
+    const { client } = await deployAndBootstrap()
+    const agent = await localnet.context.generateAccount({ initialFunds: (1).algo() })
+
+    await governAdminChange(
+      client,
+      1n,
+      mkAdminChange({
+        changeType: ADM_CREATE_GROUP,
+        groupName: 'PayOnly',
+        threshold: 1n,
+        memberAddr: agent.toString(),
+        allowedActions: ACT_PAY,
+        adminPrivileges: 0n,
+      }),
+    )
+
+    const rekeyTxn = createRekeySafeTxn({ sender: ZERO_ADDR, rekeyTo: agent.toString(), note: '' })
+    const { return: pid } = await client.send.proposeTransactionGroup({
+      args: { groupId: 2n, payload: toSafeTxnGroup([rekeyTxn]), expiryRound: FAR_EXPIRY, execute: false, ensureBudgetValue: 10000n },
+      sender: agent,
+      suppressLog: true,
+      staticFee: (0.2).algo(),
+    })
+    await expect(
+      client.send.executeProposal({ args: { proposalId: pid!, ensureBudgetValue: 6000n }, sender: agent, ...execParams }),
+    ).rejects.toThrow()
+  })
+
+  test('rejects a rekey from an ACT_REKEY group that lacks the group-admin privilege', async () => {
+    const { client } = await deployAndBootstrap()
+    const agent = await localnet.context.generateAccount({ initialFunds: (1).algo() })
+
+    // The group is explicitly allowed the rekey action but holds no admin
+    // privilege — rekey is reserved for admin consensus, so execution must fail.
+    await governAdminChange(
+      client,
+      1n,
+      mkAdminChange({
+        changeType: ADM_CREATE_GROUP,
+        groupName: 'RekeyNoAdmin',
+        threshold: 1n,
+        memberAddr: agent.toString(),
+        allowedActions: ACT_REKEY,
+        adminPrivileges: 0n,
+      }),
+    )
+
+    const rekeyTxn = createRekeySafeTxn({ sender: ZERO_ADDR, rekeyTo: agent.toString(), note: '' })
+    const { return: pid } = await client.send.proposeTransactionGroup({
+      args: { groupId: 2n, payload: toSafeTxnGroup([rekeyTxn]), expiryRound: FAR_EXPIRY, execute: false, ensureBudgetValue: 10000n },
+      sender: agent,
+      suppressLog: true,
+      staticFee: (0.2).algo(),
+    })
     await expect(
       client.send.executeProposal({ args: { proposalId: pid!, ensureBudgetValue: 6000n }, sender: agent, ...execParams }),
     ).rejects.toThrow()

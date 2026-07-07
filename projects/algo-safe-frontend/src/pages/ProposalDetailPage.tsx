@@ -10,13 +10,14 @@ import { Skeleton } from '../components/ui/Skeleton'
 import { StatusBadge } from '../components/ui/StatusBadge'
 import { fmtEur, fmtNum } from '../lib/format'
 
-// Chip for transaction type: pay/axfer/appl/keyreg/acfg
+// Chip for transaction type: pay/axfer/appl/keyreg/acfg/rekey
 const TX_TYPE_STYLES: Record<string, string> = {
   pay: 'bg-secondary-container/20 text-secondary border-secondary-container',
   axfer: 'bg-on-primary-container/20 text-primary border-on-primary-container/30',
   appl: 'bg-warn/15 text-warn border-warn/20',
   keyreg: 'bg-surface-container-high text-on-surface-variant border-outline-variant',
   acfg: 'bg-tertiary-container/20 text-tertiary border-tertiary-container',
+  rekey: 'bg-error-container/30 text-error border-error-container',
 }
 const TxChip = ({ type }: { type: string }) => (
   <span
