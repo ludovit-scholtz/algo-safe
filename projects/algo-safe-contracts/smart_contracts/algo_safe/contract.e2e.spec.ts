@@ -8,9 +8,11 @@ import {
   ACT_PAY,
   ACT_REKEY,
   ADM_ADD_MEMBER,
+  ADM_ADD_REKEYED_ADDR,
   ADM_CHANGE_THRESHOLD,
   ADM_CREATE_GROUP,
   ADM_REMOVE_MEMBER,
+  ADM_REMOVE_REKEYED_ADDR,
   ADM_SET_ACTIVE,
   ADM_SET_POLICY,
   ADM_SET_PRIVILEGES,
@@ -25,6 +27,7 @@ import {
   TX_REKEY,
   ZERO_ADDR,
   algosdkTxnsToSafeTxnGroup,
+  buildMigrationRekeyPayload,
   createAdminChange,
   createAppCallPayload,
   createAppCallSafeTxn,
@@ -39,6 +42,8 @@ import {
   decodeKeyRegTxn,
   decodePaymentTxn,
   decodeRekeyTxn,
+  deployClonedSafe,
+  fetchSafeCloneConfig,
   toSafeTxnGroup,
   type SafeTxn,
 } from '../../src'
@@ -2261,5 +2266,243 @@ describe('AlgoSafe contract', () => {
       ...execParams,
     })
     expect(freshPid).toBeDefined()
+  })
+
+  test('clones configuration through bootstrapGroup and blocks proposals until finalizeBootstrap', async () => {
+    const { client, deployer } = await deploy()
+    const second = await localnet.context.generateAccount({ initialFunds: (1).algo() })
+    const ops = await localnet.context.generateAccount({ initialFunds: (1).algo() })
+
+    const seed = {
+      name: 'Admins',
+      threshold: 2n,
+      adminPrivileges: PRIV_ALL,
+      allowedActions: ACT_ALL,
+      limitAssetId: 0n,
+      dailyLimit: 0n,
+      monthlyLimit: 0n,
+      cooldownRounds: 0n,
+    }
+    const { return: gid } = await client.send.bootstrapGroup({
+      args: {
+        seed,
+        members: [
+          [deployer.toString(), 1n, 'first admin'],
+          [second.toString(), 1n, 'second admin'],
+        ],
+        ensureBudgetValue: 0n,
+      },
+      suppressLog: true,
+    })
+    expect(gid).toBe(1n)
+
+    // Members of seeded groups cannot act before the bootstrap phase closes.
+    await expect(
+      client.send.proposeTransactionGroup({
+        args: {
+          groupId: 1n,
+          payload: toSafeTxnGroup([safePayment(ops.toString(), 1000n)]),
+          expiryRound: FAR_EXPIRY,
+          execute: false,
+          ensureBudgetValue: 10000n,
+        },
+        suppressLog: true,
+        staticFee: (0.2).algo(),
+      }),
+    ).rejects.toThrow()
+
+    await client.send.bootstrapRekeyedAddress({ args: { addr: ops.toString(), label: 'ops account' }, suppressLog: true })
+    await client.send.finalizeBootstrap({ args: {}, suppressLog: true })
+
+    const group = await client.send.getSignerGroup({ args: { groupId: 1n, ensureBudgetValue: 0n }, suppressLog: true })
+    expect(group.return!.threshold).toBe(2n)
+    expect(group.return!.memberCount).toBe(2n)
+    expect(group.return!.adminPrivileges).toBe(PRIV_ALL)
+    const isSecondMember = await client.send.isMember({
+      args: { groupId: 1n, account: second.toString(), ensureBudgetValue: 0n },
+      suppressLog: true,
+    })
+    expect(isSecondMember.return).toBe(true)
+
+    const isRekeyed = await client.send.isRekeyedAddress({ args: { account: ops.toString(), ensureBudgetValue: 0n }, suppressLog: true })
+    expect(isRekeyed.return).toBe(true)
+    const rekeyedEntry = await client.send.getRekeyedAddress({ args: { account: ops.toString(), ensureBudgetValue: 0n }, suppressLog: true })
+    expect(rekeyedEntry.return!.label).toBe('ops account')
+
+    // Seeding is closed after finalize.
+    await expect(
+      client.send.bootstrapGroup({ args: { seed, members: [[ops.toString(), 1n, 'late']], ensureBudgetValue: 0n }, suppressLog: true }),
+    ).rejects.toThrow()
+    await expect(client.send.finalizeBootstrap({ args: {}, suppressLog: true })).rejects.toThrow()
+
+    // Governance now works: a proposal collects 1 of 2 approvals and stays ACTIVE.
+    const { return: pid } = await client.send.proposeTransactionGroup({
+      args: {
+        groupId: 1n,
+        payload: toSafeTxnGroup([safePayment(ops.toString(), 1000n)]),
+        expiryRound: FAR_EXPIRY,
+        execute: false,
+        ensureBudgetValue: 10000n,
+      },
+      suppressLog: true,
+      staticFee: (0.2).algo(),
+    })
+    const proposal = await client.send.getProposal({ args: { proposalId: pid!, ensureBudgetValue: 0n }, suppressLog: true })
+    expect(proposal.return!.approvalsCount).toBe(1n)
+    expect(proposal.return!.status).toBe(1n) // ACTIVE — threshold of 2 not yet met
+  })
+
+  test('finalizeBootstrap requires at least one active group with admin privileges', async () => {
+    const { client, deployer } = await deploy()
+    const seed = {
+      name: 'Agents',
+      threshold: 1n,
+      adminPrivileges: 0n,
+      allowedActions: ACT_PAY,
+      limitAssetId: 0n,
+      dailyLimit: 0n,
+      monthlyLimit: 0n,
+      cooldownRounds: 0n,
+    }
+    await client.send.bootstrapGroup({
+      args: { seed, members: [[deployer.toString(), 1n, 'agent']], ensureBudgetValue: 0n },
+      suppressLog: true,
+    })
+    await expect(client.send.finalizeBootstrap({ args: {}, suppressLog: true })).rejects.toThrow()
+  })
+
+  test('manages the rekeyed-address registry through governed admin proposals', async () => {
+    const { client } = await deployAndBootstrap()
+    const external = await localnet.context.generateAccount({ initialFunds: (1).algo() })
+    const agent = await localnet.context.generateAccount({ initialFunds: (1).algo() })
+
+    await governAdminChange(
+      client,
+      1n,
+      mkAdminChange({ changeType: ADM_ADD_REKEYED_ADDR, memberAddr: external.toString(), memberLabel: 'treasury ops' }),
+    )
+    const isRekeyed = await client.send.isRekeyedAddress({
+      args: { account: external.toString(), ensureBudgetValue: 0n },
+      suppressLog: true,
+    })
+    expect(isRekeyed.return).toBe(true)
+    const entry = await client.send.getRekeyedAddress({ args: { account: external.toString(), ensureBudgetValue: 0n }, suppressLog: true })
+    expect(entry.return!.label).toBe('treasury ops')
+
+    // Duplicate registration is rejected at proposal validation.
+    await expect(
+      client.send.proposeAdminChange({
+        args: {
+          groupId: 1n,
+          change: mkAdminChange({ changeType: ADM_ADD_REKEYED_ADDR, memberAddr: external.toString() }),
+          expiryRound: FAR_EXPIRY,
+          ensureBudgetValue: 0n,
+        },
+        suppressLog: true,
+        staticFee: (0.2).algo(),
+      }),
+    ).rejects.toThrow()
+
+    // A group without admin privileges cannot manage the registry.
+    await governAdminChange(
+      client,
+      1n,
+      mkAdminChange({
+        changeType: ADM_CREATE_GROUP,
+        groupName: 'NoAdmin',
+        threshold: 1n,
+        memberAddr: agent.toString(),
+        allowedActions: ACT_PAY,
+        adminPrivileges: 0n,
+      }),
+    )
+    await expect(
+      client.send.proposeAdminChange({
+        args: {
+          groupId: 2n,
+          change: mkAdminChange({ changeType: ADM_REMOVE_REKEYED_ADDR, memberAddr: external.toString() }),
+          expiryRound: FAR_EXPIRY,
+          ensureBudgetValue: 0n,
+        },
+        sender: agent,
+        suppressLog: true,
+        staticFee: (0.2).algo(),
+      }),
+    ).rejects.toThrow()
+
+    await governAdminChange(client, 1n, mkAdminChange({ changeType: ADM_REMOVE_REKEYED_ADDR, memberAddr: external.toString() }))
+    const afterRemove = await client.send.isRekeyedAddress({
+      args: { account: external.toString(), ensureBudgetValue: 0n },
+      suppressLog: true,
+    })
+    expect(afterRemove.return).toBe(false)
+  })
+
+  test('migrates a safe to a freshly deployed clone (config, rekeyed accounts, self-rekey)', async () => {
+    const { client, deployer } = await deployAndBootstrap()
+    const second = await localnet.context.generateAccount({ initialFunds: (1).algo() })
+    const external = await localnet.context.generateAccount({ initialFunds: (2).algo() })
+    const algod = localnet.algorand.client.algod
+
+    // Old safe: two admins, a registered + actually rekeyed external account.
+    await governAdminChange(
+      client,
+      1n,
+      mkAdminChange({ changeType: ADM_ADD_MEMBER, targetGroupId: 1n, memberAddr: second.toString(), memberType: 1n, memberLabel: 'second' }),
+    )
+    await governAdminChange(
+      client,
+      1n,
+      mkAdminChange({ changeType: ADM_ADD_REKEYED_ADDR, memberAddr: external.toString(), memberLabel: 'ops' }),
+    )
+    await localnet.algorand.send.payment({
+      sender: external,
+      receiver: external,
+      amount: (0).algo(),
+      rekeyTo: client.appAddress,
+      suppressLog: true,
+    })
+
+    // Clone the configuration onto a fresh deployment via the library helpers.
+    const config = await fetchSafeCloneConfig(algod, { appId: client.appId, address: client.appAddress.toString() })
+    expect(config.groups).toHaveLength(1)
+    expect(config.groups[0].members.map((member) => member.addr).sort()).toEqual(
+      [deployer.toString(), second.toString()].sort(),
+    )
+    expect(config.rekeyedAddresses.map((record) => record.address)).toEqual([external.toString()])
+
+    const cloned = await deployClonedSafe({
+      algodClient: algod,
+      sender: deployer.toString(),
+      signer: algosdk.makeBasicAccountTransactionSigner(deployer),
+      config,
+    })
+
+    const newClient = localnet.algorand.client.getTypedAppClientById(AlgoSafeClient, {
+      appId: cloned.appId,
+      defaultSender: deployer,
+    })
+    const newGroup = await newClient.send.getSignerGroup({ args: { groupId: 1n, ensureBudgetValue: 0n }, suppressLog: true })
+    expect(newGroup.return!.memberCount).toBe(2n)
+    expect(newGroup.return!.adminPrivileges).toBe(PRIV_ALL)
+    const clonedRekeyed = await newClient.send.isRekeyedAddress({
+      args: { account: external.toString(), ensureBudgetValue: 0n },
+      suppressLog: true,
+    })
+    expect(clonedRekeyed.return).toBe(true)
+
+    // Migration rekey on the old safe: external account first, the safe last.
+    const payload = buildMigrationRekeyPayload([external.toString()], cloned.appAddress)
+    const { return: pid } = await client.send.proposeTransactionGroup({
+      args: { groupId: 1n, payload, expiryRound: FAR_EXPIRY, execute: false, ensureBudgetValue: 10000n },
+      suppressLog: true,
+      staticFee: (0.2).algo(),
+    })
+    await client.send.executeProposal({ args: { proposalId: pid!, ensureBudgetValue: 6000n }, ...execParams })
+
+    const oldSafeInfo = await localnet.algorand.account.getInformation(client.appAddress)
+    expect(oldSafeInfo.authAddr?.toString()).toBe(cloned.appAddress)
+    const externalInfo = await localnet.algorand.account.getInformation(external)
+    expect(externalInfo.authAddr?.toString()).toBe(cloned.appAddress)
   })
 })

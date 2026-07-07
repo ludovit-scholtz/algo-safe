@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useWallet } from '@txnlab/use-wallet-react'
-import { ACT_AXFER, ACT_PAY, createAssetSafeTxn, createPaymentSafeTxn, toSafeTxnGroup } from 'algo-safe'
+import { ACT_AXFER, ACT_PAY, ACT_REKEY, createAssetSafeTxn, createPaymentSafeTxn, createRekeySafeTxn, toSafeTxnGroup } from 'algo-safe'
 import algosdk from 'algosdk'
 import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
@@ -17,7 +17,7 @@ import { useSafeId } from '../lib/SafeContext'
 import { fetchSelfExecuteCapability, proposeLiveTransactionGroup } from '../services/algoSafeProposals'
 import type { NetworkId } from '../services/types'
 
-type ProposalKind = 'payment' | 'asset-transfer' | 'opt-in'
+type ProposalKind = 'payment' | 'asset-transfer' | 'opt-in' | 'rekey'
 
 type CreatedProposal = {
   proposalId: string
@@ -54,7 +54,7 @@ export function CreateProposalPage() {
   const [createdProposal, setCreatedProposal] = useState<CreatedProposal | null>(null)
   const isSubmitting = submitMode !== null
 
-  const requiredAction = proposalKind === 'payment' ? ACT_PAY : ACT_AXFER
+  const requiredAction = proposalKind === 'payment' ? ACT_PAY : proposalKind === 'rekey' ? ACT_REKEY : ACT_AXFER
   const parsedGroupIdInput = /^\d+$/.test(groupId) && BigInt(groupId) > 0n ? BigInt(groupId) : null
   const { data: selfExecuteCapability } = useQuery({
     queryKey: ['self-execute-capability', safeId, groupId, activeAddress, proposalKind],
@@ -107,7 +107,15 @@ export function CreateProposalPage() {
       // contract version's shape; our builders emit the latest envelope, so
       // cast to the param type. See algoSafeProposals for the read-side branch.
       let payload: never[]
-      if (proposalKind === 'payment') {
+      if (proposalKind === 'rekey') {
+        payload = toSafeTxnGroup([
+          createRekeySafeTxn({
+            sender: getZeroAddress(),
+            rekeyTo: receiver.trim(),
+            note: note.trim(),
+          }),
+        ]) as unknown as never[]
+      } else if (proposalKind === 'payment') {
         const rawAmount = parseBaseUnits(amount, 6)
         if (rawAmount === null || rawAmount < 0n) {
           throw new Error('Enter a valid ALGO amount for the payment proposal.')
@@ -178,7 +186,7 @@ export function CreateProposalPage() {
         <div>
           <h1 className="text-3xl font-bold text-on-surface">Create Proposal</h1>
           <p className="mt-1 text-sm text-on-surface-variant">
-            Build a payment or ASA transfer proposal and write it directly to the selected Algo Safe contract.
+            Build a payment, ASA transfer, or rekey proposal and write it directly to the selected Algo Safe contract.
           </p>
         </div>
         <Link to={`/safe/${safeId}/proposals`}>
@@ -204,6 +212,7 @@ export function CreateProposalPage() {
                   <option value="payment">ALGO payment</option>
                   <option value="asset-transfer">ASA transfer</option>
                   <option value="opt-in">Opt in ASA</option>
+                  <option value="rekey">Rekey safe</option>
                 </select>
               </FormField>
               <FormField
@@ -220,8 +229,28 @@ export function CreateProposalPage() {
               </FormField>
             </div>
 
+            {proposalKind === 'rekey' && (
+              <div className="rounded-sm border border-error/40 bg-error-container/30 px-3 py-2 text-sm text-on-error-container">
+                <strong>Danger:</strong> executing this proposal permanently hands control of the safe address to the target address — the
+                safe contract can no longer move any funds afterwards. Use it only to migrate to a newly deployed Algo Safe. It requires a
+                signer group holding both the rekey action and group-admin privileges, at full threshold.
+              </div>
+            )}
+
             <div className="grid gap-4 md:grid-cols-2">
-              {proposalKind !== 'opt-in' ? (
+              {proposalKind === 'rekey' ? (
+                <FormField
+                  label="Rekey target"
+                  hint="The address that takes over the safe account — usually a newly deployed safe's application address."
+                >
+                  <input
+                    className={inputCls}
+                    value={receiver}
+                    onChange={(event) => setReceiver(event.target.value)}
+                    placeholder="New controller address"
+                  />
+                </FormField>
+              ) : proposalKind !== 'opt-in' ? (
                 <FormField label="Receiver" hint="The address that will receive the ALGO payment or ASA transfer.">
                   <input
                     className={inputCls}
@@ -238,7 +267,11 @@ export function CreateProposalPage() {
                 </FormField>
               )}
 
-              {proposalKind !== 'opt-in' ? (
+              {proposalKind === 'rekey' ? (
+                <FormField label="Amount" hint="A rekey is a zero-amount transaction carrying only the new auth address.">
+                  <input className={`${inputCls} text-on-surface-variant`} value="0" disabled readOnly />
+                </FormField>
+              ) : proposalKind !== 'opt-in' ? (
                 <FormField
                   label={proposalKind === 'payment' ? 'Amount (ALGO)' : 'Amount'}
                   hint={

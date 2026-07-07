@@ -99,11 +99,14 @@ const ADM_CHANGE_THRESHOLD: uint64 = Uint64(4)
 const ADM_SET_POLICY: uint64 = Uint64(5)
 const ADM_SET_PRIVILEGES: uint64 = Uint64(6)
 const ADM_SET_ACTIVE: uint64 = Uint64(7)
+// Rekeyed-address registry entries reuse AdminChange.memberAddr/memberLabel.
+const ADM_ADD_REKEYED_ADDR: uint64 = Uint64(8)
+const ADM_REMOVE_REKEYED_ADDR: uint64 = Uint64(9)
 
 // Period lengths for spending limits, in seconds.
 const DAY_SECONDS: uint64 = Uint64(86400)
 const MONTH_SECONDS: uint64 = Uint64(2592000) // 30 days
-const CONTRACT_VERSION = 'BIATEC-ALGO-SAFE-v1.5.1'
+const CONTRACT_VERSION = 'BIATEC-ALGO-SAFE-v1.6.0'
 
 // ---------------------------------------------------------------------------
 // Stored record types (plain TS types for box storage)
@@ -132,6 +135,34 @@ type Member = {
   accountType: uint64 // 1 standard, 2 multisig, 3 rekeyed, 4 agent, 5 quantum
   label: string
   addr: Account
+}
+
+// Registry entry for an external address whose auth address has been rekeyed
+// to this safe. The registry is informational bookkeeping the admins govern
+// (the AVM enforces actual spendability regardless); migration flows read it
+// to know which addresses must be re-rekeyed to a successor safe.
+type RekeyedAddress = {
+  label: string
+  addedRound: uint64
+}
+
+// Group seed for the clone-friendly bootstrap path: full policy configuration
+// applied at group creation, before governance takes over.
+type GroupSeed = {
+  name: string
+  threshold: uint64
+  adminPrivileges: uint64
+  allowedActions: uint64
+  limitAssetId: uint64
+  dailyLimit: uint64
+  monthlyLimit: uint64
+  cooldownRounds: uint64
+}
+
+type MemberSeed = {
+  addr: Account
+  accountType: uint64
+  label: string
 }
 
 type Proposal = {
@@ -272,6 +303,8 @@ type ProposalCreated = { proposalId: uint64; groupId: uint64; payloadType: uint6
 type ProposalApproved = { proposalId: uint64; signer: Account; approvalsCount: uint64 }
 type ProposalExecuted = { proposalId: uint64 }
 type ProposalCancelled = { proposalId: uint64 }
+type RekeyedAddressAdded = { addr: Account; label: string }
+type RekeyedAddressRemoved = { addr: Account }
 
 // ---------------------------------------------------------------------------
 // Contract
@@ -300,6 +333,8 @@ export class AlgoSafe extends Contract {
   // Key = proposalId * TXG_KEY_MULT + payloadIndex (avoids composite-struct encoding overhead).
   transactionGroups = BoxMap<uint64, SafeTxnGroup>({ keyPrefix: 'txg' })
   adminPayloads = BoxMap<uint64, AdminChange>({ keyPrefix: 'dp' })
+  // Admin-governed registry of external addresses rekeyed to this safe.
+  rekeyedAddresses = BoxMap<Account, RekeyedAddress>({ keyPrefix: 'r' })
 
   // -------------------------------------------------------------------------
   // Lifecycle
@@ -370,6 +405,96 @@ export class AlgoSafe extends Contract {
 
     emit<GroupCreated>({ groupId: gid, name: groupName, threshold: Uint64(1) })
     emit<MemberAdded>({ groupId: gid, member: Txn.sender, accountType: Uint64(1) })
+  }
+
+  /**
+   * Clone-friendly bootstrap: create a fully configured signer group (policy,
+   * threshold, privileges, and all members at once) while the safe is still
+   * un-bootstrapped. Callable repeatedly by the creator to seed a new safe with
+   * another safe's configuration during a migration, before `finalizeBootstrap`
+   * hands control over to governance. Usage counters and the membership epoch
+   * start fresh. Returns the new group id.
+   */
+  public bootstrapGroup(seed: GroupSeed, members: MemberSeed[], ensureBudgetValue: uint64): uint64 {
+    if (ensureBudgetValue > Uint64(1)) {
+      ensureBudget(ensureBudgetValue)
+    }
+    assert(Txn.sender === this.creator.value, 'only creator can bootstrap')
+    assert(this.bootstrapped.value === Uint64(0), 'already bootstrapped')
+    const memberCount = Uint64(members.length)
+    assert(memberCount >= Uint64(1), 'members required')
+    assert(seed.threshold >= Uint64(1) && seed.threshold <= memberCount, 'invalid threshold')
+    assert(seed.allowedActions <= ACT_ALL, 'invalid actions')
+    assert(seed.adminPrivileges <= PRIV_ALL, 'invalid privileges')
+    assert(seed.cooldownRounds <= MAX_COOLDOWN_ROUNDS, 'cooldown too large')
+
+    const now = Global.latestTimestamp
+    const gid: uint64 = this.nextGroupId.value
+
+    const grp: SignerGroup = {
+      name: seed.name,
+      threshold: seed.threshold,
+      memberCount,
+      adminPrivileges: seed.adminPrivileges,
+      allowedActions: seed.allowedActions,
+      limitAssetId: seed.limitAssetId,
+      dailyLimit: seed.dailyLimit,
+      dailyUsage: Uint64(0),
+      dailyPeriodStart: now,
+      monthlyLimit: seed.monthlyLimit,
+      monthlyUsage: Uint64(0),
+      monthlyPeriodStart: now,
+      cooldownRounds: seed.cooldownRounds,
+      lastExecutionRound: Uint64(0),
+      membershipEpoch: Uint64(0),
+      active: Uint64(1),
+    }
+    this.groups(gid).value = clone(grp)
+
+    for (let i = Uint64(0); i < memberCount; i = i + Uint64(1)) {
+      const seedMember = clone(members[i])
+      assert(seedMember.addr !== Global.zeroAddress, 'member required')
+      assert(!this.members({ groupId: gid, account: seedMember.addr }).exists, 'duplicate member')
+      const m: Member = { accountType: seedMember.accountType, label: seedMember.label, addr: seedMember.addr }
+      this.members({ groupId: gid, account: seedMember.addr }).value = clone(m)
+      emit<MemberAdded>({ groupId: gid, member: seedMember.addr, accountType: seedMember.accountType })
+    }
+
+    this.nextGroupId.value = gid + Uint64(1)
+    this.groupCount.value = this.groupCount.value + Uint64(1)
+    if ((seed.adminPrivileges & PRIV_GROUP) !== Uint64(0)) {
+      this.activePrivGroupCount.value = this.activePrivGroupCount.value + Uint64(1)
+    }
+
+    emit<GroupCreated>({ groupId: gid, name: seed.name, threshold: seed.threshold })
+    return gid
+  }
+
+  /**
+   * Seed the rekeyed-address registry while the safe is still un-bootstrapped
+   * (cloning a predecessor safe's registry during a migration). After
+   * `finalizeBootstrap`, registry changes go through governed admin proposals.
+   */
+  public bootstrapRekeyedAddress(addr: Account, label: string): void {
+    assert(Txn.sender === this.creator.value, 'only creator can bootstrap')
+    assert(this.bootstrapped.value === Uint64(0), 'already bootstrapped')
+    assert(addr !== Global.zeroAddress, 'address required')
+    assert(!this.rekeyedAddresses(addr).exists, 'already registered')
+    const entry: RekeyedAddress = { label, addedRound: Global.round }
+    this.rekeyedAddresses(addr).value = clone(entry)
+    emit<RekeyedAddressAdded>({ addr, label })
+  }
+
+  /**
+   * Close the clone-friendly bootstrap phase. Requires at least one active
+   * group holding PRIV_GROUP so governance can never start locked out. From
+   * this point on, every privileged change must go through proposals.
+   */
+  public finalizeBootstrap(): void {
+    assert(Txn.sender === this.creator.value, 'only creator can bootstrap')
+    assert(this.bootstrapped.value === Uint64(0), 'already bootstrapped')
+    assert(this.activePrivGroupCount.value >= Uint64(1), 'need an active group admin')
+    this.bootstrapped.value = Uint64(1)
   }
 
   // -------------------------------------------------------------------------
@@ -623,6 +748,22 @@ export class AlgoSafe extends Contract {
     return this.activePrivGroupCount.value
   }
 
+  @abimethod({ readonly: true })
+  public isRekeyedAddress(account: Account, ensureBudgetValue: uint64): boolean {
+    if (ensureBudgetValue > Uint64(1)) {
+      ensureBudget(ensureBudgetValue)
+    }
+    return this.rekeyedAddresses(account).exists
+  }
+
+  @abimethod({ readonly: true })
+  public getRekeyedAddress(account: Account, ensureBudgetValue: uint64): RekeyedAddress {
+    if (ensureBudgetValue > Uint64(1)) {
+      ensureBudget(ensureBudgetValue)
+    }
+    return clone(this.rekeyedAddresses(account).value)
+  }
+
   // -------------------------------------------------------------------------
   // Internal: proposal helpers
   // -------------------------------------------------------------------------
@@ -688,6 +829,11 @@ export class AlgoSafe extends Contract {
 
   /** Create a proposal record, auto-approving the proposer. Returns the proposal id. */
   private _newProposal(groupId: uint64, payloadType: uint64, expiryRound: uint64): uint64 {
+    // No proposals until the clone-friendly bootstrap phase is closed — a
+    // member of an already-seeded group must not act while the creator is
+    // still copying the rest of the configuration. (Nothing can be approved
+    // or executed either, since no proposal can exist before this passes.)
+    assert(this.bootstrapped.value === Uint64(1), 'not bootstrapped')
     assert(expiryRound > Global.round, 'expiry must be in the future')
     const group = clone(this.groups(groupId).value)
     const pid: uint64 = this.nextProposalId.value
@@ -1131,6 +1277,11 @@ export class AlgoSafe extends Contract {
         !this._wouldRemoveLastGroupAdmin(change, clone(this.groups(change.targetGroupId).value)),
         'must keep at least one active group admin',
       )
+    } else if (change.changeType === ADM_ADD_REKEYED_ADDR) {
+      assert(change.memberAddr !== Global.zeroAddress, 'address required')
+      assert(!this.rekeyedAddresses(change.memberAddr).exists, 'already registered')
+    } else if (change.changeType === ADM_REMOVE_REKEYED_ADDR) {
+      assert(this.rekeyedAddresses(change.memberAddr).exists, 'not registered')
     } else {
       assert(false, 'unknown change type')
     }
@@ -1143,6 +1294,16 @@ export class AlgoSafe extends Contract {
       this._adminAddMember(change)
     } else if (change.changeType === ADM_REMOVE_MEMBER) {
       this._adminRemoveMember(change)
+    } else if (change.changeType === ADM_ADD_REKEYED_ADDR) {
+      // Re-check at apply time: another proposal may have registered it since.
+      assert(!this.rekeyedAddresses(change.memberAddr).exists, 'already registered')
+      const entry: RekeyedAddress = { label: change.memberLabel, addedRound: Global.round }
+      this.rekeyedAddresses(change.memberAddr).value = clone(entry)
+      emit<RekeyedAddressAdded>({ addr: change.memberAddr, label: change.memberLabel })
+    } else if (change.changeType === ADM_REMOVE_REKEYED_ADDR) {
+      assert(this.rekeyedAddresses(change.memberAddr).exists, 'not registered')
+      this.rekeyedAddresses(change.memberAddr).delete()
+      emit<RekeyedAddressRemoved>({ addr: change.memberAddr })
     } else if (change.changeType === ADM_CHANGE_THRESHOLD) {
       const group = clone(this.groups(change.targetGroupId).value)
       assert(change.threshold <= group.memberCount, 'threshold exceeds members')

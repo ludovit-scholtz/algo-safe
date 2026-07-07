@@ -158,6 +158,15 @@ Algorand's rekeying primitive lets any account hand its signing authority to ano
 
 - **Inbound — spend from rekeyed addresses.** Any Algorand address can be rekeyed to the safe's application address. From then on, payment and asset-transfer entries in a proposal can name that address as their `sender`, and the safe executes them as inner transactions from that account (the AVM itself enforces that an inner-transaction sender is either the application account or an account rekeyed to it). A zero-address `sender` means the safe's own account. This lets one safe govern a whole fleet of addresses — legacy accounts, per-purpose deposit addresses, validator accounts — without moving funds first. Spending limits still apply: a close-out from a rekeyed sender counts that account's full swept balance against the group's limit.
 - **Outbound — migration and release.** A rekey proposal (`RekeyTxn`) can rekey the safe's own application account to a newly deployed safe (or any other address), migrating custody without moving assets, or rekey a previously captured external account back to its own key to release it. Because a rekey permanently transfers control, it is reserved for admin consensus: the executing group must hold both the dedicated `ACT_REKEY` action bit (which existing groups do not hold unless governance explicitly grants it) and the group-admin privilege (`PRIV_GROUP`), and the rekey executes only once that admin group's M-of-N threshold is met — both checked at execution time against the group's live state.
+- **Registry — admins track what the safe controls.** The contract keeps an admin-governed **rekeyed-address registry** (one box per address, with a label): entries are added and removed through governed admin proposals (`ADM_ADD_REKEYED_ADDR` / `ADM_REMOVE_REKEYED_ADDR`, requiring group-admin privilege at threshold). The registry is bookkeeping — the AVM enforces actual spendability regardless — but it makes the safe's controlled fleet auditable in the UI and drives migrations.
+
+### Safe Upgrade (Migration To A New Contract Version)
+
+The contract is non-upgradable in place, so moving to a newer contract version is a **migration**: deploy a fresh safe on the latest contract, clone the configuration, and rekey custody over. The frontend exposes this as a guided flow:
+
+1. **Deploy & clone.** A fresh safe is deployed and seeded through the clone-friendly bootstrap path: the creator calls `bootstrapGroup` once per active signer group (full policy, threshold, privileges, and all members in one call), `bootstrapRekeyedAddress` for every registry entry, then `finalizeBootstrap`. Until finalization the new safe accepts **no proposals** (members of seeded groups cannot act mid-clone), and finalization requires at least one active group holding group-admin privileges — the same lockout guard as normal governance. Usage counters, membership epochs, and pending proposals are intentionally not cloned.
+2. **Migration rekey.** On the old safe, a single governed transaction-group proposal rekeys every registered external address — and the old safe's own application account last — to the new safe's application address. It executes only under admin consensus (`ACT_REKEY` + `PRIV_GROUP` at full threshold).
+3. **Cut-over.** After execution the new contract controls every address; funds never moved. The old app remains on-chain as history but can no longer spend.
 
 ---
 
@@ -543,12 +552,18 @@ classDiagram
 
     class AdminChange {
         «BoxMap key: proposalId»
-        +changeType : uint64 (1 createGroup / 2 addMember / 3 removeMember / 4 changeThreshold / 5 setPolicy / 6 setPrivileges / 7 setActive)
+        +changeType : uint64 (1 createGroup / 2 addMember / 3 removeMember / 4 changeThreshold / 5 setPolicy / 6 setPrivileges / 7 setActive / 8 addRekeyedAddr / 9 removeRekeyedAddr)
         +targetGroupId : uint64
         +groupName / memberAddr / memberType / memberLabel
         +threshold / adminPrivileges / allowedActions
         +limitAssetId / dailyLimit / monthlyLimit / cooldownRounds
         +activeFlag : uint64
+    }
+
+    class RekeyedAddressEntry {
+        «BoxMap key: account (prefix r)»
+        +label : string
+        +addedRound : uint64
     }
 
     class Approval {
@@ -577,13 +592,16 @@ classDiagram
 
 ### ABI Method Surface
 
-The application is intentionally **non-updatable and non-deletable** for custody safety — there is no upgrade or teardown path (migration is done by rekeying the safe account to a new deployment under admin consensus). `createApplication` initialises global state; `bootstrap` (creator-only, callable once) creates the genesis 1-of-1 admin group. Every other privileged change flows through governed proposals. Read-only getters use `@abimethod({ readonly: true })` so clients can query without a state-changing call; every method takes an `ensureBudgetValue` argument so callers can raise the opcode budget in the same call.
+The application is intentionally **non-updatable and non-deletable** for custody safety — there is no upgrade or teardown path (migration is done by rekeying the safe account to a new deployment under admin consensus; see Safe Upgrade above). `createApplication` initialises global state; a new safe is then seeded either by `bootstrap` (creator-only, once: genesis 1-of-1 admin group) or by the clone-friendly path (`bootstrapGroup`/`bootstrapRekeyedAddress` repeated as needed, closed by `finalizeBootstrap`), used to copy an existing safe's configuration during a migration. Every other privileged change flows through governed proposals. Read-only getters use `@abimethod({ readonly: true })` so clients can query without a state-changing call; every method takes an `ensureBudgetValue` argument so callers can raise the opcode budget in the same call.
 
 ```mermaid
 flowchart TB
-    subgraph Lifecycle["Lifecycle"]
+    subgraph Lifecycle["Lifecycle & bootstrap"]
         C1["createApplication(name) — init global state"]
         C2["bootstrap(groupName) — creator-only, once: genesis 1-of-1 admin group"]
+        C3["bootstrapGroup(seed, members, budget) — creator-only, pre-finalize: clone a full group"]
+        C4["bootstrapRekeyedAddress(addr, label) — creator-only, pre-finalize"]
+        C5["finalizeBootstrap() — closes seeding; requires an active admin group"]
     end
 
     subgraph Proposals["Proposal lifecycle"]
@@ -602,6 +620,7 @@ flowchart TB
         A3["ADM_CHANGE_THRESHOLD"]
         A4["ADM_SET_POLICY — actions, tracked asset, limits, cooldown"]
         A5["ADM_SET_PRIVILEGES / ADM_SET_ACTIVE — lockout-guarded"]
+        A6["ADM_ADD_REKEYED_ADDR / ADM_REMOVE_REKEYED_ADDR — registry"]
     end
 
     subgraph Reads["Read-only getters"]
@@ -612,6 +631,7 @@ flowchart TB
         R5["getMember(groupId, account) / isMember(groupId, account)"]
         R6["hasApproved(proposalId, account)"]
         R7["getActivePrivGroupCount()"]
+        R8["isRekeyedAddress(account) / getRekeyedAddress(account)"]
     end
 
     P1B --> A1

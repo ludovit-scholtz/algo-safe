@@ -7,6 +7,7 @@ const items = [
   { to: 'proposals', icon: 'how_to_vote', label: 'Proposals', end: false },
   { to: 'proposals/create', icon: 'playlist_add', label: 'Create Proposal', end: false },
   { to: 'assets', icon: 'account_balance_wallet', label: 'Assets', end: false },
+  { to: 'upgrade', icon: 'upgrade', label: 'Upgrade & Rekeys', end: false },
 ]
 export function Sidebar() {
   const { safeId } = useParams<{ safeId: string }>()

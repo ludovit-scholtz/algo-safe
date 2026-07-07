@@ -3,10 +3,12 @@ export {
   AdminChangeFromTuple,
   AlgoSafeFactory,
   ApprovalFromTuple,
+  GroupSeedFromTuple,
   MemberFromTuple,
   ProposalFromTuple,
+  RekeyedAddressFromTuple,
   SignerGroupFromTuple,
-} from '../clients/799f2571dccd9497da99663041299dd62927e55a19e31b5aac4b3876dd2a7f5f/AlgoSafeClient'
+} from '../clients/0f44ee7b45b2b85adc8bef13d4e66715df3caed1129258e2657ce6a2f038b5d3/AlgoSafeClient'
 
 export type {
   AdminChange,
@@ -25,6 +27,7 @@ export type {
   CallParams,
   Expand,
   GlobalKeysState,
+  GroupSeed,
   Member,
   MethodArgs,
   MethodReturn,
@@ -33,5 +36,6 @@ export type {
   Object9F556C53,
   Object9F556C53FromTuple,
   Proposal,
+  RekeyedAddress,
   SignerGroup,
-} from '../clients/799f2571dccd9497da99663041299dd62927e55a19e31b5aac4b3876dd2a7f5f/AlgoSafeClient'
+} from '../clients/0f44ee7b45b2b85adc8bef13d4e66715df3caed1129258e2657ce6a2f038b5d3/AlgoSafeClient'

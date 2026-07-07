@@ -356,6 +356,34 @@ const migrate = createRekeySafeTxn({ sender: ZERO_ADDR, rekeyTo: newSafeAppAddre
 const release = createRekeySafeTxn({ sender: externalAddr, rekeyTo: externalAddr, note: '' })
 ```
 
+### Rekeyed-address registry & safe migration
+
+The safe keeps an **admin-governed registry** of external addresses rekeyed to it (`ADM_ADD_REKEYED_ADDR` / `ADM_REMOVE_REKEYED_ADDR` admin changes; `isRekeyedAddress` / `getRekeyedAddress` getters). The registry is bookkeeping — the AVM enforces actual spendability — but it drives migrations: upgrading to a newer contract version means deploying a fresh safe, cloning the configuration, and rekeying every controlled address (registry entries first, the safe's own account last) to the new deployment.
+
+```ts
+import {
+  buildMigrationRekeyPayload,
+  deployClonedSafe,
+  fetchSafeCloneConfig,
+  listRekeyedAddresses,
+} from 'algo-safe'
+
+// 1. Read the old safe's active groups, members, and registry.
+const config = await fetchSafeCloneConfig(algod, { appId: oldAppId, address: oldSafeAddress })
+
+// 2. Deploy a fresh latest-contract safe and seed it (creator-only bootstrap
+//    phase: bootstrapGroup per group, bootstrapRekeyedAddress per entry, then
+//    finalizeBootstrap — no proposals are accepted until the phase closes).
+const { appId, appAddress } = await deployClonedSafe({ algodClient: algod, sender, signer, config })
+
+// 3. Governed rekey on the OLD safe: every registered address, then the safe
+//    itself. Requires ACT_REKEY + PRIV_GROUP at the group's full threshold.
+const rekeyed = await listRekeyedAddresses(algod, oldAppId)
+const payload = buildMigrationRekeyPayload(rekeyed.map((r) => r.address), appAddress)
+await oldClient.send.proposeTransactionGroup({ args: { groupId: 1n, payload, expiryRound, execute: false, ensureBudgetValue: 0n }, staticFee: (0.2).algo() })
+// ... collect approvals, then executeProposal — custody moves to the new safe.
+```
+
 ### Convert native algosdk transactions
 
 Already have `algosdk.Transaction` objects (e.g. built by another SDK or a dApp)? Convert a whole atomic group into a safe payload in one call. Payment, asset transfer, app call, key registration and asset config are supported. The source transactions' `sender` is carried through for payments and asset transfers — build them with the safe's address (or an address rekeyed to the safe) as sender. A zero-amount, no-close payment carrying `rekeyTo` converts to a rekey entry; `rekeyTo` on any other transaction shape throws.
@@ -591,7 +619,7 @@ Always import these from `algo-safe` — never redefine them locally; they must 
 
 **Transaction type discriminators:** `TX_PAYMENT` (1), `TX_ASSET` (2), `TX_APP` (3), `TX_KEYREG` (4), `TX_ACFG` (5), `TX_REKEY` (6).
 
-**Admin change types:** `ADM_CREATE_GROUP` (1), `ADM_ADD_MEMBER` (2), `ADM_REMOVE_MEMBER` (3), `ADM_CHANGE_THRESHOLD` (4), `ADM_SET_POLICY` (5), `ADM_SET_PRIVILEGES` (6), `ADM_SET_ACTIVE` (7).
+**Admin change types:** `ADM_CREATE_GROUP` (1), `ADM_ADD_MEMBER` (2), `ADM_REMOVE_MEMBER` (3), `ADM_CHANGE_THRESHOLD` (4), `ADM_SET_POLICY` (5), `ADM_SET_PRIVILEGES` (6), `ADM_SET_ACTIVE` (7), `ADM_ADD_REKEYED_ADDR` (8), `ADM_REMOVE_REKEYED_ADDR` (9) — the last two manage the rekeyed-address registry and reuse `memberAddr`/`memberLabel`.
 
 **App-call limits** (Algorand consensus parameters, enforced at execution): `MAX_APP_ARGS` (16), `MAX_APP_TOTAL_ARG_LEN` (2048), `MAX_APP_ACCOUNTS` (4), `MAX_APP_FOREIGN_APPS` (8), `MAX_APP_FOREIGN_ASSETS` (8), `MAX_APP_TOTAL_REFS` (8 — accounts + apps + assets combined).
 
@@ -615,6 +643,11 @@ Always import these from `algo-safe` — never redefine them locally; they must 
 | `decodePaymentTxn` / `decodeAssetTxn` / `decodeAppTxn` / `decodeKeyRegTxn` / `decodeAssetConfigTxn` / `decodeRekeyTxn` | Decode a stored `data` blob back into a typed payload. |
 | `createAdminChange(partial)` | Build an `AdminChange` with defaults filled in. |
 | `fetchAlgoSafeSignerGroups` / `fetchAlgoSafeSignerGroupDetail` | Off-chain read helpers for UIs. |
+| `fetchSafeVersionStatus(algod, appId)` | Deployed version hash + whether it is the latest. |
+| `listRekeyedAddresses(algod, appId)` | Read the rekeyed-address registry (box enumeration). |
+| `fetchSafeCloneConfig(algod, safe)` | Read active groups, members, and the registry for cloning. |
+| `deployClonedSafe({...})` | Deploy a fresh latest-contract safe and seed it with a clone config. |
+| `buildMigrationRekeyPayload(addresses, newSafeAddress)` | Rekey payload: every registered address, then the safe itself. |
 | Types: `SafeTxn`, `SafeTxnTuple`, `PaymentPayload`, `AssetPayload`, `AppCallPayload`, `KeyRegPayload`, `AssetConfigPayload`, `RekeyPayload`, `AdminChange`, `Proposal`, `SignerGroup`, `Member`, `ContractHash`, `ContractVersion`, `AlgoSafeOnChainRef`, `AlgoSafeSignerGroupRecord`, … | |
 
 ---

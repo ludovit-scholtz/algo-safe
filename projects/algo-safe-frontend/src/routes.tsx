@@ -9,6 +9,7 @@ import { ProposalDetailPage } from './pages/ProposalDetailPage'
 import { ProposalsPage } from './pages/ProposalsPage'
 import { RegisterAgentPage } from './pages/RegisterAgentPage'
 import { SafeSelectionPage } from './pages/SafeSelectionPage'
+import { SafeUpgradePage } from './pages/SafeUpgradePage'
 import { SignerGroupManagementPage } from './pages/SignerGroupManagementPage'
 import { TreasuryAssetsPage } from './pages/TreasuryAssetsPage'
 
@@ -31,6 +32,7 @@ export const router = createBrowserRouter([
       { path: 'proposals/create', element: <CreateProposalPage /> },
       { path: 'proposals/:id', element: <ProposalDetailPage /> },
       { path: 'assets', element: <TreasuryAssetsPage /> },
+      { path: 'upgrade', element: <SafeUpgradePage /> },
     ],
   },
   { path: '*', element: <Navigate to="/" replace /> },

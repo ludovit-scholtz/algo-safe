@@ -32,6 +32,9 @@ export const ADM_CHANGE_THRESHOLD = 4n
 export const ADM_SET_POLICY = 5n
 export const ADM_SET_PRIVILEGES = 6n
 export const ADM_SET_ACTIVE = 7n
+// Rekeyed-address registry entries (reuse AdminChange.memberAddr/memberLabel).
+export const ADM_ADD_REKEYED_ADDR = 8n
+export const ADM_REMOVE_REKEYED_ADDR = 9n
 
 export const FAR_EXPIRY = 4_000_000_000n
 
