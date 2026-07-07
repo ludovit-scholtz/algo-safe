@@ -35,6 +35,9 @@ export const ADM_SET_ACTIVE = 7n
 // Rekeyed-address registry entries (reuse AdminChange.memberAddr/memberLabel).
 export const ADM_ADD_REKEYED_ADDR = 8n
 export const ADM_REMOVE_REKEYED_ADDR = 9n
+// Set the safe-wide emergency pause flag (reuses AdminChange.activeFlag as the
+// desired paused state, nonzero = paused).
+export const ADM_SET_PAUSED = 10n
 
 export const FAR_EXPIRY = 4_000_000_000n
 

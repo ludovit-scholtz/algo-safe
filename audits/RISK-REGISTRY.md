@@ -4,8 +4,8 @@
 
 **Maintained by**: every audit performed per `AI-AUDIT-INSTRUCTIONS.md` MUST review and update this file — see that document's "Risk Registry Maintenance" section for the required process.
 
-**Last updated**: 2026-07-07 (by the 2026-07-07 Claude Sonnet 5 audit — see [`2026-07-07-audit-report-ai-claude-sonnet-5.md`](./2026-07-07-audit-report-ai-claude-sonnet-5.md))
-**Reviewed against commit**: `5e4e27ace2cba026ea6eb7209e31006257234669`
+**Last updated**: 2026-07-07 (same-day remediation follow-up — see the "Remediation Update" section of [`2026-07-07-audit-report-ai-claude-sonnet-5.md`](./2026-07-07-audit-report-ai-claude-sonnet-5.md))
+**Reviewed against commit**: `5e4e27ace2cba026ea6eb7209e31006257234669` (initial audit); fixes for R-01, R-06, R-07, R-08, R-15 applied to the working tree same-day, contract version `BIATEC-ALGO-SAFE-v1.7.0`, approval hash `8f0e3a34c916ca3dee51f5ce496651261114c3e7da762bb6296435b3ebb028dd` — **not yet committed**
 
 ---
 
@@ -28,21 +28,21 @@ Probabilities are independent per-risk estimates (not mutually exclusive outcome
 
 | ID | Risk | Category | Severity | 5-Yr Probability | Residual Risk | Status |
 |---|---|---|---|---|---|---|
-| R-01 | Multi-chunk proposal bait-and-switch (approval not bound to content) | Access Control | High | **12%** | High | Open ([H-01]) |
+| R-01 | Multi-chunk proposal bait-and-switch (approval not bound to content) | Access Control | High | **<1%** | Low | **Mitigated** ([H-01]) |
 | R-02 | Signer private key compromise (phishing, malware, device theft) | Key Management | Critical | **35%** | Critical | Partially Mitigated |
 | R-03 | Malicious or coerced insider signer proposes harmful transaction | Governance | High | **10%** | High | Partially Mitigated |
 | R-04 | Threshold misconfiguration by safe owners (e.g. 1-of-N default left unchanged) | Governance | High | **20%** | High | Accepted (operational) |
 | R-05 | Governance lockout (no group retains admin privilege) | Governance | Critical | **2%** | Medium | Mitigated |
-| R-06 | `activePrivGroupCount` desync via bootstrap-path mixing | State Machine | Medium | **8%** | Medium | Open ([M-03]) |
-| R-07 | No functional emergency-pause capability | Availability/Governance | Medium | **15%** | Medium | Open ([M-01]) |
-| R-08 | Aggregate multi-chunk transaction count exceeds AVM group-size limit | Availability | Medium | **10%** | Medium | Open ([M-02]) |
+| R-06 | `activePrivGroupCount` desync via bootstrap-path mixing | State Machine | Medium | **<1%** | Low | **Mitigated** ([M-03]) |
+| R-07 | No functional emergency-pause capability | Availability/Governance | Medium | **3%** | Low | **Mitigated** ([M-01]) |
+| R-08 | Aggregate multi-chunk transaction count exceeds AVM group-size limit | Availability | Medium | **<1%** | Low | **Mitigated** ([M-02]) |
 | R-09 | Spending-limit bypass via close-out sweep miscounting | Economic | High | **<1%** | Low | Mitigated |
 | R-10 | Spending-limit bypass via multi-proposal/period-boundary timing | Economic | Medium | **5%** | Medium | Partially Mitigated |
 | R-11 | Double-execution / replay of an executed proposal | State Machine | Critical | **<1%** | Low | Mitigated |
 | R-12 | Box-key collision (proposal/payload/member/approval) | State Machine | Critical | **<1%** | Low | Mitigated |
 | R-13 | Cooldown-arithmetic overflow permanently freezing a group | State Machine | High | **<1%** | Low | Mitigated |
 | R-14 | Reentrancy via self-referencing or chained app calls | Access Control | Critical | **<1%** | Low | N/A (protocol-enforced) |
-| R-15 | Self-appId call reaches execution without a contract-level guard | Access Control | Low | **3%** | Low | Open ([L-01]) |
+| R-15 | Self-appId call reaches execution without a contract-level guard | Access Control | Low | **<1%** | Low | **Mitigated** ([L-01]) |
 | R-16 | Malformed/adversarial ARC4 payload bytes mis-decoded | Access Control | Medium | **4%** | Low | Monitoring |
 | R-17 | Rekey action misused to hand safe control to an unintended address | Governance | Critical | **6%** | High | Partially Mitigated |
 | R-18 | `ACT_APPL` grant enables unreviewed arbitrary external contract call | Governance | High | **10%** | Medium | Monitoring ([I-02]) |
@@ -67,14 +67,16 @@ Probabilities are independent per-risk estimates (not mutually exclusive outcome
 
 ### R-01 — Multi-Chunk Proposal Bait-and-Switch
 
-**Category**: Access Control · **Severity**: High · **5-Yr Probability**: 12% · **Residual Risk**: High · **Status**: Open
+**Category**: Access Control · **Severity**: High · **5-Yr Probability**: <1% (was 12%) · **Residual Risk**: Low (was High) · **Status**: Mitigated (2026-07-07)
 **Related Finding**: [H-01](./2026-07-07-audit-report-ai-claude-sonnet-5.md#h-01-multi-chunk-proposal-content-can-be-bait-and-switched-between-an-approvers-decision-and-its-on-chain-confirmation)
 
 `approveProposal` authorizes a proposal ID, not a commitment to specific payload content; a proposer can rewrite not-yet-independently-approved chunks (slots 2–6) in the window before a second signer's approval confirms.
 
-**Why 12%**: requires both a multi-chunk proposal (a minority of real-world usage, since most transaction groups fit in one ~2 KB chunk) and an adversarial/compromised proposer. Multisig insider/compromise incidents are a real and recurring category industry-wide, but the multi-chunk precondition meaningfully narrows applicability. Probability would rise significantly (toward R-03/R-04 levels) if multi-chunk proposals become a common pattern for a given deployment (e.g. safes that regularly batch large payrolls).
+**Why 12% originally**: requires both a multi-chunk proposal (a minority of real-world usage, since most transaction groups fit in one ~2 KB chunk) and an adversarial/compromised proposer. Multisig insider/compromise incidents are a real and recurring category industry-wide, but the multi-chunk precondition meaningfully narrows applicability. Probability would rise significantly (toward R-03/R-04 levels) if multi-chunk proposals become a common pattern for a given deployment (e.g. safes that regularly batch large payrolls).
 
-**Mitigation path**: bind approvals to a payload-content commitment (see audit recommendation). Re-score after fix ships.
+**Why <1% now**: `approveProposal` requires a caller-supplied `expectedPayloadVersion` that must match the proposal's live `payloadVersion` (bumped on every `appendTransactionGroupPayload` write); a payload swap between review and confirmation now causes the stale approval to revert rather than silently apply. Residual probability reflects only the chance of an undiscovered gap in this fix, not the original attack path, which is closed. Regression-tested (`contract.e2e.spec.ts`, "H-01 regression").
+
+**Mitigation path**: fixed same-day in `contract.algo.ts` v1.7.0 (working tree, not yet committed). No further action pending commit/deploy.
 
 ---
 
@@ -128,34 +130,40 @@ No group retains `PRIV_GROUP`, permanently freezing the non-upgradable contract'
 
 ### R-06 — `activePrivGroupCount` Desync via Bootstrap-Path Mixing
 
-**Category**: State Machine · **Severity**: Medium · **5-Yr Probability**: 8% · **Residual Risk**: Medium · **Status**: Open
+**Category**: State Machine · **Severity**: Medium · **5-Yr Probability**: <1% (was 8%) · **Residual Risk**: Low (was Medium) · **Status**: Mitigated (2026-07-07)
 **Related Finding**: [M-03](./2026-07-07-audit-report-ai-claude-sonnet-5.md#m-03-mixing-bootstrap-and-bootstrapgroup-desyncs-activeprivgroupcount)
 
-**Why 8%**: requires a creator to call both bootstrap paths on the same safe — an atypical but plausible mistake, especially as the migration tooling (`deployClonedSafe`, which exclusively uses `bootstrapGroup`) becomes a common way to create new safes; a creator manually mixing in a `bootstrap()` call afterward for any reason (e.g. scripting error, copy-pasted deployment code) is the realistic trigger.
+**Why 8% originally**: requires a creator to call both bootstrap paths on the same safe — an atypical but plausible mistake, especially as the migration tooling (`deployClonedSafe`, which exclusively uses `bootstrapGroup`) becomes a common way to create new safes; a creator manually mixing in a `bootstrap()` call afterward for any reason (e.g. scripting error, copy-pasted deployment code) is the realistic trigger.
 
-**Mitigation path**: add the guard described in the audit finding; probability drops to ~0% once fixed.
+**Why <1% now**: `bootstrap()` now asserts `groupCount === 0` before proceeding, making the previously-silent mixing an explicit, immediate on-chain rejection instead of a state-consistency bug. Regression-tested. Also directly improves R-05's confidence (governance lockout), since this was R-05's only identified non-zero-probability path.
+
+**Mitigation path**: fixed same-day in `contract.algo.ts` v1.7.0 (working tree, not yet committed).
 
 ---
 
-### R-07 — No Functional Emergency-Pause Capability
+### R-07 — Emergency-Pause Capability (Now Implemented; Residual Scope/Governance Risk)
 
-**Category**: Availability/Governance · **Severity**: Medium · **5-Yr Probability**: 15% · **Residual Risk**: Medium · **Status**: Open
+**Category**: Availability/Governance · **Severity**: Medium · **5-Yr Probability**: 3% (was 15%) · **Residual Risk**: Low (was Medium) · **Status**: Mitigated (2026-07-07)
 **Related Finding**: [M-01](./2026-07-07-audit-report-ai-claude-sonnet-5.md#m-01-paused-has-no-admin-change-path-to-ever-be-set-and-existing-checks-are-inconsistent)
 
-**Why 15%**: this scores the probability that, over 5 years across the population of deployed Algo Safe instances, at least one operator experiences a scenario (suspected key compromise, urgent need to halt activity while re-establishing governance) where the *absence* of a working pause capability results in measurably worse outcomes than if one had existed. Given that key-compromise events (R-02) are themselves fairly probable at 35%, and a working pause would materially help in a meaningful fraction of those, 15% reflects that overlap while accounting for the fact that most compromise scenarios are also addressable via a governed admin change (slower, but functional) even without a dedicated pause.
+**Why 15% originally**: this scored the probability that, over 5 years across the population of deployed Algo Safe instances, at least one operator experiences a scenario (suspected key compromise, urgent need to halt activity while re-establishing governance) where the *absence* of a working pause capability results in measurably worse outcomes than if one had existed. Given that key-compromise events (R-02) are themselves fairly probable at 35%, and a working pause would materially help in a meaningful fraction of those, 15% reflected that overlap while accounting for the fact that most compromise scenarios are also addressable via a governed admin change (slower, but functional) even without a dedicated pause.
 
-**Mitigation path**: implement `ADM_SET_PAUSED` per the audit recommendation.
+**Why 3% now**: `ADM_SET_PAUSED` is implemented and correctly scoped — it gates fund-moving transaction-group proposal/append/execute paths only, while governance (including unpausing) is deliberately never blocked by pause, closing the self-lockout risk a naive implementation would have introduced. Residual 3% reflects genuinely operational risk that remains regardless of code correctness: an admin-privileged group must still notice a compromise and coordinate a threshold-gated pause proposal in time to matter (pause is not instant/unilateral — it still requires the same M-of-N governance as any other admin change), and operators may simply not configure or rehearse the pause procedure before they need it.
+
+**Mitigation path**: fixed same-day in `contract.algo.ts` v1.7.0 (working tree, not yet committed). Residual risk is operational (documentation/runbook, incident-response rehearsal), not further code.
 
 ---
 
 ### R-08 — Aggregate Multi-Chunk Transaction Count Exceeds AVM Limit
 
-**Category**: Availability · **Severity**: Medium · **5-Yr Probability**: 10% · **Residual Risk**: Medium · **Status**: Open
+**Category**: Availability · **Severity**: Medium · **5-Yr Probability**: <1% (was 10%) · **Residual Risk**: Low (was Medium) · **Status**: Mitigated (2026-07-07)
 **Related Finding**: [M-02](./2026-07-07-audit-report-ai-claude-sonnet-5.md#m-02-no-aggregate-transaction-count-bound-across-multi-chunk-payloads)
 
-**Why 10%**: requires a proposer to construct a proposal near/at the boundary of the six-chunk design, which is more likely to occur organically (an operator legitimately trying to batch a large set of transactions and not realizing the aggregate cap) than adversarially. No fund-loss path; pure availability/griefing impact bounds the severity to Medium.
+**Why 10% originally**: requires a proposer to construct a proposal near/at the boundary of the six-chunk design, which is more likely to occur organically (an operator legitimately trying to batch a large set of transactions and not realizing the aggregate cap) than adversarially. No fund-loss path; pure availability/griefing impact bounded the severity to Medium.
 
-**Mitigation path**: add the aggregate-length check per the audit recommendation.
+**Why <1% now**: `appendTransactionGroupPayload` tracks a running `totalTxns` (correctly handling slot overwrites without double-counting) and rejects any append that would push the aggregate past `MAX_GROUP_TXNS`, failing fast with a clear error at append time instead of a generic AVM panic at execution time. Regression-tested, including the boundary (exactly 16 succeeds) and overwrite-correctness cases.
+
+**Mitigation path**: fixed same-day in `contract.algo.ts` v1.7.0 (working tree, not yet committed).
 
 ---
 
@@ -215,10 +223,14 @@ The AVM ledger evaluator disallows an application calling itself, directly or in
 
 ### R-15 — Self-AppId Call Without Contract-Level Guard
 
-**Category**: Access Control · **Severity**: Low · **5-Yr Probability**: 3% · **Residual Risk**: Low · **Status**: Open
+**Category**: Access Control · **Severity**: Low · **5-Yr Probability**: <1% (was 3%) · **Residual Risk**: Low · **Status**: Mitigated (2026-07-07)
 **Related Finding**: [L-01](./2026-07-07-audit-report-ai-claude-sonnet-5.md#l-01-no-defensive-check-against-a-transaction-group-proposal-targeting-the-safes-own-appid)
 
-Purely a diagnosability gap given R-14's protocol-level backstop; probability reflects the chance this ever produces a confusing support incident (proposer confused by a generic AVM panic) rather than any security impact.
+Purely a diagnosability gap given R-14's protocol-level backstop; probability reflected the chance this ever produced a confusing support incident (proposer confused by a generic AVM panic) rather than any security impact.
+
+**Remediation**: `_validateApp` now asserts `tx.appId !== Global.currentApplicationId.id` explicitly, giving a clear contract-level error (`'self-call not allowed'`) instead of relying solely on the AVM's protocol-level backstop. Regression-tested.
+
+**Mitigation path**: fixed same-day in `contract.algo.ts` v1.7.0 (working tree, not yet committed).
 
 ---
 
@@ -407,3 +419,4 @@ Operators deploying Algo Safe instances to custody third-party funds (as opposed
 | Date | Change | Audit Reference |
 |---|---|---|
 | 2026-07-07 | Initial registry created (32 risks) alongside a fresh, independent audit pass | `2026-07-07-audit-report-ai-claude-sonnet-5.md` |
+| 2026-07-07 | Same-day remediation: R-01, R-06, R-07, R-08, R-15 re-scored from Open to Mitigated after H-01/M-01/M-02/M-03/L-01 were fixed in `contract.algo.ts` v1.7.0 (working tree, not yet committed) with regression tests added for each. R-05's confidence note updated (its only identified non-zero path, R-06, is now closed). | `2026-07-07-audit-report-ai-claude-sonnet-5.md` "Remediation Update" section |

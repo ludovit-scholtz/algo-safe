@@ -102,11 +102,17 @@ const ADM_SET_ACTIVE: uint64 = Uint64(7)
 // Rekeyed-address registry entries reuse AdminChange.memberAddr/memberLabel.
 const ADM_ADD_REKEYED_ADDR: uint64 = Uint64(8)
 const ADM_REMOVE_REKEYED_ADDR: uint64 = Uint64(9)
+// Set the safe-wide emergency pause flag. Reuses AdminChange.activeFlag as the
+// desired paused state (nonzero = paused). Always gated by PRIV_GROUP (the
+// default branch of _assertPrivilegeForChange), never by paused itself — see
+// the comment on _executeProposalInternal for why admin changes must stay
+// reachable while paused.
+const ADM_SET_PAUSED: uint64 = Uint64(10)
 
 // Period lengths for spending limits, in seconds.
 const DAY_SECONDS: uint64 = Uint64(86400)
 const MONTH_SECONDS: uint64 = Uint64(2592000) // 30 days
-const CONTRACT_VERSION = 'BIATEC-ALGO-SAFE-v1.6.0'
+const CONTRACT_VERSION = 'BIATEC-ALGO-SAFE-v1.7.0'
 
 // ---------------------------------------------------------------------------
 // Stored record types (plain TS types for box storage)
@@ -175,6 +181,16 @@ type Proposal = {
   proposer: Account
   numPayloads: uint64
   epochAtCreation: uint64 // group.membershipEpoch snapshot at proposal creation
+  // Bumped by appendTransactionGroupPayload on every chunk write. approveProposal
+  // requires the caller to name the version it reviewed, so a payload edit that
+  // races an in-flight approval invalidates that approval instead of silently
+  // applying it to different content (see the H-01 audit finding).
+  payloadVersion: uint64
+  // Running sum of transaction counts across all stored payload chunks, kept in
+  // sync by proposeTransactionGroup/appendTransactionGroupPayload so the total
+  // can be bounded by MAX_GROUP_TXNS before execution ever attempts to stage
+  // more inner transactions than a single itxn group can hold (see M-02).
+  totalTxns: uint64
 }
 
 // Per-transaction-type payload structs. Each type carries only the attributes
@@ -305,6 +321,7 @@ type ProposalExecuted = { proposalId: uint64 }
 type ProposalCancelled = { proposalId: uint64 }
 type RekeyedAddressAdded = { addr: Account; label: string }
 type RekeyedAddressRemoved = { addr: Account }
+type SafePaused = { paused: uint64 }
 
 // ---------------------------------------------------------------------------
 // Contract
@@ -370,6 +387,11 @@ export class AlgoSafe extends Contract {
   public bootstrap(groupName: string): void {
     assert(Txn.sender === this.creator.value, 'only creator can bootstrap')
     assert(this.bootstrapped.value === Uint64(0), 'already bootstrapped')
+    // The two bootstrap paths are alternatives, not composable: bootstrap()
+    // unconditionally assigns activePrivGroupCount = 1 below, which would
+    // silently discard the true count from any prior bootstrapGroup() calls
+    // (see the M-03 audit finding).
+    assert(this.groupCount.value === Uint64(0), 'bootstrapGroup already used; cannot mix bootstrap paths')
 
     const now = Global.latestTimestamp
     const gid: uint64 = this.nextGroupId.value
@@ -532,6 +554,7 @@ export class AlgoSafe extends Contract {
     this._storePayloadGroup(pid, Uint64(1), payload)
     const p = clone(this.proposals(pid).value)
     p.numPayloads = Uint64(1)
+    p.totalTxns = payload.length
     this.proposals(pid).value = clone(p)
     if (execute) {
       this._executeProposalInternal(pid)
@@ -543,12 +566,18 @@ export class AlgoSafe extends Contract {
    * Append an additional payload chunk (slots 2–6) to an existing transaction-group
    * proposal. Callable only by the original proposer while they remain a *current*
    * member of the group, and only while `approvalsCount === 1` (i.e. no one but the
-   * proposer's own auto-approval has approved yet). This closes the window for a
-   * member to alter the executed transaction set after an independent signer has
-   * approved the proposal as it existed at that time — see the `approveProposal` /
-   * `_executeProposalInternal` comments for how approvals are bound to a payload.
+   * proposer's own auto-approval has approved yet). This blocks edits once a second
+   * approval has actually landed on-chain, but a proposer could otherwise still race
+   * an independent signer's in-flight approval transaction with an edit here — that
+   * remaining window is closed by `payloadVersion`: every successful write here bumps
+   * it, and `approveProposal` requires the caller to name the version it reviewed, so
+   * a stale approval fails instead of silently binding to different content (H-01).
    * The membership check also prevents a member removed from the group after
-   * proposing from continuing to rewrite their own now-orphaned proposal.
+   * proposing from continuing to rewrite their own now-orphaned proposal. Each chunk's
+   * length is tracked in `proposal.totalTxns` (correctly accounting for overwrites of
+   * an already-written slot) so the aggregate across all chunks can be bounded by
+   * `MAX_GROUP_TXNS` here, before the AVM's own inner-transaction-group size limit
+   * would otherwise reject an over-sized proposal only at execution time (M-02).
    */
   public appendTransactionGroupPayload(
     proposalId: uint64,
@@ -559,6 +588,10 @@ export class AlgoSafe extends Contract {
     if (ensureBudgetValue > Uint64(1)) {
       ensureBudget(ensureBudgetValue)
     }
+    // Pause only ever gates fund-moving transaction-group proposals (this method
+    // only ever touches PT_TRANSACTION_GROUP proposals); admin-change proposals
+    // are intentionally exempt — see _executeProposalInternal.
+    assert(this.paused.value === Uint64(0), 'safe paused')
     assert(payloadIndex >= Uint64(2) && payloadIndex <= Uint64(6), 'invalid slot')
     assert(payload.length >= Uint64(1), 'empty payload')
     const proposal = clone(this.proposals(proposalId).value)
@@ -567,15 +600,33 @@ export class AlgoSafe extends Contract {
     this._assertMember(proposal.groupId)
     assert(Txn.sender === proposal.proposer, 'only proposer can append')
     assert(proposal.approvalsCount === Uint64(1), 'cannot modify payload after independent approval')
-    this._storePayloadGroup(proposalId, payloadIndex, payload)
-    if (payloadIndex > proposal.numPayloads) {
-      const updated = clone(proposal)
-      updated.numPayloads = payloadIndex
-      this.proposals(proposalId).value = clone(updated)
+
+    const key: uint64 = proposalId * TXG_KEY_MULT + payloadIndex
+    let newTotal: uint64 = proposal.totalTxns
+    if (this.transactionGroups(key).exists) {
+      const existing = clone(this.transactionGroups(key).value)
+      newTotal = newTotal - existing.length
     }
+    newTotal = newTotal + payload.length
+    assert(newTotal <= MAX_GROUP_TXNS, 'too many txs across chunks')
+
+    this._storePayloadGroup(proposalId, payloadIndex, payload)
+
+    const updated = clone(proposal)
+    updated.totalTxns = newTotal
+    updated.payloadVersion = updated.payloadVersion + Uint64(1)
+    if (payloadIndex > proposal.numPayloads) {
+      updated.numPayloads = payloadIndex
+    }
+    this.proposals(proposalId).value = clone(updated)
   }
 
-  /** Create a governed signer-group administration proposal. */
+  /**
+   * Create a governed signer-group administration proposal. Deliberately not gated
+   * by `paused`: pause only ever blocks fund-moving transaction-group proposals, so
+   * governance (including an ADM_SET_PAUSED change that unpauses the safe) always
+   * stays reachable — see the comment on `_executeProposalInternal`.
+   */
   public proposeAdminChange(
     groupId: uint64,
     change: AdminChange,
@@ -601,8 +652,17 @@ export class AlgoSafe extends Contract {
   // Approval / execution / cancellation
   // -------------------------------------------------------------------------
 
-  /** Record the caller's approval of a proposal. */
-  public approveProposal(proposalId: uint64, ensureBudgetValue: uint64): void {
+  /**
+   * Record the caller's approval of a proposal. `expectedPayloadVersion` must match
+   * the proposal's current `payloadVersion` (read via `getProposal` immediately
+   * before signing) — this binds the approval to the exact content the caller
+   * reviewed, so a proposer editing a transaction-group proposal's payload after
+   * the caller decided to approve, but before this call confirms, invalidates the
+   * stale approval instead of silently applying it to different content (H-01).
+   * For admin-change proposals, `payloadVersion` never changes after creation, so
+   * `expectedPayloadVersion` is always `1`.
+   */
+  public approveProposal(proposalId: uint64, expectedPayloadVersion: uint64, ensureBudgetValue: uint64): void {
     if (ensureBudgetValue > Uint64(1)) {
       ensureBudget(ensureBudgetValue)
     }
@@ -615,6 +675,7 @@ export class AlgoSafe extends Contract {
       this.groups(proposal.groupId).value.membershipEpoch === proposal.epochAtCreation,
       'group membership changed since proposal creation',
     )
+    assert(proposal.payloadVersion === expectedPayloadVersion, 'payload changed since review')
 
     this._recordApproval(proposalId, proposal)
   }
@@ -782,7 +843,6 @@ export class AlgoSafe extends Contract {
    * applies.
    */
   private _executeProposalInternal(proposalId: uint64): void {
-    assert(this.paused.value === Uint64(0), 'safe paused')
     const proposal = clone(this.proposals(proposalId).value)
     assert(proposal.status === STATUS_READY, 'not ready to execute')
     assert(Global.round <= proposal.expiryRound, 'proposal expired')
@@ -802,6 +862,11 @@ export class AlgoSafe extends Contract {
     assert(group.membershipEpoch === proposal.epochAtCreation, 'group membership changed since proposal creation')
 
     if (proposal.payloadType === PT_TRANSACTION_GROUP) {
+      // Pause only ever gates fund-moving transaction-group execution. Admin-change
+      // execution (including an ADM_SET_PAUSED change that unpauses the safe) must
+      // stay reachable even while paused — otherwise pausing would permanently
+      // brick governance with no on-chain recovery path (see the M-01 audit finding).
+      assert(this.paused.value === Uint64(0), 'safe paused')
       // `lastExecutionRound === 0` is the "never executed" sentinel (a group's
       // first-ever execution can't legitimately land on round 0, since the app
       // must already exist by then) — the cooldown gates successive
@@ -848,6 +913,8 @@ export class AlgoSafe extends Contract {
       proposer: Txn.sender,
       numPayloads: Uint64(0),
       epochAtCreation: group.membershipEpoch,
+      payloadVersion: Uint64(1),
+      totalTxns: Uint64(0),
     }
     this.proposals(pid).value = clone(proposal)
     this.nextProposalId.value = pid + Uint64(1)
@@ -1125,6 +1192,11 @@ export class AlgoSafe extends Contract {
   private _validateApp(tx: AppTxn, group: SignerGroup): void {
     assert((group.allowedActions & ACT_APPL) !== Uint64(0), 'appl not allowed')
     assert(tx.appId !== Uint64(0), 'appId required') // create/update need programs and are not supported here
+    // Defense in depth: the AVM already rejects a direct or indirect self-call
+    // (see PRODUCT-DESCRIPTION.md), so this can never actually succeed — but
+    // failing here gives a clear contract-level error instead of a generic AVM
+    // panic partway through staging (L-01 audit finding).
+    assert(tx.appId !== Global.currentApplicationId.id, 'self-call not allowed')
     assert(tx.onCompletion <= Uint64(5), 'invalid onCompletion')
     assert(tx.onCompletion !== Uint64(4), 'app update not supported')
     const numArgs = Uint64(tx.appArgs.length)
@@ -1282,6 +1354,10 @@ export class AlgoSafe extends Contract {
       assert(!this.rekeyedAddresses(change.memberAddr).exists, 'already registered')
     } else if (change.changeType === ADM_REMOVE_REKEYED_ADDR) {
       assert(this.rekeyedAddresses(change.memberAddr).exists, 'not registered')
+    } else if (change.changeType === ADM_SET_PAUSED) {
+      // No extra validation: activeFlag (reused as the desired paused state,
+      // nonzero = paused) needs no bounds check beyond the !== 0 boolean
+      // semantics already used throughout AdminChange.
     } else {
       assert(false, 'unknown change type')
     }
@@ -1342,8 +1418,7 @@ export class AlgoSafe extends Contract {
       group.adminPrivileges = change.adminPrivileges
       this.groups(change.targetGroupId).value = clone(group)
       emit<GroupUpdated>({ groupId: change.targetGroupId })
-    } else {
-      // ADM_SET_ACTIVE
+    } else if (change.changeType === ADM_SET_ACTIVE) {
       const group = clone(this.groups(change.targetGroupId).value)
       assert(!this._wouldRemoveLastGroupAdmin(change, group), 'must keep at least one active group admin')
       const hasGroupPriv = (group.adminPrivileges & PRIV_GROUP) !== Uint64(0)
@@ -1357,6 +1432,13 @@ export class AlgoSafe extends Contract {
       group.active = willBeActive ? Uint64(1) : Uint64(0)
       this.groups(change.targetGroupId).value = clone(group)
       emit<GroupUpdated>({ groupId: change.targetGroupId })
+    } else {
+      // ADM_SET_PAUSED: activeFlag reused as the desired paused state (nonzero =
+      // paused). Always reachable regardless of the current paused state itself —
+      // proposeAdminChange/executeProposal's admin-change path never checks
+      // paused, so an unpause proposal can always be created and executed.
+      this.paused.value = change.activeFlag !== Uint64(0) ? Uint64(1) : Uint64(0)
+      emit<SafePaused>({ paused: this.paused.value })
     }
   }
 

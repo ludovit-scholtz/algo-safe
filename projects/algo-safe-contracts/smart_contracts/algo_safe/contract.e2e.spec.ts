@@ -14,6 +14,7 @@ import {
   ADM_REMOVE_MEMBER,
   ADM_REMOVE_REKEYED_ADDR,
   ADM_SET_ACTIVE,
+  ADM_SET_PAUSED,
   ADM_SET_POLICY,
   ADM_SET_PRIVILEGES,
   FAR_EXPIRY,
@@ -61,6 +62,20 @@ function boxKeyU64(prefix: string, n: bigint): Uint8Array {
   const r = new Uint8Array(p.length + 8)
   r.set(p)
   r.set(b, p.length)
+  return r
+}
+
+// Box key for a composite {uint64, Account}-keyed BoxMap: ASCII prefix + 8-byte
+// big-endian id + 32-byte account public key.
+function boxKeyComposite(prefix: string, n: bigint, addr: string): Uint8Array {
+  const p = new TextEncoder().encode(prefix)
+  const nb = new Uint8Array(8)
+  new DataView(nb.buffer).setBigUint64(0, n, false)
+  const ab = algosdk.decodeAddress(addr).publicKey
+  const r = new Uint8Array(p.length + 8 + 32)
+  r.set(p)
+  r.set(nb, p.length)
+  r.set(ab, p.length + 8)
   return r
 }
 
@@ -615,7 +630,7 @@ describe('AlgoSafe contract', () => {
     ).rejects.toThrow()
 
     // Member B approves (2 of 2), now executable.
-    await client.send.approveProposal({ args: { proposalId: pid!, ensureBudgetValue: 0n }, sender: b, suppressLog: true })
+    await client.send.approveProposal({ args: { proposalId: pid!, expectedPayloadVersion: 1n, ensureBudgetValue: 0n }, sender: b, suppressLog: true })
     await client.send.executeProposal({ args: { proposalId: pid!, ensureBudgetValue: 6000n }, sender: b, ...execParams })
 
     const recipInfo = await localnet.algorand.account.getInformation(recipient)
@@ -634,11 +649,11 @@ describe('AlgoSafe contract', () => {
 
     const stranger = await localnet.context.generateAccount({ initialFunds: (1).algo() })
     await expect(
-      client.send.approveProposal({ args: { proposalId: pid!, ensureBudgetValue: 0n }, sender: stranger, suppressLog: true }),
+      client.send.approveProposal({ args: { proposalId: pid!, expectedPayloadVersion: 1n, ensureBudgetValue: 0n }, sender: stranger, suppressLog: true }),
     ).rejects.toThrow()
 
     // Proposer already auto-approved, so approving again must fail.
-    await expect(client.send.approveProposal({ args: { proposalId: pid!, ensureBudgetValue: 0n }, suppressLog: true })).rejects.toThrow()
+    await expect(client.send.approveProposal({ args: { proposalId: pid!, expectedPayloadVersion: 1n, ensureBudgetValue: 0n }, suppressLog: true })).rejects.toThrow()
   })
 
   test('rejects proposals from non-members', async () => {
@@ -1355,7 +1370,7 @@ describe('AlgoSafe contract', () => {
     })
 
     // Honest member reviews the single visible payment and approves — proposal reaches READY.
-    await client.send.approveProposal({ args: { proposalId: pid!, ensureBudgetValue: 0n }, sender: honestMember, suppressLog: true })
+    await client.send.approveProposal({ args: { proposalId: pid!, expectedPayloadVersion: 1n, ensureBudgetValue: 0n }, sender: honestMember, suppressLog: true })
     const ready = await client.send.getProposal({ args: { proposalId: pid!, ensureBudgetValue: 0n }, suppressLog: true })
     expect(ready.return!.approvalsCount).toBe(2n)
     expect(ready.return!.status).toBe(2n) // READY
@@ -1653,7 +1668,7 @@ describe('AlgoSafe contract', () => {
     ).rejects.toThrow()
 
     // Once a second, independent approval brings approvalsCount to 2, execution succeeds.
-    await client.send.approveProposal({ args: { proposalId: pid!, ensureBudgetValue: 0n }, sender: b, suppressLog: true })
+    await client.send.approveProposal({ args: { proposalId: pid!, expectedPayloadVersion: 1n, ensureBudgetValue: 0n }, sender: b, suppressLog: true })
     await client.send.executeProposal({ args: { proposalId: pid!, ensureBudgetValue: 6000n }, sender: b, ...execParams })
 
     const recipInfo = await localnet.algorand.account.getInformation(recipient)
@@ -1994,7 +2009,7 @@ describe('AlgoSafe contract', () => {
     expect(safeBefore.authAddr).toBeUndefined()
 
     // Second admin approves; the threshold is met and the rekey executes.
-    await client.send.approveProposal({ args: { proposalId: pid!, ensureBudgetValue: 0n }, sender: secondAdmin, suppressLog: true })
+    await client.send.approveProposal({ args: { proposalId: pid!, expectedPayloadVersion: 1n, ensureBudgetValue: 0n }, sender: secondAdmin, suppressLog: true })
     await client.send.executeProposal({ args: { proposalId: pid!, ensureBudgetValue: 6000n }, ...execParams })
 
     const safeAfter = await localnet.algorand.account.getInformation(client.appAddress)
@@ -2231,7 +2246,7 @@ describe('AlgoSafe contract', () => {
       suppressLog: true,
       staticFee: (0.2).algo(),
     })
-    await client.send.approveProposal({ args: { proposalId: pid!, ensureBudgetValue: 0n }, sender: b, suppressLog: true })
+    await client.send.approveProposal({ args: { proposalId: pid!, expectedPayloadVersion: 1n, ensureBudgetValue: 0n }, sender: b, suppressLog: true })
 
     // Now B (one of the two approvers) is removed from the group — e.g.
     // incident response to a suspected compromised signer. Lower the
@@ -2504,5 +2519,255 @@ describe('AlgoSafe contract', () => {
     expect(oldSafeInfo.authAddr?.toString()).toBe(cloned.appAddress)
     const externalInfo = await localnet.algorand.account.getInformation(external)
     expect(externalInfo.authAddr?.toString()).toBe(cloned.appAddress)
+  })
+
+  test('rejects a stale approval when a multi-chunk payload is edited after review but before confirmation (H-01 regression)', async () => {
+    const { client } = await deployAndBootstrap()
+    const proposer = await localnet.context.generateAccount({ initialFunds: (1).algo() })
+    const approver = await localnet.context.generateAccount({ initialFunds: (1).algo() })
+    const honestRecipient = await localnet.context.generateAccount({ initialFunds: (0).algo() })
+    const attackerRecipient = await localnet.context.generateAccount({ initialFunds: (0).algo() })
+
+    // 2-of-2 Treasury group: proposer + an independent approver.
+    await governAdminChange(
+      client,
+      1n,
+      mkAdminChange({
+        changeType: ADM_CREATE_GROUP,
+        groupName: 'Treasury',
+        threshold: 1n,
+        memberAddr: proposer.toString(),
+        allowedActions: ACT_PAY,
+        adminPrivileges: 0n,
+      }),
+    )
+    const groupId = 2n
+    await governAdminChange(
+      client,
+      1n,
+      mkAdminChange({ changeType: ADM_ADD_MEMBER, targetGroupId: groupId, memberAddr: approver.toString() }),
+    )
+    await governAdminChange(
+      client,
+      1n,
+      mkAdminChange({ changeType: ADM_CHANGE_THRESHOLD, targetGroupId: groupId, threshold: 2n }),
+    )
+
+    // Proposer creates a 2-chunk proposal; chunk 1 is fixed forever, chunk 2 starts benign.
+    const { return: pid } = await client.send.proposeTransactionGroup({
+      args: {
+        groupId,
+        payload: toSafeTxnGroup([safePayment(honestRecipient.toString(), (0.1).algo().microAlgo)]),
+        expiryRound: FAR_EXPIRY,
+        execute: false,
+        ensureBudgetValue: 10000n,
+      },
+      sender: proposer,
+      suppressLog: true,
+      staticFee: (0.2).algo(),
+    })
+    await client.send.appendTransactionGroupPayload({
+      args: {
+        proposalId: pid!,
+        payloadIndex: 2n,
+        payload: toSafeTxnGroup([safePayment(honestRecipient.toString(), (0.1).algo().microAlgo)]),
+        ensureBudgetValue: 10000n,
+      },
+      sender: proposer,
+      suppressLog: true,
+      staticFee: (0.1).algo(),
+    })
+
+    // Approver reviews the current (honest) content and records the payload version it applies to.
+    const reviewed = await client.send.getProposal({ args: { proposalId: pid!, ensureBudgetValue: 0n }, suppressLog: true })
+    const reviewedVersion = reviewed.return!.payloadVersion
+    expect(reviewedVersion).toBe(2n) // 1 at creation + 1 for the append
+
+    // Proposer front-runs the approver's decision: edits chunk 2 to redirect funds — still
+    // legal on its own, since approvalsCount is still 1 (only the proposer's auto-approval).
+    await client.send.appendTransactionGroupPayload({
+      args: {
+        proposalId: pid!,
+        payloadIndex: 2n,
+        payload: toSafeTxnGroup([safePayment(attackerRecipient.toString(), (0.1).algo().microAlgo)]),
+        ensureBudgetValue: 10000n,
+      },
+      sender: proposer,
+      suppressLog: true,
+      staticFee: (0.1).algo(),
+    })
+
+    // The approver's approval, bound to the version they actually reviewed, must fail rather
+    // than silently applying to the swapped (attacker) content.
+    await expect(
+      client.send.approveProposal({
+        args: { proposalId: pid!, expectedPayloadVersion: reviewedVersion, ensureBudgetValue: 0n },
+        sender: approver,
+        suppressLog: true,
+      }),
+    ).rejects.toThrow()
+
+    // Threshold was never met on the swapped content — nothing executed.
+    const afterStaleAttempt = await client.send.getProposal({ args: { proposalId: pid!, ensureBudgetValue: 0n }, suppressLog: true })
+    expect(afterStaleAttempt.return!.approvalsCount).toBe(1n)
+    expect(afterStaleAttempt.return!.status).toBe(1n) // ACTIVE
+  })
+
+  test('pause blocks fund-moving transaction-group actions but never blocks governance, including unpausing (M-01 regression)', async () => {
+    const { client } = await deployAndBootstrap()
+    const recipient = await localnet.context.generateAccount({ initialFunds: (0).algo() })
+
+    // A pending, already-READY (1-of-1) transaction-group proposal exists before pausing.
+    const { return: pid } = await client.send.proposeTransactionGroup({
+      args: {
+        groupId: 1n,
+        payload: toSafeTxnGroup([safePayment(recipient.toString(), (0.1).algo().microAlgo)]),
+        expiryRound: FAR_EXPIRY,
+        execute: false,
+        ensureBudgetValue: 10000n,
+      },
+      suppressLog: true,
+      staticFee: (0.2).algo(),
+    })
+
+    // Pause the safe through governance.
+    await governAdminChange(client, 1n, mkAdminChange({ changeType: ADM_SET_PAUSED, activeFlag: 1n }))
+    const pausedConfig = await client.send.getConfig({ args: { ensureBudgetValue: 0n }, suppressLog: true })
+    expect(pausedConfig.return![4]).toBe(1n)
+
+    // New transaction-group proposals are blocked.
+    await expect(
+      client.send.proposeTransactionGroup({
+        args: {
+          groupId: 1n,
+          payload: toSafeTxnGroup([safePayment(recipient.toString(), (0.1).algo().microAlgo)]),
+          expiryRound: FAR_EXPIRY,
+          execute: false,
+          ensureBudgetValue: 10000n,
+        },
+        suppressLog: true,
+        staticFee: (0.2).algo(),
+      }),
+    ).rejects.toThrow()
+
+    // Appending to the existing pending transaction-group proposal is blocked.
+    await expect(
+      client.send.appendTransactionGroupPayload({
+        args: {
+          proposalId: pid!,
+          payloadIndex: 2n,
+          payload: toSafeTxnGroup([safePayment(recipient.toString(), (0.1).algo().microAlgo)]),
+          ensureBudgetValue: 10000n,
+        },
+        suppressLog: true,
+        staticFee: (0.1).algo(),
+      }),
+    ).rejects.toThrow()
+
+    // Executing the pending transaction-group proposal is blocked.
+    await expect(
+      client.send.executeProposal({ args: { proposalId: pid!, ensureBudgetValue: 6000n }, ...execParams }),
+    ).rejects.toThrow()
+
+    // Governance — including the unpause itself — is never blocked by pause.
+    await governAdminChange(client, 1n, mkAdminChange({ changeType: ADM_SET_PAUSED, activeFlag: 0n }))
+    const unpausedConfig = await client.send.getConfig({ args: { ensureBudgetValue: 0n }, suppressLog: true })
+    expect(unpausedConfig.return![4]).toBe(0n)
+
+    // The previously blocked proposal now executes normally.
+    await client.send.executeProposal({ args: { proposalId: pid!, ensureBudgetValue: 6000n }, ...execParams })
+    const recipInfo = await localnet.algorand.account.getInformation(recipient)
+    expect(recipInfo.balance.microAlgo).toBe((0.1).algo().microAlgo)
+  })
+
+  test('rejects appending a payload chunk that would push the aggregate transaction count past MAX_GROUP_TXNS (M-02 regression)', async () => {
+    // Payload chunks are kept to <= 3 elements throughout (matching the "splits a
+    // 6-payment group" test above): populateAppCallResources' resource-discovery
+    // simulation exceeds the 700-opcode initial budget for larger multi-element
+    // payloads, so every call here bypasses it and supplies box references manually.
+    const { client, deployer } = await deployAndBootstrap()
+    const recipient = await localnet.context.generateAccount({ initialFunds: (0).algo() })
+    const appId = BigInt(client.appId)
+    const deployerAddr = deployer.toString()
+    const pid = 1n // first proposal in a fresh test scope
+    const TXG_KEY_MULT = 7n
+    const pays = (n: number) => Array.from({ length: n }, (_, i) => safePayment(recipient.toString(), BigInt(i + 1) * 1000n))
+    const appendBoxRefs = (slot: bigint) => [
+      { appId, name: boxKeyU64('p', pid) },
+      { appId, name: boxKeyU64('g', 1n) },
+      { appId, name: boxKeyComposite('m', 1n, deployerAddr) },
+      { appId, name: boxKeyU64('txg', pid * TXG_KEY_MULT + slot) },
+    ]
+    const appendChunk = (slot: bigint, count: number) =>
+      client.send.appendTransactionGroupPayload({
+        args: { proposalId: pid, payloadIndex: slot, payload: toSafeTxnGroup(pays(count)), ensureBudgetValue: 10000n },
+        suppressLog: true,
+        staticFee: (0.1).algo(),
+        populateAppCallResources: false,
+        boxReferences: appendBoxRefs(slot),
+      })
+
+    // Slot 1 (propose) + slots 2-5 (append) each carry 3 transactions = 15 total.
+    await client.send.proposeTransactionGroup({
+      args: { groupId: 1n, payload: toSafeTxnGroup(pays(3)), expiryRound: FAR_EXPIRY, execute: false, ensureBudgetValue: 10000n },
+      suppressLog: true,
+      staticFee: (0.2).algo(),
+      populateAppCallResources: false,
+      boxReferences: [
+        { appId, name: boxKeyU64('g', 1n) },
+        { appId, name: boxKeyComposite('m', 1n, deployerAddr) },
+        { appId, name: boxKeyU64('p', pid) },
+        { appId, name: boxKeyComposite('a', pid, deployerAddr) },
+        { appId, name: boxKeyU64('txg', pid * TXG_KEY_MULT + 1n) },
+      ],
+    })
+    for (const slot of [2n, 3n, 4n, 5n]) {
+      await appendChunk(slot, 3)
+    }
+
+    // Slot 6 with 1 more transaction reaches exactly MAX_GROUP_TXNS (16) — succeeds.
+    await appendChunk(6n, 1)
+
+    // Re-editing slot 6 with a different single transaction (an overwrite, not an
+    // addition) must not falsely inflate the running total — still succeeds.
+    await appendChunk(6n, 1)
+
+    // Growing slot 6 to 2 transactions would push the aggregate to 17 — rejected.
+    await expect(appendChunk(6n, 2)).rejects.toThrow()
+  })
+
+  test('rejects mixing bootstrap() after bootstrapGroup() (M-03 regression)', async () => {
+    const { client } = await deploy()
+    const solo = await localnet.context.generateAccount({ initialFunds: (1).algo() })
+    const seed = {
+      name: 'Seeded',
+      threshold: 1n,
+      adminPrivileges: PRIV_ALL,
+      allowedActions: ACT_ALL,
+      limitAssetId: 0n,
+      dailyLimit: 0n,
+      monthlyLimit: 0n,
+      cooldownRounds: 0n,
+    }
+    await client.send.bootstrapGroup({
+      args: { seed, members: [[solo.toString(), 1n, 'solo']], ensureBudgetValue: 0n },
+      suppressLog: true,
+    })
+
+    await expect(client.send.bootstrap({ args: { groupName: 'Admins' }, suppressLog: true })).rejects.toThrow()
+  })
+
+  test("rejects a transaction-group entry that targets the safe's own appId (L-01 regression)", async () => {
+    const { client } = await deployAndBootstrap()
+    const selfCall = safeAppCall(BigInt(client.appId), [])
+    const { return: pid } = await client.send.proposeTransactionGroup({
+      args: { groupId: 1n, payload: toSafeTxnGroup([selfCall]), expiryRound: FAR_EXPIRY, execute: false, ensureBudgetValue: 10000n },
+      suppressLog: true,
+      staticFee: (0.2).algo(),
+    })
+
+    await expect(
+      client.send.executeProposal({ args: { proposalId: pid!, ensureBudgetValue: 6000n }, ...execParams }),
+    ).rejects.toThrow()
   })
 })

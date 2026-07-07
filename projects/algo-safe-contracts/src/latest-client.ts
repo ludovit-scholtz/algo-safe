@@ -8,7 +8,7 @@ export {
   ProposalFromTuple,
   RekeyedAddressFromTuple,
   SignerGroupFromTuple,
-} from '../clients/0f44ee7b45b2b85adc8bef13d4e66715df3caed1129258e2657ce6a2f038b5d3/AlgoSafeClient'
+} from '../clients/8f0e3a34c916ca3dee51f5ce496651261114c3e7da762bb6296435b3ebb028dd/AlgoSafeClient'
 
 export type {
   AdminChange,
@@ -38,4 +38,4 @@ export type {
   Proposal,
   RekeyedAddress,
   SignerGroup,
-} from '../clients/0f44ee7b45b2b85adc8bef13d4e66715df3caed1129258e2657ce6a2f038b5d3/AlgoSafeClient'
+} from '../clients/8f0e3a34c916ca3dee51f5ce496651261114c3e7da762bb6296435b3ebb028dd/AlgoSafeClient'
