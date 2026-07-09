@@ -2757,6 +2757,86 @@ describe('AlgoSafe contract', () => {
     await expect(client.send.bootstrap({ args: { groupName: 'Admins' }, suppressLog: true })).rejects.toThrow()
   })
 
+  test('rejects appending a payload chunk to an expired proposal (2026-07-07-v2 L-01 regression)', async () => {
+    const { client } = await deployAndBootstrap()
+    const recipient = await localnet.context.generateAccount({ initialFunds: (0).algo() })
+    const funder = await localnet.context.generateAccount({ initialFunds: (1).algo() })
+
+    // Expiry only a couple of rounds out, so a few follow-up transactions push past it.
+    const expiryRound = (await currentRound()) + 2n
+    const { return: pid } = await client.send.proposeTransactionGroup({
+      args: {
+        groupId: 1n,
+        payload: toSafeTxnGroup([safePayment(recipient.toString(), (0.1).algo().microAlgo)]),
+        expiryRound,
+        execute: false,
+        ensureBudgetValue: 10000n,
+      },
+      suppressLog: true,
+      staticFee: (0.2).algo(),
+    })
+
+    // Advance the chain past the expiry round (0-amount self-payments mint rounds
+    // on the dev-mode localnet without tripping any min-balance rule).
+    while ((await currentRound()) <= expiryRound) {
+      await localnet.algorand.send.payment({
+        amount: (0).algo(),
+        sender: funder,
+        receiver: funder,
+        suppressLog: true,
+      })
+    }
+
+    // Appending to the expired proposal must fail, matching approve/execute behaviour.
+    await expect(
+      client.send.appendTransactionGroupPayload({
+        args: {
+          proposalId: pid!,
+          payloadIndex: 2n,
+          payload: toSafeTxnGroup([safePayment(recipient.toString(), (0.1).algo().microAlgo)]),
+          ensureBudgetValue: 10000n,
+        },
+        suppressLog: true,
+        staticFee: (0.1).algo(),
+      }),
+    ).rejects.toThrow()
+  })
+
+  test('maps a standard keys-omitted "go offline" keyreg to online=0 (2026-07-07-v2 L-02 regression)', async () => {
+    const { deployer } = await deployAndBootstrap()
+    const sp = await localnet.algorand.client.algod.getTransactionParams().do()
+
+    // Conventional offline registration: participation keys omitted, nonParticipation unset.
+    const goOffline = algosdk.makeKeyRegistrationTxnWithSuggestedParamsFromObject({
+      sender: deployer.addr,
+      suggestedParams: sp,
+    })
+    const offlineTuples = algosdkTxnsToSafeTxnGroup([goOffline])
+    expect(offlineTuples[0][0]).toBe(TX_KEYREG)
+    expect(decodeKeyRegTxn(offlineTuples[0][1]).online).toBe(0n)
+
+    // Permanent opt-out (nonParticipation: true) is also offline.
+    const optOut = algosdk.makeKeyRegistrationTxnWithSuggestedParamsFromObject({
+      sender: deployer.addr,
+      nonParticipation: true,
+      suggestedParams: sp,
+    })
+    expect(decodeKeyRegTxn(algosdkTxnsToSafeTxnGroup([optOut])[0][1]).online).toBe(0n)
+
+    // A keys-supplied registration still maps to online.
+    const goOnline = algosdk.makeKeyRegistrationTxnWithSuggestedParamsFromObject({
+      sender: deployer.addr,
+      voteKey: new Uint8Array(32).fill(1),
+      selectionKey: new Uint8Array(32).fill(2),
+      stateProofKey: new Uint8Array(64).fill(3),
+      voteFirst: 1n,
+      voteLast: 1000n,
+      voteKeyDilution: 50n,
+      suggestedParams: sp,
+    })
+    expect(decodeKeyRegTxn(algosdkTxnsToSafeTxnGroup([goOnline])[0][1]).online).toBe(1n)
+  })
+
   test("rejects a transaction-group entry that targets the safe's own appId (L-01 regression)", async () => {
     const { client } = await deployAndBootstrap()
     const selfCall = safeAppCall(BigInt(client.appId), [])

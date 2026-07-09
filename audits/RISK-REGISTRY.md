@@ -4,8 +4,8 @@
 
 **Maintained by**: every audit performed per `AI-AUDIT-INSTRUCTIONS.md` MUST review and update this file — see that document's "Risk Registry Maintenance" section for the required process.
 
-**Last updated**: 2026-07-07 (same-day remediation follow-up — see the "Remediation Update" section of [`2026-07-07-audit-report-ai-claude-sonnet-5.md`](./2026-07-07-audit-report-ai-claude-sonnet-5.md))
-**Reviewed against commit**: `5e4e27ace2cba026ea6eb7209e31006257234669` (initial audit); fixes for R-01, R-06, R-07, R-08, R-15 applied to the working tree same-day, contract version `BIATEC-ALGO-SAFE-v1.7.0`, approval hash `8f0e3a34c916ca3dee51f5ce496651261114c3e7da762bb6296435b3ebb028dd` — **not yet committed**
+**Last updated**: 2026-07-07 (independent follow-up audit + same-day remediation — see [`2026-07-07-audit-report-ai-claude-sonnet-5-v2.md`](./2026-07-07-audit-report-ai-claude-sonnet-5-v2.md), incl. its "Remediation Update" section)
+**Reviewed against commit**: `4cdbbe535a0aef5f5f768d249139148ce2b32f36` (contract version `BIATEC-ALGO-SAFE-v1.7.0`, approval hash `8f0e3a34c916ca3dee51f5ce496651261114c3e7da762bb6296435b3ebb028dd` — **committed to `main`**); v2-audit remediation applied to the working tree same-day, contract version `BIATEC-ALGO-SAFE-v1.8.0`, approval hash `d66a4b63aab9d09dab6db4b0babb2d2a0931c46a612c7e59e29591722a107d10` — **not yet committed**
 
 ---
 
@@ -60,6 +60,8 @@ Probabilities are independent per-risk estimates (not mutually exclusive outcome
 | R-30 | Cryptographically-relevant quantum computer breaks ed25519 signer keys | Cryptographic | Critical | **<1%** (within 5 yrs) | Low | Monitoring (architecture anticipates it) |
 | R-31 | Algorand block-timestamp manipulation games spend-limit period rollover | Economic | Low | **3%** | Low | Accepted (protocol-bounded) |
 | R-32 | Regulatory/custody classification risk for operators of Algo Safe instances | Regulatory | Medium | **20%** | Medium | Monitoring |
+| R-33 | Project documentation (`CLAUDE.md`/`PRODUCT-DESCRIPTION.md`) lags behind shipped breaking ABI changes | Integration/Client | Medium | **10%** | Medium | **Partially Mitigated** ([M-01 v2](./2026-07-07-audit-report-ai-claude-sonnet-5-v2.md#m-01-this-report-claudemd-and-product-descriptionmd-are-stale-relative-to-the-v170-breaking-change)) |
+| R-34 | Off-chain keyreg mapping misclassifies a standard "go offline" registration as online | Integration/Client | Low | **<1%** | Low | **Mitigated** ([L-02 v2](./2026-07-07-audit-report-ai-claude-sonnet-5-v2.md#l-02-this-report-off-chain-algosdktxntosafetxn-misclassifies-a-standard-go-offline-key-registration-as-online)) |
 
 ---
 
@@ -76,7 +78,7 @@ Probabilities are independent per-risk estimates (not mutually exclusive outcome
 
 **Why <1% now**: `approveProposal` requires a caller-supplied `expectedPayloadVersion` that must match the proposal's live `payloadVersion` (bumped on every `appendTransactionGroupPayload` write); a payload swap between review and confirmation now causes the stale approval to revert rather than silently apply. Residual probability reflects only the chance of an undiscovered gap in this fix, not the original attack path, which is closed. Regression-tested (`contract.e2e.spec.ts`, "H-01 regression").
 
-**Mitigation path**: fixed same-day in `contract.algo.ts` v1.7.0 (working tree, not yet committed). No further action pending commit/deploy.
+**Mitigation path**: fixed in `contract.algo.ts` v1.7.0, committed to `main` at `4cdbbe5` and independently re-verified against the live code and its regression test by the [2026-07-07-v2 audit](./2026-07-07-audit-report-ai-claude-sonnet-5-v2.md#h-01-prior-report--multi-chunk-proposal-bait-and-switch--confirmed-fixed). No further action pending.
 
 ---
 
@@ -137,7 +139,7 @@ No group retains `PRIV_GROUP`, permanently freezing the non-upgradable contract'
 
 **Why <1% now**: `bootstrap()` now asserts `groupCount === 0` before proceeding, making the previously-silent mixing an explicit, immediate on-chain rejection instead of a state-consistency bug. Regression-tested. Also directly improves R-05's confidence (governance lockout), since this was R-05's only identified non-zero-probability path.
 
-**Mitigation path**: fixed same-day in `contract.algo.ts` v1.7.0 (working tree, not yet committed).
+**Mitigation path**: fixed in `contract.algo.ts` v1.7.0, committed to `main` at `4cdbbe5` and independently re-verified by the [2026-07-07-v2 audit](./2026-07-07-audit-report-ai-claude-sonnet-5-v2.md#m-03-prior-report--bootstrap-path-mixing-desyncs-activeprivgroupcount--confirmed-fixed).
 
 ---
 
@@ -150,7 +152,7 @@ No group retains `PRIV_GROUP`, permanently freezing the non-upgradable contract'
 
 **Why 3% now**: `ADM_SET_PAUSED` is implemented and correctly scoped — it gates fund-moving transaction-group proposal/append/execute paths only, while governance (including unpausing) is deliberately never blocked by pause, closing the self-lockout risk a naive implementation would have introduced. Residual 3% reflects genuinely operational risk that remains regardless of code correctness: an admin-privileged group must still notice a compromise and coordinate a threshold-gated pause proposal in time to matter (pause is not instant/unilateral — it still requires the same M-of-N governance as any other admin change), and operators may simply not configure or rehearse the pause procedure before they need it.
 
-**Mitigation path**: fixed same-day in `contract.algo.ts` v1.7.0 (working tree, not yet committed). Residual risk is operational (documentation/runbook, incident-response rehearsal), not further code.
+**Mitigation path**: fixed in `contract.algo.ts` v1.7.0, committed to `main` at `4cdbbe5` and independently re-verified by the [2026-07-07-v2 audit](./2026-07-07-audit-report-ai-claude-sonnet-5-v2.md#m-01-prior-report--paused-unreachable--inconsistent--confirmed-fixed). Residual risk is operational (documentation/runbook, incident-response rehearsal), not further code.
 
 ---
 
@@ -163,7 +165,7 @@ No group retains `PRIV_GROUP`, permanently freezing the non-upgradable contract'
 
 **Why <1% now**: `appendTransactionGroupPayload` tracks a running `totalTxns` (correctly handling slot overwrites without double-counting) and rejects any append that would push the aggregate past `MAX_GROUP_TXNS`, failing fast with a clear error at append time instead of a generic AVM panic at execution time. Regression-tested, including the boundary (exactly 16 succeeds) and overwrite-correctness cases.
 
-**Mitigation path**: fixed same-day in `contract.algo.ts` v1.7.0 (working tree, not yet committed).
+**Mitigation path**: fixed in `contract.algo.ts` v1.7.0, committed to `main` at `4cdbbe5` and independently re-verified against its boundary regression test by the [2026-07-07-v2 audit](./2026-07-07-audit-report-ai-claude-sonnet-5-v2.md#m-02-prior-report--no-aggregate-transaction-count-bound--confirmed-fixed).
 
 ---
 
@@ -230,7 +232,7 @@ Purely a diagnosability gap given R-14's protocol-level backstop; probability re
 
 **Remediation**: `_validateApp` now asserts `tx.appId !== Global.currentApplicationId.id` explicitly, giving a clear contract-level error (`'self-call not allowed'`) instead of relying solely on the AVM's protocol-level backstop. Regression-tested.
 
-**Mitigation path**: fixed same-day in `contract.algo.ts` v1.7.0 (working tree, not yet committed).
+**Mitigation path**: fixed in `contract.algo.ts` v1.7.0, committed to `main` at `4cdbbe5` and independently re-verified by the [2026-07-07-v2 audit](./2026-07-07-audit-report-ai-claude-sonnet-5-v2.md#l-01-prior-report--no-defensive-self-appid-check--confirmed-fixed).
 
 ---
 
@@ -414,9 +416,41 @@ Operators deploying Algo Safe instances to custody third-party funds (as opposed
 
 ---
 
+### R-33 — Project Documentation Lags Behind Shipped Breaking ABI Changes
+
+**Category**: Integration/Client · **Severity**: Medium · **5-Yr Probability**: 10% (was 15%) · **Residual Risk**: Medium · **Status**: Partially Mitigated (2026-07-07)
+**Related Finding**: [M-01 (2026-07-07-v2)](./2026-07-07-audit-report-ai-claude-sonnet-5-v2.md#m-01-this-report-claudemd-and-product-descriptionmd-are-stale-relative-to-the-v170-breaking-change)
+
+`CLAUDE.md`'s "Breaking changes seen across versions" section (the document's own designated source of truth for this exact class of change) and `PRODUCT-DESCRIPTION.md`'s sequence/class diagrams were not updated alongside the v1.7.0 change that added a required `expectedPayloadVersion` argument to `approveProposal` and a new `ADM_SET_PAUSED` admin-change type.
+
+**Why 15% originally**: this is a recurring pattern risk, not a one-off — the contract has shipped multiple breaking versions before (v1.0 through v1.7.0) and each requires a disciplined, manual documentation update with no compiler/CI enforcement linking `contract.algo.ts` to the two Markdown documents. The probability reflects the base rate of *at least one* future version bump over a 5-year horizon shipping without a corresponding doc update, given this has now happened at least once (v1.7.0, this finding) despite `CLAUDE.md` explicitly calling out the requirement for itself. Severity is Medium (not High) because the failure mode is a loud ABI-encoding error for integrators, not a silent on-chain security gap — no path to fund loss identified.
+
+**Why 10% / Partially Mitigated now**: the specific v1.7.0 gap was closed same-day (all five M-01 v2 recommendation items implemented: `CLAUDE.md` gained v1.6.0/v1.7.0/v1.8.0 breaking-change bullets; `PRODUCT-DESCRIPTION.md` corrected at every cited location — working tree, not yet committed). The probability drops only modestly because the *structural* risk is unchanged: doc sync is still a manual, unenforced step, so the recurrence risk for future version bumps persists until a mechanical check exists.
+
+**Mitigation path**: remaining action is process-level — add a lightweight CI check (e.g. grep `CLAUDE.md` for the current `CONTRACT_VERSION` string, failing the build if it's absent) so a version bump without a matching doc update is caught mechanically rather than relying on the next audit to catch it. Entry closes to Mitigated when that exists.
+
+---
+
+### R-34 — Off-Chain Keyreg Mapping Misclassifies "Go Offline" as Online
+
+**Category**: Integration/Client · **Severity**: Low · **5-Yr Probability**: <1% (was 3%) · **Residual Risk**: Low · **Status**: Mitigated (2026-07-07)
+**Related Finding**: [L-02 (2026-07-07-v2)](./2026-07-07-audit-report-ai-claude-sonnet-5-v2.md#l-02-this-report-off-chain-algosdktxntosafetxn-misclassifies-a-standard-go-offline-key-registration-as-online)
+
+`algosdkTxnToSafeTxn`'s keyreg branch derived the contract's `online` flag solely from `nonParticipation`, not from whether vote/selection/state-proof keys are present — the conventional Algorand "go offline" transaction (keys omitted, `nonParticipation` unset) was misclassified as `online: 1n` with empty keys.
+
+**Why 3% originally**: bounded by two factors — (a) key registration is already a rare transaction type relative to payments/transfers in typical safe usage, and (b) the most likely failure mode is a loud AVM rejection at execution (wrong key size) rather than a silent safety issue, so the realistic cost is wasted proposal-coordination effort, not fund loss or an incorrect online/offline participation state actually reaching consensus. Severity is Low for the same reason.
+
+**Why <1% now**: the mapping now derives `online` from key presence (`voteKey && !nonParticipation`), covering all three cases (standard offline, permanent opt-out, keys-supplied online), each exercised by the new round-trip regression test in `contract.e2e.spec.ts`. Residual probability reflects only the chance of an undiscovered gap in the fix.
+
+**Mitigation path**: fixed same-day in `src/safe-tx.ts` (working tree, not yet committed). No further action pending commit/release.
+
+---
+
 ## Change Log
 
 | Date | Change | Audit Reference |
 |---|---|---|
 | 2026-07-07 | Initial registry created (32 risks) alongside a fresh, independent audit pass | `2026-07-07-audit-report-ai-claude-sonnet-5.md` |
 | 2026-07-07 | Same-day remediation: R-01, R-06, R-07, R-08, R-15 re-scored from Open to Mitigated after H-01/M-01/M-02/M-03/L-01 were fixed in `contract.algo.ts` v1.7.0 (working tree, not yet committed) with regression tests added for each. R-05's confidence note updated (its only identified non-zero path, R-06, is now closed). | `2026-07-07-audit-report-ai-claude-sonnet-5.md` "Remediation Update" section |
+| 2026-07-07 | Independent follow-up audit against commit `4cdbbe5` (the fixes above, now committed to `main`). R-01, R-06, R-07, R-08, R-15 mitigation-path notes updated to remove "not yet committed" and cite independent re-verification of each fix against its regression test. Two new risks added: R-33 (`CLAUDE.md`/`PRODUCT-DESCRIPTION.md` stale relative to the v1.7.0 `approveProposal`/`ADM_SET_PAUSED` breaking change) and R-34 (off-chain keyreg `online` mapping misclassifies a standard "go offline" registration). Header "Reviewed against commit" updated to `4cdbbe5`. | `2026-07-07-audit-report-ai-claude-sonnet-5-v2.md` |
+| 2026-07-07 | Same-day remediation of the v2 audit's findings: R-34 re-scored Open → Mitigated (keyreg `online` mapping fixed, round-trip regression test added); R-33 re-scored Open → Partially Mitigated at 10% (the specific v1.7.0 doc gap closed in `CLAUDE.md`/`PRODUCT-DESCRIPTION.md`, structural recurrence risk remains pending a CI doc-sync check). L-01 (v2) also fixed: `appendTransactionGroupPayload` gained the expiry check, shipping as `contract.algo.ts` v1.8.0 (approval hash `d66a4b63...7d10`), 65/65 tests passing. All fixes in the working tree, not yet committed. | `2026-07-07-audit-report-ai-claude-sonnet-5-v2.md` "Remediation Update" section |

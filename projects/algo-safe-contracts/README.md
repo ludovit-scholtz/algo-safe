@@ -1,5 +1,7 @@
 # algo-safe
 
+> Source, issues and full monorepo (contracts + web UI): **[github.com/ludovit-scholtz/algo-safe](https://github.com/ludovit-scholtz/algo-safe)**
+
 Policy-driven **smart account (multisig safe) for Algorand**, plus the TypeScript client utilities to drive it.
 
 The application account *is* the safe: it holds ALGO and ASAs and only moves value when an **M-of-N signer group** has approved a typed proposal. Every privileged change (creating groups, adding/removing signers, changing thresholds and spending policies) is itself a governed proposal approved under the same threshold rules.
@@ -29,6 +31,8 @@ This npm package ships:
 - [Opcode budget (`ensureBudgetValue`)](#opcode-budget-ensurebudgetvalue)
 - [Large groups: multiple payload chunks](#large-groups-multiple-payload-chunks)
 - [Governance (admin changes)](#governance-admin-changes)
+  - [Spending policies (limits, tracked asset, cooldown)](#spending-policies-limits-tracked-asset-cooldown)
+  - [Emergency pause](#emergency-pause)
 - [Reading on-chain state](#reading-on-chain-state)
 - [Decoding stored payloads](#decoding-stored-payloads)
 - [Constants & limits reference](#constants--limits-reference)
@@ -80,7 +84,8 @@ import {
 |---|---|
 | **Safe** | A single deployed app instance. Its app account custodies funds and assets. |
 | **Signer group** | An M-of-N set of members with an `allowedActions` bitmask (which transaction types it can move) and an `adminPrivileges` bitmask (which governance changes it can make), plus optional daily/monthly spend limits. A safe can have many groups. |
-| **Proposal** | A typed, governed action. Two kinds: a **transaction group** (`PT_TRANSACTION_GROUP`) — one or more pay/axfer/appl/keyreg/acfg transactions executed atomically as inner transactions — or an **admin change** (`PT_ADMIN`). |
+| **Proposal** | A typed, governed action. Two kinds: a **transaction group** (`PT_TRANSACTION_GROUP`) — one or more pay/axfer/appl/keyreg/acfg/rekey transactions executed atomically as inner transactions — or an **admin change** (`PT_ADMIN`). |
+| **Payload version** | Every proposal carries a `payloadVersion` (starts at `1`, bumped on every payload edit). An approval names the version the signer reviewed, so a payload edited after review invalidates the pending approval instead of silently binding to different content. |
 | **Approval threshold** | A proposal becomes executable once `threshold` distinct group members have approved. The proposer auto-approves on creation. |
 
 **Proposal status:** `STATUS_ACTIVE(1)` → `STATUS_READY(2)` → `STATUS_EXECUTED(3)` or `STATUS_CANCELLED(4)`.
@@ -102,13 +107,13 @@ const deployer = await algorand.account.fromEnvironment('DEPLOYER')
 
 // 1. Create the application.
 const factory = algorand.client.getTypedAppFactory(AlgoSafeFactory, { defaultSender: deployer.addr })
-const { appClient } = await factory.send.create.createApplication({ args: { name: 'Treasury Safe', ensureBudgetValue: 0n } })
+const { appClient } = await factory.send.create.createApplication({ args: { name: 'Treasury Safe' } })
 
 // 2. Fund the app account so it can pay box MBR and inner-transaction fees.
 await algorand.send.payment({ sender: deployer.addr, receiver: appClient.appAddress, amount: (5).algo() })
 
 // 3. Bootstrap: creates group #1 as a 1-of-1 admin group whose sole member is the creator.
-await appClient.send.bootstrap({ args: { groupName: 'Admins', ensureBudgetValue: 0n } })
+await appClient.send.bootstrap({ args: { groupName: 'Admins' } })
 
 // 4. Propose a payment from group #1. The proposer auto-approves; a 1-of-1 group is immediately READY.
 const { return: proposalId } = await appClient.send.proposeTransactionGroup({
@@ -410,8 +415,18 @@ const { return: proposalId } = await client.send.proposeTransactionGroup({
   staticFee: (0.2).algo(),
 })
 
-// Other members approve until the threshold is met.
-await client.send.approveProposal({ args: { proposalId: proposalId!, ensureBudgetValue: 0n }, sender: memberB })
+// Other members review the proposal, then approve until the threshold is met.
+// The approval is bound to the payload version the member reviewed: read the
+// proposal first, inspect its content (see "Decoding stored payloads"), and pass
+// the observed payloadVersion. If the proposer edits the payload between your
+// review and your approval landing, the call reverts with 'payload changed since
+// review' instead of approving content you never saw. For admin-change proposals
+// the version never changes after creation, so it is always 1n.
+const reviewed = await client.send.getProposal({ args: { proposalId: proposalId!, ensureBudgetValue: 0n } })
+await client.send.approveProposal({
+  args: { proposalId: proposalId!, expectedPayloadVersion: reviewed.return!.payloadVersion, ensureBudgetValue: 0n },
+  sender: memberB,
+})
 
 // Anyone can read progress.
 const p = await client.send.getProposal({ args: { proposalId: proposalId!, ensureBudgetValue: 0n } })
@@ -428,7 +443,7 @@ await client.send.executeProposal({
 await client.send.cancelProposal({ args: { proposalId: proposalId!, ensureBudgetValue: 0n } })
 ```
 
-Proposals carry an `expiryRound`; create with a comfortably future round (`FAR_EXPIRY` is provided for tests/convenience) and they cannot be approved or executed once expired.
+Proposals carry an `expiryRound`; create with a comfortably future round (`FAR_EXPIRY` is provided for tests/convenience). Once expired, a proposal cannot be approved, executed, or have payload chunks appended.
 
 ### Propose-and-execute in one call
 
@@ -459,12 +474,10 @@ Every public ABI method takes a trailing `ensureBudgetValue: uint64` argument. W
 
 **Why the caller decides this, not the contract.** `ensureBudget`'s opup inner transactions must run *before* the contract opens its own inner-transaction group (`op.ITxnCreate` can't interleave with opup's `itxn_begin`/`itxn_submit`), so the budget has to be reserved once, up front, sized for the specific call about to run. The contract can't know that size in advance — it depends on how many transactions are in the payload, how large each is, and how many payload slots are being executed — so the caller supplies it.
 
-**When you actually need it:** only for `executeProposal` and `proposeTransactionGroup(..., execute: true)`, and only when the proposal executes a transaction group (not an admin change). Every other method — including read-only getters — accepts `ensureBudgetValue: 0n`.
+**When you actually need it:** only for `executeProposal` and `proposeTransactionGroup(..., execute: true)`, and only when the proposal executes a transaction group (not an admin change). Every other method — including read-only getters — accepts `ensureBudgetValue: 0n`. (`createApplication` and `bootstrap` don't take the argument at all.)
 
 | Method | Recommended `ensureBudgetValue` | Why |
 |---|---|---|
-| `createApplication` | `0n` | No decoding or inner transactions. |
-| `bootstrap` | `0n` | Fixed-size box writes only. |
 | `proposeTransactionGroup` (`execute: false`) | `0n` | Storing a payload chunk doesn't decode or stage inner transactions. |
 | `proposeTransactionGroup` (`execute: true`) | Same as `executeProposal` below | It runs the identical execution path after auto-approving. |
 | `appendTransactionGroupPayload` | `0n` | Same as `proposeTransactionGroup(execute: false)` — storage only. |
@@ -509,7 +522,13 @@ await client.send.appendTransactionGroupPayload({
 })
 ```
 
-All slots execute atomically, in slot then array order, when the proposal is executed. The first chunk is capped at 16 transactions (`MAX_GROUP_TXNS`); spreading across slots 1–6 allows larger groups, bounded by the AVM inner-transaction and opcode-budget limits.
+All slots execute atomically, in slot then array order, when the proposal is executed. The **aggregate transaction count across all slots is capped at 16** (`MAX_GROUP_TXNS`, tracked in `Proposal.totalTxns` and enforced at append time) — chunking exists for *byte size* (many or large transactions that don't fit one ~2 KB ABI argument), not to exceed the group-size limit. Re-writing an already-used slot replaces its contribution to the total rather than double-counting it.
+
+A few more rules for appends:
+
+- Only the **original proposer** can append, and only while they are still a member of the group.
+- Appending is blocked once any **independent approval** has landed (`approvalsCount > 1`), once the proposal has **expired**, and while the safe is **paused**.
+- Every successful append bumps `payloadVersion`, so approvals collected before an edit are invalidated (see [the proposal lifecycle](#the-proposal-lifecycle)).
 
 ---
 
@@ -547,7 +566,47 @@ await govern(createAdminChange({ changeType: ADM_ADD_MEMBER, targetGroupId: 2n, 
 await govern(createAdminChange({ changeType: ADM_CHANGE_THRESHOLD, targetGroupId: 2n, threshold: 2n }))
 ```
 
-Admin change types: `ADM_CREATE_GROUP`, `ADM_ADD_MEMBER`, `ADM_REMOVE_MEMBER`, `ADM_CHANGE_THRESHOLD`, `ADM_SET_POLICY` (actions + spend limits), `ADM_SET_PRIVILEGES`, `ADM_SET_ACTIVE`. `ADM_SET_POLICY` requires `PRIV_POLICY`; all others require `PRIV_GROUP`.
+Admin change types: `ADM_CREATE_GROUP`, `ADM_ADD_MEMBER`, `ADM_REMOVE_MEMBER`, `ADM_CHANGE_THRESHOLD`, `ADM_SET_POLICY` (actions + spend limits), `ADM_SET_PRIVILEGES`, `ADM_SET_ACTIVE`, `ADM_ADD_REKEYED_ADDR` / `ADM_REMOVE_REKEYED_ADDR` (rekeyed-address registry), `ADM_SET_PAUSED` (emergency pause). `ADM_SET_POLICY` requires `PRIV_POLICY`; all others require `PRIV_GROUP`.
+
+### Spending policies (limits, tracked asset, cooldown)
+
+`ADM_SET_POLICY` sets a group's allowed actions, spend limits, and execution cooldown in one change. Limits track **one asset per group** (`limitAssetId: 0n` = ALGO, otherwise that ASA) over fixed daily/monthly windows; `0n` means "no limit". A close-out counts the account's *entire swept balance* against the limit, so closes can't bypass it.
+
+```ts
+import { createAdminChange, ADM_SET_POLICY, ACT_PAY, ACT_AXFER } from 'algo-safe'
+
+// Treasury group: payments + asset transfers only, max 100 ALGO/day and
+// 1000 ALGO/month, and at least 30 rounds between executions.
+await govern(createAdminChange({
+  changeType: ADM_SET_POLICY,
+  targetGroupId: 2n,
+  allowedActions: ACT_PAY | ACT_AXFER,
+  limitAssetId: 0n,                       // 0 = track ALGO; set an ASA id to track that asset instead
+  dailyLimit: (100).algo().microAlgo,
+  monthlyLimit: (1000).algo().microAlgo,
+  cooldownRounds: 30n,
+}))
+```
+
+Changing `limitAssetId` resets the usage counters. `cooldownRounds` throttles successive transaction-group executions (the group's first-ever execution is exempt) and is capped at 10,000,000 rounds.
+
+### Emergency pause
+
+`ADM_SET_PAUSED` (reusing `activeFlag` as the desired paused state) freezes all **fund-moving** activity: while paused, transaction-group proposals cannot be created, appended to, or executed. Governance is deliberately never blocked by pause — admin-change proposals (including the unpause itself) can always be proposed, approved, and executed, so pausing can never brick the safe.
+
+```ts
+import { createAdminChange, ADM_SET_PAUSED } from 'algo-safe'
+
+// Pause (e.g. suspected signer compromise):
+await govern(createAdminChange({ changeType: ADM_SET_PAUSED, activeFlag: 1n }))
+
+// getConfig()'s 5th element reflects it:
+const config = await client.send.getConfig({ args: { ensureBudgetValue: 0n } })
+// config.return![4] === 1n → paused
+
+// Unpause — works even while paused:
+await govern(createAdminChange({ changeType: ADM_SET_PAUSED, activeFlag: 0n }))
+```
 
 ---
 
@@ -619,7 +678,7 @@ Always import these from `algo-safe` — never redefine them locally; they must 
 
 **Transaction type discriminators:** `TX_PAYMENT` (1), `TX_ASSET` (2), `TX_APP` (3), `TX_KEYREG` (4), `TX_ACFG` (5), `TX_REKEY` (6).
 
-**Admin change types:** `ADM_CREATE_GROUP` (1), `ADM_ADD_MEMBER` (2), `ADM_REMOVE_MEMBER` (3), `ADM_CHANGE_THRESHOLD` (4), `ADM_SET_POLICY` (5), `ADM_SET_PRIVILEGES` (6), `ADM_SET_ACTIVE` (7), `ADM_ADD_REKEYED_ADDR` (8), `ADM_REMOVE_REKEYED_ADDR` (9) — the last two manage the rekeyed-address registry and reuse `memberAddr`/`memberLabel`.
+**Admin change types:** `ADM_CREATE_GROUP` (1), `ADM_ADD_MEMBER` (2), `ADM_REMOVE_MEMBER` (3), `ADM_CHANGE_THRESHOLD` (4), `ADM_SET_POLICY` (5), `ADM_SET_PRIVILEGES` (6), `ADM_SET_ACTIVE` (7), `ADM_ADD_REKEYED_ADDR` (8), `ADM_REMOVE_REKEYED_ADDR` (9) — these two manage the rekeyed-address registry and reuse `memberAddr`/`memberLabel` — and `ADM_SET_PAUSED` (10), which reuses `activeFlag` as the desired paused state.
 
 **App-call limits** (Algorand consensus parameters, enforced at execution): `MAX_APP_ARGS` (16), `MAX_APP_TOTAL_ARG_LEN` (2048), `MAX_APP_ACCOUNTS` (4), `MAX_APP_FOREIGN_APPS` (8), `MAX_APP_FOREIGN_ASSETS` (8), `MAX_APP_TOTAL_REFS` (8 — accounts + apps + assets combined).
 

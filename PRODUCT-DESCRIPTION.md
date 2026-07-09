@@ -450,7 +450,7 @@ classDiagram
         +nextGroupId : uint64
         +nextProposalId : uint64
         +groupCount : uint64
-        +paused : uint64 (reserved)
+        +paused : uint64 (emergency pause, set via ADM_SET_PAUSED; blocks tx-group actions only, never governance)
         +version : string (CONTRACT_VERSION)
         +activePrivGroupCount : uint64 (governance lockout guard)
     }
@@ -493,6 +493,8 @@ classDiagram
         +proposer : Account
         +numPayloads : uint64 (payload chunks in use, 1..6)
         +epochAtCreation : uint64 (membershipEpoch snapshot)
+        +payloadVersion : uint64 (starts 1, bumped per payload edit; approvals bind to it)
+        +totalTxns : uint64 (running txn count across chunks, capped at MAX_GROUP_TXNS)
     }
 
     class TransactionGroupPayload {
@@ -552,7 +554,7 @@ classDiagram
 
     class AdminChange {
         «BoxMap key: proposalId»
-        +changeType : uint64 (1 createGroup / 2 addMember / 3 removeMember / 4 changeThreshold / 5 setPolicy / 6 setPrivileges / 7 setActive / 8 addRekeyedAddr / 9 removeRekeyedAddr)
+        +changeType : uint64 (1 createGroup / 2 addMember / 3 removeMember / 4 changeThreshold / 5 setPolicy / 6 setPrivileges / 7 setActive / 8 addRekeyedAddr / 9 removeRekeyedAddr / 10 setPaused)
         +targetGroupId : uint64
         +groupName / memberAddr / memberType / memberLabel
         +threshold / adminPrivileges / allowedActions
@@ -608,7 +610,7 @@ flowchart TB
         P1["proposeTransactionGroup(groupId, payload, expiryRound, execute, budget)"]
         P1A["appendTransactionGroupPayload(proposalId, payloadIndex 2..6, payload, budget)"]
         P1B["proposeAdminChange(groupId, change, expiryRound, budget)"]
-        P2["approveProposal(proposalId, budget)"]
+        P2["approveProposal(proposalId, expectedPayloadVersion, budget) — approval binds to the reviewed payload version"]
         P3["executeProposal(proposalId, budget) → inner txn group"]
         P4["cancelProposal(proposalId, budget)"]
         P5["pruneProposal(proposalId, budget) — reclaim box MBR of terminal, expired proposals"]
@@ -621,6 +623,7 @@ flowchart TB
         A4["ADM_SET_POLICY — actions, tracked asset, limits, cooldown"]
         A5["ADM_SET_PRIVILEGES / ADM_SET_ACTIVE — lockout-guarded"]
         A6["ADM_ADD_REKEYED_ADDR / ADM_REMOVE_REKEYED_ADDR — registry"]
+        A7["ADM_SET_PAUSED — emergency pause (tx groups only; governance stays live)"]
     end
 
     subgraph Reads["Read-only getters"]
@@ -651,7 +654,7 @@ Two behaviors worth calling out:
 
 ### Proposal State Machine
 
-A proposal carries the **exact typed payload** it authorizes. For executable actions, that payload is always an ordered `TransactionGroupPayload`; a single transaction is just a one-entry group. A signer approves by submitting a signed `approveProposal(proposalId)` app call from the signer account. The blockchain validates that transaction signature before contract logic runs; the contract then checks that `Txn.sender` is a member of the requested signer group and records the approval. If the ordered payload changes, the proposal must be recreated and approvals collected again. During `executeProposal`, the approved transaction list is converted into one atomic inner transaction group. For signer-group changes, the approved admin payload mutates the group, member, threshold, policy, or admin-privilege boxes.
+A proposal carries the **exact typed payload** it authorizes. For executable actions, that payload is always an ordered `TransactionGroupPayload`; a single transaction is just a one-entry group. A signer approves by submitting a signed `approveProposal(proposalId, expectedPayloadVersion)` app call from the signer account, where `expectedPayloadVersion` is the proposal's `payloadVersion` read (via `getProposal`) at review time — if the proposer edits a payload chunk after the signer reviewed it but before the approval confirms, the version no longer matches and the stale approval reverts instead of silently binding to different content. The blockchain validates that transaction signature before contract logic runs; the contract then checks that `Txn.sender` is a member of the requested signer group and records the approval. If the ordered payload changes, pending approvals are invalidated by the version bump and must be collected again. During `executeProposal`, the approved transaction list is converted into one atomic inner transaction group. For signer-group changes, the approved admin payload mutates the group, member, threshold, policy, or admin-privilege boxes.
 
 ```mermaid
 stateDiagram-v2

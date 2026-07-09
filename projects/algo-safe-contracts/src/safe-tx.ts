@@ -390,8 +390,13 @@ function algosdkTxnToSafeTxn(txn: algosdk.Transaction): SafeTxn {
 
   if (txn.type === algosdk.TransactionType.keyreg) {
     const kr = txn.keyreg
+    // A standard "go offline" keyreg omits the participation keys while leaving
+    // nonParticipation unset (nonParticipation: true is the separate, permanent
+    // opt-out flag) — so online is derived from key presence, not from
+    // nonParticipation alone (2026-07-07-v2 audit, L-02).
+    const isOnline = kr?.voteKey && !kr.nonParticipation ? 1n : 0n
     return createKeyRegSafeTxn({
-      online: kr?.nonParticipation ? 0n : 1n,
+      online: isOnline,
       voteKey: kr?.voteKey ?? EMPTY_BYTES,
       selectionKey: kr?.selectionKey ?? EMPTY_BYTES,
       stateProofKey: kr?.stateProofKey ?? EMPTY_BYTES,

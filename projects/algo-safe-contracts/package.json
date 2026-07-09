@@ -2,6 +2,24 @@
   "name": "algo-safe",
   "version": "1.1.0",
   "description": "Algo Safe smart contracts and client utilities",
+  "homepage": "https://github.com/ludovit-scholtz/algo-safe#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ludovit-scholtz/algo-safe.git",
+    "directory": "projects/algo-safe-contracts"
+  },
+  "bugs": {
+    "url": "https://github.com/ludovit-scholtz/algo-safe/issues"
+  },
+  "keywords": [
+    "algorand",
+    "multisig",
+    "smart-account",
+    "safe",
+    "smart-contract",
+    "algokit",
+    "puya-ts"
+  ],
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
   "types": "./dist/src/index.d.ts",

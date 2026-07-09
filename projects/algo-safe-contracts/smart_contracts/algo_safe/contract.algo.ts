@@ -112,7 +112,7 @@ const ADM_SET_PAUSED: uint64 = Uint64(10)
 // Period lengths for spending limits, in seconds.
 const DAY_SECONDS: uint64 = Uint64(86400)
 const MONTH_SECONDS: uint64 = Uint64(2592000) // 30 days
-const CONTRACT_VERSION = 'BIATEC-ALGO-SAFE-v1.7.0'
+const CONTRACT_VERSION = 'BIATEC-ALGO-SAFE-v1.8.0'
 
 // ---------------------------------------------------------------------------
 // Stored record types (plain TS types for box storage)
@@ -597,6 +597,10 @@ export class AlgoSafe extends Contract {
     const proposal = clone(this.proposals(proposalId).value)
     assert(proposal.payloadType === PT_TRANSACTION_GROUP, 'not a tx group')
     assert(proposal.status === STATUS_ACTIVE || proposal.status === STATUS_READY, 'proposal not pending')
+    // Consistency with approveProposal/_executeProposalInternal: an expired
+    // proposal can never be approved or executed, so editing it is pure wasted
+    // effort — reject the append outright (2026-07-07-v2 audit, L-01).
+    assert(Global.round <= proposal.expiryRound, 'proposal expired')
     this._assertMember(proposal.groupId)
     assert(Txn.sender === proposal.proposer, 'only proposer can append')
     assert(proposal.approvalsCount === Uint64(1), 'cannot modify payload after independent approval')
