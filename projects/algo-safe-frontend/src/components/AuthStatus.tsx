@@ -2,6 +2,7 @@ import { useWallet } from '@txnlab/use-wallet-react'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AddressDisplay } from './AddressDisplay'
+import { NetworkSwitcher } from './NetworkSwitcher'
 import { Button } from './ui/Button'
 import { Icon } from './ui/Icon'
 
@@ -42,6 +43,7 @@ export function AuthStatus() {
 
   return (
     <div className="flex items-center gap-3">
+      <NetworkSwitcher />
       <div className="inline-flex items-center gap-2 rounded-full border border-outline-variant bg-surface-container px-2.5 py-1.5">
         <span className="rounded-full bg-primary/15 p-1 text-primary">
           <Icon name="account_circle" className="text-lg" />
