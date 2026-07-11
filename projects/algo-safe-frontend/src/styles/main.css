@@ -1,6 +1,47 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss';
+@source '../../index.html';
+@source '../**/*.{ts,tsx,js,jsx}';
+
+@theme {
+  --color-background: #0b1326;
+  --color-on-background: #dae2fd;
+  --color-surface: #0b1326;
+  --color-surface-dim: #0b1326;
+  --color-surface-bright: #31394d;
+  --color-surface-container-lowest: #060e20;
+  --color-surface-container-low: #131b2e;
+  --color-surface-container: #171f33;
+  --color-surface-container-high: #222a3d;
+  --color-surface-container-highest: #2d3449;
+  --color-on-surface: #dae2fd;
+  --color-on-surface-variant: #b9cac6;
+  --color-outline: #849490;
+  --color-outline-variant: #3b4a47;
+  --color-primary: #71ffec;
+  --color-on-primary: #003732;
+  --color-primary-container: #00e5d1;
+  --color-on-primary-container: #006258;
+  --color-secondary: #b8c4ff;
+  --color-on-secondary: #002486;
+  --color-secondary-container: #004bf9;
+  --color-on-secondary-container: #d5daff;
+  --color-error: #ffb4ab;
+  --color-on-error: #690005;
+  --color-error-container: #93000a;
+  --color-on-error-container: #ffdad6;
+  --color-warn: #ffd479;
+
+  --radius-sm: 0.125rem;
+  --radius-DEFAULT: 0.25rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+
+  --font-sans: Inter, ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+  --max-width-container: 1280px;
+}
 
 html, body, #root { height: 100%; }
 body {

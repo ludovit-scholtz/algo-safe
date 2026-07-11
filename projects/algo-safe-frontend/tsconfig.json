@@ -25,8 +25,7 @@
   "include": [
     "src/**/*.ts",
     "src/**/*.tsx",
-    "vite.config.js",
-    "src/utils/ellipseAddress.spec.tsx",
+    "vite.config.ts",
     "src/utils/ellipseAddress.spec.tsx",
     "src/main.tsx"
   ],
