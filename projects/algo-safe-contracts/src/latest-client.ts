@@ -3,12 +3,13 @@ export {
   AdminChangeFromTuple,
   AlgoSafeFactory,
   ApprovalFromTuple,
+  AssetGuardFromTuple,
   GroupSeedFromTuple,
   MemberFromTuple,
   ProposalFromTuple,
   RekeyedAddressFromTuple,
   SignerGroupFromTuple,
-} from '../clients/d66a4b63aab9d09dab6db4b0babb2d2a0931c46a612c7e59e29591722a107d10/AlgoSafeClient'
+} from '../clients/9d99b70d5e2d56b0b4f24b17987f0a0307ebc819440036a511de710fc8d91df5/AlgoSafeClient'
 
 export type {
   AdminChange,
@@ -22,6 +23,7 @@ export type {
   AlgoSafeSignatures,
   AlgoSafeTypes,
   Approval,
+  AssetGuard,
   BinaryState,
   BoxKeysState,
   CallParams,
@@ -35,7 +37,9 @@ export type {
   Object78E87395FromTuple,
   Object9F556C53,
   Object9F556C53FromTuple,
+  ObjectAe8Bf7D4,
+  ObjectAe8Bf7D4FromTuple,
   Proposal,
   RekeyedAddress,
   SignerGroup,
-} from '../clients/d66a4b63aab9d09dab6db4b0babb2d2a0931c46a612c7e59e29591722a107d10/AlgoSafeClient'
+} from '../clients/9d99b70d5e2d56b0b4f24b17987f0a0307ebc819440036a511de710fc8d91df5/AlgoSafeClient'

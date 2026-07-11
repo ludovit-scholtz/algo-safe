@@ -170,6 +170,60 @@ The contract is non-upgradable in place, so moving to a newer contract version i
 
 ---
 
+## Custodian Groups — DeFi Protocol Integration
+
+Custodian Groups are a specialised signer-group type designed to make Algo Safe the primary on-chain asset store for lending, streaming, and other DeFi protocols built on Algorand. A Custodian Group is governed by a smart contract address (the "protocol custodian"), not by a human wallet, and carries no admin privileges — its entire scope of action is bounded by explicitly configured **Asset Guards**.
+
+### What Is A Custodian Group?
+
+| Property | Standard Group | Custodian Group |
+|---|---|---|
+| Members | Human accounts, agents | Smart-contract addresses |
+| Admin privileges | Configurable | Always zero (`PRIV_*` blocked at execution) |
+| Spending limits | Daily / monthly limits | Asset Guard allocation per asset |
+| Create | Admin proposal (`ADM_CREATE_GROUP`) | Admin proposal (`ADM_CREATE_CUSTODIAN`) |
+| Dissolve | Admin proposal | Self-dissolution by custodian only (`ADM_DISSOLVE_CUSTODIAN`) |
+| Guard management | N/A | Admin-only (`ADM_SET_GUARD` / `ADM_REMOVE_GUARD`) |
+
+### Asset Guards
+
+An Asset Guard is a bounded allocation of a specific asset (ALGO or any ASA, keyed by `assetId`) reserved exclusively for one Custodian Group. The Custodian Group may transfer **at most** the guarded `lockedAmount` of that asset per guard; each execution deducts from the allocation atomically, reverting if the inner transaction group fails, so the deduction is always consistent with the actual transfer.
+
+Guards are managed exclusively through admin proposals (`ADM_SET_GUARD` and `ADM_REMOVE_GUARD`). Any group holding `PRIV_GROUP` can propose setting or removing a guard; no custodian co-approval is required. This keeps the Algorand smart-contract program within the AVM binary-size ceiling while still giving admins the ability to pre-authorise bounded protocol spending.
+
+`assetId = 0` is the ALGO guard; any non-zero value is an ASA guard. A Custodian Group can hold multiple simultaneous guards across different assets.
+
+Use cases:
+
+- **Lending protocol liquidation**: the lending smart contract is added as the sole member of a Custodian Group. An admin sets an ALGO (or ASA) guard covering the expected liquidation budget. When a loan's health factor falls below threshold, the lending contract proposes and executes a liquidation payment — within the guarded allocation — without requiring any admin co-signature at liquidation time.
+- **Payment streaming**: a streaming contract holds a pre-allocated guard covering the total amount to be released. The streaming contract draws from it on schedule. Admins set the guard at stream initiation; the custodian spends it incrementally without admin involvement.
+
+### Guard Operations
+
+| Change type | Who can propose | Effect |
+|---|---|---|
+| `ADM_CREATE_CUSTODIAN` | Any group with `PRIV_GROUP` | Creates a new custodian group and adds its first member |
+| `ADM_SET_GUARD` | Any group with `PRIV_GROUP` | Creates or updates an asset guard (increments `guardCount` on first creation) |
+| `ADM_REMOVE_GUARD` | Any group with `PRIV_GROUP` | Deletes an asset guard (decrements `guardCount`) |
+| `ADM_DISSOLVE_CUSTODIAN` | The custodian group itself only | Removes the group (blocked unless `guardCount == 0`) |
+
+### Self-Dissolution
+
+A Custodian Group can only be dissolved by itself (`ADM_DISSOLVE_CUSTODIAN` proposed by the Custodian Group — admin groups cannot propose this for a non-self group). Dissolution is blocked at execution unless all Asset Guards have been removed first (`guardCount == 0`), ensuring no locked allocation is orphaned. On dissolution the Custodian Group's signer-group record is removed and `groupCount` is decremented.
+
+### Security Properties Summary
+
+| Property | Mechanism |
+|---|---|
+| Guard creation/modification | Admin-only (`PRIV_GROUP` required); custodian cannot self-allocate |
+| Guard removal | Admin-only (`PRIV_GROUP` required) |
+| Custodian dissolution | Self-proposed only; blocked until `guardCount == 0` |
+| Admin privileges on custodian | Execution-time block: `ADM_SET_PRIVILEGES` on a custodian group always reverts |
+| Guard spend enforcement | AVM atomic: guard deducted before inner-txn group; revert on failure restores state |
+| Custodian rekey | Blocked at execution: custodian groups cannot execute rekey transactions |
+
+---
+
 ## x402 Agent Payment Flow
 
 x402 is an HTTP-native payment protocol built around `402 Payment Required`. A service provider protects a resource, the AI agent requests it, the provider returns payment requirements, and the agent retries the request with a signed payment payload. The important correction is that the agent normally sends the signed `PAYMENT-SIGNATURE` back to the resource server, not directly to the facilitator. The resource server then asks the facilitator to verify and settle the payment, and the facilitator returns settlement confirmation to the resource server.

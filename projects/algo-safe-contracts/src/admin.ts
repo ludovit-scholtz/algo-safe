@@ -17,6 +17,7 @@ export function createAdminChange(partial: Partial<AdminChange>): AdminChange {
     monthlyLimit: 0n,
     cooldownRounds: 0n,
     activeFlag: 0n,
+    guardAmount: 0n,
     ...partial,
   }
 }

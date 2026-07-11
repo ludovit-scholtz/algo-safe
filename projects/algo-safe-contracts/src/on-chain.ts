@@ -28,6 +28,8 @@ export type AlgoSafeSignerGroupRecord = {
   membershipEpoch: number
   active: boolean
   isAdminGroup: boolean
+  groupType: number   // GT_STANDARD=0 | GT_CUSTODIAN=1
+  guardCount: number  // number of active asset guards (custodian groups only)
 }
 
 export type AlgoSafeSignerGroupMemberRecord = {
@@ -91,6 +93,8 @@ function mapSignerGroup(groupId: bigint, group: RawSignerGroup): AlgoSafeSignerG
     membershipEpoch: Number(group.membershipEpoch),
     active: group.active !== 0n,
     isAdminGroup: group.adminPrivileges !== 0n,
+    groupType: Number(group.groupType ?? 0n),
+    guardCount: Number(group.guardCount ?? 0n),
   }
 }
 
@@ -108,13 +112,15 @@ async function getSignerGroupRecords(client: TypedClient) {
   // `client` is a union across contract versions; older versions don't accept
   // `ensureBudgetValue`, so the union's inferred args type can't be satisfied
   // structurally. Cast narrowly on this call rather than fighting the union.
-  const configResult = await client.send.getConfig({ args: { ensureBudgetValue: 0n } as any, suppressLog: true })
-  const nextGroupId = configResult.return?.[2] ?? 1n
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const configResult = await (client.send.getConfig as any)({ args: { ensureBudgetValue: 0n }, suppressLog: true })
+  const nextGroupId = (configResult.return?.[2] ?? 1n) as bigint
   const groupIds = Array.from({ length: Math.max(0, Number(nextGroupId - 1n)) }, (_value, index) => BigInt(index + 1))
 
   return Promise.all(
     groupIds.map(async (groupId) => {
-      const result = await client.send.getSignerGroup({ args: { groupId, ensureBudgetValue: 0n } as any, suppressLog: true })
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const result = await (client.send.getSignerGroup as any)({ args: { groupId, ensureBudgetValue: 0n }, suppressLog: true })
       return [groupId, result.return as RawSignerGroup] as const
     }),
   )
@@ -163,8 +169,9 @@ export async function fetchAlgoSafeSignerGroupDetail(
   const memberAddresses = await listMemberAddressesForGroup(algodClient, safe, targetGroupId)
   const memberResults = await Promise.all(
     memberAddresses.map(async (account) => {
-      const result = await client.send.getMember({
-        args: { groupId: targetGroupId, account, ensureBudgetValue: 0n } as any,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const result = await (client.send.getMember as any)({
+        args: { groupId: targetGroupId, account, ensureBudgetValue: 0n },
         suppressLog: true,
       })
       return result.return as RawSignerGroupMember
@@ -185,8 +192,9 @@ export async function fetchAlgoSafeSignerGroupDetail(
     normalizedActiveAddress && algosdk.isValidAddress(normalizedActiveAddress)
       ? await Promise.all(
           adminGroups.map(async ([adminGroupId]) => {
-            const result = await client.send.isMember({
-              args: { groupId: adminGroupId, account: normalizedActiveAddress, ensureBudgetValue: 0n } as any,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const result = await (client.send.isMember as any)({
+              args: { groupId: adminGroupId, account: normalizedActiveAddress, ensureBudgetValue: 0n },
               suppressLog: true,
             })
             return [adminGroupId.toString(), Boolean(result.return)] as const

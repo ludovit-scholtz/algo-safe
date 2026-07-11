@@ -70,12 +70,25 @@ function getHashDirectories() {
 function readGeneratedClientExports() {
   const generatedClientPath = path.join(ARTIFACTS_DIR, 'AlgoSafeClient.ts')
   const generatedClient = fs.readFileSync(generatedClientPath, 'utf8')
-  const exportMatches = generatedClient.matchAll(/^export (?:const|type|function|interface|class) (\w+)/gm)
-  const exportNames = Array.from(new Set(Array.from(exportMatches, (match) => match[1]))).sort()
+  const exportMatches = generatedClient.matchAll(/^export (const|type|function|interface|class) (\w+)/gm)
+
+  const valueNames: string[] = []
+  const typeNames: string[] = []
+
+  for (const match of exportMatches) {
+    const keyword = match[1]
+    const name = match[2]
+    if (name === 'AlgoSafeClient') continue
+    if (keyword === 'type' || keyword === 'interface' || isTypeOnlyExport(name)) {
+      typeNames.push(name)
+    } else {
+      valueNames.push(name)
+    }
+  }
 
   return {
-    valueExports: exportNames.filter((name) => name !== 'AlgoSafeClient' && !isTypeOnlyExport(name)),
-    typeExports: exportNames.filter((name) => name !== 'AlgoSafeClient' && isTypeOnlyExport(name)),
+    valueExports: Array.from(new Set(valueNames)).sort(),
+    typeExports: Array.from(new Set(typeNames)).sort(),
   }
 }
 

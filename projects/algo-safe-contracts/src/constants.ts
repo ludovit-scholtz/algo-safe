@@ -10,6 +10,10 @@ export const PRIV_GROUP = 1n  // create/modify groups, members, thresholds, priv
 export const PRIV_POLICY = 2n // change spending/action policy
 export const PRIV_ALL = 7n    // all privileges (bit 4 reserved for future granularity)
 
+// Group type discriminators.
+export const GT_STANDARD = 0n   // default: human or agent signer group, governed by admins
+export const GT_CUSTODIAN = 1n  // smart-contract protocol custodian, controls asset guards
+
 export const TX_PAYMENT = 1n
 export const TX_ASSET = 2n
 export const TX_APP = 3n
@@ -38,6 +42,18 @@ export const ADM_REMOVE_REKEYED_ADDR = 9n
 // Set the safe-wide emergency pause flag (reuses AdminChange.activeFlag as the
 // desired paused state, nonzero = paused).
 export const ADM_SET_PAUSED = 10n
+
+// Custodian group lifecycle changes.
+export const ADM_CREATE_CUSTODIAN = 11n   // admin creates a custodian group
+export const ADM_DISSOLVE_CUSTODIAN = 12n // custodian self-dissolves (requires guardCount=0)
+
+// Asset guard management (admin-controlled; guard bounds what the custodian can spend).
+export const ADM_SET_GUARD = 13n    // create or update an asset guard (uses limitAssetId as assetId, guardAmount as lockedAmount)
+export const ADM_REMOVE_GUARD = 14n // remove an asset guard (uses limitAssetId as assetId)
+
+// Proposal payload type discriminators.
+export const PT_TRANSACTION_GROUP = 1n
+export const PT_ADMIN = 5n
 
 export const FAR_EXPIRY = 4_000_000_000n
 

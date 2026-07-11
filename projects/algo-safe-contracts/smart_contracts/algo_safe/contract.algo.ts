@@ -19,141 +19,209 @@ import {
 import { abimethod, decodeArc4 } from '@algorandfoundation/algorand-typescript/arc4'
 
 /**
- * Algo Safe — policy-driven smart account for Algorand.
+ * Algo Safe — policy-driven multi-signer smart account for Algorand.
  *
- * The application account is the safe: it holds ALGO and ASAs and only moves
- * value when an M-of-N signer group has approved a typed proposal. Every
- * privileged change (creating groups, adding/removing signers, changing
- * thresholds and policies) is itself a governed proposal approved under the
- * same threshold rules, so the contract never trusts a single caller for a
- * privileged change.
+ * Architecture overview
+ * ─────────────────────
+ * A Safe is a single AVM application whose app address holds treasury funds.
+ * Governance is delegated to one or more SignerGroups, each with M-of-N
+ * threshold signing. Two proposal types exist:
  *
- * Written in Algorand TypeScript (PuyaTs) and compiled to AVM bytecode. All
- * state-changing authorization comes from the signed approval app call: the
- * AVM has already verified the transaction signature before this program runs,
- * so the contract checks `Txn.sender` against signer-group membership.
+ *   PT_TRANSACTION_GROUP — atomic inner-transaction bundles (pay, axfer, appl,
+ *     keyreg, acfg, rekey). Supports multi-chunk payloads up to MAX_GROUP_TXNS
+ *     total transactions spread across up to 6 payload slots.
+ *
+ *   PT_ADMIN — governance changes (create/modify groups, members, policy, etc.).
+ *
+ * Proposal lifecycle: ACTIVE → READY (threshold met) → EXECUTED or CANCELLED.
+ *
+ * Custodian Groups (groupType = GT_CUSTODIAN)
+ * ─────────────────────────────────────────────
+ * Smart-contract addresses (e.g. lending/streaming protocols) can be signers in
+ * a custodian group. Custodians have no admin privileges and cannot exceed
+ * their per-asset guard allocation even if the underlying protocol is
+ * compromised. Asset guards are set and removed exclusively by admin groups.
+ * A custodian group dissolves itself — admins cannot force dissolution.
+ *
+ * Program size constraint
+ * ────────────────────────
+ * The AVM approval-program ceiling is 8 192 bytes
+ * (MaxExtraAppProgramPages=3 → 4 pages × 2 048). Changes to this file must
+ * be compiled and the output measured before committing. Prefer small, shared
+ * subroutines over inlined per-branch duplicates to stay within the limit.
  */
 
 // ---------------------------------------------------------------------------
-// Constants
+// Constants — proposal / transaction types
 // ---------------------------------------------------------------------------
 
-// Proposal status values.
-const STATUS_ACTIVE: uint64 = Uint64(1) // waiting for approvals
-const STATUS_READY: uint64 = Uint64(2) // threshold met, ready to execute
-const STATUS_EXECUTED: uint64 = Uint64(3)
+// Proposal status — stored in Proposal.status.
+const STATUS_ACTIVE: uint64 = Uint64(1)   // open, accepting approvals
+const STATUS_READY: uint64 = Uint64(2)    // threshold met, ready to execute
+const STATUS_EXECUTED: uint64 = Uint64(3) // inner transactions sent / admin change applied
 const STATUS_CANCELLED: uint64 = Uint64(4)
 
-// Proposal payload type discriminators.
-const PT_TRANSACTION_GROUP: uint64 = Uint64(1)
-const PT_ADMIN: uint64 = Uint64(5)
+// Payload type discriminators stored in Proposal.payloadType.
+const PT_TRANSACTION_GROUP: uint64 = Uint64(1) // pay/axfer/appl/keyreg/acfg/rekey bundle
+const PT_ADMIN: uint64 = Uint64(5)             // governance change
 
-// Transaction entry type discriminators for transaction-group proposals.
+// TX_* — type tag stored as SafeTxn.txType (first field of each envelope entry).
+// These tag values are ABI-encoded alongside the per-type struct in the payload.
 const TX_PAYMENT: uint64 = Uint64(1)
 const TX_ASSET: uint64 = Uint64(2)
 const TX_APP: uint64 = Uint64(3)
 const TX_KEYREG: uint64 = Uint64(4)
-const TX_ACFG: uint64 = Uint64(5) // asset configuration (create / reconfigure / destroy)
-const TX_REKEY: uint64 = Uint64(6) // rekey the safe (or a rekeyed sender) to a new auth address
+const TX_ACFG: uint64 = Uint64(5)
+// TX_REKEY uses a 0-amount self-payment inner transaction; see _validateRekey.
+const TX_REKEY: uint64 = Uint64(6)
 
-// Maximum executable transactions in one transaction-group proposal. Algorand
-// protocol transaction groups currently allow up to 16 transactions; this cap
-// tracks that limit and can be raised if the protocol limit changes.
-const MAX_GROUP_TXNS: uint64 = Uint64(16)
+// ---------------------------------------------------------------------------
+// Constants — AVM / contract limits
+// ---------------------------------------------------------------------------
 
-// Upper bound on SignerGroup.cooldownRounds (~a year at current block times),
-// generously above any realistic throttle while staying far below the range
-// where `lastExecutionRound + cooldownRounds` could overflow uint64 (see the
-// M-03 audit finding: an unbounded cooldown let a single policy change freeze
-// a group's execution forever via an AVM arithmetic-overflow panic).
+const MAX_GROUP_TXNS: uint64 = Uint64(16)   // Algorand atomic group cap
+// MAX_COOLDOWN_ROUNDS caps cooldownRounds at ~1 year of blocks. Without the cap,
+// a unit-mix mistake (seconds instead of rounds) overflows the uint64 addition
+// in _executeProposalInternal and permanently bricks the group.
 const MAX_COOLDOWN_ROUNDS: uint64 = Uint64(10_000_000)
 
-// Application-call resource limits (Algorand consensus parameters). The contract
-// rejects any app-call payload that exceeds these before staging the inner txn.
-const MAX_APP_ARGS: uint64 = Uint64(16) // MaxAppArgs
-const MAX_APP_TOTAL_ARG_LEN: uint64 = Uint64(2048) // MaxAppTotalArgLen
-const MAX_APP_ACCOUNTS: uint64 = Uint64(4) // MaxAppTxnAccounts
-const MAX_APP_FOREIGN_APPS: uint64 = Uint64(8) // MaxAppTxnForeignApps
-const MAX_APP_FOREIGN_ASSETS: uint64 = Uint64(8) // MaxAppTxnForeignAssets
-const MAX_APP_TOTAL_REFS: uint64 = Uint64(8) // MaxAppTotalTxnReferences (accounts + apps + assets)
+// App-call resource limits enforced by _validateApp (AVM consensus params).
+const MAX_APP_ARGS: uint64 = Uint64(16)
+const MAX_APP_TOTAL_ARG_LEN: uint64 = Uint64(2048)
+const MAX_APP_ACCOUNTS: uint64 = Uint64(4)
+const MAX_APP_FOREIGN_APPS: uint64 = Uint64(8)
+const MAX_APP_FOREIGN_ASSETS: uint64 = Uint64(8)
+const MAX_APP_TOTAL_REFS: uint64 = Uint64(8)
 
-// Allowed-action bitmask (SignerGroup.allowedActions).
-const ACT_PAY: uint64 = Uint64(1)
-const ACT_AXFER: uint64 = Uint64(2)
-const ACT_APPL: uint64 = Uint64(4)
-const ACT_KEYREG: uint64 = Uint64(8)
-const ACT_ACFG: uint64 = Uint64(16)
+// ---------------------------------------------------------------------------
+// Constants — bitmasks
+// ---------------------------------------------------------------------------
+
+// ACT_* — allowedActions bitmask on SignerGroup.
+// Governs which inner-transaction types this group may propose/execute.
+const ACT_PAY: uint64 = Uint64(1)     // ALGO payments
+const ACT_AXFER: uint64 = Uint64(2)   // ASA transfers
+const ACT_APPL: uint64 = Uint64(4)    // application calls
+const ACT_KEYREG: uint64 = Uint64(8)  // online/offline key registration
+const ACT_ACFG: uint64 = Uint64(16)   // asset create / reconfigure / destroy
+// ACT_REKEY requires both this bit and PRIV_GROUP; see _validateRekey.
 const ACT_REKEY: uint64 = Uint64(32)
-const ACT_ALL: uint64 = Uint64(63)
+const ACT_ALL: uint64 = Uint64(63)    // all six bits set
 
-// Admin-privilege bitmask (SignerGroup.adminPrivileges).
-const PRIV_GROUP: uint64 = Uint64(1) // create/modify groups, members, thresholds, privileges, active
-const PRIV_POLICY: uint64 = Uint64(2) // change spending/action policy
-const PRIV_ALL: uint64 = Uint64(7)
+// PRIV_* — adminPrivileges bitmask on SignerGroup (safe-wide, not self-scoped).
+// Any group holding PRIV_GROUP can modify *any* group in the safe, not just itself.
+const PRIV_GROUP: uint64 = Uint64(1)  // create/deactivate groups, add/remove members, change thresholds, set privileges
+const PRIV_POLICY: uint64 = Uint64(2) // change spending policy (actions, limits, cooldown) for any group
+const PRIV_ALL: uint64 = Uint64(7)    // bits 1+2 plus bit 4 reserved for future granularity
 
-// Admin change discriminators (AdminChange.changeType).
+// GT_* — groupType discriminator stored in SignerGroup.groupType.
+const GT_STANDARD: uint64 = Uint64(0)   // human / agent signers governed by admins
+const GT_CUSTODIAN: uint64 = Uint64(1)  // smart-contract signers bounded by asset guards
+
+// ---------------------------------------------------------------------------
+// Constants — admin change types (ADM_*)
+// ---------------------------------------------------------------------------
+
+// Standard admin changes (require PRIV_GROUP or PRIV_POLICY depending on type).
 const ADM_CREATE_GROUP: uint64 = Uint64(1)
 const ADM_ADD_MEMBER: uint64 = Uint64(2)
 const ADM_REMOVE_MEMBER: uint64 = Uint64(3)
 const ADM_CHANGE_THRESHOLD: uint64 = Uint64(4)
-const ADM_SET_POLICY: uint64 = Uint64(5)
+const ADM_SET_POLICY: uint64 = Uint64(5)      // requires PRIV_POLICY
 const ADM_SET_PRIVILEGES: uint64 = Uint64(6)
 const ADM_SET_ACTIVE: uint64 = Uint64(7)
-// Rekeyed-address registry entries reuse AdminChange.memberAddr/memberLabel.
+
+// Rekeyed-address registry — bookkeeping of external accounts rekeyed to the safe.
+// Reuses AdminChange.memberAddr as the external address and memberLabel as the label.
 const ADM_ADD_REKEYED_ADDR: uint64 = Uint64(8)
 const ADM_REMOVE_REKEYED_ADDR: uint64 = Uint64(9)
-// Set the safe-wide emergency pause flag. Reuses AdminChange.activeFlag as the
-// desired paused state (nonzero = paused). Always gated by PRIV_GROUP (the
-// default branch of _assertPrivilegeForChange), never by paused itself — see
-// the comment on _executeProposalInternal for why admin changes must stay
-// reachable while paused.
-const ADM_SET_PAUSED: uint64 = Uint64(10)
 
-// Period lengths for spending limits, in seconds.
+// 10 = ADM_SET_PAUSED — handled as the else-branch in _applyAdminChange.
+// Kept in src/constants.ts for external callers but not declared here to save space.
+
+// Custodian group lifecycle (all require PRIV_GROUP except ADM_DISSOLVE_CUSTODIAN).
+const ADM_CREATE_CUSTODIAN: uint64 = Uint64(11)   // admin creates a new custodian group
+const ADM_DISSOLVE_CUSTODIAN: uint64 = Uint64(12) // custodian self-dissolves (guards must all be removed first)
+
+// Asset guard management — admin-only; governs custodian spending bounds.
+// AdminChange.limitAssetId is the guard asset (0 = ALGO), .guardAmount is the ceiling.
+const ADM_SET_GUARD: uint64 = Uint64(13)    // create or update guard (lockedAmount ← guardAmount)
+const ADM_REMOVE_GUARD: uint64 = Uint64(14) // delete guard; decrements group.guardCount
+
+// ---------------------------------------------------------------------------
+// Constants — time
+// ---------------------------------------------------------------------------
+
 const DAY_SECONDS: uint64 = Uint64(86400)
-const MONTH_SECONDS: uint64 = Uint64(2592000) // 30 days
-const CONTRACT_VERSION = 'BIATEC-ALGO-SAFE-v1.8.0'
+const MONTH_SECONDS: uint64 = Uint64(2592000)
+const CONTRACT_VERSION = 'BIATEC-ALGO-SAFE-v2.0.0'
 
 // ---------------------------------------------------------------------------
-// Stored record types (plain TS types for box storage)
+// Stored record types
 // ---------------------------------------------------------------------------
 
+/**
+ * SignerGroup — on-chain state for one M-of-N signer group.
+ *
+ * Spending limits (dailyLimit / monthlyLimit) apply only to GT_STANDARD groups
+ * and only when limitAssetId matches the transferred asset. GT_CUSTODIAN groups
+ * ignore limits and use asset guards instead.
+ *
+ * cooldownRounds: minimum rounds between successive executions. The first-ever
+ * execution is exempt (lastExecutionRound === 0 is the "never executed" sentinel).
+ *
+ * membershipEpoch: increments on every _adminRemoveMember call. Proposals snapshot
+ * this value at creation; approveProposal and executeProposal both assert it hasn't
+ * changed — removing a member invalidates all pending approvals.
+ */
 type SignerGroup = {
   name: string
   threshold: uint64
   memberCount: uint64
-  adminPrivileges: uint64
-  allowedActions: uint64
-  limitAssetId: uint64 // 0 = ALGO, otherwise the ASA tracked by daily/monthly limits
-  dailyLimit: uint64 // microALGO; 0 = no limit
+  adminPrivileges: uint64  // PRIV_* bitmask; safe-wide, not scoped to this group
+  allowedActions: uint64   // ACT_* bitmask
+  limitAssetId: uint64     // 0 = ALGO; asset used for spending-limit accounting
+  dailyLimit: uint64       // 0 = unlimited
   dailyUsage: uint64
-  dailyPeriodStart: uint64
-  monthlyLimit: uint64 // microALGO; 0 = no limit
+  dailyPeriodStart: uint64 // unix timestamp of current daily window start
+  monthlyLimit: uint64     // 0 = unlimited
   monthlyUsage: uint64
   monthlyPeriodStart: uint64
-  cooldownRounds: uint64
-  lastExecutionRound: uint64 // round of the group's last executed transaction-group proposal
-  membershipEpoch: uint64 // incremented every time a member is removed from this group
-  active: uint64 // 1 = active, 0 = disabled
+  cooldownRounds: uint64   // 0 = no cooldown; capped at MAX_COOLDOWN_ROUNDS
+  lastExecutionRound: uint64 // 0 = never executed (sentinel; exempt from cooldown)
+  membershipEpoch: uint64
+  active: uint64           // 0 = disabled; group cannot approve or execute
+  groupType: uint64        // GT_STANDARD=0 | GT_CUSTODIAN=1
+  guardCount: uint64       // number of active AssetGuard entries for this group
 }
 
 type Member = {
-  accountType: uint64 // 1 standard, 2 multisig, 3 rekeyed, 4 agent, 5 quantum
+  accountType: uint64  // 1=standard, 2=multisig, 3=rekeyed, 4=agent, 5=quantum
   label: string
   addr: Account
 }
 
-// Registry entry for an external address whose auth address has been rekeyed
-// to this safe. The registry is informational bookkeeping the admins govern
-// (the AVM enforces actual spendability regardless); migration flows read it
-// to know which addresses must be re-rekeyed to a successor safe.
 type RekeyedAddress = {
   label: string
   addedRound: uint64
 }
 
-// Group seed for the clone-friendly bootstrap path: full policy configuration
-// applied at group creation, before governance takes over.
+/**
+ * AssetGuard — per-asset spending ceiling for a custodian group.
+ * assetId=0 means ALGO; stored as BoxMap key alongside custodianGroupId.
+ * lockedAmount decrements atomically in pass-1 of _executeTransactionGroup
+ * and reverts if the inner-txn group (pass-2) fails, keeping accounting consistent.
+ */
+type AssetGuard = {
+  createdRound: uint64
+  lockedAmount: uint64
+}
+
+/**
+ * GroupSeed — argument to bootstrapGroup for the clone-friendly bootstrap path.
+ * Allows a successor safe to be seeded with the same governance structure as its
+ * predecessor before finalizeBootstrap() locks it for normal operation.
+ */
 type GroupSeed = {
   name: string
   threshold: uint64
@@ -163,6 +231,7 @@ type GroupSeed = {
   dailyLimit: uint64
   monthlyLimit: uint64
   cooldownRounds: uint64
+  groupType: uint64
 }
 
 type MemberSeed = {
@@ -171,49 +240,45 @@ type MemberSeed = {
   label: string
 }
 
+/**
+ * Proposal — the on-chain record for one governance action.
+ *
+ * payloadVersion starts at 1 and increments on every appendTransactionGroupPayload
+ * write. approveProposal requires the caller to supply the live payloadVersion so
+ * the approval is cryptographically bound to the exact payload reviewed — prevents
+ * a proposer from swapping payload chunks after signers have started approving.
+ *
+ * totalTxns tracks the running transaction count across all chunks, capped at
+ * MAX_GROUP_TXNS at append time.
+ */
 type Proposal = {
   groupId: uint64
-  status: uint64
-  payloadType: uint64
+  status: uint64           // STATUS_* constant
+  payloadType: uint64      // PT_TRANSACTION_GROUP | PT_ADMIN
   approvalsCount: uint64
-  threshold: uint64
+  threshold: uint64        // snapshot of group.threshold at creation time
   expiryRound: uint64
   proposer: Account
-  numPayloads: uint64
-  epochAtCreation: uint64 // group.membershipEpoch snapshot at proposal creation
-  // Bumped by appendTransactionGroupPayload on every chunk write. approveProposal
-  // requires the caller to name the version it reviewed, so a payload edit that
-  // races an in-flight approval invalidates that approval instead of silently
-  // applying it to different content (see the H-01 audit finding).
-  payloadVersion: uint64
-  // Running sum of transaction counts across all stored payload chunks, kept in
-  // sync by proposeTransactionGroup/appendTransactionGroupPayload so the total
-  // can be bounded by MAX_GROUP_TXNS before execution ever attempts to stage
-  // more inner transactions than a single itxn group can hold (see M-02).
-  totalTxns: uint64
+  numPayloads: uint64      // highest payload-slot index written (1–6)
+  epochAtCreation: uint64  // snapshot of group.membershipEpoch at creation time
+  payloadVersion: uint64   // bumped on each appendTransactionGroupPayload call
+  totalTxns: uint64        // sum of transaction counts across all payload slots
 }
 
-// Per-transaction-type payload structs. Each type carries only the attributes
-// it actually needs, so a stored transaction occupies far fewer bytes than a
-// single union struct that reserves space for every field of every type.
-//
-// `sender` (payment / asset / rekey): the account the inner transaction is
-// sent from. The zero address means the safe's application account itself.
-// Any other value must be an account whose auth address has been rekeyed to
-// the safe's application address — the AVM rejects inner transactions from
-// any other sender — which lets the safe spend from external addresses that
-// have been rekeyed to it.
+// SafeTxn types — tagged envelope for inner transactions stored in payload boxes.
+// Each entry is (txType: uint64, data: bytes) where data is the ARC4-encoded struct.
+
 type PaymentTxn = {
-  sender: Account
+  sender: Account    // zero address = use the safe's own app account
   receiver: Account
   amount: uint64
-  hasClose: uint64
+  hasClose: uint64   // nonzero → also set CloseRemainderTo
   closeRemainderTo: Account
   note: string
 }
 
 type AssetTxn = {
-  sender: Account
+  sender: Account    // zero address = safe's own app account
   xferAsset: uint64
   assetReceiver: Account
   assetAmount: uint64
@@ -233,7 +298,7 @@ type AppTxn = {
 }
 
 type KeyRegTxn = {
-  online: uint64 // 1 = register online (keys supplied), 0 = go offline
+  online: uint64   // 0 = go offline; nonzero = register participation keys
   voteKey: bytes
   selectionKey: bytes
   stateProofKey: bytes
@@ -243,14 +308,14 @@ type KeyRegTxn = {
 }
 
 type AssetConfigTxn = {
-  configAsset: uint64 // 0 = create a new asset, otherwise reconfigure/destroy this asset
+  configAsset: uint64  // 0 = create new asset; >0 = reconfigure / destroy
   total: uint64
   decimals: uint64
   defaultFrozen: uint64
   unitName: string
   assetName: string
   url: string
-  metadataHash: bytes
+  metadataHash: bytes  // must be exactly 0 or 32 bytes
   manager: Account
   reserve: Account
   freeze: Account
@@ -258,32 +323,34 @@ type AssetConfigTxn = {
   note: string
 }
 
-// Rekey `sender` (zero = the safe's application account) to `rekeyTo`. Emitted
-// as a 0-amount self-payment carrying RekeyTo. Rekeying the safe itself hands
-// full control of the safe address to `rekeyTo` (e.g. a newly deployed safe
-// contract's application address during a migration); rekeying a previously
-// rekeyed external sender back to its own address releases it from the safe.
 type RekeyTxn = {
-  sender: Account
+  sender: Account  // zero address = rekey the safe itself; otherwise a registered rekeyed address
   rekeyTo: Account
   note: string
 }
 
-// Tagged envelope: `txType` selects how `data` is decoded (one of the structs
-// above, ARC4-encoded). This keeps the payload array homogeneous on the wire
-// while letting each entry hold only its own type's fields.
+// SafeTxn — the tagged envelope. txType is one of TX_* constants above.
 type SafeTxn = {
   txType: uint64
   data: bytes
 }
 
-// Flat ordered list of safe transactions stored per-payload in the box.
 type SafeTxnGroup = SafeTxn[]
 
-// Multiplier for the computed box key: proposalId * TXG_KEY_MULT + payloadIndex.
-// A multiplier > 6 (the max payloadIndex) guarantees no key collisions.
+// Multiplier separates per-chunk storage keys: key = proposalId * TXG_KEY_MULT + chunkIndex.
+// Chosen to be large enough that chunk keys for sequential proposals never collide.
 const TXG_KEY_MULT: uint64 = Uint64(7)
 
+/**
+ * AdminChange — the payload stored for a PT_ADMIN proposal.
+ *
+ * Fields are reused across change types to avoid per-type structs (saves binary
+ * space at the cost of some semantic overloading):
+ *   • memberAddr / memberLabel → used for member ops and rekeyed-address registry
+ *   • limitAssetId             → spending policy *and* guard asset id (assetId=0 = ALGO)
+ *   • guardAmount              → lockedAmount for ADM_SET_GUARD
+ *   • activeFlag               → desired active/paused state for ADM_SET_ACTIVE / ADM_SET_PAUSED
+ */
 type AdminChange = {
   changeType: uint64
   targetGroupId: uint64
@@ -294,11 +361,12 @@ type AdminChange = {
   threshold: uint64
   adminPrivileges: uint64
   allowedActions: uint64
-  limitAssetId: uint64
+  limitAssetId: uint64   // doubles as assetId for ADM_SET_GUARD / ADM_REMOVE_GUARD
   dailyLimit: uint64
   monthlyLimit: uint64
   cooldownRounds: uint64
-  activeFlag: uint64
+  activeFlag: uint64     // desired state for ADM_SET_ACTIVE (1=active) and ADM_SET_PAUSED (1=paused)
+  guardAmount: uint64    // new lockedAmount for ADM_SET_GUARD
 }
 
 type Approval = {
@@ -307,7 +375,7 @@ type Approval = {
 }
 
 // ---------------------------------------------------------------------------
-// Event types (ARC-28)
+// Events (ARC-28)
 // ---------------------------------------------------------------------------
 
 type SafeCreated = { name: string; creator: Account }
@@ -322,46 +390,69 @@ type ProposalCancelled = { proposalId: uint64 }
 type RekeyedAddressAdded = { addr: Account; label: string }
 type RekeyedAddressRemoved = { addr: Account }
 type SafePaused = { paused: uint64 }
+type CustodianGroupCreated = { groupId: uint64; name: string; threshold: uint64 }
+type CustodianGroupDissolved = { groupId: uint64 }
+type AssetGuardSet = { custodianGroupId: uint64; assetId: uint64; lockedAmount: uint64 }
+type AssetGuardRemoved = { custodianGroupId: uint64; assetId: uint64 }
 
 // ---------------------------------------------------------------------------
 // Contract
 // ---------------------------------------------------------------------------
 
 export class AlgoSafe extends Contract {
-  // Global configuration.
+  // Safe-wide identity
   name = GlobalState<string>({ key: 'name' })
   creator = GlobalState<Account>({ key: 'creator' })
+
+  // bootstrapped: 0 during clone seeding (bootstrapGroup / bootstrapRekeyedAddress
+  // calls), 1 after bootstrap() or finalizeBootstrap(). _newProposal asserts 1,
+  // so seeded members cannot create proposals mid-clone.
   bootstrapped = GlobalState<uint64>({ key: 'boot' })
+
+  // Monotonically increasing IDs — never reused, so box keys never collide.
   nextGroupId = GlobalState<uint64>({ key: 'ngid' })
   nextProposalId = GlobalState<uint64>({ key: 'npid' })
   groupCount = GlobalState<uint64>({ key: 'gcnt' })
+
+  // paused: 1 = transaction proposals cannot be proposed, appended, or executed.
+  // Admin proposals (including the unpause proposal itself) are always permitted.
   paused = GlobalState<uint64>({ key: 'paused' })
+
   version = GlobalState<string>({ key: 'ver' })
-  // Count of active groups currently holding PRIV_GROUP. Maintained
-  // incrementally (see _applyAdminChange / bootstrap) so governance changes
-  // that would drop it to 0 can be rejected without scanning every group.
+
+  // activePrivGroupCount: how many active GT_STANDARD groups currently hold PRIV_GROUP.
+  // Enforces the M-01 lockout guard: blocks any admin change that would leave 0.
   activePrivGroupCount = GlobalState<uint64>({ key: 'apgc' })
 
-  // Box storage.
+  // ---------------------------------------------------------------------------
+  // Storage — box maps
+  // ---------------------------------------------------------------------------
+
   groups = BoxMap<uint64, SignerGroup>({ keyPrefix: 'g' })
   members = BoxMap<{ groupId: uint64; account: Account }, Member>({ keyPrefix: 'm' })
   proposals = BoxMap<uint64, Proposal>({ keyPrefix: 'p' })
   approvals = BoxMap<{ proposalId: uint64; account: Account }, Approval>({ keyPrefix: 'a' })
-  // Key = proposalId * TXG_KEY_MULT + payloadIndex (avoids composite-struct encoding overhead).
+
+  // Multi-chunk transaction payload boxes. Key = proposalId * TXG_KEY_MULT + chunkIndex (1–6).
   transactionGroups = BoxMap<uint64, SafeTxnGroup>({ keyPrefix: 'txg' })
+
+  // Admin-change payload box for PT_ADMIN proposals.
   adminPayloads = BoxMap<uint64, AdminChange>({ keyPrefix: 'dp' })
-  // Admin-governed registry of external addresses rekeyed to this safe.
+
+  // Bookkeeping of external accounts rekeyed to the safe (admin-governed registry).
+  // The AVM enforces actual spendability regardless of this registry.
   rekeyedAddresses = BoxMap<Account, RekeyedAddress>({ keyPrefix: 'r' })
+
+  // Asset guards for custodian groups. assetId=0 means ALGO.
+  assetGuards = BoxMap<{ custodianGroupId: uint64; assetId: uint64 }, AssetGuard>({ keyPrefix: 'ag' })
 
   // -------------------------------------------------------------------------
   // Lifecycle
   // -------------------------------------------------------------------------
 
   /**
-   * Initialise the safe. The creator becomes the bootstrap admin and must call
-   * `bootstrap` once (after funding the app account) to create the first admin
-   * signer group. The application is intentionally non-updatable and
-   * non-deletable for custody safety.
+   * createApplication — called once on deployment. Initialises global state.
+   * The creator is the only account that can bootstrap the safe.
    */
   public createApplication(name: string): void {
     this.name.value = name
@@ -377,20 +468,13 @@ export class AlgoSafe extends Contract {
   }
 
   /**
-   * Genesis bootstrap: create the first admin signer group as a 1-of-1 group
-   * whose sole member is the creator, with full admin privileges and all
-   * actions allowed. Callable exactly once, only by the creator. After this,
-   * every privileged change must go through governance.
-   *
-   * Requires the app account to be funded for box MBR beforehand.
+   * bootstrap — simple one-call bootstrap for a fresh safe.
+   * Creates group 1 with full admin+action privileges and adds the creator as
+   * the sole member. Incompatible with bootstrapGroup (the two paths cannot mix).
    */
   public bootstrap(groupName: string): void {
     assert(Txn.sender === this.creator.value, 'only creator can bootstrap')
     assert(this.bootstrapped.value === Uint64(0), 'already bootstrapped')
-    // The two bootstrap paths are alternatives, not composable: bootstrap()
-    // unconditionally assigns activePrivGroupCount = 1 below, which would
-    // silently discard the true count from any prior bootstrapGroup() calls
-    // (see the M-03 audit finding).
     assert(this.groupCount.value === Uint64(0), 'bootstrapGroup already used; cannot mix bootstrap paths')
 
     const now = Global.latestTimestamp
@@ -413,6 +497,8 @@ export class AlgoSafe extends Contract {
       lastExecutionRound: Uint64(0),
       membershipEpoch: Uint64(0),
       active: Uint64(1),
+      groupType: GT_STANDARD,
+      guardCount: Uint64(0),
     }
     this.groups(gid).value = clone(grp)
 
@@ -422,7 +508,6 @@ export class AlgoSafe extends Contract {
     this.nextGroupId.value = gid + Uint64(1)
     this.groupCount.value = this.groupCount.value + Uint64(1)
     this.bootstrapped.value = Uint64(1)
-    // Genesis group holds PRIV_ALL (includes PRIV_GROUP) and is active.
     this.activePrivGroupCount.value = Uint64(1)
 
     emit<GroupCreated>({ groupId: gid, name: groupName, threshold: Uint64(1) })
@@ -430,12 +515,10 @@ export class AlgoSafe extends Contract {
   }
 
   /**
-   * Clone-friendly bootstrap: create a fully configured signer group (policy,
-   * threshold, privileges, and all members at once) while the safe is still
-   * un-bootstrapped. Callable repeatedly by the creator to seed a new safe with
-   * another safe's configuration during a migration, before `finalizeBootstrap`
-   * hands control over to governance. Usage counters and the membership epoch
-   * start fresh. Returns the new group id.
+   * bootstrapGroup — clone-friendly bootstrap; may be called multiple times before
+   * finalizeBootstrap(). Each call creates one group with its full member set.
+   * Used by deployClonedSafe() to mirror the predecessor safe's governance structure
+   * into a newly deployed contract before activating it.
    */
   public bootstrapGroup(seed: GroupSeed, members: MemberSeed[], ensureBudgetValue: uint64): uint64 {
     if (ensureBudgetValue > Uint64(1)) {
@@ -449,6 +532,10 @@ export class AlgoSafe extends Contract {
     assert(seed.allowedActions <= ACT_ALL, 'invalid actions')
     assert(seed.adminPrivileges <= PRIV_ALL, 'invalid privileges')
     assert(seed.cooldownRounds <= MAX_COOLDOWN_ROUNDS, 'cooldown too large')
+    if (seed.groupType === GT_CUSTODIAN) {
+      // Custodian groups never hold admin privileges regardless of what the caller passes.
+      assert(seed.adminPrivileges === Uint64(0), 'custodian groups cannot have admin privileges')
+    }
 
     const now = Global.latestTimestamp
     const gid: uint64 = this.nextGroupId.value
@@ -470,6 +557,8 @@ export class AlgoSafe extends Contract {
       lastExecutionRound: Uint64(0),
       membershipEpoch: Uint64(0),
       active: Uint64(1),
+      groupType: seed.groupType,
+      guardCount: Uint64(0),
     }
     this.groups(gid).value = clone(grp)
 
@@ -484,7 +573,7 @@ export class AlgoSafe extends Contract {
 
     this.nextGroupId.value = gid + Uint64(1)
     this.groupCount.value = this.groupCount.value + Uint64(1)
-    if ((seed.adminPrivileges & PRIV_GROUP) !== Uint64(0)) {
+    if (seed.groupType !== GT_CUSTODIAN && (seed.adminPrivileges & PRIV_GROUP) !== Uint64(0)) {
       this.activePrivGroupCount.value = this.activePrivGroupCount.value + Uint64(1)
     }
 
@@ -493,9 +582,8 @@ export class AlgoSafe extends Contract {
   }
 
   /**
-   * Seed the rekeyed-address registry while the safe is still un-bootstrapped
-   * (cloning a predecessor safe's registry during a migration). After
-   * `finalizeBootstrap`, registry changes go through governed admin proposals.
+   * bootstrapRekeyedAddress — seed the rekeyed-address registry during cloning.
+   * Only callable before finalizeBootstrap(); mirrors entries from the predecessor.
    */
   public bootstrapRekeyedAddress(addr: Account, label: string): void {
     assert(Txn.sender === this.creator.value, 'only creator can bootstrap')
@@ -508,9 +596,9 @@ export class AlgoSafe extends Contract {
   }
 
   /**
-   * Close the clone-friendly bootstrap phase. Requires at least one active
-   * group holding PRIV_GROUP so governance can never start locked out. From
-   * this point on, every privileged change must go through proposals.
+   * finalizeBootstrap — activates a cloned safe seeded via bootstrapGroup.
+   * Requires at least one active group with PRIV_GROUP to prevent lockout.
+   * After this call _newProposal succeeds and normal governance begins.
    */
   public finalizeBootstrap(): void {
     assert(Txn.sender === this.creator.value, 'only creator can bootstrap')
@@ -524,16 +612,14 @@ export class AlgoSafe extends Contract {
   // -------------------------------------------------------------------------
 
   /**
-   * Create a transaction-group proposal from the first payload chunk. When the
-   * total number of transactions exceeds the ~2 KB per-ABI-argument limit, call
-   * appendTransactionGroupPayload (once per extra chunk, slots 2–6) before the
-   * proposal is approved and executed. Stores the payload at slot 1.
+   * proposeTransactionGroup — create and optionally immediately execute a transaction
+   * proposal. The caller must be a member of groupId.
    *
-   * When `execute` is true, attempts to execute the proposal immediately after
-   * creating it — this only succeeds if the signer group's threshold is 1 (so
-   * the proposer's auto-approval alone satisfies it) and the transactions fall
-   * within the group's spending limits, letting a single app call both propose
-   * and execute a transaction group.
+   * execute=true skips the approval phase (valid only when threshold=1 and the
+   * proposer is the sole member, i.e. the proposal is instantly READY).
+   *
+   * The payload is stored in chunk slot 1; further chunks can be appended via
+   * appendTransactionGroupPayload before the first independent approval.
    */
   public proposeTransactionGroup(
     groupId: uint64,
@@ -549,7 +635,8 @@ export class AlgoSafe extends Contract {
     assert(payload.length <= MAX_GROUP_TXNS, 'too many txs')
     assert(this.paused.value === Uint64(0), 'safe paused')
     this._assertMember(groupId)
-    assert(this.groups(groupId).value.active !== Uint64(0), 'group disabled')
+    const group = clone(this.groups(groupId).value)
+    assert(group.active !== Uint64(0), 'group disabled')
     const pid = this._newProposal(groupId, PT_TRANSACTION_GROUP, expiryRound)
     this._storePayloadGroup(pid, Uint64(1), payload)
     const p = clone(this.proposals(pid).value)
@@ -563,21 +650,14 @@ export class AlgoSafe extends Contract {
   }
 
   /**
-   * Append an additional payload chunk (slots 2–6) to an existing transaction-group
-   * proposal. Callable only by the original proposer while they remain a *current*
-   * member of the group, and only while `approvalsCount === 1` (i.e. no one but the
-   * proposer's own auto-approval has approved yet). This blocks edits once a second
-   * approval has actually landed on-chain, but a proposer could otherwise still race
-   * an independent signer's in-flight approval transaction with an edit here — that
-   * remaining window is closed by `payloadVersion`: every successful write here bumps
-   * it, and `approveProposal` requires the caller to name the version it reviewed, so
-   * a stale approval fails instead of silently binding to different content (H-01).
-   * The membership check also prevents a member removed from the group after
-   * proposing from continuing to rewrite their own now-orphaned proposal. Each chunk's
-   * length is tracked in `proposal.totalTxns` (correctly accounting for overwrites of
-   * an already-written slot) so the aggregate across all chunks can be bounded by
-   * `MAX_GROUP_TXNS` here, before the AVM's own inner-transaction-group size limit
-   * would otherwise reject an over-sized proposal only at execution time (M-02).
+   * appendTransactionGroupPayload — add an additional payload chunk to an existing
+   * transaction proposal. Only the original proposer may append, and only while
+   * no independent approver has signed yet (approvalsCount === 1 means only the
+   * auto-approval from _newProposal). Each append bumps payloadVersion so any
+   * signer that has already approved sees "payload changed since review" on their
+   * next call and must re-approve the new version.
+   *
+   * Prevents appending to expired proposals (blocks extending validity window).
    */
   public appendTransactionGroupPayload(
     proposalId: uint64,
@@ -588,23 +668,18 @@ export class AlgoSafe extends Contract {
     if (ensureBudgetValue > Uint64(1)) {
       ensureBudget(ensureBudgetValue)
     }
-    // Pause only ever gates fund-moving transaction-group proposals (this method
-    // only ever touches PT_TRANSACTION_GROUP proposals); admin-change proposals
-    // are intentionally exempt — see _executeProposalInternal.
     assert(this.paused.value === Uint64(0), 'safe paused')
     assert(payloadIndex >= Uint64(2) && payloadIndex <= Uint64(6), 'invalid slot')
     assert(payload.length >= Uint64(1), 'empty payload')
     const proposal = clone(this.proposals(proposalId).value)
     assert(proposal.payloadType === PT_TRANSACTION_GROUP, 'not a tx group')
     assert(proposal.status === STATUS_ACTIVE || proposal.status === STATUS_READY, 'proposal not pending')
-    // Consistency with approveProposal/_executeProposalInternal: an expired
-    // proposal can never be approved or executed, so editing it is pure wasted
-    // effort — reject the append outright (2026-07-07-v2 audit, L-01).
     assert(Global.round <= proposal.expiryRound, 'proposal expired')
     this._assertMember(proposal.groupId)
     assert(Txn.sender === proposal.proposer, 'only proposer can append')
     assert(proposal.approvalsCount === Uint64(1), 'cannot modify payload after independent approval')
 
+    // Adjust totalTxns: subtract the old slot count (if replacing) then add the new.
     const key: uint64 = proposalId * TXG_KEY_MULT + payloadIndex
     let newTotal: uint64 = proposal.totalTxns
     if (this.transactionGroups(key).exists) {
@@ -626,10 +701,22 @@ export class AlgoSafe extends Contract {
   }
 
   /**
-   * Create a governed signer-group administration proposal. Deliberately not gated
-   * by `paused`: pause only ever blocks fund-moving transaction-group proposals, so
-   * governance (including an ADM_SET_PAUSED change that unpauses the safe) always
-   * stays reachable — see the comment on `_executeProposalInternal`.
+   * proposeAdminChange — create a governance change proposal.
+   *
+   * Routing:
+   *   ADM_DISSOLVE_CUSTODIAN — the proposing group must be the custodian group
+   *     itself. Admins cannot force-dissolve a custodian.
+   *   All other change types — the proposing group must hold the relevant admin
+   *     privilege (PRIV_GROUP or PRIV_POLICY via _assertPrivilegeForChange).
+   *
+   * Payload-level correctness (e.g. guard existence, target group type) is
+   * intentionally deferred to execution time in _applyAdminChange. This saves
+   * ~700 bytes of compiled binary by not duplicating the check logic at proposal
+   * time, at the cost of wasted box storage if an invalid proposal passes approval.
+   *
+   * The cooldown cap is asserted here (before the box is written) so that a
+   * bad cooldown value cannot be stored and later cause an arithmetic overflow
+   * in _executeProposalInternal even if the group approves the proposal.
    */
   public proposeAdminChange(
     groupId: uint64,
@@ -640,12 +727,19 @@ export class AlgoSafe extends Contract {
     if (ensureBudgetValue > Uint64(1)) {
       ensureBudget(ensureBudgetValue)
     }
-    // Proposer must be a member of an admin-capable group with the right privilege.
     this._assertMember(groupId)
     const group = clone(this.groups(groupId).value)
     assert(group.active !== Uint64(0), 'group disabled')
-    this._assertPrivilegeForChange(change.changeType, group)
-    this._validateAdminChange(change)
+
+    // Validate cooldown at proposal time for both ADM_CREATE_GROUP and ADM_SET_POLICY.
+    // Harmless for other change types but avoids the if-branch cost in binary size.
+    assert(change.cooldownRounds <= MAX_COOLDOWN_ROUNDS, 'cooldown cap')
+    if (change.changeType === ADM_DISSOLVE_CUSTODIAN) {
+      assert(group.groupType === GT_CUSTODIAN, 'only custodian groups can propose self-dissolution')
+      assert(change.targetGroupId === groupId, 'can only dissolve own custodian group')
+    } else {
+      this._assertPrivilegeForChange(change.changeType, group)
+    }
 
     const pid = this._newProposal(groupId, PT_ADMIN, expiryRound)
     this.adminPayloads(pid).value = clone(change)
@@ -657,14 +751,15 @@ export class AlgoSafe extends Contract {
   // -------------------------------------------------------------------------
 
   /**
-   * Record the caller's approval of a proposal. `expectedPayloadVersion` must match
-   * the proposal's current `payloadVersion` (read via `getProposal` immediately
-   * before signing) — this binds the approval to the exact content the caller
-   * reviewed, so a proposer editing a transaction-group proposal's payload after
-   * the caller decided to approve, but before this call confirms, invalidates the
-   * stale approval instead of silently applying it to different content (H-01).
-   * For admin-change proposals, `payloadVersion` never changes after creation, so
-   * `expectedPayloadVersion` is always `1`.
+   * approveProposal — add the caller's approval to an open proposal.
+   *
+   * expectedPayloadVersion must match the proposal's live payloadVersion; this
+   * binds the approval to the exact payload content the signer reviewed and
+   * prevents a bait-and-switch attack where the proposer appends a different
+   * chunk after other signers have already approved.
+   *
+   * Also asserts that the group's membershipEpoch hasn't changed since proposal
+   * creation — removing a compromised member invalidates all pending approvals.
    */
   public approveProposal(proposalId: uint64, expectedPayloadVersion: uint64, ensureBudgetValue: uint64): void {
     if (ensureBudgetValue > Uint64(1)) {
@@ -673,18 +768,17 @@ export class AlgoSafe extends Contract {
     const proposal = clone(this.proposals(proposalId).value)
     assert(proposal.status === STATUS_ACTIVE || proposal.status === STATUS_READY, 'not approvable')
     assert(Global.round <= proposal.expiryRound, 'proposal expired')
+    assert(proposal.payloadVersion === expectedPayloadVersion, 'payload changed since review')
     assert(this.members({ groupId: proposal.groupId, account: Txn.sender }).exists, 'not a group member')
     assert(!this.approvals({ proposalId, account: Txn.sender }).exists, 'already approved')
     assert(
       this.groups(proposal.groupId).value.membershipEpoch === proposal.epochAtCreation,
       'group membership changed since proposal creation',
     )
-    assert(proposal.payloadVersion === expectedPayloadVersion, 'payload changed since review')
-
     this._recordApproval(proposalId, proposal)
   }
 
-  /** Execute a proposal once its threshold has been met. */
+  /** executeProposal — execute a READY proposal (threshold met, not expired). */
   public executeProposal(proposalId: uint64, ensureBudgetValue: uint64): void {
     if (ensureBudgetValue > Uint64(1)) {
       ensureBudget(ensureBudgetValue)
@@ -692,7 +786,10 @@ export class AlgoSafe extends Contract {
     this._executeProposalInternal(proposalId)
   }
 
-  /** Cancel a pending proposal. Allowed for the proposer or any member of the proposal's group. */
+  /**
+   * cancelProposal — cancel an open proposal. Either the original proposer
+   * or any current group member may cancel.
+   */
   public cancelProposal(proposalId: uint64, ensureBudgetValue: uint64): void {
     if (ensureBudgetValue > Uint64(1)) {
       ensureBudget(ensureBudgetValue)
@@ -709,11 +806,9 @@ export class AlgoSafe extends Contract {
   }
 
   /**
-   * Reclaim box MBR for a proposal that finished (EXECUTED/CANCELLED) and is
-   * past its expiry round, by deleting its proposal record and any
-   * transaction-group/admin payload boxes. Callable by any member of the
-   * proposal's group. Approval boxes (keyed per-signer, with no on-chain list
-   * of who approved) are not deleted here.
+   * pruneProposal — delete terminal proposal boxes to reclaim MBR.
+   * Only callable on EXECUTED or CANCELLED proposals after their expiryRound.
+   * Removes the proposal box, all payload chunk boxes, and the admin-change box.
    */
   public pruneProposal(proposalId: uint64, ensureBudgetValue: uint64): void {
     if (ensureBudgetValue > Uint64(1)) {
@@ -804,7 +899,7 @@ export class AlgoSafe extends Contract {
     return this.approvals({ proposalId, account }).exists
   }
 
-  /** Count of active signer groups currently holding PRIV_GROUP. Never reaches 0. */
+  /** getActivePrivGroupCount — read the M-01 lockout counter (used by off-chain tooling). */
   @abimethod({ readonly: true })
   public getActivePrivGroupCount(ensureBudgetValue: uint64): uint64 {
     if (ensureBudgetValue > Uint64(1)) {
@@ -829,22 +924,44 @@ export class AlgoSafe extends Contract {
     return clone(this.rekeyedAddresses(account).value)
   }
 
+  @abimethod({ readonly: true })
+  public hasAssetGuard(custodianGroupId: uint64, assetId: uint64, ensureBudgetValue: uint64): boolean {
+    if (ensureBudgetValue > Uint64(1)) {
+      ensureBudget(ensureBudgetValue)
+    }
+    return this.assetGuards({ custodianGroupId, assetId }).exists
+  }
+
+  @abimethod({ readonly: true })
+  public getAssetGuard(custodianGroupId: uint64, assetId: uint64, ensureBudgetValue: uint64): AssetGuard {
+    if (ensureBudgetValue > Uint64(1)) {
+      ensureBudget(ensureBudgetValue)
+    }
+    return clone(this.assetGuards({ custodianGroupId, assetId }).value)
+  }
+
   // -------------------------------------------------------------------------
-  // Internal: proposal helpers
+  // Internal — proposal machinery
   // -------------------------------------------------------------------------
 
+  /** _assertMember — verify that Txn.sender is an active member of groupId. */
   private _assertMember(groupId: uint64): void {
     assert(this.groups(groupId).exists, 'group not found')
     assert(this.members({ groupId, account: Txn.sender }).exists, 'not a group member')
   }
 
   /**
-   * Execute a proposal once its threshold has been met. Shared by the public
-   * `executeProposal` entrypoint and `proposeTransactionGroup(..., execute: true)`,
-   * which calls this immediately after auto-approving the proposer — it only
-   * succeeds there if the group's threshold is 1 and the transactions are
-   * within the group's spending limits, since every other check below still
-   * applies.
+   * _executeProposalInternal — shared execution path for both executeProposal
+   * and the auto-execute path in proposeTransactionGroup.
+   *
+   * Re-reads the live threshold after snapshot to enforce any threshold changes
+   * that occurred between proposal creation and execution. Uses the higher of
+   * the snapshot threshold and the live threshold (defense in depth).
+   *
+   * Cooldown guard: skipped when lastExecutionRound === 0 (first-ever execution
+   * sentinel). A nonzero cooldownRounds set at group creation would otherwise
+   * block the group's very first execution until the chain's round count
+   * surpassed cooldownRounds — always reproducible on a freshly reset localnet.
    */
   private _executeProposalInternal(proposalId: uint64): void {
     const proposal = clone(this.proposals(proposalId).value)
@@ -853,41 +970,27 @@ export class AlgoSafe extends Contract {
 
     const group = clone(this.groups(proposal.groupId).value)
     assert(group.active !== Uint64(0), 'group disabled')
-    // Defense in depth: `proposal.threshold` is a snapshot taken at proposal
-    // creation. If the group's live threshold was later raised (e.g. in
-    // response to a suspected compromised signer), require the higher of the
-    // two rather than trusting the stale snapshot alone.
     const requiredThreshold: uint64 = proposal.threshold >= group.threshold ? proposal.threshold : group.threshold
     assert(proposal.approvalsCount >= requiredThreshold, 'threshold not met')
-    // If a member was removed from the group after this proposal collected its
-    // approvals, those approvals can no longer be trusted (one of them may have
-    // come from the since-removed signer) — require a fresh proposal instead of
-    // trusting a stale approval set (see M-02 audit finding).
     assert(group.membershipEpoch === proposal.epochAtCreation, 'group membership changed since proposal creation')
 
     if (proposal.payloadType === PT_TRANSACTION_GROUP) {
-      // Pause only ever gates fund-moving transaction-group execution. Admin-change
-      // execution (including an ADM_SET_PAUSED change that unpauses the safe) must
-      // stay reachable even while paused — otherwise pausing would permanently
-      // brick governance with no on-chain recovery path (see the M-01 audit finding).
       assert(this.paused.value === Uint64(0), 'safe paused')
-      // `lastExecutionRound === 0` is the "never executed" sentinel (a group's
-      // first-ever execution can't legitimately land on round 0, since the app
-      // must already exist by then) — the cooldown gates successive
-      // executions, not the first one, so skip the check on that sentinel.
-      // Gating the first execution too meant a nonzero cooldownRounds set at
-      // group creation silently required the chain to already be past round
-      // `cooldownRounds` before the group could ever execute anything, which
-      // only surfaced on a freshly reset chain (e.g. CI's fresh localnet vs. a
-      // long-lived dev localnet already far past that round).
+      // lastExecutionRound === 0 is the "never executed" sentinel — exempt from cooldown.
       if (group.cooldownRounds !== Uint64(0) && group.lastExecutionRound !== Uint64(0)) {
         assert(Global.round >= group.lastExecutionRound + group.cooldownRounds, 'group cooldown not elapsed')
       }
       this._executeTransactionGroup(proposalId, proposal.groupId, group, proposal.numPayloads)
     } else {
-      // Admin change: re-check privilege against current group state.
       const change = clone(this.adminPayloads(proposalId).value)
-      this._assertPrivilegeForChange(change.changeType, group)
+      // Re-validate routing at execution time (proposal time only checks proposer's
+      // privilege, not the target group's type or guard state).
+      if (change.changeType === ADM_DISSOLVE_CUSTODIAN) {
+        assert(group.groupType === GT_CUSTODIAN, 'proposing group must be custodian')
+        assert(change.targetGroupId === proposal.groupId, 'can only dissolve own group')
+      } else {
+        this._assertPrivilegeForChange(change.changeType, group)
+      }
       this._applyAdminChange(change)
     }
 
@@ -896,12 +999,12 @@ export class AlgoSafe extends Contract {
     emit<ProposalExecuted>({ proposalId })
   }
 
-  /** Create a proposal record, auto-approving the proposer. Returns the proposal id. */
+  /**
+   * _newProposal — allocate a new proposal box and auto-approve it for the proposer.
+   * The auto-approval means single-signer groups can call proposeTransactionGroup
+   * with execute=true without a separate approve call.
+   */
   private _newProposal(groupId: uint64, payloadType: uint64, expiryRound: uint64): uint64 {
-    // No proposals until the clone-friendly bootstrap phase is closed — a
-    // member of an already-seeded group must not act while the creator is
-    // still copying the rest of the configuration. (Nothing can be approved
-    // or executed either, since no proposal can exist before this passes.)
     assert(this.bootstrapped.value === Uint64(1), 'not bootstrapped')
     assert(expiryRound > Global.round, 'expiry must be in the future')
     const group = clone(this.groups(groupId).value)
@@ -925,13 +1028,12 @@ export class AlgoSafe extends Contract {
 
     emit<ProposalCreated>({ proposalId: pid, groupId, payloadType, proposer: Txn.sender })
 
-    // Auto-approve the proposer (a verified member).
+    // Auto-approve on behalf of the proposer (counts as their approval).
     const stored = clone(this.proposals(pid).value)
     this._recordApproval(pid, stored)
     return pid
   }
 
-  /** Record an approval for `proposal` (already loaded) and update status. */
   private _recordApproval(proposalId: uint64, proposal: Proposal): void {
     const record: Approval = { signer: Txn.sender, round: Global.round }
     this.approvals({ proposalId, account: Txn.sender }).value = clone(record)
@@ -943,34 +1045,42 @@ export class AlgoSafe extends Contract {
     }
     this.proposals(proposalId).value = clone(updated)
 
-    emit<ProposalApproved>({
-      proposalId,
-      signer: Txn.sender,
-      approvalsCount: updated.approvalsCount,
-    })
+    emit<ProposalApproved>({ proposalId, signer: Txn.sender, approvalsCount: updated.approvalsCount })
   }
 
   // -------------------------------------------------------------------------
-  // Internal: execution of typed payloads
+  // Transaction group execution — two-pass inner-txn pattern
   // -------------------------------------------------------------------------
 
+  /**
+   * _executeTransactionGroup — execute all payload chunks for a READY transaction proposal.
+   *
+   * Two-pass design is required because op.ITxnCreate (low-level inner-txn builder)
+   * emits AVM opcodes immediately upon each setter call, and ensureBudget() cannot
+   * be called while an itxn group is open. Therefore:
+   *
+   *   Pass 1 — validate each transaction, account for spending-limit / guard
+   *             deductions, and call ensureBudget if needed (no group open).
+   *   Pass 2 — stage all inner transactions via op.ITxnCreate and submit.
+   *
+   * The low-level op.ITxnCreate API is used instead of the typed itxnCompose API
+   * because itxnCompose requires statically-sized tuples for appArgs/accounts/
+   * foreignApps/foreignAssets, whereas op.ITxnCreate.setApplicationArgs() (and
+   * equivalent setters) appends one element per call, enabling runtime-length loops.
+   *
+   * Custodian groups skip daily/monthly limit checks and call _deductFromGuard
+   * for every payment and asset-transfer entry instead.
+   */
   private _executeTransactionGroup(
     proposalId: uint64,
     groupId: uint64,
     groupIn: SignerGroup,
     numPayloads: uint64,
   ): void {
-    // The staging pass below builds one inner transaction group with the raw
-    // `op.ITxnCreate` opcodes, which holds an inner group open from the first
-    // `begin` until the final `submit`. `ensureBudget` issues its own opup inner
-    // transactions, so it cannot run while that group is open — the caller
-    // (`executeProposal`/`proposeTransactionGroup`) must reserve enough budget
-    // up front via `ensureBudgetValue` before either pass below runs. We still
-    // make two passes:
-    //   Pass 1 — decode, validate, and tally spend (no inner group open yet).
-    //   Pass 2 — decode again and stage each inner transaction.
     let group = clone(groupIn)
+    const isCustodian = groupIn.groupType === GT_CUSTODIAN
 
+    // Pass 1 — validate and account for spending / guard deductions.
     for (let p = Uint64(1); p <= numPayloads; p = p + Uint64(1)) {
       const key: uint64 = proposalId * TXG_KEY_MULT + p
       if (this.transactionGroups(key).exists) {
@@ -980,30 +1090,45 @@ export class AlgoSafe extends Contract {
           if (entry.txType === TX_PAYMENT) {
             const tx = decodeArc4<PaymentTxn>(entry.data)
             this._validatePayment(tx, groupIn)
-            // A close-remainder-to payment sweeps the sending account's entire
-            // ALGO balance, not just `tx.amount` — count the full balance
-            // against the limit so a close can't bypass it (H-01 audit finding).
-            let amount: uint64 = Uint64(0)
-            if (group.limitAssetId === Uint64(0)) {
-              amount = tx.hasClose !== Uint64(0) ? op.balance(this._resolveSender(tx.sender)) : tx.amount
+            if (isCustodian) {
+              // Close-out sweeps the full balance; read it now before pass 2 empties it.
+              const sender = tx.sender === Global.zeroAddress ? Global.currentApplicationAddress : tx.sender
+              const amount = tx.hasClose !== Uint64(0) ? op.balance(sender) : tx.amount
+              this._deductFromGuard(groupId, Uint64(0), amount)
+            } else {
+              let amount: uint64 = Uint64(0)
+              if (group.limitAssetId === Uint64(0)) {
+                const sender = tx.sender === Global.zeroAddress ? Global.currentApplicationAddress : tx.sender
+                amount = tx.hasClose !== Uint64(0) ? op.balance(sender) : tx.amount
+              }
+              group = this._accountSpend(group, amount)
             }
-            group = this._accountSpend(group, amount)
           } else if (entry.txType === TX_ASSET) {
             const tx = decodeArc4<AssetTxn>(entry.data)
             this._validateAsset(tx, groupIn)
-            const tracked = group.limitAssetId !== Uint64(0) && tx.xferAsset === group.limitAssetId
-            // Likewise, an asset close-to sweeps the sending account's entire
-            // holding of that ASA, not just `tx.assetAmount` (H-01 audit finding).
-            let amount: uint64 = Uint64(0)
-            if (tracked) {
+            if (isCustodian) {
+              let amount: uint64 = tx.assetAmount
               if (tx.hasAssetClose !== Uint64(0)) {
-                const [bal] = op.AssetHolding.assetBalance(this._resolveSender(tx.sender), tx.xferAsset)
+                // Close-out sweeps entire asset balance — read live balance.
+                const sender = tx.sender === Global.zeroAddress ? Global.currentApplicationAddress : tx.sender
+                const [bal] = op.AssetHolding.assetBalance(sender, tx.xferAsset)
                 amount = bal
-              } else {
-                amount = tx.assetAmount
               }
+              this._deductFromGuard(groupId, tx.xferAsset, amount)
+            } else {
+              const tracked = group.limitAssetId !== Uint64(0) && tx.xferAsset === group.limitAssetId
+              let amount: uint64 = Uint64(0)
+              if (tracked) {
+                if (tx.hasAssetClose !== Uint64(0)) {
+                  const sender = tx.sender === Global.zeroAddress ? Global.currentApplicationAddress : tx.sender
+                  const [bal] = op.AssetHolding.assetBalance(sender, tx.xferAsset)
+                  amount = bal
+                } else {
+                  amount = tx.assetAmount
+                }
+              }
+              group = this._accountSpend(group, amount)
             }
-            group = this._accountSpend(group, amount)
           } else if (entry.txType === TX_APP) {
             const tx = decodeArc4<AppTxn>(entry.data)
             this._validateApp(tx, groupIn)
@@ -1026,6 +1151,7 @@ export class AlgoSafe extends Contract {
     group.lastExecutionRound = Global.round
     this.groups(groupId).value = clone(group)
 
+    // Pass 2 — stage inner transactions. No budget calls allowed here (group is open).
     let txIndex = Uint64(0)
     for (let p = Uint64(1); p <= numPayloads; p = p + Uint64(1)) {
       const key: uint64 = proposalId * TXG_KEY_MULT + p
@@ -1055,24 +1181,33 @@ export class AlgoSafe extends Contract {
     op.ITxnCreate.submit()
   }
 
-  // All staging uses the low-level `op.ITxnCreate` builder (the `itxn_begin` /
-  // `itxn_field` / `itxn_next` / `itxn_submit` opcodes). The reference-array
-  // setters (`setApplicationArgs`, `setAccounts`, `setAssets`, `setApplications`)
-  // append one element per call, so dynamic arrays are emitted with simple loops
-  // — far smaller than enumerating every possible length, which the typed
-  // `itxn`/`itxnCompose` APIs would require.
+  /**
+   * _deductFromGuard — subtract amount from the custodian group's asset guard.
+   * Called in pass 1 (before inner txns are submitted). Because pass 1 runs before
+   * the inner group executes, a failed inner transaction (pass 2) will cause the
+   * entire AVM transaction to revert, automatically rolling back these deductions.
+   */
+  private _deductFromGuard(custodianGroupId: uint64, assetId: uint64, amount: uint64): void {
+    if (amount === Uint64(0)) return
+    const guardKey = { custodianGroupId, assetId }
+    assert(this.assetGuards(guardKey).exists, 'no guard for custodian+asset')
+    const guard = clone(this.assetGuards(guardKey).value)
+    assert(guard.lockedAmount >= amount, 'exceeds guard allocation')
+    guard.lockedAmount = guard.lockedAmount - amount
+    this.assetGuards(guardKey).value = clone(guard)
+  }
+
+  // -------------------------------------------------------------------------
+  // Inner-transaction staging helpers
+  // -------------------------------------------------------------------------
+
+  /** _beginOrNext — start or extend an op.ITxnCreate group. */
   private _beginOrNext(first: boolean): void {
     if (first) op.ITxnCreate.begin()
     else op.ITxnCreate.next()
   }
 
-  /** The account a stored `sender` field denotes: zero address = the safe itself. */
-  private _resolveSender(sender: Account): Account {
-    return sender === Global.zeroAddress ? Global.currentApplicationAddress : sender
-  }
-
-  // `itxn_begin`/`itxn_next` initialise Sender to the application account, so
-  // an explicit setSender is only needed for a rekeyed external sender.
+  /** _setSenderIfSet — override the inner-txn sender only when explicitly specified. */
   private _setSenderIfSet(sender: Account): void {
     if (sender !== Global.zeroAddress) op.ITxnCreate.setSender(sender)
   }
@@ -1100,20 +1235,29 @@ export class AlgoSafe extends Contract {
     if (tx.note !== '') op.ITxnCreate.setNote(Bytes(tx.note))
   }
 
-  // A rekey is a 0-amount self-payment carrying RekeyTo. After it executes,
-  // `rekeyTo` — not the safe — controls the sender account, so ACT_REKEY
-  // should only be granted to high-trust groups.
+  /**
+   * _stageRekey — emit a 0-amount self-payment with RekeyTo set.
+   * sender=zero means the safe itself; otherwise the registered rekeyed address.
+   * The receiver must equal the (resolved) sender so no ALGO moves.
+   */
   private _stageRekey(tx: RekeyTxn, first: boolean): void {
     this._beginOrNext(first)
     op.ITxnCreate.setTypeEnum(Uint64(TransactionType.Payment))
     op.ITxnCreate.setFee(Uint64(0))
     this._setSenderIfSet(tx.sender)
-    op.ITxnCreate.setReceiver(this._resolveSender(tx.sender))
+    const selfAddr = tx.sender === Global.zeroAddress ? Global.currentApplicationAddress : tx.sender
+    op.ITxnCreate.setReceiver(selfAddr)
     op.ITxnCreate.setAmount(Uint64(0))
     op.ITxnCreate.setRekeyTo(tx.rekeyTo)
     if (tx.note !== '') op.ITxnCreate.setNote(Bytes(tx.note))
   }
 
+  /**
+   * _stageAppCall — stage an application-call inner transaction.
+   * Uses op.ITxnCreate loop setters for appArgs/accounts/foreignApps/foreignAssets
+   * because the typed itxnCompose API requires statically-sized tuples, whereas
+   * these arrays are runtime-length. Each setter call appends one element.
+   */
   private _stageAppCall(tx: AppTxn, first: boolean): void {
     this._beginOrNext(first)
     op.ITxnCreate.setTypeEnum(Uint64(TransactionType.ApplicationCall))
@@ -1140,8 +1284,6 @@ export class AlgoSafe extends Contract {
     op.ITxnCreate.setTypeEnum(Uint64(TransactionType.KeyRegistration))
     op.ITxnCreate.setFee(Uint64(0))
     if (tx.online !== Uint64(0)) {
-      // Setters accept plain `bytes`; the AVM enforces the 32/32/64-byte sizes
-      // at submit time (off-chain builders supply correctly-sized keys).
       op.ITxnCreate.setVotePk(tx.voteKey)
       op.ITxnCreate.setSelectionPk(tx.selectionKey)
       op.ITxnCreate.setStateProofPk(tx.stateProofKey)
@@ -1151,13 +1293,16 @@ export class AlgoSafe extends Contract {
     }
   }
 
+  /**
+   * _stageAssetConfig — stage an asset-create or asset-reconfigure inner transaction.
+   * For asset CREATE (configAsset === 0): do NOT call setConfigAsset — setting it to
+   * 0 triggers "unavailable Asset 0" on the AVM. Only set it for reconfigure/destroy.
+   */
   private _stageAssetConfig(tx: AssetConfigTxn, first: boolean): void {
     this._beginOrNext(first)
     op.ITxnCreate.setTypeEnum(Uint64(TransactionType.AssetConfig))
     op.ITxnCreate.setFee(Uint64(0))
     if (tx.configAsset === Uint64(0)) {
-      // Create: set the immutable asset parameters. ConfigAsset is left unset
-      // (0); setting it to 0 would trigger a resource-availability check.
       op.ITxnCreate.setConfigAssetTotal(tx.total)
       op.ITxnCreate.setConfigAssetDecimals(tx.decimals)
       op.ITxnCreate.setConfigAssetDefaultFrozen(tx.defaultFrozen !== Uint64(0))
@@ -1166,8 +1311,6 @@ export class AlgoSafe extends Contract {
       if (tx.url !== '') op.ITxnCreate.setConfigAssetUrl(Bytes(tx.url))
       if (tx.metadataHash.length === Uint64(32)) op.ITxnCreate.setConfigAssetMetadataHash(tx.metadataHash)
     } else {
-      // Reconfigure (or destroy, when all addresses are zero): only the asset id
-      // and the mutable address roles may be set; the immutable params must not.
       op.ITxnCreate.setConfigAsset(tx.configAsset)
     }
     op.ITxnCreate.setConfigAssetManager(tx.manager)
@@ -1176,6 +1319,10 @@ export class AlgoSafe extends Contract {
     op.ITxnCreate.setConfigAssetClawback(tx.clawback)
     if (tx.note !== '') op.ITxnCreate.setNote(Bytes(tx.note))
   }
+
+  // -------------------------------------------------------------------------
+  // Transaction validation helpers
+  // -------------------------------------------------------------------------
 
   private _validatePayment(tx: PaymentTxn, group: SignerGroup): void {
     assert((group.allowedActions & ACT_PAY) !== Uint64(0), 'pay not allowed')
@@ -1195,13 +1342,11 @@ export class AlgoSafe extends Contract {
 
   private _validateApp(tx: AppTxn, group: SignerGroup): void {
     assert((group.allowedActions & ACT_APPL) !== Uint64(0), 'appl not allowed')
-    assert(tx.appId !== Uint64(0), 'appId required') // create/update need programs and are not supported here
-    // Defense in depth: the AVM already rejects a direct or indirect self-call
-    // (see PRODUCT-DESCRIPTION.md), so this can never actually succeed — but
-    // failing here gives a clear contract-level error instead of a generic AVM
-    // panic partway through staging (L-01 audit finding).
+    assert(tx.appId !== Uint64(0), 'appId required')
+    // Prevent the safe from calling itself — could be used to bypass governance.
     assert(tx.appId !== Global.currentApplicationId.id, 'self-call not allowed')
     assert(tx.onCompletion <= Uint64(5), 'invalid onCompletion')
+    // UpdateApplication is blocked because the safe cannot carry approval program bytes.
     assert(tx.onCompletion !== Uint64(4), 'app update not supported')
     const numArgs = Uint64(tx.appArgs.length)
     const numAccounts = Uint64(tx.accounts.length)
@@ -1227,23 +1372,21 @@ export class AlgoSafe extends Contract {
     )
   }
 
+  /**
+   * _validateRekey — require both ACT_REKEY and PRIV_GROUP.
+   * Rekey is the most privileged operation: it transfers spending authority
+   * over a rekeyed account to a new address, so it requires not just an
+   * execution-capable group but an admin-grade group (PRIV_GROUP).
+   * Custodian groups are explicitly blocked — their protocol contract may be
+   * compromised and must not be able to transfer control of external accounts.
+   */
   private _validateRekey(tx: RekeyTxn, group: SignerGroup): void {
     assert((group.allowedActions & ACT_REKEY) !== Uint64(0), 'rekey not allowed')
-    // A rekey permanently hands control of the sender account to `rekeyTo`, so
-    // it is reserved for admin consensus: on top of the ACT_REKEY action bit,
-    // the executing group must hold the group-admin privilege. Validation runs
-    // at execution time against the group's live state, so the proposal only
-    // executes once an admin-capable group's M-of-N threshold has been met.
     assert((group.adminPrivileges & PRIV_GROUP) !== Uint64(0), 'rekey requires group admin privilege')
-    // The zero address never rekeys anything (it is the protocol's "no rekey"
-    // sentinel); releasing an account back to its own key is expressed by
-    // rekeying it to its own address.
+    assert(group.groupType !== GT_CUSTODIAN, 'custodian groups cannot rekey')
     assert(tx.rekeyTo !== Global.zeroAddress, 'rekey target required')
   }
 
-  // Stores a payload chunk at the given slot. The clone loop for SafeTxnGroup
-  // lives here so it is compiled once as a subroutine rather than being
-  // duplicated at every call site.
   private _storePayloadGroup(proposalId: uint64, payloadIndex: uint64, payload: SafeTxnGroup): void {
     if (payload.length > Uint64(0)) {
       this.transactionGroups(proposalId * TXG_KEY_MULT + payloadIndex).value = clone(payload)
@@ -1251,18 +1394,13 @@ export class AlgoSafe extends Contract {
   }
 
   /**
-   * Advance the group's daily and monthly usage counters by `amount` (the value
-   * already resolved by the caller against the group's tracked asset:
-   * `limitAssetId` 0 tracks ALGO payments, any other value tracks that ASA's
-   * transfers). Resets the relevant period window first when it has elapsed. An
-   * `amount` of 0 (untracked transaction) or a limit of 0 means "no limit".
+   * _accountSpend — enforce daily and monthly spending limits for standard groups.
+   * Resets the usage counter and window start when the current window has elapsed.
+   * Only the limitAssetId asset is tracked; other assets increment amount=0 and pass through.
    */
   private _accountSpend(groupIn: SignerGroup, amount: uint64): SignerGroup {
     const group = clone(groupIn)
-
-    if (amount === Uint64(0)) {
-      return group
-    }
+    if (amount === Uint64(0)) return group
 
     const now = Global.latestTimestamp
 
@@ -1288,9 +1426,10 @@ export class AlgoSafe extends Contract {
   }
 
   // -------------------------------------------------------------------------
-  // Internal: admin change application
+  // Admin change helpers
   // -------------------------------------------------------------------------
 
+  /** _assertPrivilegeForChange — dispatch privilege requirement by change type. */
   private _assertPrivilegeForChange(changeType: uint64, group: SignerGroup): void {
     if (changeType === ADM_SET_POLICY) {
       assert((group.adminPrivileges & PRIV_POLICY) !== Uint64(0), 'policy admin required')
@@ -1300,10 +1439,10 @@ export class AlgoSafe extends Contract {
   }
 
   /**
-   * True if applying `change` would strip PRIV_GROUP (via ADM_SET_PRIVILEGES) or
-   * deactivate (via ADM_SET_ACTIVE) the last remaining active PRIV_GROUP holder,
-   * which would permanently lock governance out of the non-upgradable contract.
-   * Reads `group` fresh so it reflects state at validation/apply time.
+   * _wouldRemoveLastGroupAdmin — M-01 lockout guard predicate.
+   * Returns true when applying the proposed change would leave zero active groups
+   * holding PRIV_GROUP, which would make the safe un-governable. Checked at
+   * execution time for both ADM_SET_PRIVILEGES and ADM_SET_ACTIVE.
    */
   private _wouldRemoveLastGroupAdmin(change: AdminChange, group: SignerGroup): boolean {
     const hasGroupPriv = (group.adminPrivileges & PRIV_GROUP) !== Uint64(0)
@@ -1321,61 +1460,20 @@ export class AlgoSafe extends Contract {
     return false
   }
 
-  private _validateAdminChange(change: AdminChange): void {
-    if (change.changeType === ADM_CREATE_GROUP) {
-      assert(change.threshold >= Uint64(1), 'threshold >= 1')
-      assert(change.memberAddr !== Global.zeroAddress, 'first member required')
-      assert(change.allowedActions <= ACT_ALL, 'invalid actions')
-      assert(change.adminPrivileges <= PRIV_ALL, 'invalid privileges')
-      assert(change.cooldownRounds <= MAX_COOLDOWN_ROUNDS, 'cooldown too large')
-    } else if (change.changeType === ADM_ADD_MEMBER) {
-      assert(this.groups(change.targetGroupId).exists, 'target group not found')
-      assert(change.memberAddr !== Global.zeroAddress, 'member required')
-    } else if (change.changeType === ADM_REMOVE_MEMBER) {
-      assert(this.groups(change.targetGroupId).exists, 'target group not found')
-    } else if (change.changeType === ADM_CHANGE_THRESHOLD) {
-      assert(this.groups(change.targetGroupId).exists, 'target group not found')
-      assert(change.threshold >= Uint64(1), 'threshold >= 1')
-    } else if (change.changeType === ADM_SET_POLICY) {
-      assert(this.groups(change.targetGroupId).exists, 'target group not found')
-      assert(change.allowedActions <= ACT_ALL, 'invalid actions')
-      assert(change.cooldownRounds <= MAX_COOLDOWN_ROUNDS, 'cooldown too large')
-    } else if (change.changeType === ADM_SET_PRIVILEGES) {
-      assert(this.groups(change.targetGroupId).exists, 'target group not found')
-      assert(change.adminPrivileges <= PRIV_ALL, 'invalid privileges')
-      assert(
-        !this._wouldRemoveLastGroupAdmin(change, clone(this.groups(change.targetGroupId).value)),
-        'must keep at least one active group admin',
-      )
-    } else if (change.changeType === ADM_SET_ACTIVE) {
-      assert(this.groups(change.targetGroupId).exists, 'target group not found')
-      assert(
-        !this._wouldRemoveLastGroupAdmin(change, clone(this.groups(change.targetGroupId).value)),
-        'must keep at least one active group admin',
-      )
-    } else if (change.changeType === ADM_ADD_REKEYED_ADDR) {
-      assert(change.memberAddr !== Global.zeroAddress, 'address required')
-      assert(!this.rekeyedAddresses(change.memberAddr).exists, 'already registered')
-    } else if (change.changeType === ADM_REMOVE_REKEYED_ADDR) {
-      assert(this.rekeyedAddresses(change.memberAddr).exists, 'not registered')
-    } else if (change.changeType === ADM_SET_PAUSED) {
-      // No extra validation: activeFlag (reused as the desired paused state,
-      // nonzero = paused) needs no bounds check beyond the !== 0 boolean
-      // semantics already used throughout AdminChange.
-    } else {
-      assert(false, 'unknown change type')
-    }
-  }
-
+  /**
+   * _applyAdminChange — execute a validated admin change.
+   * Called from _executeProposalInternal after proposal-level checks pass.
+   * Each branch implements one ADM_* change type. The else-branch handles
+   * ADM_SET_PAUSED (value 10) without an explicit constant to save binary space.
+   */
   private _applyAdminChange(change: AdminChange): void {
     if (change.changeType === ADM_CREATE_GROUP) {
-      this._adminCreateGroup(change)
+      this._createGroup(change, GT_STANDARD)
     } else if (change.changeType === ADM_ADD_MEMBER) {
       this._adminAddMember(change)
     } else if (change.changeType === ADM_REMOVE_MEMBER) {
       this._adminRemoveMember(change)
     } else if (change.changeType === ADM_ADD_REKEYED_ADDR) {
-      // Re-check at apply time: another proposal may have registered it since.
       assert(!this.rekeyedAddresses(change.memberAddr).exists, 'already registered')
       const entry: RekeyedAddress = { label: change.memberLabel, addedRound: Global.round }
       this.rekeyedAddresses(change.memberAddr).value = clone(entry)
@@ -1399,6 +1497,7 @@ export class AlgoSafe extends Contract {
       group.monthlyLimit = change.monthlyLimit
       group.cooldownRounds = change.cooldownRounds
       if (assetChanged) {
+        // Reset usage counters when the limit asset changes to avoid stale accounting.
         const now = Global.latestTimestamp
         group.dailyUsage = Uint64(0)
         group.dailyPeriodStart = now
@@ -1409,8 +1508,8 @@ export class AlgoSafe extends Contract {
       emit<GroupUpdated>({ groupId: change.targetGroupId })
     } else if (change.changeType === ADM_SET_PRIVILEGES) {
       const group = clone(this.groups(change.targetGroupId).value)
-      // Re-check against current state at apply time (state may have shifted
-      // since proposal creation, e.g. another admin change executed first).
+      // Custodian groups can never hold admin privileges.
+      assert(group.groupType === GT_STANDARD, 'cannot set privileges on custodian groups')
       assert(!this._wouldRemoveLastGroupAdmin(change, group), 'must keep at least one active group admin')
       const hadGroupPriv = (group.adminPrivileges & PRIV_GROUP) !== Uint64(0)
       const willHaveGroupPriv = (change.adminPrivileges & PRIV_GROUP) !== Uint64(0)
@@ -1424,29 +1523,79 @@ export class AlgoSafe extends Contract {
       emit<GroupUpdated>({ groupId: change.targetGroupId })
     } else if (change.changeType === ADM_SET_ACTIVE) {
       const group = clone(this.groups(change.targetGroupId).value)
-      assert(!this._wouldRemoveLastGroupAdmin(change, group), 'must keep at least one active group admin')
-      const hasGroupPriv = (group.adminPrivileges & PRIV_GROUP) !== Uint64(0)
       const wasActive = group.active !== Uint64(0)
       const willBeActive = change.activeFlag !== Uint64(0)
-      if (hasGroupPriv && wasActive && !willBeActive) {
-        this.activePrivGroupCount.value = this.activePrivGroupCount.value - Uint64(1)
-      } else if (hasGroupPriv && !wasActive && willBeActive) {
-        this.activePrivGroupCount.value = this.activePrivGroupCount.value + Uint64(1)
+      if (group.groupType !== GT_CUSTODIAN) {
+        assert(!this._wouldRemoveLastGroupAdmin(change, group), 'must keep at least one active group admin')
+        const hasGroupPriv = (group.adminPrivileges & PRIV_GROUP) !== Uint64(0)
+        if (hasGroupPriv && wasActive && !willBeActive) {
+          this.activePrivGroupCount.value = this.activePrivGroupCount.value - Uint64(1)
+        } else if (hasGroupPriv && !wasActive && willBeActive) {
+          this.activePrivGroupCount.value = this.activePrivGroupCount.value + Uint64(1)
+        }
       }
       group.active = willBeActive ? Uint64(1) : Uint64(0)
       this.groups(change.targetGroupId).value = clone(group)
       emit<GroupUpdated>({ groupId: change.targetGroupId })
+    } else if (change.changeType === ADM_CREATE_CUSTODIAN) {
+      this._createGroup(change, GT_CUSTODIAN)
+    } else if (change.changeType === ADM_DISSOLVE_CUSTODIAN) {
+      // guardCount is validated at execution time (not at proposal time).
+      // The groupType assertion was also deferred — it was already checked by
+      // _executeProposalInternal before reaching here.
+      const gid = change.targetGroupId
+      const group = clone(this.groups(gid).value)
+      assert(group.guardCount === Uint64(0), 'remove all guards before dissolving')
+      this.groups(gid).delete()
+      if (this.groupCount.value > Uint64(0)) {
+        this.groupCount.value = this.groupCount.value - Uint64(1)
+      }
+      emit<CustodianGroupDissolved>({ groupId: gid })
+    } else if (change.changeType === ADM_SET_GUARD) {
+      const gid = change.targetGroupId
+      const assetId = change.limitAssetId  // limitAssetId doubles as guard assetId
+      const target = clone(this.groups(gid).value)
+      assert(target.groupType === GT_CUSTODIAN, 'target must be a custodian group')
+      const guardKey = { custodianGroupId: gid, assetId }
+      if (this.assetGuards(guardKey).exists) {
+        // Update existing guard — guardCount stays the same.
+        const guard = clone(this.assetGuards(guardKey).value)
+        guard.lockedAmount = change.guardAmount
+        this.assetGuards(guardKey).value = clone(guard)
+      } else {
+        // New guard — increment guardCount so dissolution is blocked until removed.
+        const guard: AssetGuard = { createdRound: Global.round, lockedAmount: change.guardAmount }
+        this.assetGuards(guardKey).value = clone(guard)
+        target.guardCount = target.guardCount + Uint64(1)
+        this.groups(gid).value = clone(target)
+      }
+      emit<AssetGuardSet>({ custodianGroupId: gid, assetId, lockedAmount: change.guardAmount })
+    } else if (change.changeType === ADM_REMOVE_GUARD) {
+      const gid = change.targetGroupId
+      const assetId = change.limitAssetId
+      const target = clone(this.groups(gid).value)
+      assert(target.groupType === GT_CUSTODIAN, 'target must be a custodian group')
+      const guardKey = { custodianGroupId: gid, assetId }
+      assert(this.assetGuards(guardKey).exists, 'guard not found')
+      this.assetGuards(guardKey).delete()
+      target.guardCount = target.guardCount - Uint64(1)
+      this.groups(gid).value = clone(target)
+      emit<AssetGuardRemoved>({ custodianGroupId: gid, assetId })
     } else {
-      // ADM_SET_PAUSED: activeFlag reused as the desired paused state (nonzero =
-      // paused). Always reachable regardless of the current paused state itself —
-      // proposeAdminChange/executeProposal's admin-change path never checks
-      // paused, so an unpause proposal can always be created and executed.
+      // ADM_SET_PAUSED (value 10) — not declared as a constant to save program space.
+      // activeFlag nonzero = pause; zero = unpause.
       this.paused.value = change.activeFlag !== Uint64(0) ? Uint64(1) : Uint64(0)
       emit<SafePaused>({ paused: this.paused.value })
     }
   }
 
-  private _adminCreateGroup(change: AdminChange): void {
+  /**
+   * _createGroup — shared helper for ADM_CREATE_GROUP and ADM_CREATE_CUSTODIAN.
+   * Enforces adminPrivileges=0 for custodian groups regardless of what the
+   * AdminChange carries. Starts with memberCount=1 (the first member from change).
+   * New groups must pass at most threshold=1 since they have exactly one member.
+   */
+  private _createGroup(change: AdminChange, groupType: uint64): void {
     const now = Global.latestTimestamp
     const gid: uint64 = this.nextGroupId.value
     assert(change.threshold <= Uint64(1), 'new group starts with one member')
@@ -1455,7 +1604,8 @@ export class AlgoSafe extends Contract {
       name: change.groupName,
       threshold: change.threshold,
       memberCount: Uint64(1),
-      adminPrivileges: change.adminPrivileges,
+      // Force adminPrivileges to 0 for custodian groups — the caller's value is ignored.
+      adminPrivileges: groupType === GT_CUSTODIAN ? Uint64(0) : change.adminPrivileges,
       allowedActions: change.allowedActions,
       limitAssetId: change.limitAssetId,
       dailyLimit: change.dailyLimit,
@@ -1468,6 +1618,8 @@ export class AlgoSafe extends Contract {
       lastExecutionRound: Uint64(0),
       membershipEpoch: Uint64(0),
       active: Uint64(1),
+      groupType,
+      guardCount: Uint64(0),
     }
     this.groups(gid).value = clone(grp)
 
@@ -1476,11 +1628,15 @@ export class AlgoSafe extends Contract {
 
     this.nextGroupId.value = gid + Uint64(1)
     this.groupCount.value = this.groupCount.value + Uint64(1)
-    if ((change.adminPrivileges & PRIV_GROUP) !== Uint64(0)) {
-      this.activePrivGroupCount.value = this.activePrivGroupCount.value + Uint64(1)
-    }
 
-    emit<GroupCreated>({ groupId: gid, name: change.groupName, threshold: change.threshold })
+    if (groupType === GT_CUSTODIAN) {
+      emit<CustodianGroupCreated>({ groupId: gid, name: change.groupName, threshold: change.threshold })
+    } else {
+      if ((change.adminPrivileges & PRIV_GROUP) !== Uint64(0)) {
+        this.activePrivGroupCount.value = this.activePrivGroupCount.value + Uint64(1)
+      }
+      emit<GroupCreated>({ groupId: gid, name: change.groupName, threshold: change.threshold })
+    }
     emit<MemberAdded>({ groupId: gid, member: change.memberAddr, accountType: change.memberType })
   }
 
@@ -1498,6 +1654,12 @@ export class AlgoSafe extends Contract {
     emit<MemberAdded>({ groupId: gid, member: change.memberAddr, accountType: change.memberType })
   }
 
+  /**
+   * _adminRemoveMember — remove a member and increment membershipEpoch.
+   * Incrementing the epoch invalidates every pending proposal's already-recorded
+   * approvals (they must be re-approved from scratch), closing the window where
+   * a since-removed (e.g. compromised) signer's stale approval still counted.
+   */
   private _adminRemoveMember(change: AdminChange): void {
     const gid = change.targetGroupId
     assert(this.members({ groupId: gid, account: change.memberAddr }).exists, 'not a member')
@@ -1507,9 +1669,6 @@ export class AlgoSafe extends Contract {
 
     this.members({ groupId: gid, account: change.memberAddr }).delete()
     group.memberCount = group.memberCount - Uint64(1)
-    // Bump the epoch so any pending proposal's already-recorded approvals (which
-    // may include one from the just-removed signer) are invalidated and must be
-    // re-approved from scratch (see M-02 audit finding).
     group.membershipEpoch = group.membershipEpoch + Uint64(1)
     this.groups(gid).value = clone(group)
 

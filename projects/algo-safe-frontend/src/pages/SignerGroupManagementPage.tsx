@@ -8,6 +8,7 @@ import {
   ACT_PAY,
   ADM_ADD_MEMBER,
   ADM_CHANGE_THRESHOLD,
+  ADM_DISSOLVE_CUSTODIAN,
   ADM_SET_ACTIVE,
   ADM_SET_POLICY,
   ADM_SET_PRIVILEGES,
@@ -58,7 +59,7 @@ type SpendingAssetOption = {
   isNative: boolean
 }
 
-type AdminChangeTuple = [bigint, bigint, string, string, bigint, string, bigint, bigint, bigint, bigint, bigint, bigint, bigint, bigint]
+type AdminChangeTuple = [bigint, bigint, string, string, bigint, string, bigint, bigint, bigint, bigint, bigint, bigint, bigint, bigint, bigint]
 
 function getCurrentRound(status: Record<string, unknown>) {
   const candidate = status.lastRound ?? status['last-round']
@@ -103,6 +104,7 @@ function toAdminChangeTuple(change: AdminChange): AdminChangeTuple {
     change.monthlyLimit,
     change.cooldownRounds,
     change.activeFlag,
+    change.guardAmount,
   ]
 }
 
@@ -491,6 +493,67 @@ export function SignerGroupManagementPage() {
     )
   }
 
+  async function handleDissolveCustodian(e: React.FormEvent) {
+    e.preventDefault()
+    // Dissolution is proposed by the custodian group itself.
+    setError(null)
+
+    if (!safe) {
+      reportError('The selected safe could not be loaded.')
+      return
+    }
+
+    if (!canSubmit) {
+      reportError('Connect a wallet before proposing dissolution.')
+      return
+    }
+
+    try {
+      setSubmittingSection('dissolve')
+
+      const senderAddress = algosdk.Address.fromString(activeAddress!)
+      const algorand = AlgorandClient.fromClients({ algod: algodClient }).setDefaultValidityWindow(TX_VALIDITY_WINDOW)
+      algorand.setSigner(senderAddress, transactionSigner!)
+
+      const clientVersion = await getAlgoSafeContractVersion(algodClient, BigInt(safe.appId))
+      const appClient = algorand.client.getTypedAppClientById(getClient(clientVersion ?? 'latest'), {
+        appId: BigInt(safe.appId),
+        defaultSender: senderAddress,
+      })
+
+      const status = (await algodClient.status().do()) as unknown as Record<string, unknown>
+      const expiryRound = getCurrentRound(status) + 2000n
+
+      const change = createAdminChange({
+        changeType: ADM_DISSOLVE_CUSTODIAN,
+        targetGroupId: BigInt(groupId),
+      })
+
+      const result = await appClient.send.proposeAdminChange({
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        args: [BigInt(groupId), toAdminChangeTuple(change) as unknown as AdminChange, expiryRound, 0n] as any,
+        maxFee: PROPOSAL_MAX_FEE,
+        coverAppCallInnerTransactionFees: true,
+        populateAppCallResources: true,
+        suppressLog: true,
+      })
+
+      const proposalId = result.return?.toString() ?? ''
+      const txId = result.txIds[0] ?? ''
+
+      await queryClient.invalidateQueries({ queryKey: ['proposals', safeId] })
+      await queryClient.invalidateQueries({ queryKey: ['proposal', safeId, proposalId] })
+      await queryClient.invalidateQueries({ queryKey: ['signer-groups', safeId] })
+
+      enqueueSnackbar('Custodian dissolution proposal created', { variant: 'success' })
+      navigate(`/safe/${safeId}/proposals/${proposalId}`, { state: { txId } })
+    } catch (submitError) {
+      reportError(submitError instanceof Error ? submitError.message : 'Failed to create dissolution proposal.')
+    } finally {
+      setSubmittingSection(null)
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="flex min-h-[320px] items-center justify-center">
@@ -548,11 +611,17 @@ export function SignerGroupManagementPage() {
           <div>
             <div className="flex items-center gap-2">
               <h2 className="text-xl font-semibold text-on-surface">{detail.group.name}</h2>
-              <span
-                className={`rounded-sm px-2 py-0.5 font-mono text-[11px] uppercase tracking-wide ${detail.group.isAdminGroup ? 'bg-primary/15 text-primary' : 'bg-secondary-container/20 text-secondary'}`}
-              >
-                {detail.group.isAdminGroup ? 'Admin' : 'Execution'}
-              </span>
+              {detail.group.isCustodian ? (
+                <span className="rounded-sm bg-warn/15 px-2 py-0.5 font-mono text-[11px] uppercase tracking-wide text-warn">
+                  Custodian
+                </span>
+              ) : (
+                <span
+                  className={`rounded-sm px-2 py-0.5 font-mono text-[11px] uppercase tracking-wide ${detail.group.isAdminGroup ? 'bg-primary/15 text-primary' : 'bg-secondary-container/20 text-secondary'}`}
+                >
+                  {detail.group.isAdminGroup ? 'Admin' : 'Execution'}
+                </span>
+              )}
             </div>
             <p className="mt-1 text-sm text-on-surface-variant">
               Group names are fixed at creation time. All other supported properties can be updated via proposals from an admin signer
@@ -591,6 +660,17 @@ export function SignerGroupManagementPage() {
           </div>
         </div>
       </Card>
+
+      {detail.group.isCustodian && (
+        <div className="rounded-md border border-outline-variant bg-surface-container-low px-4 py-3 text-sm text-on-surface-variant">
+          <span className="font-semibold text-on-surface">Custodian group</span> — this group is governed by a smart-contract protocol.
+          Asset guards (set by admins) bound what the custodian can spend. It has no admin privileges and uses guards instead of
+          day/month limits. The custodian can self-dissolve once all guards are removed.
+          {detail.group.guardCount > 0 && (
+            <span className="ml-2 font-mono text-[11px] text-warn">({detail.group.guardCount} active guard{detail.group.guardCount !== 1 ? 's' : ''})</span>
+          )}
+        </div>
+      )}
 
       <div className="grid gap-6 xl:grid-cols-2">
         <Card>
@@ -680,7 +760,7 @@ export function SignerGroupManagementPage() {
           </form>
         </Card>
 
-        <Card>
+        {!detail.group.isCustodian && <Card>
           <h2 className="text-lg font-semibold text-on-surface">Execution Policy</h2>
           <p className="mt-1 text-sm text-on-surface-variant">
             Update allowed actions, asset-based limits, and cooldown rounds for the signer group.
@@ -747,9 +827,9 @@ export function SignerGroupManagementPage() {
               {submittingSection === 'policy' ? 'Creating Proposal…' : 'Propose Policy Update'}
             </Button>
           </form>
-        </Card>
+        </Card>}
 
-        <Card>
+        {!detail.group.isCustodian && <Card>
           <h2 className="text-lg font-semibold text-on-surface">Admin Controls</h2>
           <p className="mt-1 text-sm text-on-surface-variant">
             Grant or revoke governance privileges and enable or disable the signer group.
@@ -782,7 +862,32 @@ export function SignerGroupManagementPage() {
               {submittingSection === 'status' ? 'Creating Proposal…' : 'Propose Status Update'}
             </Button>
           </form>
-        </Card>
+        </Card>}
+
+        {detail.group.isCustodian && (
+          <Card>
+            <h2 className="text-lg font-semibold text-on-surface">Self-Dissolution</h2>
+            <p className="mt-1 text-sm text-on-surface-variant">
+              A custodian group can dissolve itself. All asset guards must be removed by an admin before dissolution is permitted.
+            </p>
+            <form className="mt-5 space-y-4" onSubmit={handleDissolveCustodian}>
+              {detail.group.guardCount > 0 && (
+                <div className="rounded-md border border-error-container bg-error-container/30 px-4 py-3 text-sm text-on-error-container">
+                  This group still has {detail.group.guardCount} active guard{detail.group.guardCount !== 1 ? 's' : ''}. An admin must
+                  remove all guards before dissolution can proceed.
+                </div>
+              )}
+              <Button
+                type="submit"
+                variant="secondary"
+                disabled={!canSubmit || submittingSection !== null || detail.group.guardCount > 0}
+              >
+                <Icon name="delete_forever" className="text-base" />
+                {submittingSection === 'dissolve' ? 'Creating Proposal…' : 'Propose Dissolution'}
+              </Button>
+            </form>
+          </Card>
+        )}
       </div>
     </div>
   )

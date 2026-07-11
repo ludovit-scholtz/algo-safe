@@ -11,13 +11,19 @@ import {
   ADM_ADD_REKEYED_ADDR,
   ADM_CHANGE_THRESHOLD,
   ADM_CREATE_GROUP,
+  ADM_CREATE_CUSTODIAN,
+  ADM_DISSOLVE_CUSTODIAN,
   ADM_REMOVE_MEMBER,
   ADM_REMOVE_REKEYED_ADDR,
   ADM_SET_ACTIVE,
+  ADM_SET_GUARD,
+  ADM_REMOVE_GUARD,
   ADM_SET_PAUSED,
   ADM_SET_POLICY,
   ADM_SET_PRIVILEGES,
   FAR_EXPIRY,
+  GT_CUSTODIAN,
+  GT_STANDARD,
   PRIV_ALL,
   PRIV_GROUP,
   TX_ACFG,
@@ -1534,17 +1540,19 @@ describe('AlgoSafe contract', () => {
     const initialCount = await client.send.getActivePrivGroupCount({ args: { ensureBudgetValue: 0n }, suppressLog: true })
     expect(initialCount.return).toBe(1n)
 
+    // Proposal-time validation deferred; lockout guard is enforced at execution.
+    const { return: pid } = await client.send.proposeAdminChange({
+      args: {
+        groupId: 1n,
+        change: mkAdminChange({ changeType: ADM_SET_PRIVILEGES, targetGroupId: 1n, adminPrivileges: 0n }),
+        expiryRound: FAR_EXPIRY,
+        ensureBudgetValue: 0n,
+      },
+      suppressLog: true,
+      staticFee: (0.2).algo(),
+    })
     await expect(
-      client.send.proposeAdminChange({
-        args: {
-          groupId: 1n,
-          change: mkAdminChange({ changeType: ADM_SET_PRIVILEGES, targetGroupId: 1n, adminPrivileges: 0n }),
-          expiryRound: FAR_EXPIRY,
-          ensureBudgetValue: 0n,
-        },
-        suppressLog: true,
-        staticFee: (0.2).algo(),
-      }),
+      client.send.executeProposal({ args: { proposalId: pid!, ensureBudgetValue: 6000n }, ...execParams }),
     ).rejects.toThrow()
 
     const countAfter = await client.send.getActivePrivGroupCount({ args: { ensureBudgetValue: 0n }, suppressLog: true })
@@ -1554,17 +1562,19 @@ describe('AlgoSafe contract', () => {
   test('rejects deactivating the sole active PRIV_GROUP holder (M-01 lockout guard)', async () => {
     const { client } = await deployAndBootstrap()
 
+    // Proposal-time validation deferred; lockout guard is enforced at execution.
+    const { return: pid } = await client.send.proposeAdminChange({
+      args: {
+        groupId: 1n,
+        change: mkAdminChange({ changeType: ADM_SET_ACTIVE, targetGroupId: 1n, activeFlag: 0n }),
+        expiryRound: FAR_EXPIRY,
+        ensureBudgetValue: 0n,
+      },
+      suppressLog: true,
+      staticFee: (0.2).algo(),
+    })
     await expect(
-      client.send.proposeAdminChange({
-        args: {
-          groupId: 1n,
-          change: mkAdminChange({ changeType: ADM_SET_ACTIVE, targetGroupId: 1n, activeFlag: 0n }),
-          expiryRound: FAR_EXPIRY,
-          ensureBudgetValue: 0n,
-        },
-        suppressLog: true,
-        staticFee: (0.2).algo(),
-      }),
+      client.send.executeProposal({ args: { proposalId: pid!, ensureBudgetValue: 6000n }, ...execParams }),
     ).rejects.toThrow()
   })
 
@@ -1597,19 +1607,20 @@ describe('AlgoSafe contract', () => {
     count = await client.send.getActivePrivGroupCount({ args: { ensureBudgetValue: 0n }, suppressLog: true })
     expect(count.return).toBe(1n)
 
-    // Group 2 is now the sole holder — it cannot strip its own PRIV_GROUP either.
+    // Group 2 is now the sole holder — it cannot strip its own PRIV_GROUP either (blocked at execution).
+    const { return: pid } = await client.send.proposeAdminChange({
+      args: {
+        groupId: 2n,
+        change: mkAdminChange({ changeType: ADM_SET_PRIVILEGES, targetGroupId: 2n, adminPrivileges: 0n }),
+        expiryRound: FAR_EXPIRY,
+        ensureBudgetValue: 0n,
+      },
+      sender: b,
+      suppressLog: true,
+      staticFee: (0.2).algo(),
+    })
     await expect(
-      client.send.proposeAdminChange({
-        args: {
-          groupId: 2n,
-          change: mkAdminChange({ changeType: ADM_SET_PRIVILEGES, targetGroupId: 2n, adminPrivileges: 0n }),
-          expiryRound: FAR_EXPIRY,
-          ensureBudgetValue: 0n,
-        },
-        sender: b,
-        suppressLog: true,
-        staticFee: (0.2).algo(),
-      }),
+      client.send.executeProposal({ args: { proposalId: pid!, ensureBudgetValue: 6000n }, ...execParams }),
     ).rejects.toThrow()
   })
 
@@ -2297,6 +2308,7 @@ describe('AlgoSafe contract', () => {
       dailyLimit: 0n,
       monthlyLimit: 0n,
       cooldownRounds: 0n,
+      groupType: 0n,
     }
     const { return: gid } = await client.send.bootstrapGroup({
       args: {
@@ -2378,6 +2390,7 @@ describe('AlgoSafe contract', () => {
       dailyLimit: 0n,
       monthlyLimit: 0n,
       cooldownRounds: 0n,
+      groupType: 0n,
     }
     await client.send.bootstrapGroup({
       args: { seed, members: [[deployer.toString(), 1n, 'agent']], ensureBudgetValue: 0n },
@@ -2404,18 +2417,19 @@ describe('AlgoSafe contract', () => {
     const entry = await client.send.getRekeyedAddress({ args: { account: external.toString(), ensureBudgetValue: 0n }, suppressLog: true })
     expect(entry.return!.label).toBe('treasury ops')
 
-    // Duplicate registration is rejected at proposal validation.
+    // Duplicate registration is rejected at execution (not proposal) time.
+    const { return: dupPid } = await client.send.proposeAdminChange({
+      args: {
+        groupId: 1n,
+        change: mkAdminChange({ changeType: ADM_ADD_REKEYED_ADDR, memberAddr: external.toString() }),
+        expiryRound: FAR_EXPIRY,
+        ensureBudgetValue: 0n,
+      },
+      suppressLog: true,
+      staticFee: (0.2).algo(),
+    })
     await expect(
-      client.send.proposeAdminChange({
-        args: {
-          groupId: 1n,
-          change: mkAdminChange({ changeType: ADM_ADD_REKEYED_ADDR, memberAddr: external.toString() }),
-          expiryRound: FAR_EXPIRY,
-          ensureBudgetValue: 0n,
-        },
-        suppressLog: true,
-        staticFee: (0.2).algo(),
-      }),
+      client.send.executeProposal({ args: { proposalId: dupPid!, ensureBudgetValue: 6000n }, ...execParams }),
     ).rejects.toThrow()
 
     // A group without admin privileges cannot manage the registry.
@@ -2748,6 +2762,7 @@ describe('AlgoSafe contract', () => {
       dailyLimit: 0n,
       monthlyLimit: 0n,
       cooldownRounds: 0n,
+      groupType: 0n,
     }
     await client.send.bootstrapGroup({
       args: { seed, members: [[solo.toString(), 1n, 'solo']], ensureBudgetValue: 0n },
@@ -2849,5 +2864,330 @@ describe('AlgoSafe contract', () => {
     await expect(
       client.send.executeProposal({ args: { proposalId: pid!, ensureBudgetValue: 6000n }, ...execParams }),
     ).rejects.toThrow()
+  })
+
+  // ---------------------------------------------------------------------------
+  // Custodian Group tests
+  // ---------------------------------------------------------------------------
+
+  test('admin creates a custodian group via ADM_CREATE_CUSTODIAN proposal', async () => {
+    const { client } = await deployAndBootstrap()
+    const protocol = await localnet.context.generateAccount({ initialFunds: (1).algo() })
+
+    await governAdminChange(client, 1n, mkAdminChange({
+      changeType: ADM_CREATE_CUSTODIAN,
+      groupName: 'Lending Protocol',
+      threshold: 1n,
+      allowedActions: ACT_PAY | ACT_AXFER,
+      memberAddr: protocol.toString(),
+      memberType: 4n,
+      memberLabel: 'lending-contract',
+      cooldownRounds: 0n,
+    }))
+
+    const config = await client.send.getConfig({ args: { ensureBudgetValue: 0n }, suppressLog: true })
+    expect(config.return![1]).toBe(2n) // groupCount = 2
+
+    const custGroup = await client.send.getSignerGroup({ args: { groupId: 2n, ensureBudgetValue: 0n }, suppressLog: true })
+    expect(custGroup.return!.groupType).toBe(GT_CUSTODIAN)
+    expect(custGroup.return!.adminPrivileges).toBe(0n)
+    expect(custGroup.return!.guardCount).toBe(0n)
+    expect(custGroup.return!.active).toBe(1n)
+
+    const isMember = await client.send.isMember({ args: { groupId: 2n, account: protocol.toString(), ensureBudgetValue: 0n }, suppressLog: true })
+    expect(isMember.return).toBe(true)
+  })
+
+  test('custodian group cannot be created with admin privileges (_createGroup forces adminPrivileges=0)', async () => {
+    const { client } = await deployAndBootstrap()
+    const protocol = await localnet.context.generateAccount({ initialFunds: (1).algo() })
+
+    // _createGroup hard-codes adminPrivileges=0 for GT_CUSTODIAN groups even if the field is set.
+    await governAdminChange(client, 1n, mkAdminChange({
+      changeType: ADM_CREATE_CUSTODIAN,
+      groupName: 'Safe Lending',
+      threshold: 1n,
+      allowedActions: ACT_PAY,
+      adminPrivileges: PRIV_ALL, // silently zeroed in _createGroup
+      memberAddr: protocol.toString(),
+      memberType: 4n,
+      memberLabel: 'contract',
+    }))
+
+    const custGroup = await client.send.getSignerGroup({ args: { groupId: 2n, ensureBudgetValue: 0n }, suppressLog: true })
+    expect(custGroup.return!.adminPrivileges).toBe(0n)
+    expect(custGroup.return!.groupType).toBe(GT_CUSTODIAN)
+  })
+
+  test('cannot set admin privileges on a custodian group', async () => {
+    const { client } = await deployAndBootstrap()
+    const protocol = await localnet.context.generateAccount({ initialFunds: (1).algo() })
+
+    await governAdminChange(client, 1n, mkAdminChange({
+      changeType: ADM_CREATE_CUSTODIAN,
+      groupName: 'Stream',
+      threshold: 1n,
+      allowedActions: ACT_PAY,
+      memberAddr: protocol.toString(),
+      memberType: 4n,
+      memberLabel: 'streaming-contract',
+    }))
+
+    // proposeAdminChange succeeds (validation deferred to execution), but execute fails.
+    const { return: pid } = await client.send.proposeAdminChange({
+      args: {
+        groupId: 1n,
+        change: mkAdminChange({ changeType: ADM_SET_PRIVILEGES, targetGroupId: 2n, adminPrivileges: PRIV_GROUP }),
+        expiryRound: FAR_EXPIRY,
+        ensureBudgetValue: 0n,
+      },
+      suppressLog: true,
+      staticFee: (0.2).algo(),
+    })
+    await expect(
+      client.send.executeProposal({ args: { proposalId: pid!, ensureBudgetValue: 6000n }, ...execParams }),
+    ).rejects.toThrow()
+  })
+
+  test('admin creates an asset guard for a custodian group via ADM_SET_GUARD', async () => {
+    const { client } = await deployAndBootstrap()
+    const protocol = await localnet.context.generateAccount({ initialFunds: (1).algo() })
+
+    // Create custodian group (group 2).
+    await governAdminChange(client, 1n, mkAdminChange({
+      changeType: ADM_CREATE_CUSTODIAN,
+      groupName: 'Lending',
+      threshold: 1n,
+      allowedActions: ACT_PAY | ACT_AXFER,
+      memberAddr: protocol.toString(),
+      memberType: 4n,
+      memberLabel: 'lending',
+    }))
+
+    // Admin proposes ADM_SET_GUARD for custodian group 2, ALGO guard (limitAssetId=0).
+    await governAdminChange(client, 1n, mkAdminChange({
+      changeType: ADM_SET_GUARD,
+      targetGroupId: 2n,
+      limitAssetId: 0n,      // assetId=0 means ALGO
+      guardAmount: 500_000n,  // 0.5 ALGO
+    }))
+
+    // Guard should now exist.
+    const hasGuard = await client.send.hasAssetGuard({ args: { custodianGroupId: 2n, assetId: 0n, ensureBudgetValue: 0n }, suppressLog: true })
+    expect(hasGuard.return).toBe(true)
+
+    const guard = await client.send.getAssetGuard({ args: { custodianGroupId: 2n, assetId: 0n, ensureBudgetValue: 0n }, suppressLog: true })
+    expect(guard.return!.lockedAmount).toBe(500_000n)
+
+    // Group guardCount incremented.
+    const custGroup = await client.send.getSignerGroup({ args: { groupId: 2n, ensureBudgetValue: 0n }, suppressLog: true })
+    expect(custGroup.return!.guardCount).toBe(1n)
+
+    // A second ADM_SET_GUARD on the same slot updates lockedAmount.
+    await governAdminChange(client, 1n, mkAdminChange({
+      changeType: ADM_SET_GUARD,
+      targetGroupId: 2n,
+      limitAssetId: 0n,
+      guardAmount: 1_000_000n, // increase to 1 ALGO
+    }))
+
+    const updatedGuard = await client.send.getAssetGuard({ args: { custodianGroupId: 2n, assetId: 0n, ensureBudgetValue: 0n }, suppressLog: true })
+    expect(updatedGuard.return!.lockedAmount).toBe(1_000_000n)
+
+    // guardCount should still be 1 (slot reused, not added).
+    const updatedCustGroup = await client.send.getSignerGroup({ args: { groupId: 2n, ensureBudgetValue: 0n }, suppressLog: true })
+    expect(updatedCustGroup.return!.guardCount).toBe(1n)
+  })
+
+  test('admin removes a guard via ADM_REMOVE_GUARD', async () => {
+    const { client } = await deployAndBootstrap()
+    const protocol = await localnet.context.generateAccount({ initialFunds: (1).algo() })
+
+    await governAdminChange(client, 1n, mkAdminChange({
+      changeType: ADM_CREATE_CUSTODIAN, groupName: 'Stream', threshold: 1n,
+      allowedActions: ACT_PAY, memberAddr: protocol.toString(), memberType: 4n, memberLabel: 'stream',
+    }))
+
+    await governAdminChange(client, 1n, mkAdminChange({
+      changeType: ADM_SET_GUARD, targetGroupId: 2n, limitAssetId: 0n, guardAmount: 200_000n,
+    }))
+
+    // Verify guard exists.
+    let hasGuard = await client.send.hasAssetGuard({ args: { custodianGroupId: 2n, assetId: 0n, ensureBudgetValue: 0n }, suppressLog: true })
+    expect(hasGuard.return).toBe(true)
+
+    // Admin removes the guard.
+    await governAdminChange(client, 1n, mkAdminChange({
+      changeType: ADM_REMOVE_GUARD, targetGroupId: 2n, limitAssetId: 0n,
+    }))
+
+    hasGuard = await client.send.hasAssetGuard({ args: { custodianGroupId: 2n, assetId: 0n, ensureBudgetValue: 0n }, suppressLog: true })
+    expect(hasGuard.return).toBe(false)
+
+    // guardCount decremented.
+    const custGroup = await client.send.getSignerGroup({ args: { groupId: 2n, ensureBudgetValue: 0n }, suppressLog: true })
+    expect(custGroup.return!.guardCount).toBe(0n)
+  })
+
+  test('custodian can execute a payment within its ALGO guard allocation', async () => {
+    const { client } = await deployAndBootstrap()
+    const protocol = await localnet.context.generateAccount({ initialFunds: (1).algo() })
+    const recipient = await localnet.context.generateAccount({ initialFunds: (0).algo() })
+
+    await governAdminChange(client, 1n, mkAdminChange({
+      changeType: ADM_CREATE_CUSTODIAN, groupName: 'Lending', threshold: 1n,
+      allowedActions: ACT_PAY, memberAddr: protocol.toString(), memberType: 4n, memberLabel: 'lending',
+    }))
+
+    await governAdminChange(client, 1n, mkAdminChange({
+      changeType: ADM_SET_GUARD, targetGroupId: 2n, limitAssetId: 0n, guardAmount: 500_000n,
+    }))
+
+    // Custodian proposes and executes a payment of 100_000 microalgo.
+    const payment = safePayment(recipient.toString(), 100_000n)
+    const { return: pid } = await client.send.proposeTransactionGroup({
+      args: { groupId: 2n, payload: toSafeTxnGroup([payment]), expiryRound: FAR_EXPIRY, execute: false, ensureBudgetValue: 10000n },
+      sender: protocol,
+      suppressLog: true,
+      staticFee: (0.2).algo(),
+    })
+    await client.send.executeProposal({ args: { proposalId: pid!, ensureBudgetValue: 6000n }, ...execParams })
+
+    // Guard lockedAmount should decrease by 100_000.
+    const guardAfter = await client.send.getAssetGuard({ args: { custodianGroupId: 2n, assetId: 0n, ensureBudgetValue: 0n }, suppressLog: true })
+    expect(guardAfter.return!.lockedAmount).toBe(400_000n)
+  })
+
+  test('custodian payment is rejected when it exceeds the guard allocation', async () => {
+    const { client } = await deployAndBootstrap()
+    const protocol = await localnet.context.generateAccount({ initialFunds: (1).algo() })
+    const recipient = await localnet.context.generateAccount({ initialFunds: (0).algo() })
+
+    await governAdminChange(client, 1n, mkAdminChange({
+      changeType: ADM_CREATE_CUSTODIAN, groupName: 'Lending', threshold: 1n,
+      allowedActions: ACT_PAY, memberAddr: protocol.toString(), memberType: 4n, memberLabel: 'lending',
+    }))
+
+    await governAdminChange(client, 1n, mkAdminChange({
+      changeType: ADM_SET_GUARD, targetGroupId: 2n, limitAssetId: 0n, guardAmount: 100_000n,
+    }))
+
+    // Payment larger than guard.
+    const payment = safePayment(recipient.toString(), 200_000n)
+    const { return: pid } = await client.send.proposeTransactionGroup({
+      args: { groupId: 2n, payload: toSafeTxnGroup([payment]), expiryRound: FAR_EXPIRY, execute: false, ensureBudgetValue: 10000n },
+      sender: protocol,
+      suppressLog: true,
+      staticFee: (0.2).algo(),
+    })
+    await expect(
+      client.send.executeProposal({ args: { proposalId: pid!, ensureBudgetValue: 6000n }, ...execParams }),
+    ).rejects.toThrow()
+  })
+
+  test('custodian self-dissolves via ADM_DISSOLVE_CUSTODIAN (requires zero guards first)', async () => {
+    const { client } = await deployAndBootstrap()
+    const protocol = await localnet.context.generateAccount({ initialFunds: (1).algo() })
+
+    await governAdminChange(client, 1n, mkAdminChange({
+      changeType: ADM_CREATE_CUSTODIAN, groupName: 'Dissolve-Me', threshold: 1n,
+      allowedActions: ACT_PAY, memberAddr: protocol.toString(), memberType: 4n, memberLabel: 'protocol',
+    }))
+
+    // Dissolution is self-proposed by the custodian group itself.
+    const { return: pid } = await client.send.proposeAdminChange({
+      args: {
+        groupId: 2n,
+        change: mkAdminChange({ changeType: ADM_DISSOLVE_CUSTODIAN, targetGroupId: 2n }),
+        expiryRound: FAR_EXPIRY,
+        ensureBudgetValue: 0n,
+      },
+      sender: protocol,
+      suppressLog: true,
+      staticFee: (0.2).algo(),
+    })
+
+    await client.send.executeProposal({ args: { proposalId: pid!, ensureBudgetValue: 6000n }, ...execParams })
+
+    // groupCount decremented.
+    const config = await client.send.getConfig({ args: { ensureBudgetValue: 0n }, suppressLog: true })
+    expect(config.return![1]).toBe(1n)
+  })
+
+  test('dissolution is blocked when custodian still has active guards', async () => {
+    const { client } = await deployAndBootstrap()
+    const protocol = await localnet.context.generateAccount({ initialFunds: (1).algo() })
+
+    await governAdminChange(client, 1n, mkAdminChange({
+      changeType: ADM_CREATE_CUSTODIAN, groupName: 'Guarded', threshold: 1n,
+      allowedActions: ACT_PAY, memberAddr: protocol.toString(), memberType: 4n, memberLabel: 'p',
+    }))
+
+    // Admin creates a guard (admin-only, no dual-key).
+    await governAdminChange(client, 1n, mkAdminChange({
+      changeType: ADM_SET_GUARD, targetGroupId: 2n, limitAssetId: 0n, guardAmount: 100_000n,
+    }))
+
+    // Dissolution attempt should fail because guardCount > 0.
+    const { return: dpid } = await client.send.proposeAdminChange({
+      args: { groupId: 2n, change: mkAdminChange({ changeType: ADM_DISSOLVE_CUSTODIAN, targetGroupId: 2n }), expiryRound: FAR_EXPIRY, ensureBudgetValue: 0n },
+      sender: protocol, suppressLog: true, staticFee: (0.2).algo(),
+    })
+    await expect(
+      client.send.executeProposal({ args: { proposalId: dpid!, ensureBudgetValue: 6000n }, ...execParams }),
+    ).rejects.toThrow()
+  })
+
+  test('admin cannot dissolve a custodian group', async () => {
+    const { client } = await deployAndBootstrap()
+    const protocol = await localnet.context.generateAccount({ initialFunds: (1).algo() })
+
+    await governAdminChange(client, 1n, mkAdminChange({
+      changeType: ADM_CREATE_CUSTODIAN, groupName: 'Guarded', threshold: 1n,
+      allowedActions: ACT_PAY, memberAddr: protocol.toString(), memberType: 4n, memberLabel: 'p',
+    }))
+
+    // Admin group (GT_STANDARD) cannot propose ADM_DISSOLVE_CUSTODIAN.
+    await expect(
+      client.send.proposeAdminChange({
+        args: {
+          groupId: 1n,
+          change: mkAdminChange({ changeType: ADM_DISSOLVE_CUSTODIAN, targetGroupId: 2n }),
+          expiryRound: FAR_EXPIRY,
+          ensureBudgetValue: 0n,
+        },
+        suppressLog: true,
+        staticFee: (0.2).algo(),
+      }),
+    ).rejects.toThrow()
+  })
+
+  test('deactivating a custodian group via ADM_SET_ACTIVE marks it inactive', async () => {
+    const { client } = await deployAndBootstrap()
+    const protocol = await localnet.context.generateAccount({ initialFunds: (1).algo() })
+
+    await governAdminChange(client, 1n, mkAdminChange({
+      changeType: ADM_CREATE_CUSTODIAN, groupName: 'Protocol', threshold: 1n,
+      allowedActions: ACT_PAY, memberAddr: protocol.toString(), memberType: 4n, memberLabel: 'protocol',
+    }))
+
+    let custGroup = await client.send.getSignerGroup({ args: { groupId: 2n, ensureBudgetValue: 0n }, suppressLog: true })
+    expect(custGroup.return!.active).toBe(1n)
+
+    await governAdminChange(client, 1n, mkAdminChange({ changeType: ADM_SET_ACTIVE, targetGroupId: 2n, activeFlag: 0n }))
+
+    custGroup = await client.send.getSignerGroup({ args: { groupId: 2n, ensureBudgetValue: 0n }, suppressLog: true })
+    expect(custGroup.return!.active).toBe(0n)
+
+    // Re-activate.
+    await governAdminChange(client, 1n, mkAdminChange({ changeType: ADM_SET_ACTIVE, targetGroupId: 2n, activeFlag: 1n }))
+    custGroup = await client.send.getSignerGroup({ args: { groupId: 2n, ensureBudgetValue: 0n }, suppressLog: true })
+    expect(custGroup.return!.active).toBe(1n)
+  })
+
+  test('standard groups have groupType GT_STANDARD=0 by default', async () => {
+    const { client } = await deployAndBootstrap()
+    const adminGroup = await client.send.getSignerGroup({ args: { groupId: 1n, ensureBudgetValue: 0n }, suppressLog: true })
+    expect(adminGroup.return!.groupType).toBe(GT_STANDARD)
   })
 })

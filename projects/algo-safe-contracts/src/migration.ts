@@ -40,6 +40,7 @@ export type SafeGroupSeedRecord = {
   dailyLimit: bigint
   monthlyLimit: bigint
   cooldownRounds: bigint
+  groupType: bigint // GT_STANDARD=0n, GT_CUSTODIAN=1n
 }
 
 export type SafeMemberSeedRecord = {
@@ -180,6 +181,7 @@ export async function fetchSafeCloneConfig(
         dailyLimit: BigInt(group.dailyLimit),
         monthlyLimit: BigInt(group.monthlyLimit),
         cooldownRounds: BigInt(group.cooldownRounds),
+        groupType: BigInt(group.groupType ?? 0n),
       },
       members,
     })

@@ -20,6 +20,9 @@ export type LiveSignerGroup = {
   limitAsset: AssetMetadata
   active: boolean
   isAdminGroup: boolean
+  groupType: number
+  guardCount: number
+  isCustodian: boolean
 }
 
 export type LiveSignerGroupMember = {
@@ -71,6 +74,9 @@ function mapLiveSignerGroup(group: AlgoSafeSignerGroupRecord, limitAssetMap: Map
     limitAsset: limitAssetMap.get(Number(limitAssetId)) ?? getNativeAssetMetadata(),
     active: group.active,
     isAdminGroup: group.isAdminGroup,
+    groupType: group.groupType ?? 0,
+    guardCount: group.guardCount ?? 0,
+    isCustodian: (group.groupType ?? 0) === 1,
   }
 }
 
