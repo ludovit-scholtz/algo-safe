@@ -6,6 +6,8 @@ settings:
 
 importers:
 
+  .: {}
+
   projects/algo-safe-contracts:
     dependencies:
       '@algorandfoundation/algorand-typescript':
