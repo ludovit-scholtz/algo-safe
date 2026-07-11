@@ -571,7 +571,10 @@ async function hydrateProposal(
       ? await fetchTransactionGroupPayloads(client, isLatest, proposalId, contractProposal.numPayloads ?? 0n)
       : []
 
-  const adminChange = txns.length === 0 ? (await client.state.box.adminPayloads.value(proposalId).catch(() => undefined)) as AdminChange | undefined : undefined
+  const adminChange =
+    txns.length === 0
+      ? ((await client.state.box.adminPayloads.value(proposalId).catch(() => undefined)) as AdminChange | undefined)
+      : undefined
   const txPreview = txns.length > 0 ? await mapTxPreview(txns, isLatest, safe.address, resolveAsset) : []
   const amountDetails = txns.length > 0 ? await deriveAmount(txns, isLatest, resolveAsset) : undefined
   const adminPresentation = adminChange ? await deriveAdminChangePresentation(adminChange, contractProposal, resolveAsset) : undefined

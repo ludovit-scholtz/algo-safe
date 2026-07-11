@@ -59,7 +59,23 @@ type SpendingAssetOption = {
   isNative: boolean
 }
 
-type AdminChangeTuple = [bigint, bigint, string, string, bigint, string, bigint, bigint, bigint, bigint, bigint, bigint, bigint, bigint, bigint]
+type AdminChangeTuple = [
+  bigint,
+  bigint,
+  string,
+  string,
+  bigint,
+  string,
+  bigint,
+  bigint,
+  bigint,
+  bigint,
+  bigint,
+  bigint,
+  bigint,
+  bigint,
+  bigint,
+]
 
 function getCurrentRound(status: Record<string, unknown>) {
   const candidate = status.lastRound ?? status['last-round']
@@ -612,9 +628,7 @@ export function SignerGroupManagementPage() {
             <div className="flex items-center gap-2">
               <h2 className="text-xl font-semibold text-on-surface">{detail.group.name}</h2>
               {detail.group.isCustodian ? (
-                <span className="rounded-sm bg-warn/15 px-2 py-0.5 font-mono text-[11px] uppercase tracking-wide text-warn">
-                  Custodian
-                </span>
+                <span className="rounded-sm bg-warn/15 px-2 py-0.5 font-mono text-[11px] uppercase tracking-wide text-warn">Custodian</span>
               ) : (
                 <span
                   className={`rounded-sm px-2 py-0.5 font-mono text-[11px] uppercase tracking-wide ${detail.group.isAdminGroup ? 'bg-primary/15 text-primary' : 'bg-secondary-container/20 text-secondary'}`}
@@ -664,10 +678,12 @@ export function SignerGroupManagementPage() {
       {detail.group.isCustodian && (
         <div className="rounded-md border border-outline-variant bg-surface-container-low px-4 py-3 text-sm text-on-surface-variant">
           <span className="font-semibold text-on-surface">Custodian group</span> — this group is governed by a smart-contract protocol.
-          Asset guards (set by admins) bound what the custodian can spend. It has no admin privileges and uses guards instead of
-          day/month limits. The custodian can self-dissolve once all guards are removed.
+          Asset guards (set by admins) bound what the custodian can spend. It has no admin privileges and uses guards instead of day/month
+          limits. The custodian can self-dissolve once all guards are removed.
           {detail.group.guardCount > 0 && (
-            <span className="ml-2 font-mono text-[11px] text-warn">({detail.group.guardCount} active guard{detail.group.guardCount !== 1 ? 's' : ''})</span>
+            <span className="ml-2 font-mono text-[11px] text-warn">
+              ({detail.group.guardCount} active guard{detail.group.guardCount !== 1 ? 's' : ''})
+            </span>
           )}
         </div>
       )}
@@ -760,109 +776,117 @@ export function SignerGroupManagementPage() {
           </form>
         </Card>
 
-        {!detail.group.isCustodian && <Card>
-          <h2 className="text-lg font-semibold text-on-surface">Execution Policy</h2>
-          <p className="mt-1 text-sm text-on-surface-variant">
-            Update allowed actions, asset-based limits, and cooldown rounds for the signer group.
-          </p>
-          <form className="mt-5 space-y-4" onSubmit={handlePolicyUpdate}>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <label className="flex items-center gap-3 rounded-md border border-outline-variant bg-surface-container-low px-4 py-3 text-sm text-on-surface">
-                <input type="checkbox" checked={allowAlgo} onChange={(event) => setAllowAlgo(event.target.checked)} />
-                Allow ALGO payments
-              </label>
-              <label className="flex items-center gap-3 rounded-md border border-outline-variant bg-surface-container-low px-4 py-3 text-sm text-on-surface">
-                <input type="checkbox" checked={allowAsa} onChange={(event) => setAllowAsa(event.target.checked)} />
-                Allow ASA transfers
-              </label>
-              <label className="flex items-center gap-3 rounded-md border border-outline-variant bg-surface-container-low px-4 py-3 text-sm text-on-surface">
-                <input type="checkbox" checked={allowApp} onChange={(event) => setAllowApp(event.target.checked)} />
-                Allow app calls
-              </label>
-              <label className="flex items-center gap-3 rounded-md border border-outline-variant bg-surface-container-low px-4 py-3 text-sm text-on-surface">
-                <input type="checkbox" checked={allowKeyreg} onChange={(event) => setAllowKeyreg(event.target.checked)} />
-                Allow key registration
-              </label>
-            </div>
-            <FormField
-              label="Spending Limit Asset"
-              hint="The selected asset controls how the daily and monthly limit fields are interpreted and labeled."
-            >
-              <select className={inputCls} value={spendingLimitAssetKey} onChange={(event) => setSpendingLimitAssetKey(event.target.value)}>
-                {spendingLimitAssets.map((asset) => (
-                  <option key={asset.key} value={asset.key}>
-                    {asset.symbol}
-                    {asset.name ? ` · ${asset.name}` : ''}
-                    {asset.assetId && asset.assetId !== 0 ? ` · ${asset.assetId}` : ''}
-                    {` · Available ${asset.balanceDisplay}`}
-                  </option>
-                ))}
-              </select>
-            </FormField>
-            <div className="grid gap-4 md:grid-cols-3">
+        {!detail.group.isCustodian && (
+          <Card>
+            <h2 className="text-lg font-semibold text-on-surface">Execution Policy</h2>
+            <p className="mt-1 text-sm text-on-surface-variant">
+              Update allowed actions, asset-based limits, and cooldown rounds for the signer group.
+            </p>
+            <form className="mt-5 space-y-4" onSubmit={handlePolicyUpdate}>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="flex items-center gap-3 rounded-md border border-outline-variant bg-surface-container-low px-4 py-3 text-sm text-on-surface">
+                  <input type="checkbox" checked={allowAlgo} onChange={(event) => setAllowAlgo(event.target.checked)} />
+                  Allow ALGO payments
+                </label>
+                <label className="flex items-center gap-3 rounded-md border border-outline-variant bg-surface-container-low px-4 py-3 text-sm text-on-surface">
+                  <input type="checkbox" checked={allowAsa} onChange={(event) => setAllowAsa(event.target.checked)} />
+                  Allow ASA transfers
+                </label>
+                <label className="flex items-center gap-3 rounded-md border border-outline-variant bg-surface-container-low px-4 py-3 text-sm text-on-surface">
+                  <input type="checkbox" checked={allowApp} onChange={(event) => setAllowApp(event.target.checked)} />
+                  Allow app calls
+                </label>
+                <label className="flex items-center gap-3 rounded-md border border-outline-variant bg-surface-container-low px-4 py-3 text-sm text-on-surface">
+                  <input type="checkbox" checked={allowKeyreg} onChange={(event) => setAllowKeyreg(event.target.checked)} />
+                  Allow key registration
+                </label>
+              </div>
               <FormField
-                label={`Daily Limit (${selectedSpendingAsset.symbol})`}
-                hint={`Use 0 for no limit in ${selectedSpendingAsset.symbol}.`}
+                label="Spending Limit Asset"
+                hint="The selected asset controls how the daily and monthly limit fields are interpreted and labeled."
               >
-                <input className={inputCls} value={dailyLimit} onChange={(event) => setDailyLimit(event.target.value)} />
-              </FormField>
-              <FormField
-                label={`Monthly Limit (${selectedSpendingAsset.symbol})`}
-                hint={`Use 0 for no limit in ${selectedSpendingAsset.symbol}.`}
-              >
-                <input className={inputCls} value={monthlyLimit} onChange={(event) => setMonthlyLimit(event.target.value)} />
-              </FormField>
-              <FormField label="Cooldown Rounds" hint="Use 0 for no cooldown.">
-                <input
+                <select
                   className={inputCls}
-                  type="number"
-                  min={0}
-                  value={cooldownRounds}
-                  onChange={(event) => setCooldownRounds(event.target.value)}
-                />
+                  value={spendingLimitAssetKey}
+                  onChange={(event) => setSpendingLimitAssetKey(event.target.value)}
+                >
+                  {spendingLimitAssets.map((asset) => (
+                    <option key={asset.key} value={asset.key}>
+                      {asset.symbol}
+                      {asset.name ? ` · ${asset.name}` : ''}
+                      {asset.assetId && asset.assetId !== 0 ? ` · ${asset.assetId}` : ''}
+                      {` · Available ${asset.balanceDisplay}`}
+                    </option>
+                  ))}
+                </select>
               </FormField>
-            </div>
-            <Button type="submit" disabled={!canSubmit || submittingSection !== null}>
-              <Icon name="tune" className="text-base" />
-              {submittingSection === 'policy' ? 'Creating Proposal…' : 'Propose Policy Update'}
-            </Button>
-          </form>
-        </Card>}
+              <div className="grid gap-4 md:grid-cols-3">
+                <FormField
+                  label={`Daily Limit (${selectedSpendingAsset.symbol})`}
+                  hint={`Use 0 for no limit in ${selectedSpendingAsset.symbol}.`}
+                >
+                  <input className={inputCls} value={dailyLimit} onChange={(event) => setDailyLimit(event.target.value)} />
+                </FormField>
+                <FormField
+                  label={`Monthly Limit (${selectedSpendingAsset.symbol})`}
+                  hint={`Use 0 for no limit in ${selectedSpendingAsset.symbol}.`}
+                >
+                  <input className={inputCls} value={monthlyLimit} onChange={(event) => setMonthlyLimit(event.target.value)} />
+                </FormField>
+                <FormField label="Cooldown Rounds" hint="Use 0 for no cooldown.">
+                  <input
+                    className={inputCls}
+                    type="number"
+                    min={0}
+                    value={cooldownRounds}
+                    onChange={(event) => setCooldownRounds(event.target.value)}
+                  />
+                </FormField>
+              </div>
+              <Button type="submit" disabled={!canSubmit || submittingSection !== null}>
+                <Icon name="tune" className="text-base" />
+                {submittingSection === 'policy' ? 'Creating Proposal…' : 'Propose Policy Update'}
+              </Button>
+            </form>
+          </Card>
+        )}
 
-        {!detail.group.isCustodian && <Card>
-          <h2 className="text-lg font-semibold text-on-surface">Admin Controls</h2>
-          <p className="mt-1 text-sm text-on-surface-variant">
-            Grant or revoke governance privileges and enable or disable the signer group.
-          </p>
+        {!detail.group.isCustodian && (
+          <Card>
+            <h2 className="text-lg font-semibold text-on-surface">Admin Controls</h2>
+            <p className="mt-1 text-sm text-on-surface-variant">
+              Grant or revoke governance privileges and enable or disable the signer group.
+            </p>
 
-          <form className="mt-5 space-y-4" onSubmit={handlePrivilegesUpdate}>
-            <div className="grid gap-3 sm:grid-cols-2">
+            <form className="mt-5 space-y-4" onSubmit={handlePrivilegesUpdate}>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="flex items-center gap-3 rounded-md border border-outline-variant bg-surface-container-low px-4 py-3 text-sm text-on-surface">
+                  <input type="checkbox" checked={groupAdmin} onChange={(event) => setGroupAdmin(event.target.checked)} />
+                  Group admin privileges
+                </label>
+                <label className="flex items-center gap-3 rounded-md border border-outline-variant bg-surface-container-low px-4 py-3 text-sm text-on-surface">
+                  <input type="checkbox" checked={policyAdmin} onChange={(event) => setPolicyAdmin(event.target.checked)} />
+                  Policy admin privileges
+                </label>
+              </div>
+              <Button type="submit" disabled={!canSubmit || submittingSection !== null}>
+                <Icon name="admin_panel_settings" className="text-base" />
+                {submittingSection === 'privileges' ? 'Creating Proposal…' : 'Propose Privilege Update'}
+              </Button>
+            </form>
+
+            <form className="mt-6 space-y-4 border-t border-outline-variant pt-6" onSubmit={handleActiveUpdate}>
               <label className="flex items-center gap-3 rounded-md border border-outline-variant bg-surface-container-low px-4 py-3 text-sm text-on-surface">
-                <input type="checkbox" checked={groupAdmin} onChange={(event) => setGroupAdmin(event.target.checked)} />
-                Group admin privileges
+                <input type="checkbox" checked={isActive} onChange={(event) => setIsActive(event.target.checked)} />
+                Group is active and can participate in proposal approvals and execution.
               </label>
-              <label className="flex items-center gap-3 rounded-md border border-outline-variant bg-surface-container-low px-4 py-3 text-sm text-on-surface">
-                <input type="checkbox" checked={policyAdmin} onChange={(event) => setPolicyAdmin(event.target.checked)} />
-                Policy admin privileges
-              </label>
-            </div>
-            <Button type="submit" disabled={!canSubmit || submittingSection !== null}>
-              <Icon name="admin_panel_settings" className="text-base" />
-              {submittingSection === 'privileges' ? 'Creating Proposal…' : 'Propose Privilege Update'}
-            </Button>
-          </form>
-
-          <form className="mt-6 space-y-4 border-t border-outline-variant pt-6" onSubmit={handleActiveUpdate}>
-            <label className="flex items-center gap-3 rounded-md border border-outline-variant bg-surface-container-low px-4 py-3 text-sm text-on-surface">
-              <input type="checkbox" checked={isActive} onChange={(event) => setIsActive(event.target.checked)} />
-              Group is active and can participate in proposal approvals and execution.
-            </label>
-            <Button type="submit" disabled={!canSubmit || submittingSection !== null}>
-              <Icon name={isActive ? 'toggle_on' : 'toggle_off'} className="text-base" />
-              {submittingSection === 'status' ? 'Creating Proposal…' : 'Propose Status Update'}
-            </Button>
-          </form>
-        </Card>}
+              <Button type="submit" disabled={!canSubmit || submittingSection !== null}>
+                <Icon name={isActive ? 'toggle_on' : 'toggle_off'} className="text-base" />
+                {submittingSection === 'status' ? 'Creating Proposal…' : 'Propose Status Update'}
+              </Button>
+            </form>
+          </Card>
+        )}
 
         {detail.group.isCustodian && (
           <Card>
@@ -877,11 +901,7 @@ export function SignerGroupManagementPage() {
                   remove all guards before dissolution can proceed.
                 </div>
               )}
-              <Button
-                type="submit"
-                variant="secondary"
-                disabled={!canSubmit || submittingSection !== null || detail.group.guardCount > 0}
-              >
+              <Button type="submit" variant="secondary" disabled={!canSubmit || submittingSection !== null || detail.group.guardCount > 0}>
                 <Icon name="delete_forever" className="text-base" />
                 {submittingSection === 'dissolve' ? 'Creating Proposal…' : 'Propose Dissolution'}
               </Button>
