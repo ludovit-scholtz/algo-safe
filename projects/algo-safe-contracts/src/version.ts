@@ -43,7 +43,7 @@ function bytesToHex(bytes: Uint8Array) {
 
 async function hashApprovalProgram(approvalProgram: string | Uint8Array | number[]) {
   const approvalProgramBytes = normalizeApprovalProgram(approvalProgram)
-  const digest = await crypto.subtle.digest('SHA-256', approvalProgramBytes)
+  const digest = await crypto.subtle.digest('SHA-256', approvalProgramBytes as NodeJS.BufferSource)
   return bytesToHex(new Uint8Array(digest))
 }
 
