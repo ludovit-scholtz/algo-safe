@@ -623,7 +623,7 @@ export async function fetchLiveProposals(context: Omit<ProposalContext, 'transac
     ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (await readSafeConfig(client as any)).nextProposalId
     : // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ((((await (client as any).getConfig({ args: {} }))[3] ?? 1n) as bigint))
+      (((await (client as any).getConfig({ args: {} }))[3] ?? 1n) as bigint)
   const status = (await context.algodClient.status().do()) as unknown as Record<string, unknown>
   const currentRound = getCurrentRound(status)
   const resolveAsset = createAssetResolver(context.algodClient, context.safe)
