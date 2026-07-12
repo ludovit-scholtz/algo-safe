@@ -205,11 +205,11 @@ Use cases:
 | `ADM_CREATE_CUSTODIAN` | Any group with `PRIV_GROUP` | Creates a new custodian group and adds its first member |
 | `ADM_SET_GUARD` | Any group with `PRIV_GROUP` | Creates or updates an asset guard (increments `guardCount` on first creation) |
 | `ADM_REMOVE_GUARD` | Any group with `PRIV_GROUP` | Deletes an asset guard (decrements `guardCount`) |
-| `ADM_DISSOLVE_CUSTODIAN` | The custodian group itself only | Removes the group (blocked unless `guardCount == 0`) |
+| `ADM_DISSOLVE_CUSTODIAN` | The custodian group itself only | Removes the group and its last member box (blocked unless `guardCount == 0` and `memberCount == 1`) |
 
 ### Self-Dissolution
 
-A Custodian Group can only be dissolved by itself (`ADM_DISSOLVE_CUSTODIAN` proposed by the Custodian Group — admin groups cannot propose this for a non-self group). Dissolution is blocked at execution unless all Asset Guards have been removed first (`guardCount == 0`), ensuring no locked allocation is orphaned. On dissolution the Custodian Group's signer-group record is removed and `groupCount` is decremented.
+A Custodian Group can only be dissolved by itself (`ADM_DISSOLVE_CUSTODIAN` proposed by the Custodian Group — admin groups cannot propose this for a non-self group). Dissolution is blocked at execution unless all Asset Guards have been removed first (`guardCount == 0`) **and** the group has been pruned to a single member (`memberCount == 1`) — extra members are removed beforehand via `ADM_REMOVE_MEMBER`, which reclaims each member box's minimum balance. The dissolve proposal names the last member, whose box is deleted together with the signer-group record, so dissolution locks no storage minimum balance. Terminal proposals created by the group before dissolution remain prunable afterwards (the prune authorization check is waived once the group record is gone), so their storage deposits are recoverable too. On dissolution `groupCount` is decremented.
 
 ### Security Properties Summary
 

@@ -34,7 +34,8 @@
     "dist"
   ],
   "scripts": {
-    "build": "algokit compile ts smart_contracts --output-source-map --out-dir artifacts && algokit generate client smart_contracts/artifacts --output {app_spec_dir}/{contract_name}Client.ts && pnpm run sync-versioned-client",
+    "build": "algokit compile ts smart_contracts --output-source-map --out-dir artifacts && ts-node scripts/sync-validator-hash.ts && ts-node scripts/check-program-size.ts && algokit generate client smart_contracts/artifacts --output {app_spec_dir}/{contract_name}Client.ts && pnpm run sync-versioned-client",
+    "check-program-size": "ts-node scripts/check-program-size.ts",
     "build:contracts": "pnpm build",
     "build-package": "pnpm run sync-versioned-client && tsup src/index.ts --format cjs,esm --clean --sourcemap --external @algorandfoundation/algokit-utils --external algosdk --external tslib && tsc -p tsconfig.package.json",
     "deploy": "ts-node-dev --transpile-only --watch .env -r dotenv/config smart_contracts/index.ts",

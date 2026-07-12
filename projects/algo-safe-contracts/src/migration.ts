@@ -1,6 +1,7 @@
 import { AlgorandClient, microAlgo } from '@algorandfoundation/algokit-utils'
 import algosdk, { type TransactionSigner } from 'algosdk'
-import { buildAlgoSafeAppClient, type AlgoSafeOnChainRef } from './on-chain'
+import { buildAlgoSafeAppClient, readMember, readSafeConfig, readSignerGroup, type AlgoSafeOnChainRef } from './on-chain'
+import { resolveValidatorAppId } from './validator'
 import { AlgoSafeFactory } from './latest-client'
 import { LATEST_CONTRACT_HASH } from './get-client'
 import { getAlgoSafeContractVersion } from './version'
@@ -133,22 +134,16 @@ export async function fetchSafeCloneConfig(
   safe: AlgoSafeOnChainRef,
 ): Promise<SafeCloneConfig> {
   const client = await buildAlgoSafeAppClient(algodClient, safe)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const configResult = await (client.send as any).getConfig({ args: { ensureBudgetValue: 0n }, suppressLog: true })
-  const name = String(configResult.return?.[0] ?? 'Algo Safe')
-  const nextGroupId = BigInt(configResult.return?.[2] ?? 1n)
+  const config = await readSafeConfig(client)
+  const name = config.name || 'Algo Safe'
+  const nextGroupId = config.nextGroupId
 
   const boxNames = await listBoxNames(algodClient, safe.appId)
   const memberBoxNames = boxNames.filter((boxName) => boxName.length === 41 && boxName[0] === MEMBER_BOX_PREFIX)
 
   const groups: SafeGroupCloneRecord[] = []
   for (let groupId = 1n; groupId < nextGroupId; groupId += 1n) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const groupResult = await (client.send as any).getSignerGroup({
-      args: { groupId, ensureBudgetValue: 0n },
-      suppressLog: true,
-    })
-    const group = groupResult.return
+    const group = await readSignerGroup(client, groupId)
     if (!group || group.active === 0n) continue
 
     const memberAddresses = memberBoxNames
@@ -157,15 +152,11 @@ export async function fetchSafeCloneConfig(
 
     const members = await Promise.all(
       memberAddresses.map(async (account) => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const memberResult = await (client.send as any).getMember({
-          args: { groupId, account, ensureBudgetValue: 0n },
-          suppressLog: true,
-        })
+        const member = await readMember(client, groupId, account)
         return {
-          addr: String(memberResult.return.addr),
-          accountType: BigInt(memberResult.return.accountType),
-          label: String(memberResult.return.label),
+          addr: String(member?.addr ?? account),
+          accountType: BigInt(member?.accountType ?? 1n),
+          label: String(member?.label ?? ''),
         } satisfies SafeMemberSeedRecord
       }),
     )
@@ -200,6 +191,12 @@ export type DeployClonedSafeParams = {
   name?: string
   /** Initial funding for box MBR and future inner transactions. Default 2 ALGO. */
   fundMicroAlgo?: bigint
+  /**
+   * AlgoSafeTxnValidator app ID to pin at createApplication. When omitted it is
+   * resolved from VALIDATOR_DEPLOYMENTS for the connected network. Either way
+   * the bytecode hash is verified off-chain here and on-chain by the contract.
+   */
+  validatorAppId?: bigint | number
 }
 
 export type DeployClonedSafeResult = {
@@ -224,8 +221,11 @@ export async function deployClonedSafe(params: DeployClonedSafeParams): Promise<
   algorand.setSigner(sender, signer)
   const factory = algorand.client.getTypedAppFactory(AlgoSafeFactory, { defaultSender: sender })
 
+  const validatorAppId = await resolveValidatorAppId(algodClient, {
+    appId: params.validatorAppId,
+  })
   const { appClient } = await factory.send.create.createApplication({
-    args: { name: params.name ?? config.name },
+    args: { name: params.name ?? config.name, validatorAppId },
     suppressLog: true,
   })
 

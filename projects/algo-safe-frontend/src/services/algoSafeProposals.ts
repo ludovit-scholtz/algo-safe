@@ -31,6 +31,12 @@ import {
   decodeRekeyTxn,
   getAlgoSafeContractVersion,
   getClient,
+  readHasApproved,
+  readIsMember,
+  readProposal,
+  readSafeConfig,
+  readSignerGroup,
+  readTransactionGroup,
   type AdminChange,
   type Proposal as ContractProposal,
 } from 'algo-safe'
@@ -63,7 +69,9 @@ const METHOD_EXECUTE_PROPOSAL_LATEST = 'executeProposal(uint64,uint64)void'
 const EXECUTION_ENSURE_BUDGET = 6000n
 
 type AlgoSafeClientInstance = InstanceType<ReturnType<typeof getClient>>
-type TxTuple = Awaited<ReturnType<AlgoSafeClientInstance['getTransactionGroup']>>[number]
+// (txType, data) payload envelope entries as returned by readTransactionGroup
+// (the getTransactionGroup ABI getter was removed from the contract in v3.0.0).
+type TxTuple = NonNullable<Awaited<ReturnType<typeof readTransactionGroup>>>[number]
 
 type ProposalContext = {
   algodClient: algosdk.Algodv2
@@ -535,12 +543,14 @@ async function fetchTransactionGroupPayloads(
   }
 
   // Proposals created before numPayloads existed report 0; they still have slot 1.
+  // v3.0.0 removed the getTransactionGroup ABI getter — read the payload boxes directly.
   const slots = numPayloads > 0n ? Number(numPayloads) : 1
   const chunks = await Promise.all(
-    Array.from({ length: slots }, (_value, index) =>
+    Array.from({ length: slots }, async (_value, index) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (client as any).getTransactionGroup({ args: [proposalId, BigInt(index + 1), 0n] }).catch(() => []),
-    ),
+      const chunk = await readTransactionGroup(client as any, proposalId, BigInt(index + 1)).catch(() => undefined)
+      return (chunk ?? []) as TxTuple[]
+    }),
   )
   return chunks.flat()
 }
@@ -554,16 +564,26 @@ async function hydrateProposal(
   resolveAsset: (assetId: number) => Promise<AssetMetadata>,
   activeAddress?: string | null,
 ) {
-  // The client type unions every historical contract version; only the latest
-  // one accepts `ensureBudgetValue`, so these calls need a narrow `as any` cast
-  // rather than fighting the union (same pattern as getTransactionGroup below).
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const contractProposal = (await (client as any).getProposal({
-    args: isLatest ? [proposalId, 0n] : [proposalId],
-  })) as ContractProposal
+  // v3.0.0 removed the read-only ABI getters — the latest contract is read via
+  // box-state readers; older versions still expose the getters. The client type
+  // unions every historical contract version, so the legacy calls keep their
+  // narrow `as any` cast rather than fighting the union.
+  const contractProposal = (
+    isLatest
+      ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await readProposal(client as any, proposalId)
+      : // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (client as any).getProposal({ args: [proposalId] })
+  ) as ContractProposal | undefined
+  if (!contractProposal) {
+    throw new Error(`Proposal ${proposalId.toString()} was not found on the safe (it may have been pruned).`)
+  }
   const userHasApproved = activeAddress
-    ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (client as any).hasApproved({ args: isLatest ? [proposalId, activeAddress, 0n] : [proposalId, activeAddress] })
+    ? isLatest
+      ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await readHasApproved(client as any, proposalId, activeAddress)
+      : // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (client as any).hasApproved({ args: [proposalId, activeAddress] })
     : false
 
   const txns =
@@ -599,9 +619,11 @@ async function hydrateProposal(
 
 export async function fetchLiveProposals(context: Omit<ProposalContext, 'transactionSigner'>) {
   const { client, isLatest } = await buildAppClient(context)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const config = await (client as any).getConfig({ args: isLatest ? { ensureBudgetValue: 0n } : {} })
-  const nextProposalId = config[3] ?? 1n
+  const nextProposalId = isLatest
+    ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (await readSafeConfig(client as any)).nextProposalId
+    : // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ((((await (client as any).getConfig({ args: {} }))[3] ?? 1n) as bigint))
   const status = (await context.algodClient.status().do()) as unknown as Record<string, unknown>
   const currentRound = getCurrentRound(status)
   const resolveAsset = createAssetResolver(context.algodClient, context.safe)
@@ -654,7 +676,20 @@ async function waitForTransactionConfirmation(algodClient: algosdk.Algodv2, txId
 export async function approveLiveProposal(context: ProposalContext, proposalId: string) {
   assertWalletContext(context)
   const { client, isLatest } = await buildAppClient(context)
-  const args = isLatest ? [BigInt(proposalId), 0n] : [BigInt(proposalId)]
+  let args: bigint[]
+  if (isLatest) {
+    // approveProposal (v1.7+) binds the approval to the payload the signer
+    // reviewed: it takes (proposalId, expectedPayloadVersion, ensureBudgetValue)
+    // and the middle value must equal the proposal's live payloadVersion.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const live = await readProposal(client as any, BigInt(proposalId))
+    if (!live) {
+      throw new Error(`Proposal ${proposalId} was not found on the safe (it may have been pruned).`)
+    }
+    args = [BigInt(proposalId), live.payloadVersion ?? 1n, 0n]
+  } else {
+    args = [BigInt(proposalId)]
+  }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await (client.send as any).approveProposal({ args, suppressLog: true })
   return fetchLiveProposal(context, proposalId)
@@ -692,11 +727,18 @@ export async function fetchSelfExecuteCapability(
 
   try {
     const { client, isLatest } = await buildAppClient(context)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const group = await (client as any).getSignerGroup({ args: isLatest ? [groupId, 0n] : [groupId] })
+    const group = isLatest
+      ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await readSignerGroup(client as any, groupId)
+      : // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (client as any).getSignerGroup({ args: [groupId] })
+    if (!group) return null
     const isMember = Boolean(
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (client as any).isMember({ args: isLatest ? [groupId, context.activeAddress, 0n] : [groupId, context.activeAddress] }),
+      isLatest
+        ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          await readIsMember(client as any, groupId, context.activeAddress)
+        : // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          await (client as any).isMember({ args: [groupId, context.activeAddress] }),
     )
     const groupActive = group.active !== 0n
     const canSelfExecute =
@@ -761,10 +803,16 @@ export async function executeLiveProposal(
   assertWalletContext(context)
   const { client, isLatest } = await buildAppClient(context)
   const proposalIdValue = BigInt(proposalId)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const contractProposal = (await (client as any).getProposal({
-    args: isLatest ? [proposalIdValue, 0n] : [proposalIdValue],
-  })) as ContractProposal
+  const contractProposal = (
+    isLatest
+      ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await readProposal(client as any, proposalIdValue)
+      : // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (client as any).getProposal({ args: [proposalIdValue] })
+  ) as ContractProposal | undefined
+  if (!contractProposal) {
+    throw new Error(`Proposal ${proposalId} was not found on the safe (it may have been pruned).`)
+  }
   const submissionParams = {
     method: isLatest ? METHOD_EXECUTE_PROPOSAL_LATEST : METHOD_EXECUTE_PROPOSAL,
     args: isLatest ? [proposalIdValue, EXECUTION_ENSURE_BUDGET] : [proposalIdValue],

@@ -7,7 +7,7 @@ import {
   Transaction as AlgokitTransaction,
 } from '@algorandfoundation/algokit-utils/transact';
 import algosdk from 'algosdk';
-import { getAlgoSafeContractVersion, getClient, TX_ASSET } from 'algo-safe';
+import { getAlgoSafeContractVersion, getClient, readProposal, readSafeConfig, TX_ASSET } from 'algo-safe';
 import type { PaymentPayloadResult, PaymentRequirements, SchemeNetworkClient } from '@x402/core/types';
 import type { ClientAvmConfig, ClientAvmSigner, ExactAvmPayloadV2 } from '@x402/avm';
 import { getAlgokitSigner, isTestnetNetwork } from '@x402/avm';
@@ -62,7 +62,8 @@ export class AlgoSafeExactAvmScheme implements SchemeNetworkClient {
     const payloadType =
       safeConfig.proposalId === undefined
         ? TX_ASSET
-        : (await safeClient.getProposal({ args: [proposalId] as never })).payloadType;
+        : // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          ((await readProposal(safeClient as any, proposalId))?.payloadType ?? TX_ASSET);
     const executeBoxReferences = getExecuteBoxReferences(
       safeConfig.appId,
       proposalId,
@@ -178,14 +179,9 @@ export class AlgoSafeExactAvmScheme implements SchemeNetworkClient {
   }
 
   private async getNextProposalId(safeClient: AlgoSafeClientInstance): Promise<bigint> {
-    const result = await safeClient.getConfig({ args: [] as never });
-    const nextProposalId = result?.[3];
-
-    if (typeof nextProposalId !== 'bigint') {
-      throw new Error('Algo Safe config did not return a bigint nextProposalId.');
-    }
-
-    return nextProposalId;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const config = await readSafeConfig(safeClient as any);
+    return config.nextProposalId;
   }
 
   private async createAssetTransferProposal(

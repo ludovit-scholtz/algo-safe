@@ -52,7 +52,7 @@ Probabilities are independent per-risk estimates (not mutually exclusive outcome
 | R-22 | Frontend misrepresents proposal content before signing | Integration/Client | High | **15%** | High | Open (frontend, out of contract scope) |
 | R-23 | Client fails to detect deployed contract version, uses wrong ABI | Integration/Client | Medium | **5%** | Low | Mitigated |
 | R-24 | Box MBR under-funding causes inconsistent partial state | Availability | Medium | **6%** | Low | Mitigated (atomic failure) |
-| R-25 | Approval-program size exceeds 8,192-byte ceiling in a future change | Availability | Medium | **85%** | High | **Open — critical blocker at 8,187/8,192 bytes** ([C-01]) |
+| R-25 | Approval-program size exceeds 8,192-byte ceiling in a future change | Availability | Medium | **15%** | Low | **Mitigated** — v3.0.0 size-reduction pass (6,968/8,192 bytes, 15% free) + CI size gate at 7,800 bytes ([C-01]) |
 | R-26 | Algorand consensus parameter changes invalidate hard-coded resource limits | Protocol/AVM | Medium | **15%** | Medium | Monitoring |
 | R-27 | PuyaTs/compiler miscompilation producing incorrect bytecode | Supply Chain | Critical | **2%** | Medium | Accepted (industry-wide) |
 | R-28 | `algosdk`/`algokit-utils` dependency vulnerability | Supply Chain | Medium | **10%** | Low | Monitoring |
@@ -62,9 +62,9 @@ Probabilities are independent per-risk estimates (not mutually exclusive outcome
 | R-32 | Regulatory/custody classification risk for operators of Algo Safe instances | Regulatory | Medium | **20%** | Medium | Monitoring |
 | R-33 | Project documentation (`CLAUDE.md`/`PRODUCT-DESCRIPTION.md`) lags behind shipped breaking ABI changes | Integration/Client | Medium | **10%** | Medium | **Partially Mitigated** ([M-01 v2](./2026-07-07-audit-report-ai-claude-sonnet-5-v2.md#m-01-this-report-claudemd-and-product-descriptionmd-are-stale-relative-to-the-v170-breaking-change)) |
 | R-34 | Off-chain keyreg mapping misclassifies a standard "go offline" registration as online | Integration/Client | Low | **<1%** | Low | **Mitigated** ([L-02 v2](./2026-07-07-audit-report-ai-claude-sonnet-5-v2.md#l-02-this-report-off-chain-algosdktxntosafetxn-misclassifies-a-standard-go-offline-key-registration-as-online)) |
-| R-35 | Custodian group dissolution orphans member boxes (permanent MBR loss) | Availability | Medium | **15%** | Medium | Open ([M-01]) |
-| R-36 | Proposal boxes for dissolved custodian groups cannot be pruned (permanent MBR loss) | Availability | Medium | **15%** | Medium | Open ([M-02]) |
-| R-37 | `ADM_CHANGE_THRESHOLD` allows threshold=0 (no lower bound validation) | Governance | Low | **5%** | Low | Open ([L-01]) |
+| R-35 | Custodian group dissolution orphans member boxes (permanent MBR loss) | Availability | Medium | **<1%** | Low | **Mitigated** — dissolution deletes the last member box; extra members must be removed first ([M-01]) |
+| R-36 | Proposal boxes for dissolved custodian groups cannot be pruned (permanent MBR loss) | Availability | Medium | **<1%** | Low | **Mitigated** — `pruneProposal` membership check waived once the group box is gone ([M-02]) |
+| R-37 | `ADM_CHANGE_THRESHOLD` allows threshold=0 (no lower bound validation) | Governance | Low | **<1%** | Low | **Mitigated** — lower-bound asserts added in both governed paths ([L-01]) |
 
 ---
 
@@ -338,14 +338,14 @@ An under-funded safe attempting an operation that needs a new box. Algorand's bo
 
 ### R-25 — Approval-Program Size Exceeds Ceiling in a Future Change
 
-**Category**: Availability · **Severity**: Medium · **5-Yr Probability**: **85%** (was 20%) · **Residual Risk**: **High** (was Medium) · **Status**: **Open — critical blocker** (2026-07-12)
+**Category**: Availability · **Severity**: Medium · **5-Yr Probability**: **15%** (was 85%) · **Residual Risk**: **Low** (was High) · **Status**: **Mitigated** (2026-07-12 remediation)
 **Related Finding**: [C-01](./2026-07-12-audit-report-ai-claude-sonnet-4-6.md#c-01-approval-program-size-at-81878192-bytes--5-byte-margin)
 
 **Why 85%**: The v2.0.0 release consumed essentially all remaining program-size headroom — the approval program is now 8,187/8,192 bytes (5 bytes = 0.06% free). The prior 20% estimate was calibrated against an 8.5% margin and a trend of steady consumption. With the margin now at 0.06%, the probability of hitting the ceiling is not "20% over 5 years" — it is virtually certain the *very next change to `contract.algo.ts`* will require either finding size savings or failing deployment. Re-scored to 85% rather than 100% to allow for the possibility that the team performs a size-reduction pass before any new feature work, keeping the ceiling from being crossed.
 
 **Why "Open — critical blocker"**: this was previously "Monitoring" as an extrapolation-of-trend risk. It is now an active, immediate constraint: no further code can be added to the contract without first finding more than 5 bytes of savings.
 
-**Mitigation path**: mandatory size-reduction pass before any new feature development; CI gate at a target margin (e.g. ≤ 7,800 bytes = ~5% margin); see [C-01] recommendations for concrete refactoring options.
+**Mitigation (2026-07-12, same-day remediation, v3.0.0)**: a size-reduction pass shipped as contract v3.0.0: all 12 read-only ABI getters removed (replaced by off-chain box/state readers in `src/on-chain.ts`), the two bootstrap paths consolidated into a shared `_seedGroup`, and payload validation for pay/axfer/keyreg/acfg/rekey externalised to the hash-pinned, immutable `AlgoSafeTxnValidator` library contract called via inner app call. The approval program is now **6,968/8,192 bytes (15% free)**. A CI gate (`scripts/check-program-size.ts`, wired into `pnpm build`) fails any build over **7,800 bytes**, so size creep is caught in the PR that introduces it. Residual probability reflects long-horizon feature growth, now bounded by the gate.
 
 ---
 
@@ -453,7 +453,7 @@ Operators deploying Algo Safe instances to custody third-party funds (as opposed
 
 ### R-35 — Custodian Group Dissolution Orphans Member Boxes (Permanent MBR Loss)
 
-**Category**: Availability · **Severity**: Medium · **5-Yr Probability**: 15% · **Residual Risk**: Medium · **Status**: Open (2026-07-12)
+**Category**: Availability · **Severity**: Medium · **5-Yr Probability**: <1% · **Residual Risk**: Low · **Status**: **Mitigated** (2026-07-12 remediation, v3.0.0)
 **Related Finding**: [M-01](./2026-07-12-audit-report-ai-claude-sonnet-4-6.md#m-01-custodian-group-dissolution-orphans-member-boxes-permanent-mbr-loss)
 
 When a custodian group is dissolved via `ADM_DISSOLVE_CUSTODIAN`, `contract.algo.ts` deletes the group box but does not delete the member boxes (`members({groupId: gid, account: addr})`). After dissolution, `_adminRemoveMember` panics because it reads the now-deleted group box. The MBR locked in each member box (~2,500–3,000 µALGO per member) is permanently irrecoverable.
@@ -462,33 +462,33 @@ When a custodian group is dissolved via `ADM_DISSOLVE_CUSTODIAN`, `contract.algo
 
 **Why Medium (not Low)**: While the per-incident MBR loss is bounded (~5,000–15,000 µALGO for typical 2–5 member custodian groups), it is a permanent, irrecoverable loss with no workaround once dissolution executes. "Permanent and irrecoverable" bumps this above a pure Low severity.
 
-**Mitigation path**: extend `ADM_DISSOLVE_CUSTODIAN` to delete member boxes before group box deletion; interim: document the limitation so operators can pre-remove members before dissolving. Subject to C-01 size constraint.
+**Mitigation (2026-07-12, v3.0.0)**: `ADM_DISSOLVE_CUSTODIAN` now requires `memberCount === 1` and the dissolve change's `memberAddr` to name that last member; the member box is deleted together with the group box. Extra members are removed beforehand via `ADM_REMOVE_MEMBER` (which already reclaims their boxes), so no box is orphaned by dissolution. Regression-tested in `contract.e2e.spec.ts` (M-01 tests).
 
 ---
 
 ### R-36 — Proposal Boxes for Dissolved Custodian Groups Cannot Be Pruned (Permanent MBR Loss)
 
-**Category**: Availability · **Severity**: Medium · **5-Yr Probability**: 15% · **Residual Risk**: Medium · **Status**: Open (2026-07-12)
+**Category**: Availability · **Severity**: Medium · **5-Yr Probability**: <1% · **Residual Risk**: Low · **Status**: **Mitigated** (2026-07-12 remediation, v3.0.0)
 **Related Finding**: [M-02](./2026-07-12-audit-report-ai-claude-sonnet-4-6.md#m-02-proposal-boxes-for-dissolved-custodian-groups-cannot-be-pruned-permanent-mbr-loss)
 
 `pruneProposal` calls `_assertMember(proposal.groupId)`, which first asserts `this.groups(groupId).exists`. After `ADM_DISSOLVE_CUSTODIAN` deletes the group box, this assertion fails for all proposals linked to the dissolved group — including already-cancelled and already-executed proposals past their expiry round. Proposal boxes, payload chunk boxes, and approval boxes for those proposals are permanently irrecoverable.
 
 **Why 15%**: Same base rate as R-35 (same dissolution event triggers both). The MBR loss from proposal boxes is larger than from member boxes: a multi-chunk proposal with 3 payload slots and 3 approvals could lock 20,000–30,000 µALGO permanently. Like R-35, the risk is structural and will affect any custodian group that has had proposals created during its lifetime before dissolution.
 
-**Mitigation path**: relax the `_assertMember` check in `pruneProposal` for terminal+expired proposals so that proposals linked to non-existent groups can still be pruned by the original proposer or any caller (since there is no authorization risk in reclaiming MBR from old terminal proposals). Subject to C-01 size constraint.
+**Mitigation (2026-07-12, v3.0.0)**: `pruneProposal` now applies the membership check only while the group box still exists; once the group is dissolved, anyone may prune the terminal, past-expiry proposal (pruning only reclaims MBR to the app account). Regression-tested in `contract.e2e.spec.ts` (M-02 test).
 
 ---
 
 ### R-37 — `ADM_CHANGE_THRESHOLD` and `_createGroup` Allow Threshold = 0
 
-**Category**: Governance · **Severity**: Low · **5-Yr Probability**: 5% · **Residual Risk**: Low · **Status**: Open (2026-07-12)
+**Category**: Governance · **Severity**: Low · **5-Yr Probability**: <1% · **Residual Risk**: Low · **Status**: **Mitigated** (2026-07-12 remediation, v3.0.0)
 **Related Finding**: [L-01](./2026-07-12-audit-report-ai-claude-sonnet-4-6.md#l-01-adm_change_threshold-and-_creategroup-allow-threshold--0)
 
 `_applyAdminChange` for `ADM_CHANGE_THRESHOLD` and `_createGroup` both allow `change.threshold = 0` (no lower-bound check). Setting threshold=0 is functionally equivalent to threshold=1 in the current implementation (the proposer's auto-approval satisfies `1 >= 0`), but it is semantically incorrect and creates potential confusion for frontends/tooling that display "requires X approvals." `bootstrapGroup` correctly enforces `threshold >= 1`; the inconsistency is in the governed-change paths.
 
 **Why 5%**: requires a legitimate admin to either accidentally type 0 (fat-finger) or deliberately set a zero threshold. Functional impact is equivalent to threshold=1 in current code, so the probability reflects an operator being confused by tooling displaying "0 approvals required" rather than any security bypass. No fund-loss path identified.
 
-**Mitigation path**: add `assert(change.threshold >= Uint64(1), 'threshold must be at least 1')` in both paths, consistent with `bootstrapGroup`. Deferred until a size-reduction pass (C-01) creates room.
+**Mitigation (2026-07-12, v3.0.0)**: `ADM_CHANGE_THRESHOLD` now asserts `threshold >= 1`; `_createGroup` asserts `threshold === 1` (a new group has exactly one member). `_adminAddMember` also gained the zero-address guard from the same audit's L-02. Regression-tested in `contract.e2e.spec.ts` (L-01/L-02 tests).
 
 ---
 
@@ -501,3 +501,4 @@ When a custodian group is dissolved via `ADM_DISSOLVE_CUSTODIAN`, `contract.algo
 | 2026-07-07 | Independent follow-up audit against commit `4cdbbe5` (the fixes above, now committed to `main`). R-01, R-06, R-07, R-08, R-15 mitigation-path notes updated to remove "not yet committed" and cite independent re-verification of each fix against its regression test. Two new risks added: R-33 (`CLAUDE.md`/`PRODUCT-DESCRIPTION.md` stale relative to the v1.7.0 `approveProposal`/`ADM_SET_PAUSED` breaking change) and R-34 (off-chain keyreg `online` mapping misclassifies a standard "go offline" registration). Header "Reviewed against commit" updated to `4cdbbe5`. | `2026-07-07-audit-report-ai-claude-sonnet-5-v2.md` |
 | 2026-07-07 | Same-day remediation of the v2 audit's findings: R-34 re-scored Open → Mitigated (keyreg `online` mapping fixed, round-trip regression test added); R-33 re-scored Open → Partially Mitigated at 10% (the specific v1.7.0 doc gap closed in `CLAUDE.md`/`PRODUCT-DESCRIPTION.md`, structural recurrence risk remains pending a CI doc-sync check). L-01 (v2) also fixed: `appendTransactionGroupPayload` gained the expiry check, shipping as `contract.algo.ts` v1.8.0 (approval hash `d66a4b63...7d10`), 65/65 tests passing. All fixes in the working tree, not yet committed. | `2026-07-07-audit-report-ai-claude-sonnet-5-v2.md` "Remediation Update" section |
 | 2026-07-12 | Claude Sonnet 4.6 audit of commit `76d86186` (v2.0.0 Custodian Groups). R-25 re-scored from Monitoring/20%/Medium → **Open/85%/High** (program at 5-byte margin, effectively zero headroom). Three new risks added: R-35 (member box MBR after dissolution, Medium), R-36 (proposal box MBR after dissolution, Medium), R-37 (threshold=0 allowed, Low). All prior R-01 through R-34 risks re-verified: no regressions found. R-33 (documentation lag) confirmed Partially Mitigated — v2.0.0 IS documented in CLAUDE.md. 69/69 tests passed. | `2026-07-12-audit-report-ai-claude-sonnet-4-6.md` |
+| 2026-07-12 | Same-day remediation of the audit's findings, shipping as contract **v3.0.0** (working tree, not yet committed). C-01/R-25: size-reduction pass (getters removed, bootstrap consolidated, payload validation externalised to the hash-pinned immutable `AlgoSafeTxnValidator` library contract) → approval program 6,968/8,192 bytes; CI size gate added at 7,800 bytes; R-25 re-scored Open/85%/High → **Mitigated/15%/Low**. M-01/R-35: dissolution now deletes the last member box (requires memberCount==1 + named memberAddr) → **Mitigated**. M-02/R-36: `pruneProposal` membership check waived once the group box is gone → **Mitigated**. L-01/R-37: threshold lower bounds added in `ADM_CHANGE_THRESHOLD` and `_createGroup` → **Mitigated**. L-02: zero-address guard added to `_adminAddMember`. I-01: five new custodian e2e scenarios added (ASA guard transfer, ALGO and ASA close-out live-balance accounting, guard update, multi-payment compounding) plus M-01/M-02/L-01/L-02 regressions; 76/76 tests passing. | `2026-07-12-audit-report-ai-claude-sonnet-4-6.md` §7 |

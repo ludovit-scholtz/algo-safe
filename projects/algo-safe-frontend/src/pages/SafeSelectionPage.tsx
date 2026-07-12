@@ -1,7 +1,7 @@
 import { AlgorandClient } from '@algorandfoundation/algokit-utils'
 import { useQueryClient } from '@tanstack/react-query'
 import { useNetwork, useWallet, WalletId, type Wallet } from '@txnlab/use-wallet-react'
-import { LATEST_CONTRACT_HASH, getAlgoSafeContractVersion, getClient } from 'algo-safe'
+import { LATEST_CONTRACT_HASH, getAlgoSafeContractVersion, getClient, readSafeConfig } from 'algo-safe'
 import algosdk from 'algosdk'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -72,12 +72,14 @@ function AuthenticatedSafeSelection() {
         defaultSender: senderAddress,
       })
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const configResult = await (appClient.send as any).getConfig({
-        args: isLatest ? { ensureBudgetValue: 0n } : {},
-        suppressLog: true,
-      })
-      const safeName = extractRecoveredSafeName(configResult.return)
+      // v3.0.0 removed the getConfig ABI getter — read global state directly on
+      // the latest contract; older deployed versions still expose the getter.
+      const configReturn = isLatest
+        ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          await readSafeConfig(appClient as any)
+        : // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (await (appClient.send as any).getConfig({ args: {}, suppressLog: true })).return
+      const safeName = extractRecoveredSafeName(configReturn)
       if (!safeName) {
         throw new Error('The selected app did not return a valid Algo Safe name.')
       }

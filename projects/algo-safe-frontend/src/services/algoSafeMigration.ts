@@ -6,6 +6,8 @@ import {
   buildMigrationRekeyPayload,
   createAdminChange,
   deployClonedSafe,
+  deployValidator,
+  resolveValidatorAppId,
   fetchSafeCloneConfig,
   fetchSafeVersionStatus,
   getAlgoSafeContractVersion,
@@ -140,6 +142,19 @@ export async function upgradeSafeToLatest(
     appId: BigInt(context.safe.appId),
     address: context.safe.address,
   })
+  // The cloned safe pins the AlgoSafeTxnValidator library at creation. Use the
+  // network's registered validator when one exists; otherwise deploy a fresh
+  // one (the on-chain hash check makes any matching deployment equivalent).
+  let validatorAppId: bigint
+  try {
+    validatorAppId = await resolveValidatorAppId(context.algodClient)
+  } catch {
+    validatorAppId = await deployValidator({
+      algodClient: context.algodClient,
+      sender: context.activeAddress!,
+      signer: context.transactionSigner!,
+    })
+  }
   const result = await deployClonedSafe({
     algodClient: context.algodClient,
     sender: context.activeAddress!,
@@ -147,6 +162,7 @@ export async function upgradeSafeToLatest(
     config,
     name: options.name,
     fundMicroAlgo: options.fundMicroAlgo,
+    validatorAppId,
   })
 
   return { ...result, config }

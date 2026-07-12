@@ -19,6 +19,7 @@ This npm package ships:
 - [Install](#install)
 - [Core concepts](#core-concepts)
 - [Quick start](#quick-start)
+- [Validator library (AlgoSafeTxnValidator)](#validator-library-algosafetxnvalidator)
 - [Connecting to a deployed safe (version detection)](#connecting-to-a-deployed-safe-version-detection)
 - [Building transaction payloads](#building-transaction-payloads)
   - [Payment](#payment)
@@ -100,22 +101,38 @@ Deploy a safe, fund it, bootstrap the genesis admin group, then propose and exec
 
 ```ts
 import { AlgorandClient } from '@algorandfoundation/algokit-utils'
-import { AlgoSafeFactory, toSafeTxnGroup, createPaymentSafeTxn, FAR_EXPIRY, ZERO_ADDR } from 'algo-safe'
+import {
+  AlgoSafeFactory,
+  createPaymentSafeTxn,
+  deployValidator,
+  resolveValidatorAppId,
+  toSafeTxnGroup,
+  FAR_EXPIRY,
+  ZERO_ADDR,
+} from 'algo-safe'
 
 const algorand = AlgorandClient.fromEnvironment() // or .fromClients({ algod })
 const deployer = await algorand.account.fromEnvironment('DEPLOYER')
 
-// 1. Create the application.
-const factory = algorand.client.getTypedAppFactory(AlgoSafeFactory, { defaultSender: deployer.addr })
-const { appClient } = await factory.send.create.createApplication({ args: { name: 'Treasury Safe' } })
+// 1. Resolve (or deploy) the AlgoSafeTxnValidator library for this network.
+//    The safe pins it by bytecode hash at creation — see "Validator library".
+const validatorAppId = await resolveValidatorAppId(algorand.client.algod).catch(() =>
+  deployValidator({ algodClient: algorand.client.algod, sender: deployer.addr.toString(), signer: deployer.signer }),
+)
 
-// 2. Fund the app account so it can pay box MBR and inner-transaction fees.
+// 2. Create the application.
+const factory = algorand.client.getTypedAppFactory(AlgoSafeFactory, { defaultSender: deployer.addr })
+const { appClient } = await factory.send.create.createApplication({
+  args: { name: 'Treasury Safe', validatorAppId },
+})
+
+// 3. Fund the app account so it can pay box MBR and inner-transaction fees.
 await algorand.send.payment({ sender: deployer.addr, receiver: appClient.appAddress, amount: (5).algo() })
 
-// 3. Bootstrap: creates group #1 as a 1-of-1 admin group whose sole member is the creator.
+// 4. Bootstrap: creates group #1 as a 1-of-1 admin group whose sole member is the creator.
 await appClient.send.bootstrap({ args: { groupName: 'Admins' } })
 
-// 4. Propose a payment from group #1. The proposer auto-approves; a 1-of-1 group is immediately READY.
+// 5. Propose a payment from group #1. The proposer auto-approves; a 1-of-1 group is immediately READY.
 const { return: proposalId } = await appClient.send.proposeTransactionGroup({
   args: {
     groupId: 1n,
@@ -136,7 +153,7 @@ const { return: proposalId } = await appClient.send.proposeTransactionGroup({
   staticFee: (0.2).algo(),
 })
 
-// 5. Execute. `coverAppCallInnerTransactionFees` pays the inner transactions' fees from the outer call.
+// 6. Execute. `coverAppCallInnerTransactionFees` pays the inner transactions' fees from the outer call.
 // `ensureBudgetValue` reserves opcode budget up front for the inner-transaction staging below —
 // see "Opcode budget" for how to size it.
 await appClient.send.executeProposal({
@@ -147,6 +164,25 @@ await appClient.send.executeProposal({
 ```
 
 > **Funding matters.** The app account pays the minimum-balance requirement for every box it stores (groups, members, proposals, approvals, payloads) and is the sender of all inner transactions. Keep it funded.
+
+---
+
+## Validator library (AlgoSafeTxnValidator)
+
+Since contract v3.0.0 the safe delegates transaction-payload validation (payments, asset transfers, key registrations, asset configs, rekeys) to a separate ~420-byte **library contract**, `AlgoSafeTxnValidator`, called via inner application call during execution. This keeps the safe's approval program comfortably under the AVM's hard 8 192-byte ceiling and concentrates the validation rules in one tiny contract that can be audited once and shared by every safe on a network.
+
+Trust model — the registry is convenience, not trust:
+
+- The validator is **immutable**: its bytecode declares no update or delete handlers, so the ARC-4 router rejects both forever.
+- The safe pins the validator by **bytecode hash**, not by ID: `createApplication(name, validatorAppId)` reads the given app's approval program on-chain, hashes it, and asserts it equals the compiled `AlgoSafeTxnValidator` hash baked into the safe's own bytecode. A wrong or malicious app ID simply fails the create call.
+- Because the pinned bytecode can never change or be deleted, this single check at creation holds for the safe's whole lifetime.
+
+Operationally:
+
+- `resolveValidatorAppId(algod)` returns the network's registered validator (from `VALIDATOR_DEPLOYMENTS`, keyed by genesis hash) after re-verifying its bytecode hash; pass `{ appId }` to verify a specific deployment instead.
+- `deployValidator({ algodClient, sender, signer })` deploys a fresh one (stateless bare create, no funding needed) — any deployment with matching bytecode is equivalent.
+- Executions make one inner app call per non-app-call payload entry (~1 min-fee each, covered by `coverAppCallInnerTransactionFees`); with `populateAppCallResources: true` the validator reference is added automatically. Each inner app call also *adds* 700 to the pooled opcode budget, so delegation costs no budget.
+- App-call payloads (`TX_APP`) are still validated inside the safe: their `appArgs` can total 2 048 bytes, which cannot fit through the inner-call argument limit.
 
 ---
 
@@ -422,15 +458,15 @@ const { return: proposalId } = await client.send.proposeTransactionGroup({
 // review and your approval landing, the call reverts with 'payload changed since
 // review' instead of approving content you never saw. For admin-change proposals
 // the version never changes after creation, so it is always 1n.
-const reviewed = await client.send.getProposal({ args: { proposalId: proposalId!, ensureBudgetValue: 0n } })
+const reviewed = await readProposal(client, proposalId!)
 await client.send.approveProposal({
-  args: { proposalId: proposalId!, expectedPayloadVersion: reviewed.return!.payloadVersion, ensureBudgetValue: 0n },
+  args: { proposalId: proposalId!, expectedPayloadVersion: reviewed!.payloadVersion, ensureBudgetValue: 0n },
   sender: memberB,
 })
 
-// Anyone can read progress.
-const p = await client.send.getProposal({ args: { proposalId: proposalId!, ensureBudgetValue: 0n } })
-// p.return.status === 2n  → READY
+// Anyone can read progress (off-chain box read — see "Reading on-chain state").
+const p = await readProposal(client, proposalId!)
+// p!.status === 2n  → READY
 
 // Execute once READY.
 await client.send.executeProposal({
@@ -474,7 +510,7 @@ Every public ABI method takes a trailing `ensureBudgetValue: uint64` argument. W
 
 **Why the caller decides this, not the contract.** `ensureBudget`'s opup inner transactions must run *before* the contract opens its own inner-transaction group (`op.ITxnCreate` can't interleave with opup's `itxn_begin`/`itxn_submit`), so the budget has to be reserved once, up front, sized for the specific call about to run. The contract can't know that size in advance — it depends on how many transactions are in the payload, how large each is, and how many payload slots are being executed — so the caller supplies it.
 
-**When you actually need it:** only for `executeProposal` and `proposeTransactionGroup(..., execute: true)`, and only when the proposal executes a transaction group (not an admin change). Every other method — including read-only getters — accepts `ensureBudgetValue: 0n`. (`createApplication` and `bootstrap` don't take the argument at all.)
+**When you actually need it:** only for `executeProposal` and `proposeTransactionGroup(..., execute: true)`, and only when the proposal executes a transaction group (not an admin change). Every other method accepts `ensureBudgetValue: 0n`. (`createApplication` and `bootstrap` don't take the argument at all.)
 
 | Method | Recommended `ensureBudgetValue` | Why |
 |---|---|---|
@@ -485,7 +521,7 @@ Every public ABI method takes a trailing `ensureBudgetValue: uint64` argument. W
 | `approveProposal` | `0n` | A single box write. |
 | `executeProposal` | See formula below | Decodes every transaction in every payload slot, then stages them as inner transactions — the only method whose opcode cost scales with the proposal's contents. |
 | `cancelProposal` | `0n` | A single status update. |
-| All `get*` / `isMember` / `hasApproved` readonly getters | `0n` | Single box reads. |
+| _(read state)_ | n/a | State reads happen off-chain via the `read*` helpers — no app call at all. |
 
 **Sizing `executeProposal` (and `proposeTransactionGroup(..., execute: true)`).** The cost is dominated by decoding + validating each transaction (pass 1) and staging each as an inner transaction (pass 2). A conservative estimate, summed over every transaction across every payload slot on the proposal:
 
@@ -600,9 +636,10 @@ import { createAdminChange, ADM_SET_PAUSED } from 'algo-safe'
 // Pause (e.g. suspected signer compromise):
 await govern(createAdminChange({ changeType: ADM_SET_PAUSED, activeFlag: 1n }))
 
-// getConfig()'s 5th element reflects it:
-const config = await client.send.getConfig({ args: { ensureBudgetValue: 0n } })
-// config.return![4] === 1n → paused
+// Global state reflects it (see "Reading on-chain state"):
+import { readSafeConfig } from 'algo-safe'
+const config = await readSafeConfig(client)
+// config.paused === 1n → paused
 
 // Unpause — works even while paused:
 await govern(createAdminChange({ changeType: ADM_SET_PAUSED, activeFlag: 0n }))
@@ -612,19 +649,25 @@ await govern(createAdminChange({ changeType: ADM_SET_PAUSED, activeFlag: 0n }))
 
 ## Reading on-chain state
 
-Read-only ABI getters on the client:
+All safe state lives in plain box / global state, so it is read **off-chain, for free** — v3.0.0 removed the read-only ABI getters entirely (they existed only to re-serve box data and consumed ~700 bytes of the 8 192-byte program budget). Use the reader functions, which work against **every** deployed contract version:
 
 ```ts
-const config = await client.send.getConfig({ args: { ensureBudgetValue: 0n } })
-// [name, groupCount, nextGroupId, nextProposalId, paused, version]
+import {
+  readSafeConfig, readSignerGroup, readMember, readIsMember,
+  readProposal, readTransactionGroup, readHasApproved,
+  readRekeyedAddress, readAssetGuard,
+} from 'algo-safe'
 
-const group   = await client.send.getSignerGroup({ args: { groupId: 1n, ensureBudgetValue: 0n } })
-const member  = await client.send.getMember({ args: { groupId: 1n, account, ensureBudgetValue: 0n } })
-const isMem   = await client.send.isMember({ args: { groupId: 1n, account, ensureBudgetValue: 0n } })
-const prop    = await client.send.getProposal({ args: { proposalId: 1n, ensureBudgetValue: 0n } })
-const approved= await client.send.hasApproved({ args: { proposalId: 1n, account, ensureBudgetValue: 0n } })
-const stored  = await client.send.getTransactionGroup({ args: { proposalId: 1n, payloadIndex: 1n, ensureBudgetValue: 0n } })
+const config  = await readSafeConfig(client)          // { name, groupCount, nextGroupId, nextProposalId, paused, version, activePrivGroupCount }
+const group   = await readSignerGroup(client, 1n)     // SignerGroup | undefined
+const member  = await readMember(client, 1n, account) // Member | undefined
+const isMem   = await readIsMember(client, 1n, account)
+const prop    = await readProposal(client, 1n)        // Proposal | undefined
+const approved= await readHasApproved(client, 1n, account)
+const stored  = await readTransactionGroup(client, 1n, 1n) // [txType, data][] | undefined
 ```
+
+A missing box resolves to `undefined` (the pre-v3 getters reverted instead). On pre-v3 safes the legacy `client.send.get*` getters still exist on-chain and in their versioned clients, but the readers above are the recommended path everywhere.
 
 Higher-level helpers (no manual client wiring; they detect the version, page boxes, and shape the results for UIs):
 
@@ -640,13 +683,13 @@ const detail = await fetchAlgoSafeSignerGroupDetail(algod, { appId, address }, '
 
 ## Decoding stored payloads
 
-`getTransactionGroup` returns the raw `(txType, data)` tuples. Decode the `data` blob per type:
+`readTransactionGroup` returns the raw `(txType, data)` tuples. Decode the `data` blob per type:
 
 ```ts
-import { TX_PAYMENT, TX_ASSET, TX_APP, TX_KEYREG, TX_ACFG, TX_REKEY, decodePaymentTxn, decodeAssetTxn, decodeAppTxn, decodeKeyRegTxn, decodeAssetConfigTxn, decodeRekeyTxn } from 'algo-safe'
+import { TX_PAYMENT, TX_ASSET, TX_APP, TX_KEYREG, TX_ACFG, TX_REKEY, decodePaymentTxn, decodeAssetTxn, decodeAppTxn, decodeKeyRegTxn, decodeAssetConfigTxn, decodeRekeyTxn, readTransactionGroup } from 'algo-safe'
 
-const stored = await client.send.getTransactionGroup({ args: { proposalId: 1n, payloadIndex: 1n, ensureBudgetValue: 0n } })
-for (const [txType, data] of stored.return!) {
+const stored = await readTransactionGroup(client, 1n, 1n)
+for (const [txType, data] of stored ?? []) {
   if (txType === TX_PAYMENT) console.log(decodePaymentTxn(data))
   else if (txType === TX_ASSET) console.log(decodeAssetTxn(data))
   else if (txType === TX_APP) console.log(decodeAppTxn(data))
@@ -701,6 +744,10 @@ Always import these from `algo-safe` — never redefine them locally; they must 
 | `algosdkTxnsToSafeTxnGroup(txns)` | Convert native `algosdk.Transaction[]` → payload. |
 | `decodePaymentTxn` / `decodeAssetTxn` / `decodeAppTxn` / `decodeKeyRegTxn` / `decodeAssetConfigTxn` / `decodeRekeyTxn` | Decode a stored `data` blob back into a typed payload. |
 | `createAdminChange(partial)` | Build an `AdminChange` with defaults filled in. |
+| `readSafeConfig` / `readSignerGroup` / `readMember` / `readIsMember` / `readProposal` / `readTransactionGroup` / `readHasApproved` / `readRekeyedAddress` / `readAssetGuard` | Box/global-state readers — the replacement for the ABI getters removed in v3.0.0; work on every contract version. |
+| `resolveValidatorAppId(algod, { appId? })` | Resolve + hash-verify the AlgoSafeTxnValidator app for the connected network. |
+| `deployValidator({ algodClient, sender, signer })` | Deploy the validator library (bare create; immutable, stateless). |
+| `verifyValidatorApp(algod, appId)` / `VALIDATOR_APPROVAL_SHA256_HEX` / `VALIDATOR_DEPLOYMENTS` | Bytecode-hash verification primitives and the per-network registry. |
 | `fetchAlgoSafeSignerGroups` / `fetchAlgoSafeSignerGroupDetail` | Off-chain read helpers for UIs. |
 | `fetchSafeVersionStatus(algod, appId)` | Deployed version hash + whether it is the latest. |
 | `listRekeyedAddresses(algod, appId)` | Read the rekeyed-address registry (box enumeration). |

@@ -1,7 +1,7 @@
 import { AlgorandClient } from '@algorandfoundation/algokit-utils'
 import algosdk from 'algosdk'
 import { getClient } from './get-client'
-import type { SignerGroup } from './latest-client'
+import type { Proposal, SignerGroup } from './latest-client'
 import { getAlgoSafeContractVersion } from './version'
 
 export type AlgoSafeOnChainRef = {
@@ -108,22 +108,140 @@ export async function buildAlgoSafeAppClient(algodClient: algosdk.Algodv2, safe:
   })
 }
 
+// ---------------------------------------------------------------------------
+// Box / global-state readers.
+//
+// v3.0.0 removed the read-only ABI getters from the contract to reclaim
+// approval-program space — all of that data is plain box / global state, which
+// every generated client (old and new) exposes through `state.box.*` /
+// `state.global.*` accessors that decode with that version's own struct
+// layout. The readers below are the getters' replacements and work against
+// every deployed contract version. The `client` parameter is a union across
+// versions, so calls go through a narrow `any` cast rather than fighting the
+// union type.
+// ---------------------------------------------------------------------------
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
+/**
+ * Minimal structural type for any generated AlgoSafe typed client (any
+ * contract version) — the readers only need the state accessors.
+ */
+export type SafeStateClient = {
+  state: {
+    global: { getAll(): Promise<object> }
+    box: object
+  }
+}
+
+// algokit-utils' getMapValue throws a 404 ("box not found") when the box is
+// absent — normalise that to undefined so callers get getter-like optionality.
+async function tolerateMissingBox<T>(read: () => Promise<T>): Promise<T | undefined> {
+  try {
+    return await read()
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    if (message.includes('box not found') || message.includes('404')) {
+      return undefined
+    }
+    throw error
+  }
+}
+
+export type AlgoSafeConfigRecord = {
+  name: string
+  groupCount: bigint
+  nextGroupId: bigint
+  nextProposalId: bigint
+  paused: bigint
+  version: string
+  activePrivGroupCount: bigint
+}
+
+/** Read the safe's global configuration (former `getConfig` + `getActivePrivGroupCount`). */
+export async function readSafeConfig(client: SafeStateClient): Promise<AlgoSafeConfigRecord> {
+  const globalState = await (client.state.global as any).getAll()
+  return {
+    name: String(globalState.name ?? ''),
+    groupCount: BigInt(globalState.groupCount ?? 0n),
+    nextGroupId: BigInt(globalState.nextGroupId ?? 1n),
+    nextProposalId: BigInt(globalState.nextProposalId ?? 1n),
+    paused: BigInt(globalState.paused ?? 0n),
+    version: String(globalState.version ?? ''),
+    activePrivGroupCount: BigInt(globalState.activePrivGroupCount ?? 0n),
+  }
+}
+
+/** Read one signer group box (former `getSignerGroup`); undefined when missing. */
+export async function readSignerGroup(client: SafeStateClient, groupId: bigint) {
+  return tolerateMissingBox(async () => (await (client.state.box as any).groups.value(groupId)) as RawSignerGroup)
+}
+
+/** Read one member box (former `getMember`); undefined when not a member. */
+export async function readMember(client: SafeStateClient, groupId: bigint, account: string) {
+  return tolerateMissingBox(async () => (await (client.state.box as any).members.value({ groupId, account })) as RawSignerGroupMember)
+}
+
+/** Former `isMember`. */
+export async function readIsMember(client: SafeStateClient, groupId: bigint, account: string) {
+  return (await readMember(client, groupId, account)) !== undefined
+}
+
+// Multiplier separating per-chunk payload box keys: key = proposalId * 7 + chunkIndex.
+// Must match TXG_KEY_MULT in contract.algo.ts.
+const TXG_KEY_MULT = 7n
+
+/** Read one proposal box (former `getProposal`); undefined when missing/pruned. */
+export async function readProposal(client: SafeStateClient, proposalId: bigint) {
+  return tolerateMissingBox(async () => (await (client.state.box as any).proposals.value(proposalId)) as Proposal)
+}
+
+/** Read one transaction-payload chunk (former `getTransactionGroup`); undefined when the slot is empty. */
+export async function readTransactionGroup(client: SafeStateClient, proposalId: bigint, payloadIndex: bigint) {
+  return tolerateMissingBox(
+    async () =>
+      (await (client.state.box as any).transactionGroups.value(proposalId * TXG_KEY_MULT + payloadIndex)) as [
+        bigint,
+        Uint8Array,
+      ][],
+  )
+}
+
+/** Former `hasApproved`. */
+export async function readHasApproved(client: SafeStateClient, proposalId: bigint, account: string) {
+  const approval = await tolerateMissingBox(async () => (client.state.box as any).approvals.value({ proposalId, account }))
+  return approval !== undefined
+}
+
+/** Read one rekeyed-address registry entry (former `getRekeyedAddress` / `isRekeyedAddress`). */
+export async function readRekeyedAddress(client: SafeStateClient, account: string) {
+  return tolerateMissingBox(
+    async () => (await (client.state.box as any).rekeyedAddresses.value(account)) as { label: string; addedRound: bigint },
+  )
+}
+
+/** Read one custodian asset guard (former `getAssetGuard` / `hasAssetGuard`). */
+export async function readAssetGuard(client: SafeStateClient, custodianGroupId: bigint, assetId: bigint) {
+  return tolerateMissingBox(
+    async () =>
+      (await (client.state.box as any).assetGuards.value({ custodianGroupId, assetId })) as {
+        createdRound: bigint
+        lockedAmount: bigint
+      },
+  )
+}
+
 async function getSignerGroupRecords(client: TypedClient) {
-  // `client` is a union across contract versions; older versions don't accept
-  // `ensureBudgetValue`, so the union's inferred args type can't be satisfied
-  // structurally. Cast narrowly on this call rather than fighting the union.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const configResult = await (client.send.getConfig as any)({ args: { ensureBudgetValue: 0n }, suppressLog: true })
-  const nextGroupId = (configResult.return?.[2] ?? 1n) as bigint
+  const { nextGroupId } = await readSafeConfig(client)
   const groupIds = Array.from({ length: Math.max(0, Number(nextGroupId - 1n)) }, (_value, index) => BigInt(index + 1))
 
-  return Promise.all(
+  const entries = await Promise.all(
     groupIds.map(async (groupId) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const result = await (client.send.getSignerGroup as any)({ args: { groupId, ensureBudgetValue: 0n }, suppressLog: true })
-      return [groupId, result.return as RawSignerGroup] as const
+      const group = await readSignerGroup(client, groupId)
+      return group ? ([groupId, group] as const) : undefined
     }),
   )
+  return entries.filter((entry): entry is readonly [bigint, RawSignerGroup] => entry !== undefined)
 }
 
 async function listMemberAddressesForGroup(algodClient: algosdk.Algodv2, safe: AlgoSafeOnChainRef, groupId: bigint) {
@@ -169,12 +287,8 @@ export async function fetchAlgoSafeSignerGroupDetail(
   const memberAddresses = await listMemberAddressesForGroup(algodClient, safe, targetGroupId)
   const memberResults = await Promise.all(
     memberAddresses.map(async (account) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const result = await (client.send.getMember as any)({
-        args: { groupId: targetGroupId, account, ensureBudgetValue: 0n },
-        suppressLog: true,
-      })
-      return result.return as RawSignerGroupMember
+      const member = await readMember(client, targetGroupId, account)
+      return member ?? { addr: account, label: '', accountType: 1n }
     }),
   )
 
@@ -192,12 +306,8 @@ export async function fetchAlgoSafeSignerGroupDetail(
     normalizedActiveAddress && algosdk.isValidAddress(normalizedActiveAddress)
       ? await Promise.all(
           adminGroups.map(async ([adminGroupId]) => {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const result = await (client.send.isMember as any)({
-              args: { groupId: adminGroupId, account: normalizedActiveAddress, ensureBudgetValue: 0n },
-              suppressLog: true,
-            })
-            return [adminGroupId.toString(), Boolean(result.return)] as const
+            const isGroupMember = await readIsMember(client, adminGroupId, normalizedActiveAddress)
+            return [adminGroupId.toString(), isGroupMember] as const
           }),
         )
       : []

@@ -1,5 +1,6 @@
 import { AlgorandClient } from '@algorandfoundation/algokit-utils'
 import { AlgoSafeFactory } from '../artifacts/algo_safe/AlgoSafeClient'
+import { AlgoSafeTxnValidatorFactory } from '../artifacts/algo_safe_validator/AlgoSafeTxnValidatorClient'
 
 // Below is a showcase of various deployment options you can use in TypeScript Client
 export async function deploy() {
@@ -7,6 +8,15 @@ export async function deploy() {
 
   const algorand = AlgorandClient.fromEnvironment()
   const deployer = await algorand.account.fromEnvironment('DEPLOYER')
+
+  // The safe pins the AlgoSafeTxnValidator library by bytecode hash at
+  // createApplication, so the validator must exist first. factory.deploy is
+  // idempotent — an existing deployment with the same bytecode is reused.
+  const validatorFactory = algorand.client.getTypedAppFactory(AlgoSafeTxnValidatorFactory, {
+    defaultSender: deployer.addr,
+  })
+  const { appClient: validatorClient } = await validatorFactory.deploy({})
+  console.log(`AlgoSafeTxnValidator app ID: ${validatorClient.appId}`)
 
   const factory = algorand.client.getTypedAppFactory(AlgoSafeFactory, {
     defaultSender: deployer.addr,
@@ -17,7 +27,7 @@ export async function deploy() {
     onSchemaBreak: 'append',
     createParams: {
       method: 'createApplication',
-      args: { name: 'Algo Safe' },
+      args: { name: 'Algo Safe', validatorAppId: validatorClient.appId },
       extraProgramPages: undefined,
     },
   })
@@ -36,6 +46,6 @@ export async function deploy() {
     args: { groupName: 'Admins' },
   })
 
-  const config = await appClient.send.getConfig({ args: { ensureBudgetValue: 0n } })
-  console.log(`Deployed Algo Safe (${appClient.appClient.appId}); config:`, config.return)
+  const globalState = await appClient.state.global.getAll()
+  console.log(`Deployed Algo Safe (${appClient.appClient.appId}); config:`, globalState)
 }

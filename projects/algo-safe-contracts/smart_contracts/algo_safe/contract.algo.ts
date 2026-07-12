@@ -16,7 +16,30 @@ import {
   uint64,
   Uint64,
 } from '@algorandfoundation/algorand-typescript'
-import { abimethod, decodeArc4 } from '@algorandfoundation/algorand-typescript/arc4'
+import { abiCall, decodeArc4 } from '@algorandfoundation/algorand-typescript/arc4'
+import { AlgoSafeTxnValidator } from '../algo_safe_validator/contract.algo'
+import {
+  ACT_ALL,
+  ACT_APPL,
+  AppTxn,
+  AssetConfigTxn,
+  AssetTxn,
+  GT_CUSTODIAN,
+  GT_STANDARD,
+  KeyRegTxn,
+  PaymentTxn,
+  PRIV_ALL,
+  PRIV_GROUP,
+  PRIV_POLICY,
+  RekeyTxn,
+  TX_ACFG,
+  TX_APP,
+  TX_ASSET,
+  TX_KEYREG,
+  TX_PAYMENT,
+  TX_REKEY,
+} from '../shared/types'
+import { VALIDATOR_APPROVAL_SHA256_HEX } from './validator-hash.generated'
 
 /**
  * Algo Safe — policy-driven multi-signer smart account for Algorand.
@@ -65,15 +88,8 @@ const STATUS_CANCELLED: uint64 = Uint64(4)
 const PT_TRANSACTION_GROUP: uint64 = Uint64(1) // pay/axfer/appl/keyreg/acfg/rekey bundle
 const PT_ADMIN: uint64 = Uint64(5)             // governance change
 
-// TX_* — type tag stored as SafeTxn.txType (first field of each envelope entry).
-// These tag values are ABI-encoded alongside the per-type struct in the payload.
-const TX_PAYMENT: uint64 = Uint64(1)
-const TX_ASSET: uint64 = Uint64(2)
-const TX_APP: uint64 = Uint64(3)
-const TX_KEYREG: uint64 = Uint64(4)
-const TX_ACFG: uint64 = Uint64(5)
-// TX_REKEY uses a 0-amount self-payment inner transaction; see _validateRekey.
-const TX_REKEY: uint64 = Uint64(6)
+// TX_*, ACT_*, PRIV_*, GT_* constants and the SafeTxn payload structs are
+// shared with the AlgoSafeTxnValidator contract — see ../shared/types.ts.
 
 // ---------------------------------------------------------------------------
 // Constants — AVM / contract limits
@@ -92,31 +108,6 @@ const MAX_APP_ACCOUNTS: uint64 = Uint64(4)
 const MAX_APP_FOREIGN_APPS: uint64 = Uint64(8)
 const MAX_APP_FOREIGN_ASSETS: uint64 = Uint64(8)
 const MAX_APP_TOTAL_REFS: uint64 = Uint64(8)
-
-// ---------------------------------------------------------------------------
-// Constants — bitmasks
-// ---------------------------------------------------------------------------
-
-// ACT_* — allowedActions bitmask on SignerGroup.
-// Governs which inner-transaction types this group may propose/execute.
-const ACT_PAY: uint64 = Uint64(1)     // ALGO payments
-const ACT_AXFER: uint64 = Uint64(2)   // ASA transfers
-const ACT_APPL: uint64 = Uint64(4)    // application calls
-const ACT_KEYREG: uint64 = Uint64(8)  // online/offline key registration
-const ACT_ACFG: uint64 = Uint64(16)   // asset create / reconfigure / destroy
-// ACT_REKEY requires both this bit and PRIV_GROUP; see _validateRekey.
-const ACT_REKEY: uint64 = Uint64(32)
-const ACT_ALL: uint64 = Uint64(63)    // all six bits set
-
-// PRIV_* — adminPrivileges bitmask on SignerGroup (safe-wide, not self-scoped).
-// Any group holding PRIV_GROUP can modify *any* group in the safe, not just itself.
-const PRIV_GROUP: uint64 = Uint64(1)  // create/deactivate groups, add/remove members, change thresholds, set privileges
-const PRIV_POLICY: uint64 = Uint64(2) // change spending policy (actions, limits, cooldown) for any group
-const PRIV_ALL: uint64 = Uint64(7)    // bits 1+2 plus bit 4 reserved for future granularity
-
-// GT_* — groupType discriminator stored in SignerGroup.groupType.
-const GT_STANDARD: uint64 = Uint64(0)   // human / agent signers governed by admins
-const GT_CUSTODIAN: uint64 = Uint64(1)  // smart-contract signers bounded by asset guards
 
 // ---------------------------------------------------------------------------
 // Constants — admin change types (ADM_*)
@@ -154,7 +145,7 @@ const ADM_REMOVE_GUARD: uint64 = Uint64(14) // delete guard; decrements group.gu
 
 const DAY_SECONDS: uint64 = Uint64(86400)
 const MONTH_SECONDS: uint64 = Uint64(2592000)
-const CONTRACT_VERSION = 'BIATEC-ALGO-SAFE-v2.0.0'
+const CONTRACT_VERSION = 'BIATEC-ALGO-SAFE-v3.0.0'
 
 // ---------------------------------------------------------------------------
 // Stored record types
@@ -265,71 +256,9 @@ type Proposal = {
   totalTxns: uint64        // sum of transaction counts across all payload slots
 }
 
-// SafeTxn types — tagged envelope for inner transactions stored in payload boxes.
-// Each entry is (txType: uint64, data: bytes) where data is the ARC4-encoded struct.
-
-type PaymentTxn = {
-  sender: Account    // zero address = use the safe's own app account
-  receiver: Account
-  amount: uint64
-  hasClose: uint64   // nonzero → also set CloseRemainderTo
-  closeRemainderTo: Account
-  note: string
-}
-
-type AssetTxn = {
-  sender: Account    // zero address = safe's own app account
-  xferAsset: uint64
-  assetReceiver: Account
-  assetAmount: uint64
-  hasAssetClose: uint64
-  assetCloseTo: Account
-  note: string
-}
-
-type AppTxn = {
-  appId: uint64
-  onCompletion: uint64
-  appArgs: bytes[]
-  accounts: Account[]
-  foreignApps: uint64[]
-  foreignAssets: uint64[]
-  note: string
-}
-
-type KeyRegTxn = {
-  online: uint64   // 0 = go offline; nonzero = register participation keys
-  voteKey: bytes
-  selectionKey: bytes
-  stateProofKey: bytes
-  voteFirst: uint64
-  voteLast: uint64
-  voteKeyDilution: uint64
-}
-
-type AssetConfigTxn = {
-  configAsset: uint64  // 0 = create new asset; >0 = reconfigure / destroy
-  total: uint64
-  decimals: uint64
-  defaultFrozen: uint64
-  unitName: string
-  assetName: string
-  url: string
-  metadataHash: bytes  // must be exactly 0 or 32 bytes
-  manager: Account
-  reserve: Account
-  freeze: Account
-  clawback: Account
-  note: string
-}
-
-type RekeyTxn = {
-  sender: Account  // zero address = rekey the safe itself; otherwise a registered rekeyed address
-  rekeyTo: Account
-  note: string
-}
-
-// SafeTxn — the tagged envelope. txType is one of TX_* constants above.
+// SafeTxn — the tagged envelope stored in payload boxes. Each entry is
+// (txType: uint64, data: bytes) where data is the ARC4-encoded struct for that
+// type — see ../shared/types.ts for the per-type structs.
 type SafeTxn = {
   txType: uint64
   data: bytes
@@ -424,6 +353,12 @@ export class AlgoSafe extends Contract {
   // Enforces the M-01 lockout guard: blocks any admin change that would leave 0.
   activePrivGroupCount = GlobalState<uint64>({ key: 'apgc' })
 
+  // validatorApp: app ID of the AlgoSafeTxnValidator library contract used to
+  // validate transaction payloads via C2C call. Verified by bytecode hash at
+  // createApplication — the pinned bytecode rejects update AND delete, so a
+  // hash-verified ID can never change behavior; one check at create is sound.
+  validatorApp = GlobalState<uint64>({ key: 'vapp' })
+
   // ---------------------------------------------------------------------------
   // Storage — box maps
   // ---------------------------------------------------------------------------
@@ -453,8 +388,19 @@ export class AlgoSafe extends Contract {
   /**
    * createApplication — called once on deployment. Initialises global state.
    * The creator is the only account that can bootstrap the safe.
+   *
+   * validatorAppId is pinned by BYTECODE HASH, not by trust in the deployer:
+   * the approval program of the given app must hash to the compiled
+   * AlgoSafeTxnValidator (see validator-hash.generated.ts). Because that
+   * bytecode rejects UpdateApplication and DeleteApplication, the program
+   * behind the ID is immutable, so this single check holds for the safe's
+   * whole lifetime.
    */
-  public createApplication(name: string): void {
+  public createApplication(name: string, validatorAppId: uint64): void {
+    const [validatorProgram, validatorExists] = op.AppParams.appApprovalProgram(validatorAppId)
+    assert(validatorExists, 'validator app not found')
+    assert(op.sha256(validatorProgram) === Bytes.fromHex(VALIDATOR_APPROVAL_SHA256_HEX), 'validator bytecode mismatch')
+    this.validatorApp.value = validatorAppId
     this.name.value = name
     this.creator.value = Txn.sender
     this.bootstrapped.value = Uint64(0)
@@ -477,41 +423,20 @@ export class AlgoSafe extends Contract {
     assert(this.bootstrapped.value === Uint64(0), 'already bootstrapped')
     assert(this.groupCount.value === Uint64(0), 'bootstrapGroup already used; cannot mix bootstrap paths')
 
-    const now = Global.latestTimestamp
-    const gid: uint64 = this.nextGroupId.value
-
-    const grp: SignerGroup = {
+    const seed: GroupSeed = {
       name: groupName,
       threshold: Uint64(1),
-      memberCount: Uint64(1),
       adminPrivileges: PRIV_ALL,
       allowedActions: ACT_ALL,
       limitAssetId: Uint64(0),
       dailyLimit: Uint64(0),
-      dailyUsage: Uint64(0),
-      dailyPeriodStart: now,
       monthlyLimit: Uint64(0),
-      monthlyUsage: Uint64(0),
-      monthlyPeriodStart: now,
       cooldownRounds: Uint64(0),
-      lastExecutionRound: Uint64(0),
-      membershipEpoch: Uint64(0),
-      active: Uint64(1),
       groupType: GT_STANDARD,
-      guardCount: Uint64(0),
     }
-    this.groups(gid).value = clone(grp)
-
-    const m: Member = { accountType: Uint64(1), label: 'creator', addr: Txn.sender }
-    this.members({ groupId: gid, account: Txn.sender }).value = clone(m)
-
-    this.nextGroupId.value = gid + Uint64(1)
-    this.groupCount.value = this.groupCount.value + Uint64(1)
+    const seedMembers: MemberSeed[] = [{ addr: Txn.sender, accountType: Uint64(1), label: 'creator' }]
+    this._seedGroup(seed, seedMembers)
     this.bootstrapped.value = Uint64(1)
-    this.activePrivGroupCount.value = Uint64(1)
-
-    emit<GroupCreated>({ groupId: gid, name: groupName, threshold: Uint64(1) })
-    emit<MemberAdded>({ groupId: gid, member: Txn.sender, accountType: Uint64(1) })
   }
 
   /**
@@ -526,6 +451,15 @@ export class AlgoSafe extends Contract {
     }
     assert(Txn.sender === this.creator.value, 'only creator can bootstrap')
     assert(this.bootstrapped.value === Uint64(0), 'already bootstrapped')
+    return this._seedGroup(seed, members)
+  }
+
+  /**
+   * _seedGroup — shared group-creation path for bootstrap() and bootstrapGroup().
+   * Validates the seed, writes the SignerGroup box, adds all members, and
+   * maintains the group counters and the M-01 lockout counter.
+   */
+  private _seedGroup(seed: GroupSeed, members: MemberSeed[]): uint64 {
     const memberCount = Uint64(members.length)
     assert(memberCount >= Uint64(1), 'members required')
     assert(seed.threshold >= Uint64(1) && seed.threshold <= memberCount, 'invalid threshold')
@@ -817,7 +751,13 @@ export class AlgoSafe extends Contract {
     const proposal = clone(this.proposals(proposalId).value)
     assert(proposal.status === STATUS_EXECUTED || proposal.status === STATUS_CANCELLED, 'proposal not terminal')
     assert(Global.round > proposal.expiryRound, 'not yet expired')
-    this._assertMember(proposal.groupId)
+    // M-02: proposals of a dissolved group must remain prunable. While the
+    // group exists only its members may prune; once it is gone the check has
+    // nothing left to protect (pruning a terminal, expired proposal only
+    // reclaims MBR to the app account), so anyone may reclaim.
+    if (this.groups(proposal.groupId).exists) {
+      assert(this.members({ groupId: proposal.groupId, account: Txn.sender }).exists, 'not a group member')
+    }
 
     if (proposal.payloadType === PT_TRANSACTION_GROUP) {
       for (let p = Uint64(1); p <= proposal.numPayloads; p = p + Uint64(1)) {
@@ -832,113 +772,13 @@ export class AlgoSafe extends Contract {
     this.proposals(proposalId).delete()
   }
 
-  // -------------------------------------------------------------------------
-  // Read-only getters
-  // -------------------------------------------------------------------------
-
-  @abimethod({ readonly: true })
-  public getConfig(ensureBudgetValue: uint64): [string, uint64, uint64, uint64, uint64, string] {
-    if (ensureBudgetValue > Uint64(1)) {
-      ensureBudget(ensureBudgetValue)
-    }
-    return [
-      this.name.value,
-      this.groupCount.value,
-      this.nextGroupId.value,
-      this.nextProposalId.value,
-      this.paused.value,
-      this.version.value,
-    ]
-  }
-
-  @abimethod({ readonly: true })
-  public getSignerGroup(groupId: uint64, ensureBudgetValue: uint64): SignerGroup {
-    if (ensureBudgetValue > Uint64(1)) {
-      ensureBudget(ensureBudgetValue)
-    }
-    return clone(this.groups(groupId).value)
-  }
-
-  @abimethod({ readonly: true })
-  public getProposal(proposalId: uint64, ensureBudgetValue: uint64): Proposal {
-    if (ensureBudgetValue > Uint64(1)) {
-      ensureBudget(ensureBudgetValue)
-    }
-    return clone(this.proposals(proposalId).value)
-  }
-
-  @abimethod({ readonly: true })
-  public getTransactionGroup(proposalId: uint64, payloadIndex: uint64, ensureBudgetValue: uint64): SafeTxnGroup {
-    if (ensureBudgetValue > Uint64(1)) {
-      ensureBudget(ensureBudgetValue)
-    }
-    return clone(this.transactionGroups(proposalId * TXG_KEY_MULT + payloadIndex).value)
-  }
-
-  @abimethod({ readonly: true })
-  public getMember(groupId: uint64, account: Account, ensureBudgetValue: uint64): Member {
-    if (ensureBudgetValue > Uint64(1)) {
-      ensureBudget(ensureBudgetValue)
-    }
-    return clone(this.members({ groupId, account }).value)
-  }
-
-  @abimethod({ readonly: true })
-  public isMember(groupId: uint64, account: Account, ensureBudgetValue: uint64): boolean {
-    if (ensureBudgetValue > Uint64(1)) {
-      ensureBudget(ensureBudgetValue)
-    }
-    return this.members({ groupId, account }).exists
-  }
-
-  @abimethod({ readonly: true })
-  public hasApproved(proposalId: uint64, account: Account, ensureBudgetValue: uint64): boolean {
-    if (ensureBudgetValue > Uint64(1)) {
-      ensureBudget(ensureBudgetValue)
-    }
-    return this.approvals({ proposalId, account }).exists
-  }
-
-  /** getActivePrivGroupCount — read the M-01 lockout counter (used by off-chain tooling). */
-  @abimethod({ readonly: true })
-  public getActivePrivGroupCount(ensureBudgetValue: uint64): uint64 {
-    if (ensureBudgetValue > Uint64(1)) {
-      ensureBudget(ensureBudgetValue)
-    }
-    return this.activePrivGroupCount.value
-  }
-
-  @abimethod({ readonly: true })
-  public isRekeyedAddress(account: Account, ensureBudgetValue: uint64): boolean {
-    if (ensureBudgetValue > Uint64(1)) {
-      ensureBudget(ensureBudgetValue)
-    }
-    return this.rekeyedAddresses(account).exists
-  }
-
-  @abimethod({ readonly: true })
-  public getRekeyedAddress(account: Account, ensureBudgetValue: uint64): RekeyedAddress {
-    if (ensureBudgetValue > Uint64(1)) {
-      ensureBudget(ensureBudgetValue)
-    }
-    return clone(this.rekeyedAddresses(account).value)
-  }
-
-  @abimethod({ readonly: true })
-  public hasAssetGuard(custodianGroupId: uint64, assetId: uint64, ensureBudgetValue: uint64): boolean {
-    if (ensureBudgetValue > Uint64(1)) {
-      ensureBudget(ensureBudgetValue)
-    }
-    return this.assetGuards({ custodianGroupId, assetId }).exists
-  }
-
-  @abimethod({ readonly: true })
-  public getAssetGuard(custodianGroupId: uint64, assetId: uint64, ensureBudgetValue: uint64): AssetGuard {
-    if (ensureBudgetValue > Uint64(1)) {
-      ensureBudget(ensureBudgetValue)
-    }
-    return clone(this.assetGuards({ custodianGroupId, assetId }).value)
-  }
+  // NOTE: the former read-only ABI getters (getConfig, getSignerGroup,
+  // getProposal, getTransactionGroup, getMember, isMember, hasApproved,
+  // getActivePrivGroupCount, isRekeyedAddress, getRekeyedAddress,
+  // hasAssetGuard, getAssetGuard) were removed in v3.0.0 to reclaim ~700 bytes
+  // of approval-program space. All of that data is plain box / global state —
+  // read it off-chain via the typed client's `state.box.*` / `state.global.*`
+  // accessors (see `src/on-chain.ts` readers in the npm package).
 
   // -------------------------------------------------------------------------
   // Internal — proposal machinery
@@ -1081,68 +921,57 @@ export class AlgoSafe extends Contract {
     const isCustodian = groupIn.groupType === GT_CUSTODIAN
 
     // Pass 1 — validate and account for spending / guard deductions.
+    //
+    // Validation is delegated to the hash-pinned AlgoSafeTxnValidator library
+    // contract via an inner app call per entry (each inner app call also ADDS
+    // 700 to the pooled opcode budget, so delegation is budget-positive).
+    // TX_APP is the exception: its appArgs can legitimately reach 2 048 bytes,
+    // which cannot fit through the inner-call argument limit, so it is
+    // validated locally — the safe must enforce those size limits anyway.
+    //
+    // The validator returns [assetId, amount, hasClose, sender]: assetId 0 =
+    // ALGO; hasClose nonzero means the transfer sweeps the sender's entire
+    // remaining balance, so the live balance is counted instead of the
+    // declared amount (a close-out must not bypass spending limits/guards).
     for (let p = Uint64(1); p <= numPayloads; p = p + Uint64(1)) {
       const key: uint64 = proposalId * TXG_KEY_MULT + p
       if (this.transactionGroups(key).exists) {
         const payload = clone(this.transactionGroups(key).value)
         for (let i = Uint64(0); i < payload.length; i = i + Uint64(1)) {
           const entry = clone(payload[i])
-          if (entry.txType === TX_PAYMENT) {
-            const tx = decodeArc4<PaymentTxn>(entry.data)
-            this._validatePayment(tx, groupIn)
-            if (isCustodian) {
-              // Close-out sweeps the full balance; read it now before pass 2 empties it.
-              const sender = tx.sender === Global.zeroAddress ? Global.currentApplicationAddress : tx.sender
-              const amount = tx.hasClose !== Uint64(0) ? op.balance(sender) : tx.amount
-              this._deductFromGuard(groupId, Uint64(0), amount)
-            } else {
-              let amount: uint64 = Uint64(0)
-              if (group.limitAssetId === Uint64(0)) {
-                const sender = tx.sender === Global.zeroAddress ? Global.currentApplicationAddress : tx.sender
-                amount = tx.hasClose !== Uint64(0) ? op.balance(sender) : tx.amount
-              }
-              group = this._accountSpend(group, amount)
-            }
-          } else if (entry.txType === TX_ASSET) {
-            const tx = decodeArc4<AssetTxn>(entry.data)
-            this._validateAsset(tx, groupIn)
-            if (isCustodian) {
-              let amount: uint64 = tx.assetAmount
-              if (tx.hasAssetClose !== Uint64(0)) {
-                // Close-out sweeps entire asset balance — read live balance.
-                const sender = tx.sender === Global.zeroAddress ? Global.currentApplicationAddress : tx.sender
-                const [bal] = op.AssetHolding.assetBalance(sender, tx.xferAsset)
-                amount = bal
-              }
-              this._deductFromGuard(groupId, tx.xferAsset, amount)
-            } else {
-              const tracked = group.limitAssetId !== Uint64(0) && tx.xferAsset === group.limitAssetId
-              let amount: uint64 = Uint64(0)
-              if (tracked) {
-                if (tx.hasAssetClose !== Uint64(0)) {
-                  const sender = tx.sender === Global.zeroAddress ? Global.currentApplicationAddress : tx.sender
-                  const [bal] = op.AssetHolding.assetBalance(sender, tx.xferAsset)
-                  amount = bal
+          if (entry.txType === TX_APP) {
+            this._validateApp(decodeArc4<AppTxn>(entry.data), groupIn)
+          } else {
+            const validated = abiCall({
+              method: AlgoSafeTxnValidator.prototype.validateTxn,
+              appId: this.validatorApp.value,
+              args: [entry.txType, entry.data, groupIn.allowedActions, groupIn.adminPrivileges, groupIn.groupType],
+              fee: 0,
+            }).returnValue
+            const assetId = validated[0]
+            let amount = validated[1]
+            const hasClose = validated[2]
+            const txSender = validated[3]
+            // Standard groups only track the group's limit asset; custodians
+            // account every value-moving entry against their asset guard.
+            const tracked = assetId === group.limitAssetId
+            if (isCustodian || tracked) {
+              if (hasClose !== Uint64(0)) {
+                // Close-out sweeps the full balance; read it now before pass 2 empties it.
+                const sender = txSender === Global.zeroAddress ? Global.currentApplicationAddress : txSender
+                if (assetId === Uint64(0)) {
+                  amount = op.balance(sender)
                 } else {
-                  amount = tx.assetAmount
+                  const [bal] = op.AssetHolding.assetBalance(sender, assetId)
+                  amount = bal
                 }
               }
-              group = this._accountSpend(group, amount)
+              if (isCustodian) {
+                this._deductFromGuard(groupId, assetId, amount)
+              } else {
+                group = this._accountSpend(group, amount)
+              }
             }
-          } else if (entry.txType === TX_APP) {
-            const tx = decodeArc4<AppTxn>(entry.data)
-            this._validateApp(tx, groupIn)
-          } else if (entry.txType === TX_KEYREG) {
-            decodeArc4<KeyRegTxn>(entry.data)
-            assert((groupIn.allowedActions & ACT_KEYREG) !== Uint64(0), 'keyreg not allowed')
-          } else if (entry.txType === TX_ACFG) {
-            const tx = decodeArc4<AssetConfigTxn>(entry.data)
-            this._validateAssetConfig(tx, groupIn)
-          } else if (entry.txType === TX_REKEY) {
-            const tx = decodeArc4<RekeyTxn>(entry.data)
-            this._validateRekey(tx, groupIn)
-          } else {
-            assert(false, 'unknown tx type')
           }
         }
       }
@@ -1324,22 +1153,12 @@ export class AlgoSafe extends Contract {
   // Transaction validation helpers
   // -------------------------------------------------------------------------
 
-  private _validatePayment(tx: PaymentTxn, group: SignerGroup): void {
-    assert((group.allowedActions & ACT_PAY) !== Uint64(0), 'pay not allowed')
-    assert(tx.receiver !== Global.zeroAddress, 'receiver required')
-    if (tx.hasClose !== Uint64(0)) {
-      assert(tx.closeRemainderTo !== Global.zeroAddress, 'close target required')
-    }
-  }
-
-  private _validateAsset(tx: AssetTxn, group: SignerGroup): void {
-    assert((group.allowedActions & ACT_AXFER) !== Uint64(0), 'axfer not allowed')
-    assert(tx.assetReceiver !== Global.zeroAddress, 'asset receiver required')
-    if (tx.hasAssetClose !== Uint64(0)) {
-      assert(tx.assetCloseTo !== Global.zeroAddress, 'asset close target required')
-    }
-  }
-
+  /**
+   * _validateApp — the one payload validation kept in the safe: an app call's
+   * appArgs can total 2 048 bytes, which cannot fit through the inner-app-call
+   * argument pipe to the validator library. All other payload types are
+   * validated in AlgoSafeTxnValidator (see _executeTransactionGroup pass 1).
+   */
   private _validateApp(tx: AppTxn, group: SignerGroup): void {
     assert((group.allowedActions & ACT_APPL) !== Uint64(0), 'appl not allowed')
     assert(tx.appId !== Uint64(0), 'appId required')
@@ -1362,29 +1181,6 @@ export class AlgoSafe extends Contract {
       totalArgLen = totalArgLen + tx.appArgs[i].length
     }
     assert(totalArgLen <= MAX_APP_TOTAL_ARG_LEN, 'app args total length exceeded')
-  }
-
-  private _validateAssetConfig(tx: AssetConfigTxn, group: SignerGroup): void {
-    assert((group.allowedActions & ACT_ACFG) !== Uint64(0), 'acfg not allowed')
-    assert(
-      tx.metadataHash.length === Uint64(0) || tx.metadataHash.length === Uint64(32),
-      'metadataHash must be 0 or 32 bytes',
-    )
-  }
-
-  /**
-   * _validateRekey — require both ACT_REKEY and PRIV_GROUP.
-   * Rekey is the most privileged operation: it transfers spending authority
-   * over a rekeyed account to a new address, so it requires not just an
-   * execution-capable group but an admin-grade group (PRIV_GROUP).
-   * Custodian groups are explicitly blocked — their protocol contract may be
-   * compromised and must not be able to transfer control of external accounts.
-   */
-  private _validateRekey(tx: RekeyTxn, group: SignerGroup): void {
-    assert((group.allowedActions & ACT_REKEY) !== Uint64(0), 'rekey not allowed')
-    assert((group.adminPrivileges & PRIV_GROUP) !== Uint64(0), 'rekey requires group admin privilege')
-    assert(group.groupType !== GT_CUSTODIAN, 'custodian groups cannot rekey')
-    assert(tx.rekeyTo !== Global.zeroAddress, 'rekey target required')
   }
 
   private _storePayloadGroup(proposalId: uint64, payloadIndex: uint64, payload: SafeTxnGroup): void {
@@ -1484,6 +1280,9 @@ export class AlgoSafe extends Contract {
       emit<RekeyedAddressRemoved>({ addr: change.memberAddr })
     } else if (change.changeType === ADM_CHANGE_THRESHOLD) {
       const group = clone(this.groups(change.targetGroupId).value)
+      // L-01: threshold 0 would make proposals READY on the proposer's
+      // auto-approval alone while UIs display "0 approvals required".
+      assert(change.threshold >= Uint64(1), 'threshold must be at least 1')
       assert(change.threshold <= group.memberCount, 'threshold exceeds members')
       group.threshold = change.threshold
       this.groups(change.targetGroupId).value = clone(group)
@@ -1546,6 +1345,13 @@ export class AlgoSafe extends Contract {
       const gid = change.targetGroupId
       const group = clone(this.groups(gid).value)
       assert(group.guardCount === Uint64(0), 'remove all guards before dissolving')
+      // M-01: dissolution must not orphan member boxes (their MBR would be
+      // locked forever). Admins prune the group to one member first via
+      // ADM_REMOVE_MEMBER (which deletes those boxes); the dissolve proposal
+      // names the last member in memberAddr so its box is deleted here too.
+      assert(group.memberCount === Uint64(1), 'remove other members before dissolving')
+      assert(this.members({ groupId: gid, account: change.memberAddr }).exists, 'memberAddr must be the last member')
+      this.members({ groupId: gid, account: change.memberAddr }).delete()
       this.groups(gid).delete()
       if (this.groupCount.value > Uint64(0)) {
         this.groupCount.value = this.groupCount.value - Uint64(1)
@@ -1598,7 +1404,9 @@ export class AlgoSafe extends Contract {
   private _createGroup(change: AdminChange, groupType: uint64): void {
     const now = Global.latestTimestamp
     const gid: uint64 = this.nextGroupId.value
-    assert(change.threshold <= Uint64(1), 'new group starts with one member')
+    // L-01: exactly 1 — the group starts with a single member, and threshold 0
+    // (READY on auto-approval alone) is never valid.
+    assert(change.threshold === Uint64(1), 'new group starts with one member')
 
     const grp: SignerGroup = {
       name: change.groupName,
@@ -1642,6 +1450,9 @@ export class AlgoSafe extends Contract {
 
   private _adminAddMember(change: AdminChange): void {
     const gid = change.targetGroupId
+    // L-02: same guard as bootstrapGroup — the zero address can never sign,
+    // so admitting it only inflates memberCount and wastes box MBR.
+    assert(change.memberAddr !== Global.zeroAddress, 'member required')
     assert(!this.members({ groupId: gid, account: change.memberAddr }).exists, 'already a member')
 
     const m: Member = { accountType: change.memberType, label: change.memberLabel, addr: change.memberAddr }

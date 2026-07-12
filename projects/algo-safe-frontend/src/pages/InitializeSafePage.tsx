@@ -1,6 +1,6 @@
 import { algo, AlgorandClient } from '@algorandfoundation/algokit-utils'
 import { useNetwork, useWallet } from '@txnlab/use-wallet-react'
-import { AlgoSafeFactory } from 'algo-safe'
+import { AlgoSafeFactory, deployValidator, resolveValidatorAppId } from 'algo-safe'
 import algosdk from 'algosdk'
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -111,8 +111,23 @@ export function InitializeSafePage() {
         defaultSender: senderAddress,
       })
 
+      // The safe pins the AlgoSafeTxnValidator library by bytecode hash at
+      // creation. Use the network's registered validator when one exists;
+      // otherwise deploy a fresh one (the on-chain hash check makes any
+      // matching deployment equivalent).
+      let validatorAppId: bigint
+      try {
+        validatorAppId = await resolveValidatorAppId(algodClient)
+      } catch {
+        validatorAppId = await deployValidator({
+          algodClient,
+          sender: senderAddress.toString(),
+          signer: transactionSigner,
+        })
+      }
+
       const { appClient, result } = await factory.send.create.createApplication({
-        args: { name: safeName },
+        args: { name: safeName, validatorAppId },
         suppressLog: true,
       })
 

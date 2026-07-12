@@ -4,6 +4,7 @@ import { createAdminChange } from './admin'
 import { ADM_ADD_MEMBER, ADM_CREATE_GROUP, ACT_PAY, FAR_EXPIRY } from './constants'
 import { fetchAlgoSafeSignerGroupDetail, fetchAlgoSafeSignerGroups } from './on-chain'
 import { AlgoSafeFactory } from '../smart_contracts/artifacts/algo_safe/AlgoSafeClient'
+import { AlgoSafeTxnValidatorFactory } from '../smart_contracts/artifacts/algo_safe_validator/AlgoSafeTxnValidatorClient'
 
 describe('on-chain signer-group readers (fetchAlgoSafeSignerGroups / fetchAlgoSafeSignerGroupDetail)', () => {
   const localnet = algorandFixture()
@@ -13,8 +14,15 @@ describe('on-chain signer-group readers (fetchAlgoSafeSignerGroups / fetchAlgoSa
 
   const deployAndBootstrap = async () => {
     const deployer = await localnet.context.generateAccount({ initialFunds: (50).algo() })
+    const validatorFactory = localnet.algorand.client.getTypedAppFactory(AlgoSafeTxnValidatorFactory, {
+      defaultSender: deployer,
+    })
+    const { appClient: validatorClient } = await validatorFactory.send.create.bare({ suppressLog: true })
     const factory = localnet.algorand.client.getTypedAppFactory(AlgoSafeFactory, { defaultSender: deployer })
-    const { appClient } = await factory.send.create.createApplication({ args: { name: 'On-Chain Test Safe' }, suppressLog: true })
+    const { appClient } = await factory.send.create.createApplication({
+      args: { name: 'On-Chain Test Safe', validatorAppId: validatorClient.appId },
+      suppressLog: true,
+    })
     await localnet.algorand.send.payment({
       amount: (5).algo(),
       sender: deployer,
