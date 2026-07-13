@@ -3641,4 +3641,155 @@ describe('AlgoSafe contract', () => {
     const adminGroup = await getSignerGroup(client, 1n)
     expect(adminGroup.return!.memberCount).toBe(1n)
   })
+
+  // -------------------------------------------------------------------------
+  // 2026-07-12 Fable-5 audit regressions (v3.1.0)
+  // -------------------------------------------------------------------------
+
+  test('createApplication rejects an app that is not the pinned validator (Fable-5 I-04)', async () => {
+    const deployer = await localnet.context.generateAccount({ initialFunds: (10).algo() })
+    const factory = localnet.algorand.client.getTypedAppFactory(AlgoSafeFactory, { defaultSender: deployer })
+
+    // An arbitrary NoOp app's bytecode does not hash to the pinned validator hash.
+    const impostorAppId = await createBareNoOpApp(deployer)
+    await expect(
+      factory.send.create.createApplication({
+        args: { name: 'Bad Safe', validatorAppId: impostorAppId },
+        suppressLog: true,
+      }),
+    ).rejects.toThrow(/validator bytecode mismatch/)
+
+    // A nonexistent app id fails the existence assert.
+    await expect(
+      factory.send.create.createApplication({
+        args: { name: 'Bad Safe', validatorAppId: 4_000_000_000n },
+        suppressLog: true,
+      }),
+    ).rejects.toThrow()
+  })
+
+  test('custodian groups cannot be created with, or widened to, actions beyond pay/axfer (Fable-5 M-01)', async () => {
+    const { client } = await deployAndBootstrap()
+    const protocol = await localnet.context.generateAccount({ initialFunds: (1).algo() })
+
+    // ADM_CREATE_CUSTODIAN with ACT_APPL fails at execution.
+    const { return: pid } = await client.send.proposeAdminChange({
+      args: {
+        groupId: 1n,
+        change: mkAdminChange({
+          changeType: ADM_CREATE_CUSTODIAN, groupName: 'AppCustodian', threshold: 1n,
+          allowedActions: ACT_ALL, memberAddr: protocol.toString(), memberType: 4n, memberLabel: 'protocol',
+        }),
+        expiryRound: FAR_EXPIRY,
+        ensureBudgetValue: 0n,
+      },
+      suppressLog: true,
+      staticFee: (0.2).algo(),
+    })
+    await expect(
+      client.send.executeProposal({ args: { proposalId: pid!, ensureBudgetValue: 6000n }, ...execParams }),
+    ).rejects.toThrow()
+
+    // Creating with pay/axfer only succeeds (group 2)…
+    await governAdminChange(client, 1n, mkAdminChange({
+      changeType: ADM_CREATE_CUSTODIAN, groupName: 'Custodian', threshold: 1n,
+      allowedActions: ACT_PAY | ACT_AXFER, memberAddr: protocol.toString(), memberType: 4n, memberLabel: 'protocol',
+    }))
+    expect((await getSignerGroup(client, 2n)).return!.groupType).toBe(GT_CUSTODIAN)
+
+    // …but ADM_SET_POLICY cannot widen it beyond pay/axfer afterwards.
+    const { return: pid2 } = await client.send.proposeAdminChange({
+      args: {
+        groupId: 1n,
+        change: mkAdminChange({ changeType: ADM_SET_POLICY, targetGroupId: 2n, allowedActions: ACT_ALL }),
+        expiryRound: FAR_EXPIRY,
+        ensureBudgetValue: 0n,
+      },
+      suppressLog: true,
+      staticFee: (0.2).algo(),
+    })
+    await expect(
+      client.send.executeProposal({ args: { proposalId: pid2!, ensureBudgetValue: 6000n }, ...execParams }),
+    ).rejects.toThrow()
+
+    // Narrowing within pay/axfer still works.
+    await governAdminChange(client, 1n, mkAdminChange({
+      changeType: ADM_SET_POLICY, targetGroupId: 2n, allowedActions: ACT_PAY,
+    }))
+    expect((await getSignerGroup(client, 2n)).return!.allowedActions).toBe(ACT_PAY)
+  })
+
+  test('creating a group with the zero address as initial member is rejected (Fable-5 L-01)', async () => {
+    const { client } = await deployAndBootstrap()
+
+    for (const changeType of [ADM_CREATE_GROUP, ADM_CREATE_CUSTODIAN]) {
+      const { return: pid } = await client.send.proposeAdminChange({
+        args: {
+          groupId: 1n,
+          change: mkAdminChange({
+            changeType, groupName: 'Ghost', threshold: 1n,
+            allowedActions: ACT_PAY, memberAddr: ZERO_ADDR, memberLabel: 'ghost',
+          }),
+          expiryRound: FAR_EXPIRY,
+          ensureBudgetValue: 0n,
+        },
+        suppressLog: true,
+        staticFee: (0.2).algo(),
+      })
+      await expect(
+        client.send.executeProposal({ args: { proposalId: pid!, ensureBudgetValue: 6000n }, ...execParams }),
+      ).rejects.toThrow()
+    }
+
+    // No group was created.
+    expect((await getConfig(client)).return![1]).toBe(1n)
+  })
+
+  test('registering the zero address as a rekeyed address is rejected (Fable-5 L-02)', async () => {
+    const { client } = await deployAndBootstrap()
+
+    const { return: pid } = await client.send.proposeAdminChange({
+      args: {
+        groupId: 1n,
+        change: mkAdminChange({ changeType: ADM_ADD_REKEYED_ADDR, memberAddr: ZERO_ADDR, memberLabel: 'ghost' }),
+        expiryRound: FAR_EXPIRY,
+        ensureBudgetValue: 0n,
+      },
+      suppressLog: true,
+      staticFee: (0.2).algo(),
+    })
+    await expect(
+      client.send.executeProposal({ args: { proposalId: pid!, ensureBudgetValue: 6000n }, ...execParams }),
+    ).rejects.toThrow()
+
+    // The off-chain migration builder also refuses a zero entry defensively.
+    expect(() => buildMigrationRekeyPayload([ZERO_ADDR], client.appAddress.toString())).toThrow(
+      /must not contain the zero address/,
+    )
+  })
+
+  test('group creation rejects bitmask values beyond the defined ACT_*/PRIV_* bits (Fable-5 I-01)', async () => {
+    const { client } = await deployAndBootstrap()
+    const agent = await localnet.context.generateAccount({ initialFunds: (1).algo() })
+
+    for (const change of [
+      mkAdminChange({
+        changeType: ADM_CREATE_GROUP, groupName: 'BadActions', threshold: 1n,
+        allowedActions: 64n, memberAddr: agent.toString(), memberLabel: 'agent',
+      }),
+      mkAdminChange({
+        changeType: ADM_CREATE_GROUP, groupName: 'BadPrivs', threshold: 1n,
+        allowedActions: ACT_PAY, adminPrivileges: 8n, memberAddr: agent.toString(), memberLabel: 'agent',
+      }),
+    ]) {
+      const { return: pid } = await client.send.proposeAdminChange({
+        args: { groupId: 1n, change, expiryRound: FAR_EXPIRY, ensureBudgetValue: 0n },
+        suppressLog: true,
+        staticFee: (0.2).algo(),
+      })
+      await expect(
+        client.send.executeProposal({ args: { proposalId: pid!, ensureBudgetValue: 6000n }, ...execParams }),
+      ).rejects.toThrow()
+    }
+  })
 })

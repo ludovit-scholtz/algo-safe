@@ -4,6 +4,7 @@ import { ConsoleShell } from './layout/ConsoleShell'
 import { PreSafeShell } from './layout/PreSafeShell'
 import { AgentDashboardPage } from './pages/AgentDashboardPage'
 import { CreateProposalPage } from './pages/CreateProposalPage'
+import { CreateSignerGroupPage } from './pages/CreateSignerGroupPage'
 import { InitializeSafePage } from './pages/InitializeSafePage'
 import { ProposalDetailPage } from './pages/ProposalDetailPage'
 import { ProposalsPage } from './pages/ProposalsPage'
@@ -27,6 +28,7 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <AgentDashboardPage /> },
       { path: 'agents/register', element: <RegisterAgentPage /> },
+      { path: 'signer-groups/create', element: <CreateSignerGroupPage /> },
       { path: 'signer-groups/:groupId/edit', element: <SignerGroupManagementPage /> },
       { path: 'proposals', element: <ProposalsPage /> },
       { path: 'proposals/create', element: <CreateProposalPage /> },

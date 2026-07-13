@@ -272,9 +272,15 @@ export function buildMigrationRekeyPayload(rekeyedAddresses: string[], newSafeAd
   if (rekeyedAddresses.length > 15) {
     throw new Error('A migration rekey group supports at most 15 external addresses (16 transactions incl. the safe itself).')
   }
-  const txns = rekeyedAddresses.map((address) =>
-    createRekeySafeTxn({ sender: address, rekeyTo: newSafeAddress, note: 'algo-safe migration' }),
-  )
+  const txns = rekeyedAddresses.map((address) => {
+    // A zero-address sender means "rekey the safe itself" — a zero registry
+    // entry here would self-rekey the safe before the group's final entry and
+    // fail the whole migration group (2026-07-12 Fable-5 audit, L-02).
+    if (address === ZERO_ADDR) {
+      throw new Error('Rekeyed-address list must not contain the zero address.')
+    }
+    return createRekeySafeTxn({ sender: address, rekeyTo: newSafeAddress, note: 'algo-safe migration' })
+  })
   txns.push(createRekeySafeTxn({ sender: ZERO_ADDR, rekeyTo: newSafeAddress, note: 'algo-safe migration' }))
   return toSafeTxnGroup(txns)
 }

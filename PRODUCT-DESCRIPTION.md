@@ -189,6 +189,8 @@ Custodian Groups are a specialised signer-group type designed to make Algo Safe 
 
 An Asset Guard is a bounded allocation of a specific asset (ALGO or any ASA, keyed by `assetId`) reserved exclusively for one Custodian Group. The Custodian Group may transfer **at most** the guarded `lockedAmount` of that asset per guard; each execution deducts from the allocation atomically, reverting if the inner transaction group fails, so the deduction is always consistent with the actual transfer.
 
+**Guard scope.** Asset Guards meter value moved by **payment and asset-transfer** entries. To keep the "cannot exceed the guard allocation even if the custodian protocol is compromised" property airtight, the contract (v3.1.0+) restricts a Custodian Group's `allowedActions` to exactly those two action types — at creation (`ADM_CREATE_CUSTODIAN`), at bootstrap seeding, and on every later policy change (`ADM_SET_POLICY`). A custodian can never hold app-call, asset-config, key-registration, or rekey rights, because none of those are bounded by guards.
+
 Guards are managed exclusively through admin proposals (`ADM_SET_GUARD` and `ADM_REMOVE_GUARD`). Any group holding `PRIV_GROUP` can propose setting or removing a guard; no custodian co-approval is required. This keeps the Algorand smart-contract program within the AVM binary-size ceiling while still giving admins the ability to pre-authorise bounded protocol spending.
 
 `assetId = 0` is the ALGO guard; any non-zero value is an ASA guard. A Custodian Group can hold multiple simultaneous guards across different assets.
@@ -648,12 +650,20 @@ classDiagram
 
 ### ABI Method Surface
 
-The application is intentionally **non-updatable and non-deletable** for custody safety — there is no upgrade or teardown path (migration is done by rekeying the safe account to a new deployment under admin consensus; see Safe Upgrade above). `createApplication` initialises global state; a new safe is then seeded either by `bootstrap` (creator-only, once: genesis 1-of-1 admin group) or by the clone-friendly path (`bootstrapGroup`/`bootstrapRekeyedAddress` repeated as needed, closed by `finalizeBootstrap`), used to copy an existing safe's configuration during a migration. Every other privileged change flows through governed proposals. Read-only getters use `@abimethod({ readonly: true })` so clients can query without a state-changing call; every method takes an `ensureBudgetValue` argument so callers can raise the opcode budget in the same call.
+The application is intentionally **non-updatable and non-deletable** for custody safety — there is no upgrade or teardown path (migration is done by rekeying the safe account to a new deployment under admin consensus; see Safe Upgrade above). `createApplication(name, validatorAppId)` initialises global state and **pins the payload-validator library contract by bytecode hash** (see "Validator Library Contract" below); a new safe is then seeded either by `bootstrap` (creator-only, once: genesis 1-of-1 admin group) or by the clone-friendly path (`bootstrapGroup`/`bootstrapRekeyedAddress` repeated as needed, closed by `finalizeBootstrap`), used to copy an existing safe's configuration during a migration. Every other privileged change flows through governed proposals. Every method takes an `ensureBudgetValue` argument so callers can raise the opcode budget in the same call.
+
+**Reading safe state (v3.0.0+).** The contract no longer exposes read-only ABI getters — they were removed in v3.0.0 to reclaim approval-program space. All safe data lives in plain box and global state, and the `algo-safe` npm package ships typed readers that work against **every** deployed contract version: `readSafeConfig`, `readSignerGroup`, `readMember`, `readIsMember`, `readProposal`, `readTransactionGroup`, `readHasApproved`, `readRekeyedAddress`, and `readAssetGuard` (all in `src/on-chain.ts`). A missing box resolves to `undefined`. Clients built against pre-v3 safes may still call the legacy getters on those deployments — always detect the deployed version first (`getAlgoSafeContractVersion`).
+
+### Validator Library Contract (v3.0.0+)
+
+Payload validation for payment, asset-transfer, key-registration, asset-config, and rekey entries is performed by **`AlgoSafeTxnValidator`** — a tiny (~420-byte), stateless library contract the safe calls via an inner application call for each such payload entry during execution. App-call entries are the exception: their arguments can total 2 KB and cannot fit through the inner-call pipe, so they are validated inside the safe itself.
+
+The trust model is **bytecode pinning, not deployer trust**: at `createApplication` the safe reads the given `validatorAppId`'s approval program and asserts its SHA-256 equals a compile-time constant. The validator contract rejects update and delete permanently, so a hash-verified app ID can never change behavior — the one-time check holds for the safe's whole lifetime, and a wrong or malicious validator ID simply fails safe creation. One validator deployment per network serves every safe on that network; the `algo-safe` package's `resolveValidatorAppId`/`deployValidator` helpers verify the bytecode hash off-chain before use. Executions consequently need the validator app in the transaction's resources (populated automatically by standard clients) and cost one extra min-fee per validated payload entry.
 
 ```mermaid
 flowchart TB
     subgraph Lifecycle["Lifecycle & bootstrap"]
-        C1["createApplication(name) — init global state"]
+        C1["createApplication(name, validatorAppId) — init global state, pin validator bytecode"]
         C2["bootstrap(groupName) — creator-only, once: genesis 1-of-1 admin group"]
         C3["bootstrapGroup(seed, members, budget) — creator-only, pre-finalize: clone a full group"]
         C4["bootstrapRekeyedAddress(addr, label) — creator-only, pre-finalize"]
@@ -680,15 +690,15 @@ flowchart TB
         A7["ADM_SET_PAUSED — emergency pause (tx groups only; governance stays live)"]
     end
 
-    subgraph Reads["Read-only getters"]
-        R1["getConfig()"]
-        R2["getSignerGroup(groupId)"]
-        R3["getProposal(proposalId)"]
-        R4["getTransactionGroup(proposalId, payloadIndex)"]
-        R5["getMember(groupId, account) / isMember(groupId, account)"]
-        R6["hasApproved(proposalId, account)"]
-        R7["getActivePrivGroupCount()"]
-        R8["isRekeyedAddress(account) / getRekeyedAddress(account)"]
+    subgraph Reads["Reading state (off-chain box/global readers — no ABI getters since v3.0.0)"]
+        R1["readSafeConfig(client)"]
+        R2["readSignerGroup(client, groupId)"]
+        R3["readProposal(client, proposalId)"]
+        R4["readTransactionGroup(client, proposalId, payloadIndex)"]
+        R5["readMember / readIsMember(client, groupId, account)"]
+        R6["readHasApproved(client, proposalId, account)"]
+        R7["readRekeyedAddress(client, account)"]
+        R8["readAssetGuard(client, custodianGroupId, assetId)"]
     end
 
     P1B --> A1
@@ -708,7 +718,7 @@ Two behaviors worth calling out:
 
 ### Proposal State Machine
 
-A proposal carries the **exact typed payload** it authorizes. For executable actions, that payload is always an ordered `TransactionGroupPayload`; a single transaction is just a one-entry group. A signer approves by submitting a signed `approveProposal(proposalId, expectedPayloadVersion)` app call from the signer account, where `expectedPayloadVersion` is the proposal's `payloadVersion` read (via `getProposal`) at review time — if the proposer edits a payload chunk after the signer reviewed it but before the approval confirms, the version no longer matches and the stale approval reverts instead of silently binding to different content. The blockchain validates that transaction signature before contract logic runs; the contract then checks that `Txn.sender` is a member of the requested signer group and records the approval. If the ordered payload changes, pending approvals are invalidated by the version bump and must be collected again. During `executeProposal`, the approved transaction list is converted into one atomic inner transaction group. For signer-group changes, the approved admin payload mutates the group, member, threshold, policy, or admin-privilege boxes.
+A proposal carries the **exact typed payload** it authorizes. For executable actions, that payload is always an ordered `TransactionGroupPayload`; a single transaction is just a one-entry group. A signer approves by submitting a signed `approveProposal(proposalId, expectedPayloadVersion)` app call from the signer account, where `expectedPayloadVersion` is the proposal's `payloadVersion` read (via the `readProposal` box reader) at review time — if the proposer edits a payload chunk after the signer reviewed it but before the approval confirms, the version no longer matches and the stale approval reverts instead of silently binding to different content. The blockchain validates that transaction signature before contract logic runs; the contract then checks that `Txn.sender` is a member of the requested signer group and records the approval. If the ordered payload changes, pending approvals are invalidated by the version bump and must be collected again. During `executeProposal`, the approved transaction list is converted into one atomic inner transaction group. For signer-group changes, the approved admin payload mutates the group, member, threshold, policy, or admin-privilege boxes.
 
 ```mermaid
 stateDiagram-v2

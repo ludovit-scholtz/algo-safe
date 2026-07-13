@@ -21,6 +21,8 @@ import { AlgoSafeTxnValidator } from '../algo_safe_validator/contract.algo'
 import {
   ACT_ALL,
   ACT_APPL,
+  ACT_AXFER,
+  ACT_PAY,
   AppTxn,
   AssetConfigTxn,
   AssetTxn,
@@ -145,7 +147,7 @@ const ADM_REMOVE_GUARD: uint64 = Uint64(14) // delete guard; decrements group.gu
 
 const DAY_SECONDS: uint64 = Uint64(86400)
 const MONTH_SECONDS: uint64 = Uint64(2592000)
-const CONTRACT_VERSION = 'BIATEC-ALGO-SAFE-v3.0.0'
+const CONTRACT_VERSION = 'BIATEC-ALGO-SAFE-v3.1.0'
 
 // ---------------------------------------------------------------------------
 // Stored record types
@@ -470,6 +472,8 @@ export class AlgoSafe extends Contract {
       // Custodian groups never hold admin privileges regardless of what the caller passes.
       assert(seed.adminPrivileges === Uint64(0), 'custodian groups cannot have admin privileges')
     }
+    // M-01 (Fable-5): custodian actions are limited to the guard-metered bits.
+    this._assertCustodianActions(seed.groupType, seed.allowedActions)
 
     const now = Global.latestTimestamp
     const gid: uint64 = this.nextGroupId.value
@@ -1225,6 +1229,20 @@ export class AlgoSafe extends Contract {
   // Admin change helpers
   // -------------------------------------------------------------------------
 
+  /**
+   * _assertCustodianActions — M-01 (Fable-5): custodian groups may only hold
+   * the guard-metered action bits (ACT_PAY | ACT_AXFER). Asset guards do not
+   * bound value moved via app calls or asset-config changes, so granting a
+   * custodian ACT_APPL/ACT_ACFG/ACT_KEYREG/ACT_REKEY would let a compromised
+   * custodian protocol exceed its guard allocation. No-op for standard groups.
+   */
+  private _assertCustodianActions(groupType: uint64, allowedActions: uint64): void {
+    if (groupType === GT_CUSTODIAN) {
+      // ACT_PAY|ACT_AXFER are the two lowest bits, so <= is exactly "no other bit set".
+      assert(allowedActions <= (ACT_PAY | ACT_AXFER), 'custodian actions limited to pay/axfer')
+    }
+  }
+
   /** _assertPrivilegeForChange — dispatch privilege requirement by change type. */
   private _assertPrivilegeForChange(changeType: uint64, group: SignerGroup): void {
     if (changeType === ADM_SET_POLICY) {
@@ -1270,6 +1288,9 @@ export class AlgoSafe extends Contract {
     } else if (change.changeType === ADM_REMOVE_MEMBER) {
       this._adminRemoveMember(change)
     } else if (change.changeType === ADM_ADD_REKEYED_ADDR) {
+      // L-02 (Fable-5): mirrors bootstrapRekeyedAddress — a zero entry would turn
+      // a migration rekey payload entry into a premature self-rekey of the safe.
+      assert(change.memberAddr !== Global.zeroAddress, 'address required')
       assert(!this.rekeyedAddresses(change.memberAddr).exists, 'already registered')
       const entry: RekeyedAddress = { label: change.memberLabel, addedRound: Global.round }
       this.rekeyedAddresses(change.memberAddr).value = clone(entry)
@@ -1289,6 +1310,9 @@ export class AlgoSafe extends Contract {
       emit<GroupUpdated>({ groupId: change.targetGroupId })
     } else if (change.changeType === ADM_SET_POLICY) {
       const group = clone(this.groups(change.targetGroupId).value)
+      // M-01 (Fable-5): a policy change must not widen a custodian's actions
+      // beyond the guard-metered pay/axfer bits.
+      this._assertCustodianActions(group.groupType, change.allowedActions)
       const assetChanged = group.limitAssetId !== change.limitAssetId
       group.allowedActions = change.allowedActions
       group.limitAssetId = change.limitAssetId
@@ -1407,6 +1431,14 @@ export class AlgoSafe extends Contract {
     // L-01: exactly 1 — the group starts with a single member, and threshold 0
     // (READY on auto-approval alone) is never valid.
     assert(change.threshold === Uint64(1), 'new group starts with one member')
+    // L-01 (Fable-5): the zero address can never sign — same guard as _seedGroup
+    // and _adminAddMember, previously missing on this third member-writing path.
+    assert(change.memberAddr !== Global.zeroAddress, 'member required')
+    assert(change.allowedActions <= ACT_ALL, 'invalid actions')
+    assert(change.adminPrivileges <= PRIV_ALL, 'invalid privileges')
+    // M-01 (Fable-5): asset guards only meter TX_PAYMENT/TX_ASSET value, so a
+    // custodian holding any other action bit could move value no guard bounds.
+    this._assertCustodianActions(groupType, change.allowedActions)
 
     const grp: SignerGroup = {
       name: change.groupName,

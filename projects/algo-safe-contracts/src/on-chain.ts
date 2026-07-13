@@ -231,6 +231,67 @@ export async function readAssetGuard(client: SafeStateClient, custodianGroupId: 
   )
 }
 
+export type AssetGuardRecord = {
+  custodianGroupId: bigint
+  assetId: bigint
+  createdRound: bigint
+  lockedAmount: bigint
+}
+
+// assetGuards BoxMap: name = 'ag' + custodianGroupId (8B BE) + assetId (8B BE),
+// value = ARC4 {createdRound: uint64, lockedAmount: uint64} (16 bytes).
+const ASSET_GUARD_BOX_PREFIX = new TextEncoder().encode('ag')
+const ASSET_GUARD_BOX_NAME_LENGTH = ASSET_GUARD_BOX_PREFIX.length + 16
+
+/**
+ * Enumerate the safe's custodian asset guards by scanning the `assetGuards`
+ * box names, optionally filtered to one custodian group. Guards have no
+ * on-chain index, so this reads the app's box list (like `listRekeyedAddresses`).
+ */
+export async function listAssetGuards(
+  algodClient: algosdk.Algodv2,
+  appId: bigint | number,
+  custodianGroupId?: bigint,
+): Promise<AssetGuardRecord[]> {
+  const response = (await algodClient.getApplicationBoxes(appId).max(BOX_PAGE_SIZE).do()) as {
+    boxes?: Array<{ name?: Uint8Array }>
+  }
+
+  const guardNames = (response.boxes ?? [])
+    .map((box) => box.name)
+    .filter(
+      (name): name is Uint8Array =>
+        name instanceof Uint8Array &&
+        name.length === ASSET_GUARD_BOX_NAME_LENGTH &&
+        name[0] === ASSET_GUARD_BOX_PREFIX[0] &&
+        name[1] === ASSET_GUARD_BOX_PREFIX[1],
+    )
+    .map((name) => ({
+      name,
+      custodianGroupId: readUint64BigEndian(name.slice(2, 10)),
+      assetId: readUint64BigEndian(name.slice(10, 18)),
+    }))
+    .filter((entry) => custodianGroupId === undefined || entry.custodianGroupId === custodianGroupId)
+
+  const guards = await Promise.all(
+    guardNames.map(async ({ name, custodianGroupId: groupId, assetId }) => {
+      const box = await algodClient.getApplicationBoxByName(appId, name).do()
+      const value = box.value instanceof Uint8Array ? box.value : Uint8Array.from(box.value as unknown as number[])
+      if (value.length < 16) return undefined
+      return {
+        custodianGroupId: groupId,
+        assetId,
+        createdRound: readUint64BigEndian(value.slice(0, 8)),
+        lockedAmount: readUint64BigEndian(value.slice(8, 16)),
+      }
+    }),
+  )
+
+  return guards
+    .filter((guard): guard is AssetGuardRecord => guard !== undefined)
+    .sort((left, right) => (left.custodianGroupId - right.custodianGroupId !== 0n ? Number(left.custodianGroupId - right.custodianGroupId) : Number(left.assetId - right.assetId)))
+}
+
 async function getSignerGroupRecords(client: TypedClient) {
   const { nextGroupId } = await readSafeConfig(client)
   const groupIds = Array.from({ length: Math.max(0, Number(nextGroupId - 1n)) }, (_value, index) => BigInt(index + 1))

@@ -4,8 +4,8 @@
 
 **Maintained by**: every audit performed per `AI-AUDIT-INSTRUCTIONS.md` MUST review and update this file — see that document's "Risk Registry Maintenance" section for the required process.
 
-**Last updated**: 2026-07-12 (Claude Fable 5 audit of v3.0.0 validator externalisation — see [`2026-07-12-audit-report-ai-claude-fable-5.md`](./2026-07-12-audit-report-ai-claude-fable-5.md))
-**Reviewed against commit**: `d2baaaba9374a5b26feb56441f6728be0bab1a7c` (contract version `BIATEC-ALGO-SAFE-v3.0.0`, approval hash `8a9073ec02dd208e4757e57180a96b452e074c1731c7ecccdabdbe8dc7f3acee`, validator approval hash `0dd692344f80e7d5770f47bcde26c31eaaf24d45b5d177dfcbc7241742e188b1` — **committed to `main`**)
+**Last updated**: 2026-07-13 (Claude Fable 5 audit of v3.0.0 + same-session v3.1.0 remediation — see [`2026-07-12-audit-report-ai-claude-fable-5.md`](./2026-07-12-audit-report-ai-claude-fable-5.md))
+**Reviewed against commit**: `d2baaaba9374a5b26feb56441f6728be0bab1a7c` (audited v3.0.0). Remediations landed in the working tree as contract **v3.1.0** (approval hash `0ec5f00067169dae3414cffd9f2e04d8e2a91884d7fd0eb903c31aa409da6ead`, validator unchanged at `0dd692344f80e7d5770f47bcde26c31eaaf24d45b5d177dfcbc7241742e188b1`), not yet committed.
 
 ---
 
@@ -60,14 +60,14 @@ Probabilities are independent per-risk estimates (not mutually exclusive outcome
 | R-30 | Cryptographically-relevant quantum computer breaks ed25519 signer keys | Cryptographic | Critical | **<1%** (within 5 yrs) | Low | Monitoring (architecture anticipates it) |
 | R-31 | Algorand block-timestamp manipulation games spend-limit period rollover | Economic | Low | **3%** | Low | Accepted (protocol-bounded) |
 | R-32 | Regulatory/custody classification risk for operators of Algo Safe instances | Regulatory | Medium | **20%** | Medium | Monitoring |
-| R-33 | Project documentation (`CLAUDE.md`/`PRODUCT-DESCRIPTION.md`) lags behind shipped breaking ABI changes | Integration/Client | Medium | **15%** | Medium | **Open (recurred with v3.0.0)** ([M-02 Fable-5](./2026-07-12-audit-report-ai-claude-fable-5.md)) |
+| R-33 | Project documentation (`CLAUDE.md`/`PRODUCT-DESCRIPTION.md`) lags behind shipped breaking ABI changes | Integration/Client | Medium | **12%** | Medium | **Partially Mitigated** — v3.0.0/v3.1.0 doc gap closed; structural recurrence risk remains pending a CI doc-sync check ([M-02 Fable-5](./2026-07-12-audit-report-ai-claude-fable-5.md)) |
 | R-34 | Off-chain keyreg mapping misclassifies a standard "go offline" registration as online | Integration/Client | Low | **<1%** | Low | **Mitigated** ([L-02 v2](./2026-07-07-audit-report-ai-claude-sonnet-5-v2.md#l-02-this-report-off-chain-algosdktxntosafetxn-misclassifies-a-standard-go-offline-key-registration-as-online)) |
 | R-35 | Custodian group dissolution orphans member boxes (permanent MBR loss) | Availability | Medium | **<1%** | Low | **Mitigated** — dissolution deletes the last member box; extra members must be removed first ([M-01]) |
 | R-36 | Proposal boxes for dissolved custodian groups cannot be pruned (permanent MBR loss) | Availability | Medium | **<1%** | Low | **Mitigated** — `pruneProposal` membership check waived once the group box is gone ([M-02]) |
 | R-37 | `ADM_CHANGE_THRESHOLD` allows threshold=0 (no lower bound validation) | Governance | Low | **<1%** | Low | **Mitigated** — lower-bound asserts added in both governed paths ([L-01]) |
-| R-38 | Custodian guard containment excludes `ACT_APPL`/`ACT_ACFG` value movement | Governance/Economic | High | **8%** | Medium | Open ([M-01 Fable-5](./2026-07-12-audit-report-ai-claude-fable-5.md)) |
-| R-39 | Validator library pinning/deployment surface (wrong or unregistered validator at safe creation) | Upgrade/Migration | Medium | **2%** | Low | Partially Mitigated (hash pin on-chain; `VALIDATOR_DEPLOYMENTS` registry unpopulated) |
-| R-40 | Residual zero-address input gaps in governed admin paths (`_createGroup`, `ADM_ADD_REKEYED_ADDR`) | State Machine | Low | **3%** | Low | Open ([L-01/L-02 Fable-5](./2026-07-12-audit-report-ai-claude-fable-5.md)) |
+| R-38 | Custodian guard containment excludes `ACT_APPL`/`ACT_ACFG` value movement | Governance/Economic | High | **<1%** | Low | **Mitigated** — v3.1.0 restricts custodian actions to pay/axfer ([M-01 Fable-5](./2026-07-12-audit-report-ai-claude-fable-5.md)) |
+| R-39 | Validator library pinning/deployment surface (wrong or unregistered validator at safe creation) | Upgrade/Migration | Medium | **2%** | Low | Partially Mitigated (hash pin on-chain + pin-rejection e2e test added in v3.1.0; `VALIDATOR_DEPLOYMENTS` registry still unpopulated) |
+| R-40 | Residual zero-address input gaps in governed admin paths (`_createGroup`, `ADM_ADD_REKEYED_ADDR`) | State Machine | Low | **<1%** | Low | **Mitigated** — v3.1.0 zero-address asserts + migration-builder throw ([L-01/L-02 Fable-5](./2026-07-12-audit-report-ai-claude-fable-5.md)) |
 
 ---
 
@@ -508,6 +508,8 @@ Asset guards deduct only for `TX_PAYMENT`/`TX_ASSET` entries. A custodian group 
 
 **Mitigation path**: restrict custodian `allowedActions` to `ACT_PAY|ACT_AXFER` at `_createGroup` (custodian branch) and in `ADM_SET_POLICY` when the target is a custodian (~tens of bytes against the current 1,224-byte margin); alternatively, correct the documentation to scope the guard guarantee to transfers only. Code fix preferred.
 
+**Mitigation (2026-07-13, v3.1.0)**: shipped the code fix. A shared `_assertCustodianActions` asserts `allowedActions <= (ACT_PAY | ACT_AXFER)` for custodian groups at all three write paths — `_seedGroup`, `_createGroup` (`ADM_CREATE_CUSTODIAN`), and `ADM_SET_POLICY` on a custodian target. A custodian can no longer hold `ACT_APPL`/`ACT_ACFG`/`ACT_KEYREG`/`ACT_REKEY`, so the guard guarantee is airtight. Regression-tested (`contract.e2e.spec.ts`, "custodian groups cannot be created with, or widened to, actions beyond pay/axfer"). `PRODUCT-DESCRIPTION.md`/`CLAUDE.md` guard-scope note added. Re-scored 8% → <1%, Status → Mitigated.
+
 ---
 
 ### R-39 — Validator Library Pinning/Deployment Surface
@@ -519,6 +521,8 @@ v3.0.0 makes every safe's payload validation depend on an external, per-network 
 **Why 2%**: the exploitable path requires subverting the build/release pipeline (R-27 territory) or an integrator bypassing both verification layers; the plain "operator pins the wrong app" mistake fails loudly on-chain.
 
 **Mitigation path**: populate `VALIDATOR_DEPLOYMENTS` after first TestNet/MainNet deployments; add the `createApplication` pin-rejection e2e test; reproducible-build verification per R-19/R-27.
+
+**Update (2026-07-13, v3.1.0)**: the pin-rejection e2e test now exists (`contract.e2e.spec.ts`, "createApplication rejects an app that is not the pinned validator") — it deploys a bare NoOp app and confirms safe creation reverts with `'validator bytecode mismatch'`, plus a nonexistent-app case. `VALIDATOR_DEPLOYMENTS` remains unpopulated (still requires an explicit, hand-verified app ID for non-local deployments), so status stays Partially Mitigated.
 
 ---
 
@@ -533,6 +537,8 @@ The 2026-07-12 L-02 remediation added a zero-address guard to `_adminAddMember`,
 
 **Mitigation path**: mirror the existing `'member required'`/`'address required'` asserts in both paths; defensively reject zero addresses in `buildMigrationRekeyPayload`; extend the L-02 regression tests.
 
+**Mitigation (2026-07-13, v3.1.0)**: `_createGroup` now asserts `memberAddr !== zeroAddress`; `ADM_ADD_REKEYED_ADDR` asserts the same (mirroring `bootstrapRekeyedAddress`); `buildMigrationRekeyPayload` throws on a zero-address entry. Regression-tested (`contract.e2e.spec.ts`, "creating a group with the zero address as initial member is rejected", "registering the zero address as a rekeyed address is rejected"). Re-scored 3% → <1%, Status → Mitigated.
+
 ---
 
 ## Change Log
@@ -546,3 +552,4 @@ The 2026-07-12 L-02 remediation added a zero-address guard to `_adminAddMember`,
 | 2026-07-12 | Claude Sonnet 4.6 audit of commit `76d86186` (v2.0.0 Custodian Groups). R-25 re-scored from Monitoring/20%/Medium → **Open/85%/High** (program at 5-byte margin, effectively zero headroom). Three new risks added: R-35 (member box MBR after dissolution, Medium), R-36 (proposal box MBR after dissolution, Medium), R-37 (threshold=0 allowed, Low). All prior R-01 through R-34 risks re-verified: no regressions found. R-33 (documentation lag) confirmed Partially Mitigated — v2.0.0 IS documented in CLAUDE.md. 69/69 tests passed. | `2026-07-12-audit-report-ai-claude-sonnet-4-6.md` |
 | 2026-07-12 | Same-day remediation of the audit's findings, shipping as contract **v3.0.0** (working tree, not yet committed). C-01/R-25: size-reduction pass (getters removed, bootstrap consolidated, payload validation externalised to the hash-pinned immutable `AlgoSafeTxnValidator` library contract) → approval program 6,968/8,192 bytes; CI size gate added at 7,800 bytes; R-25 re-scored Open/85%/High → **Mitigated/15%/Low**. M-01/R-35: dissolution now deletes the last member box (requires memberCount==1 + named memberAddr) → **Mitigated**. M-02/R-36: `pruneProposal` membership check waived once the group box is gone → **Mitigated**. L-01/R-37: threshold lower bounds added in `ADM_CHANGE_THRESHOLD` and `_createGroup` → **Mitigated**. L-02: zero-address guard added to `_adminAddMember`. I-01: five new custodian e2e scenarios added (ASA guard transfer, ALGO and ASA close-out live-balance accounting, guard update, multi-payment compounding) plus M-01/M-02/L-01/L-02 regressions; 76/76 tests passing. | `2026-07-12-audit-report-ai-claude-sonnet-4-6.md` §7 |
 | 2026-07-12 | Claude Fable 5 audit of commit `d2baaab` (v3.0.0, now **committed to `main`**). Independently re-verified at the committed code: R-25 Mitigated (6,968/8,192 bytes, CI gate active), R-35/R-36/R-37 Mitigated (fixes committed, regression tests passing), validator hash pin sound (on-chain assert matches `0dd69234…`), all codecs/constants in sync, full suite passing on LocalNet. R-33 **recurred** with v3.0.0 (`PRODUCT-DESCRIPTION.md` still documents the removed getters, no validator coverage) — re-scored 10% → 15%, Status → Open ([M-02]). Three new risks: R-38 (custodian guards don't bound `ACT_APPL`/`ACT_ACFG`, Medium residual, [M-01]), R-39 (validator pinning/deployment surface, Low residual, Partially Mitigated), R-40 (residual zero-address gaps in `_createGroup`/`ADM_ADD_REKEYED_ADDR`, Low, [L-01]/[L-02]). All other entries re-reviewed: no further changes. | `2026-07-12-audit-report-ai-claude-fable-5.md` |
+| 2026-07-13 | Same-session remediation of the Fable-5 findings, shipping as contract **v3.1.0** (working tree, not yet committed; approval hash `0ec5f000…`, 7,043/8,192 bytes, CI size gate green). R-38/M-01 → **Mitigated** (custodian `allowedActions` restricted to pay/axfer via shared `_assertCustodianActions` at all three write paths). R-40/L-01/L-02 → **Mitigated** (zero-address asserts in `_createGroup` and `ADM_ADD_REKEYED_ADDR`; `buildMigrationRekeyPayload` throws on zero). R-33/M-02 → **Partially Mitigated** at 12% (`PRODUCT-DESCRIPTION.md` updated for the v3.0.0 read-surface + validator architecture; `CLAUDE.md` gained the v3.1.0 bullet; structural recurrence risk persists pending a CI doc-sync check). R-39 pin-rejection e2e test added (still Partially Mitigated pending `VALIDATOR_DEPLOYMENTS` population). I-01 bitmask bounds added to `_createGroup`. 89/89 contract tests pass on LocalNet (5 new Fable-5 regression tests). Frontend: asset-guard management, member removal, custodian creation, and a safe-wide pause control added; `getClient` return type narrowed to fix a TS2590 union-complexity break the new client version triggered; 3 new Playwright governance tests. | `2026-07-12-audit-report-ai-claude-fable-5.md` §Remediation |

@@ -38,11 +38,12 @@ The CI gate (`scripts/check-program-size.ts`, wired into `pnpm build`) passes wi
 
 **Commands**: `pnpm build` then `pnpm test` (Vitest, unit + e2e), from `projects/algo-safe-contracts/`, against a running LocalNet (algod 4.7.3, dockernet-v1).
 
-**Result**: **All 81 tests passed (4 test files), exit code 0.**
+**Result**: **All 84 tests passed (4 test files), exit code 0.** (Run twice: once as `pnpm test` with coverage, once as `pnpm exec vitest run` to capture the summary — identical results.)
 
 ```
  Test Files  4 passed (4)
-      Tests  81 passed (81)
+      Tests  84 passed (84)
+   Duration  422.90s
 ```
 
 - `smart_contracts/algo_safe/contract.e2e.spec.ts` — 76 e2e tests (deploys the real compiled v3.0.0 contract + validator per fixture)
@@ -50,6 +51,23 @@ The CI gate (`scripts/check-program-size.ts`, wired into `pnpm build`) passes wi
 - `src/version.spec.ts`, `src/get-client.spec.ts` — unit tests
 
 No failing tests. Coverage of the v3.0.0 remediations (M-01 dissolution member box, M-02 prune-after-dissolve, L-01 threshold bounds, L-02 zero-address member) is present and passing.
+
+---
+
+## Remediation Update (2026-07-13, contract v3.1.0)
+
+All findings from this report were remediated in the same session, shipping as contract **v3.1.0** (working tree; approval hash `0ec5f00067169dae3414cffd9f2e04d8e2a91884d7fd0eb903c31aa409da6ead`, 7,043/8,192 bytes, CI size gate green). **89/89 contract tests pass** on LocalNet (5 new Fable-5 regression tests added).
+
+| ID | Status | Remediation |
+|---|---|---|
+| M-01 | **Fixed** | Shared `_assertCustodianActions` asserts `allowedActions <= (ACT_PAY \| ACT_AXFER)` for custodian groups in `_seedGroup`, `_createGroup`, and `ADM_SET_POLICY`. Regression test added. |
+| M-02 | **Fixed (doc)** | `PRODUCT-DESCRIPTION.md` updated: removed-getters → `src/on-chain.ts` readers, new "Validator Library Contract" section, `createApplication(name, validatorAppId)` signature, guard-scope note. `CLAUDE.md` gained a v3.1.0 bullet. (Structural R-33 recurrence still needs a CI doc-sync check.) |
+| L-01 | **Fixed** | `_createGroup` now rejects the zero-address initial member. Regression test covers `ADM_CREATE_GROUP` + `ADM_CREATE_CUSTODIAN`. |
+| L-02 | **Fixed** | `ADM_ADD_REKEYED_ADDR` rejects the zero address; `buildMigrationRekeyPayload` throws on one. Regression test added. |
+| I-01 | **Fixed** | `_createGroup` bounds `allowedActions <= ACT_ALL` and `adminPrivileges <= PRIV_ALL`. Regression test added. |
+| I-04 | **Fixed** | Validator pin-rejection e2e test added (impostor NoOp app + nonexistent app id). |
+
+**Frontend feature work (same session)** — closing the gap between contract capabilities and the UI: custodian asset-guard management (view/set/remove guards via a live `'ag'` box scan, new `listAssetGuards` reader), member removal, custodian-group creation, a general create-signer-group flow (standard + custodian), and a safe-wide **emergency pause/unpause** control (previously no UI existed for `ADM_SET_PAUSED`). The dissolve-custodian flow was corrected to pass the required last-member `memberAddr` (v3.0.0 M-01 ABI change). The frontend's version branch was fixed to treat all modern-ABI versions (v3.0.0 + v3.1.0) as "latest" via a new `hasModernAbi` helper — a bare `=== LATEST_CONTRACT_HASH` check would have mis-routed v3.0.0 safes to the removed legacy getters. Adding the v3.1.0 client tipped the cross-version client union past TypeScript's complexity limit (TS2590); `getClient`'s return type was narrowed to the latest-constructor type, which collapses the union at every call site and prevents recurrence on future versions. 3 new Playwright governance tests added (all passing).
 
 ---
 

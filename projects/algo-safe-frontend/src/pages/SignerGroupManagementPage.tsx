@@ -1,15 +1,20 @@
 import { algo, AlgorandClient } from '@algorandfoundation/algokit-utils'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useWallet } from '@txnlab/use-wallet-react'
 import {
+  ACT_ACFG,
   ACT_APPL,
   ACT_AXFER,
   ACT_KEYREG,
   ACT_PAY,
+  ACT_REKEY,
   ADM_ADD_MEMBER,
   ADM_CHANGE_THRESHOLD,
   ADM_DISSOLVE_CUSTODIAN,
+  ADM_REMOVE_GUARD,
+  ADM_REMOVE_MEMBER,
   ADM_SET_ACTIVE,
+  ADM_SET_GUARD,
   ADM_SET_POLICY,
   ADM_SET_PRIVILEGES,
   PRIV_GROUP,
@@ -17,6 +22,7 @@ import {
   createAdminChange,
   getAlgoSafeContractVersion,
   getClient,
+  listAssetGuards,
   type AdminChange,
 } from 'algo-safe'
 import algosdk from 'algosdk'
@@ -148,6 +154,10 @@ export function SignerGroupManagementPage() {
   const [allowAsa, setAllowAsa] = useState(false)
   const [allowApp, setAllowApp] = useState(false)
   const [allowKeyreg, setAllowKeyreg] = useState(false)
+  const [allowAcfg, setAllowAcfg] = useState(false)
+  const [allowRekey, setAllowRekey] = useState(false)
+  const [guardAssetKey, setGuardAssetKey] = useState('native-algo')
+  const [guardAmount, setGuardAmount] = useState('0')
   const [groupAdmin, setGroupAdmin] = useState(false)
   const [policyAdmin, setPolicyAdmin] = useState(false)
   const [isActive, setIsActive] = useState(true)
@@ -255,6 +265,8 @@ export function SignerGroupManagementPage() {
     setAllowAsa(flagSet(detail.group.allowedActions, ACT_AXFER))
     setAllowApp(flagSet(detail.group.allowedActions, ACT_APPL))
     setAllowKeyreg(flagSet(detail.group.allowedActions, ACT_KEYREG))
+    setAllowAcfg(flagSet(detail.group.allowedActions, ACT_ACFG))
+    setAllowRekey(flagSet(detail.group.allowedActions, ACT_REKEY))
     setGroupAdmin(flagSet(detail.group.adminPrivileges, PRIV_GROUP))
     setPolicyAdmin(flagSet(detail.group.adminPrivileges, PRIV_POLICY))
     setIsActive(detail.group.active)
@@ -286,8 +298,23 @@ export function SignerGroupManagementPage() {
     if (allowAsa) mask |= ACT_AXFER
     if (allowApp) mask |= ACT_APPL
     if (allowKeyreg) mask |= ACT_KEYREG
+    if (allowAcfg) mask |= ACT_ACFG
+    if (allowRekey) mask |= ACT_REKEY
     return mask
-  }, [allowAlgo, allowApp, allowAsa, allowKeyreg])
+  }, [allowAlgo, allowApp, allowAsa, allowKeyreg, allowAcfg, allowRekey])
+
+  // Live asset-guard list for custodian groups ('ag' box scan; no on-chain index).
+  const { data: assetGuards } = useQuery({
+    queryKey: ['asset-guards', safeId, groupId],
+    enabled: !!safe && !!detail?.group.isCustodian,
+    queryFn: () => listAssetGuards(algodClient, BigInt(safe!.appId), BigInt(groupId)),
+  })
+
+  const guardAssetMetadata = (assetId: bigint) => {
+    if (assetId === 0n) return { symbol: 'ALGO', decimals: 6 }
+    const known = spendingLimitAssets.find((asset) => BigInt(asset.assetId ?? 0) === assetId)
+    return { symbol: known?.symbol ?? `ASA ${assetId}`, decimals: known?.decimals ?? 0 }
+  }
   const adminMask = useMemo(() => {
     let mask = 0n
     if (groupAdmin) mask |= PRIV_GROUP
@@ -378,6 +405,57 @@ export function SignerGroupManagementPage() {
         activeFlag: 1n,
       }),
       'Member addition proposal created',
+    )
+  }
+
+  async function handleRemoveMember(address: string) {
+    const remaining = (detail?.group.memberCount ?? 1) - 1
+    if (remaining < (detail?.group.threshold ?? 1)) {
+      reportError('Removing this member would drop the group below its signing threshold. Lower the threshold first.')
+      return
+    }
+
+    await submitChange(
+      `remove-${address}`,
+      createAdminChange({
+        changeType: ADM_REMOVE_MEMBER,
+        targetGroupId: BigInt(groupId),
+        memberAddr: address,
+      }),
+      'Member removal proposal created',
+    )
+  }
+
+  async function handleSetGuard(e: React.FormEvent) {
+    e.preventDefault()
+    const guardAsset = spendingLimitAssets.find((asset) => asset.key === guardAssetKey) ?? selectedSpendingAsset
+    const parsedGuardAmount = parseBaseUnits(guardAmount, guardAsset.decimals)
+    if (parsedGuardAmount === null) {
+      reportError(`Enter a valid ${guardAsset.symbol} guard amount.`)
+      return
+    }
+
+    await submitChange(
+      'set-guard',
+      createAdminChange({
+        changeType: ADM_SET_GUARD,
+        targetGroupId: BigInt(groupId),
+        limitAssetId: BigInt(guardAsset.assetId ?? 0),
+        guardAmount: parsedGuardAmount,
+      }),
+      'Asset guard proposal created',
+    )
+  }
+
+  async function handleRemoveGuard(assetId: bigint) {
+    await submitChange(
+      `remove-guard-${assetId}`,
+      createAdminChange({
+        changeType: ADM_REMOVE_GUARD,
+        targetGroupId: BigInt(groupId),
+        limitAssetId: assetId,
+      }),
+      'Guard removal proposal created',
     )
   }
 
@@ -540,9 +618,18 @@ export function SignerGroupManagementPage() {
       const status = (await algodClient.status().do()) as unknown as Record<string, unknown>
       const expiryRound = getCurrentRound(status) + 2000n
 
+      // The contract (v3.0.0+) requires the dissolve change to name the group's
+      // last remaining member — its box is deleted together with the group box.
+      const lastMember = detail?.members[0]?.address
+      if (!lastMember || (detail?.group.memberCount ?? 0) !== 1) {
+        reportError('Dissolution requires the group to be pruned to exactly one member first (via member removal proposals).')
+        setSubmittingSection(null)
+        return
+      }
       const change = createAdminChange({
         changeType: ADM_DISSOLVE_CUSTODIAN,
         targetGroupId: BigInt(groupId),
+        memberAddr: lastMember,
       })
 
       const result = await appClient.send.proposeAdminChange({
@@ -710,12 +797,32 @@ export function SignerGroupManagementPage() {
                       <AddressDisplay address={member.address} textClassName="text-xs text-on-surface-variant" buttonClassName="h-5 w-5" />
                     </div>
                   </div>
-                  <span className="rounded-sm bg-surface-container-high px-2 py-1 font-mono text-[11px] uppercase tracking-wide text-on-surface-variant">
-                    {accountTypeLabel(member.accountType)}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="rounded-sm bg-surface-container-high px-2 py-1 font-mono text-[11px] uppercase tracking-wide text-on-surface-variant">
+                      {accountTypeLabel(member.accountType)}
+                    </span>
+                    <button
+                      type="button"
+                      title="Propose member removal"
+                      aria-label={`Propose removal of ${member.label || member.address}`}
+                      className="flex h-7 w-7 items-center justify-center rounded text-on-surface-variant transition-colors hover:bg-error-container/40 hover:text-error disabled:opacity-40"
+                      disabled={!canSubmit || submittingSection !== null || detail.group.memberCount <= detail.group.threshold}
+                      onClick={() => handleRemoveMember(member.address)}
+                    >
+                      <Icon
+                        name={submittingSection === `remove-${member.address}` ? 'progress_activity' : 'person_remove'}
+                        className="text-base"
+                      />
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
+            {detail.group.memberCount <= detail.group.threshold && detail.group.memberCount > 0 && (
+              <p className="text-xs text-on-surface-variant">
+                Members cannot be removed while the count equals the signing threshold — lower the threshold first.
+              </p>
+            )}
           </div>
 
           <form className="mt-5 space-y-4" onSubmit={handleAddMember}>
@@ -799,6 +906,19 @@ export function SignerGroupManagementPage() {
                 <label className="flex items-center gap-3 rounded-md border border-outline-variant bg-surface-container-low px-4 py-3 text-sm text-on-surface">
                   <input type="checkbox" checked={allowKeyreg} onChange={(event) => setAllowKeyreg(event.target.checked)} />
                   Allow key registration
+                </label>
+                <label className="flex items-center gap-3 rounded-md border border-outline-variant bg-surface-container-low px-4 py-3 text-sm text-on-surface">
+                  <input type="checkbox" checked={allowAcfg} onChange={(event) => setAllowAcfg(event.target.checked)} />
+                  Allow asset configuration
+                </label>
+                <label className="flex items-center gap-3 rounded-md border border-outline-variant bg-surface-container-low px-4 py-3 text-sm text-on-surface">
+                  <input type="checkbox" checked={allowRekey} onChange={(event) => setAllowRekey(event.target.checked)} />
+                  <span>
+                    Allow rekey
+                    <span className="mt-0.5 block text-xs text-on-surface-variant">
+                      Rekey also requires group-admin privileges at execution time — it hands account control to another address.
+                    </span>
+                  </span>
                 </label>
               </div>
               <FormField
@@ -890,9 +1010,97 @@ export function SignerGroupManagementPage() {
 
         {detail.group.isCustodian && (
           <Card>
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-on-surface">Asset Guards</h2>
+                <p className="text-sm text-on-surface-variant">
+                  Per-asset spending ceilings for this custodian. Guards are created, updated, and removed by admin-group proposals; each
+                  custodian transfer deducts from the matching guard.
+                </p>
+              </div>
+              <span className="rounded-sm bg-surface-container-high px-3 py-1 font-mono text-xs text-on-surface-variant">
+                {detail.group.guardCount} guard{detail.group.guardCount === 1 ? '' : 's'}
+              </span>
+            </div>
+
+            <div className="space-y-3">
+              {(assetGuards ?? []).map((guard) => {
+                const meta = guardAssetMetadata(guard.assetId)
+                return (
+                  <div
+                    key={guard.assetId.toString()}
+                    className="flex items-center justify-between gap-3 rounded-md border border-outline-variant bg-surface-container-low px-4 py-3"
+                  >
+                    <div>
+                      <div className="text-sm font-semibold text-on-surface">
+                        {meta.symbol}
+                        {guard.assetId !== 0n && (
+                          <span className="ml-2 font-mono text-xs text-on-surface-variant">ASA {guard.assetId.toString()}</span>
+                        )}
+                      </div>
+                      <div className="mt-0.5 font-mono text-xs text-on-surface-variant">
+                        Remaining allocation: {formatUnits(guard.lockedAmount, meta.decimals)} {meta.symbol}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      title="Propose guard removal"
+                      aria-label={`Propose removal of the ${meta.symbol} guard`}
+                      className="flex h-7 w-7 items-center justify-center rounded text-on-surface-variant transition-colors hover:bg-error-container/40 hover:text-error disabled:opacity-40"
+                      disabled={!canSubmit || submittingSection !== null}
+                      onClick={() => handleRemoveGuard(guard.assetId)}
+                    >
+                      <Icon
+                        name={submittingSection === `remove-guard-${guard.assetId}` ? 'progress_activity' : 'delete'}
+                        className="text-base"
+                      />
+                    </button>
+                  </div>
+                )
+              })}
+              {(assetGuards ?? []).length === 0 && (
+                <p className="rounded-md border border-outline-variant bg-surface-container-lowest px-4 py-3 text-sm text-on-surface-variant">
+                  No guards configured — this custodian cannot move any value until an admin sets a guard.
+                </p>
+              )}
+            </div>
+
+            <form className="mt-5 space-y-4 border-t border-outline-variant pt-5" onSubmit={handleSetGuard}>
+              <div className="grid gap-4 md:grid-cols-2">
+                <FormField label="Guard Asset" hint="ALGO or an ASA the safe holds.">
+                  <select className={inputCls} value={guardAssetKey} onChange={(event) => setGuardAssetKey(event.target.value)}>
+                    {spendingLimitAssets.map((asset) => (
+                      <option key={asset.key} value={asset.key}>
+                        {asset.symbol}
+                        {asset.assetId && asset.assetId !== 0 ? ` · ${asset.assetId}` : ''}
+                        {` · Available ${asset.balanceDisplay}`}
+                      </option>
+                    ))}
+                  </select>
+                </FormField>
+                <FormField label="Guard Amount" hint="Sets (or replaces) the remaining allocation for this asset.">
+                  <input
+                    className={inputCls}
+                    value={guardAmount}
+                    onChange={(event) => setGuardAmount(event.target.value)}
+                    inputMode="decimal"
+                  />
+                </FormField>
+              </div>
+              <Button type="submit" disabled={!canSubmit || submittingSection !== null}>
+                <Icon name="shield" className="text-base" />
+                {submittingSection === 'set-guard' ? 'Creating Proposal…' : 'Propose Guard Update'}
+              </Button>
+            </form>
+          </Card>
+        )}
+
+        {detail.group.isCustodian && (
+          <Card>
             <h2 className="text-lg font-semibold text-on-surface">Self-Dissolution</h2>
             <p className="mt-1 text-sm text-on-surface-variant">
-              A custodian group can dissolve itself. All asset guards must be removed by an admin before dissolution is permitted.
+              A custodian group can dissolve itself once all asset guards are removed by an admin and the group is pruned to a single
+              member. The dissolve proposal deletes that last member's box with the group.
             </p>
             <form className="mt-5 space-y-4" onSubmit={handleDissolveCustodian}>
               {detail.group.guardCount > 0 && (
@@ -901,7 +1109,16 @@ export function SignerGroupManagementPage() {
                   remove all guards before dissolution can proceed.
                 </div>
               )}
-              <Button type="submit" variant="secondary" disabled={!canSubmit || submittingSection !== null || detail.group.guardCount > 0}>
+              {detail.group.memberCount > 1 && (
+                <div className="rounded-md border border-outline-variant bg-surface-container-low px-4 py-3 text-sm text-on-surface-variant">
+                  This group has {detail.group.memberCount} members. Remove all but one (via member-removal proposals) before dissolving.
+                </div>
+              )}
+              <Button
+                type="submit"
+                variant="secondary"
+                disabled={!canSubmit || submittingSection !== null || detail.group.guardCount > 0 || detail.group.memberCount !== 1}
+              >
                 <Icon name="delete_forever" className="text-base" />
                 {submittingSection === 'dissolve' ? 'Creating Proposal…' : 'Propose Dissolution'}
               </Button>

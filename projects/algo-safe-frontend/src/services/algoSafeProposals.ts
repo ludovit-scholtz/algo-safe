@@ -13,7 +13,7 @@ import {
   ADM_SET_ACTIVE,
   ADM_SET_POLICY,
   ADM_SET_PRIVILEGES,
-  LATEST_CONTRACT_HASH,
+  hasModernAbi,
   PRIV_GROUP,
   PRIV_POLICY,
   TX_ACFG,
@@ -100,7 +100,11 @@ async function buildAppClient({ algodClient, safe, activeAddress, transactionSig
   }
 
   const clientVersion = await getAlgoSafeContractVersion(algodClient, BigInt(safe.appId))
-  const isLatest = !clientVersion || clientVersion === LATEST_CONTRACT_HASH
+  // "Latest" here means "modern ABI surface" (v3.0.0+): a hash-equality check
+  // against LATEST_CONTRACT_HASH would demote every older-but-ABI-compatible
+  // deployment (e.g. v3.0.0 once v3.1.0 ships) to the legacy getter path,
+  // which no longer exists on those contracts.
+  const isLatest = hasModernAbi(clientVersion)
 
   return {
     client: algorand.client.getTypedAppClientById(getClient(clientVersion ?? 'latest'), {

@@ -1,3 +1,4 @@
+import { AlgoSafeClient as AlgoSafeClient_0ec5f00067169dae3414cffd9f2e04d8e2a91884d7fd0eb903c31aa409da6ead } from '../clients/0ec5f00067169dae3414cffd9f2e04d8e2a91884d7fd0eb903c31aa409da6ead/AlgoSafeClient'
 import { AlgoSafeClient as AlgoSafeClient_0f44ee7b45b2b85adc8bef13d4e66715df3caed1129258e2657ce6a2f038b5d3 } from '../clients/0f44ee7b45b2b85adc8bef13d4e66715df3caed1129258e2657ce6a2f038b5d3/AlgoSafeClient'
 import { AlgoSafeClient as AlgoSafeClient_1a77ba21f289ff35d2d54b732cc2e66e4bdba6ac820e7f25e381f58bea41b5fc } from '../clients/1a77ba21f289ff35d2d54b732cc2e66e4bdba6ac820e7f25e381f58bea41b5fc/AlgoSafeClient'
 import { AlgoSafeClient as AlgoSafeClient_1bf721b12654a8a63ccb8ea5040b79948c9dd0d34406032b84007fedf32ac727 } from '../clients/1bf721b12654a8a63ccb8ea5040b79948c9dd0d34406032b84007fedf32ac727/AlgoSafeClient'
@@ -15,8 +16,9 @@ import { AlgoSafeClient as AlgoSafeClient_e3892f8ccd5dc96059f48bf6f5cfaa59b1f224
 import { AlgoSafeClient as AlgoSafeClient_ebd1cf101b997b6a914caa195aa7d3eb050d557dc823edab438cc30cbf156b1e } from '../clients/ebd1cf101b997b6a914caa195aa7d3eb050d557dc823edab438cc30cbf156b1e/AlgoSafeClient'
 import { AlgoSafeClient as AlgoSafeClient_f555578cc56c739b26fa53d4a2fdef26b9a0dca278b1ed93600c9ce5aa2301c1 } from '../clients/f555578cc56c739b26fa53d4a2fdef26b9a0dca278b1ed93600c9ce5aa2301c1/AlgoSafeClient'
 
-export const LATEST_CONTRACT_HASH = '8a9073ec02dd208e4757e57180a96b452e074c1731c7ecccdabdbe8dc7f3acee' as const
+export const LATEST_CONTRACT_HASH = '0ec5f00067169dae3414cffd9f2e04d8e2a91884d7fd0eb903c31aa409da6ead' as const
 export const CONTRACT_HASHES = [
+  '0ec5f00067169dae3414cffd9f2e04d8e2a91884d7fd0eb903c31aa409da6ead',
   '0f44ee7b45b2b85adc8bef13d4e66715df3caed1129258e2657ce6a2f038b5d3',
   '1a77ba21f289ff35d2d54b732cc2e66e4bdba6ac820e7f25e381f58bea41b5fc',
   '1bf721b12654a8a63ccb8ea5040b79948c9dd0d34406032b84007fedf32ac727',
@@ -39,6 +41,7 @@ export const DEFAULT_CLIENT_VERSION = 'latest' as const
 export type ContractHash = (typeof CONTRACT_HASHES)[number]
 export type ContractVersion = ContractHash | typeof DEFAULT_CLIENT_VERSION | string
 export type AlgoSafeClientConstructor =
+  | typeof AlgoSafeClient_0ec5f00067169dae3414cffd9f2e04d8e2a91884d7fd0eb903c31aa409da6ead
   | typeof AlgoSafeClient_0f44ee7b45b2b85adc8bef13d4e66715df3caed1129258e2657ce6a2f038b5d3
   | typeof AlgoSafeClient_1a77ba21f289ff35d2d54b732cc2e66e4bdba6ac820e7f25e381f58bea41b5fc
   | typeof AlgoSafeClient_1bf721b12654a8a63ccb8ea5040b79948c9dd0d34406032b84007fedf32ac727
@@ -57,6 +60,7 @@ export type AlgoSafeClientConstructor =
   | typeof AlgoSafeClient_f555578cc56c739b26fa53d4a2fdef26b9a0dca278b1ed93600c9ce5aa2301c1
 
 const CLIENT_REGISTRY = {
+  '0ec5f00067169dae3414cffd9f2e04d8e2a91884d7fd0eb903c31aa409da6ead': AlgoSafeClient_0ec5f00067169dae3414cffd9f2e04d8e2a91884d7fd0eb903c31aa409da6ead,
   '0f44ee7b45b2b85adc8bef13d4e66715df3caed1129258e2657ce6a2f038b5d3': AlgoSafeClient_0f44ee7b45b2b85adc8bef13d4e66715df3caed1129258e2657ce6a2f038b5d3,
   '1a77ba21f289ff35d2d54b732cc2e66e4bdba6ac820e7f25e381f58bea41b5fc': AlgoSafeClient_1a77ba21f289ff35d2d54b732cc2e66e4bdba6ac820e7f25e381f58bea41b5fc,
   '1bf721b12654a8a63ccb8ea5040b79948c9dd0d34406032b84007fedf32ac727': AlgoSafeClient_1bf721b12654a8a63ccb8ea5040b79948c9dd0d34406032b84007fedf32ac727,

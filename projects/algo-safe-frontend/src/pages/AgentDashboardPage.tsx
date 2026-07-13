@@ -6,6 +6,7 @@ import { getAlgoSafeContractVersion } from 'algo-safe'
 import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { AddressDisplay } from '../components/AddressDisplay'
+import { SafeGovernanceControls } from '../components/SafeGovernanceControls'
 import { SafeHoldingsTable } from '../components/SafeHoldingsTable'
 import { SignerGroupCard } from '../components/SignerGroupCard'
 import { Button } from '../components/ui/Button'
@@ -227,6 +228,11 @@ export function AgentDashboardPage() {
           error={holdingsError instanceof Error ? holdingsError.message : null}
           emptyMessage="No on-chain balances were found for this smart-account address."
         />
+      </section>
+
+      {/* Safe-wide governance controls (pause / create group) */}
+      <section>
+        <SafeGovernanceControls />
       </section>
 
       {/* Agents Grid */}
