@@ -13,6 +13,7 @@ import { SafeSelectionPage } from './pages/SafeSelectionPage'
 import { SafeUpgradePage } from './pages/SafeUpgradePage'
 import { SignerGroupManagementPage } from './pages/SignerGroupManagementPage'
 import { TreasuryAssetsPage } from './pages/TreasuryAssetsPage'
+import { WalletConnectPage } from './pages/WalletConnectPage'
 
 export const router = createBrowserRouter([
   {
@@ -35,6 +36,7 @@ export const router = createBrowserRouter([
       { path: 'proposals/:id', element: <ProposalDetailPage /> },
       { path: 'assets', element: <TreasuryAssetsPage /> },
       { path: 'upgrade', element: <SafeUpgradePage /> },
+      { path: 'walletconnect', element: <WalletConnectPage /> },
     ],
   },
   { path: '*', element: <Navigate to="/" replace /> },

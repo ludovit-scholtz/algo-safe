@@ -8,6 +8,7 @@ const items = [
   { to: 'proposals/create', icon: 'playlist_add', label: 'Create Proposal', end: false },
   { to: 'assets', icon: 'account_balance_wallet', label: 'Assets', end: false },
   { to: 'upgrade', icon: 'upgrade', label: 'Upgrade & Rekeys', end: false },
+  { to: 'walletconnect', icon: 'link', label: 'WalletConnect', end: false },
 ]
 export function Sidebar() {
   const { safeId } = useParams<{ safeId: string }>()

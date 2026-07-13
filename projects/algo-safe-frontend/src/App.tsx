@@ -6,9 +6,10 @@ import { useMemo } from 'react'
 import { RouterProvider } from 'react-router-dom'
 import { router } from './routes'
 import { ServiceProvider, services } from './services'
+import { env } from './lib/env'
 import { getAlgodConfigFromViteEnvironment, getKmdConfigFromViteEnvironment } from './utils/network/getAlgoClientConfigs'
 
-const walletConnectProjectId = 'f9c05e3d8e653a4781700744c3537424'
+const walletConnectProjectId = env.walletConnectProjectId
 
 const walletConnectOptions = {
   projectId: walletConnectProjectId,

@@ -799,6 +799,48 @@ export async function proposeLiveTransactionGroup(
   return { proposalId: result.return?.toString() ?? '', txId: result.txIds[0] ?? '', executed: executeNow }
 }
 
+export type PrepareTransactionGroupSignatureResult = {
+  signedTxns: Uint8Array[]
+  txId: string
+}
+
+/**
+ * Builds and signs a `proposeTransactionGroup` call without submitting it —
+ * used by the WalletConnect wallet-side flow, where the caller decides whether
+ * to submit the signed transaction directly or hand it back to the paired dapp
+ * as the response to its session request (see WalletConnectPage).
+ */
+export async function prepareTransactionGroupSignature(
+  context: ProposalContext,
+  params: { groupId: bigint; payload: readonly unknown[]; expiryRounds: bigint },
+): Promise<PrepareTransactionGroupSignatureResult> {
+  assertWalletContext(context)
+  const { client } = await buildAppClient(context)
+
+  const status = (await context.algodClient.status().do()) as unknown as Record<string, unknown>
+  const expiryRound = getCurrentRound(status) + params.expiryRounds
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const built = await (client.createTransaction as any).proposeTransactionGroup({
+    args: {
+      groupId: params.groupId,
+      payload: params.payload,
+      expiryRound,
+      execute: false,
+      ensureBudgetValue: 0n,
+    },
+    maxFee: PROPOSAL_MAX_FEE,
+  })
+
+  const unsignedTxns: algosdk.Transaction[] = built.transactions
+  const signedTxns = await context.transactionSigner!(
+    unsignedTxns,
+    unsignedTxns.map((_txn, index) => index),
+  )
+
+  return { signedTxns, txId: unsignedTxns[unsignedTxns.length - 1].txID() }
+}
+
 export async function executeLiveProposal(
   context: ProposalContext,
   proposalId: string,

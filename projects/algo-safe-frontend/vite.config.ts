@@ -18,6 +18,6 @@ export default defineConfig({
     dedupe: ['algosdk'],
   },
   optimizeDeps: {
-    include: ['@walletconnect/sign-client', '@walletconnect/modal', 'algosdk'],
+    include: ['@walletconnect/sign-client', '@walletconnect/modal', '@reown/walletkit', 'algosdk'],
   },
 })
