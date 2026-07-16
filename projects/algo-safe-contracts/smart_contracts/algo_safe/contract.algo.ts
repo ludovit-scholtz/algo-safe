@@ -147,7 +147,7 @@ const ADM_REMOVE_GUARD: uint64 = Uint64(14) // delete guard; decrements group.gu
 
 const DAY_SECONDS: uint64 = Uint64(86400)
 const MONTH_SECONDS: uint64 = Uint64(2592000)
-const CONTRACT_VERSION = 'BIATEC-ALGO-SAFE-v3.1.0'
+const CONTRACT_VERSION = 'BIATEC-ALGO-SAFE-v3.2.0'
 
 // ---------------------------------------------------------------------------
 // Stored record types
@@ -745,7 +745,10 @@ export class AlgoSafe extends Contract {
 
   /**
    * pruneProposal — delete terminal proposal boxes to reclaim MBR.
-   * Only callable on EXECUTED or CANCELLED proposals after their expiryRound.
+   * Callable on EXECUTED proposals immediately (the ledger already retains the
+   * execution record; a past-expiry gate adds no safety, only delays MBR
+   * reclamation — M-01). CANCELLED proposals still require past-expiry, kept
+   * as a review-retention window for a cancelled-but-contested proposal.
    * Removes the proposal box, all payload chunk boxes, and the admin-change box.
    */
   public pruneProposal(proposalId: uint64, ensureBudgetValue: uint64): void {
@@ -754,7 +757,9 @@ export class AlgoSafe extends Contract {
     }
     const proposal = clone(this.proposals(proposalId).value)
     assert(proposal.status === STATUS_EXECUTED || proposal.status === STATUS_CANCELLED, 'proposal not terminal')
-    assert(Global.round > proposal.expiryRound, 'not yet expired')
+    if (proposal.status === STATUS_CANCELLED) {
+      assert(Global.round > proposal.expiryRound, 'not yet expired')
+    }
     // M-02: proposals of a dissolved group must remain prunable. While the
     // group exists only its members may prune; once it is gone the check has
     // nothing left to protect (pruning a terminal, expired proposal only
@@ -1021,9 +1026,9 @@ export class AlgoSafe extends Contract {
    * entire AVM transaction to revert, automatically rolling back these deductions.
    */
   private _deductFromGuard(custodianGroupId: uint64, assetId: uint64, amount: uint64): void {
-    if (amount === Uint64(0)) return
     const guardKey = { custodianGroupId, assetId }
     assert(this.assetGuards(guardKey).exists, 'no guard for custodian+asset')
+    if (amount === Uint64(0)) return
     const guard = clone(this.assetGuards(guardKey).value)
     assert(guard.lockedAmount >= amount, 'exceeds guard allocation')
     guard.lockedAmount = guard.lockedAmount - amount

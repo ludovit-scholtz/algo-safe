@@ -55,6 +55,11 @@ export const ADM_REMOVE_GUARD = 14n // remove an asset guard (uses limitAssetId 
 export const PT_TRANSACTION_GROUP = 1n
 export const PT_ADMIN = 5n
 
+// Test/convenience only — do not use for real proposals. A STATUS_CANCELLED
+// proposal can only be pruned once Global.round > expiryRound, so a proposal
+// created with this and later cancelled forfeits its box MBR for ~350 years
+// (2026-07-16 audit M-01; STATUS_EXECUTED proposals are unaffected since
+// v3.2.0, which made them prunable immediately regardless of expiry).
 export const FAR_EXPIRY = 4_000_000_000n
 
 export const EMPTY_BYTES = new Uint8Array()

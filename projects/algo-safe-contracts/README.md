@@ -479,7 +479,7 @@ await client.send.executeProposal({
 await client.send.cancelProposal({ args: { proposalId: proposalId!, ensureBudgetValue: 0n } })
 ```
 
-Proposals carry an `expiryRound`; create with a comfortably future round (`FAR_EXPIRY` is provided for tests/convenience). Once expired, a proposal cannot be approved, executed, or have payload chunks appended.
+Proposals carry an `expiryRound`. **`FAR_EXPIRY` is test/convenience-only — do not use it for real proposals.** Prefer a bounded expiry (e.g. current round + a few days of rounds): a `STATUS_CANCELLED` proposal can only be pruned to reclaim its box MBR once `Global.round > expiryRound`, so a far-future expiry on a proposal that ends up cancelled forfeits that MBR until the round number catches up (v3.2.0 removed this restriction for `STATUS_EXECUTED` proposals, which are now prunable immediately — 2026-07-16 audit M-01). Once expired, a proposal cannot be approved, executed, or have payload chunks appended.
 
 ### Propose-and-execute in one call
 
@@ -725,7 +725,7 @@ Always import these from `algo-safe` — never redefine them locally; they must 
 
 **App-call limits** (Algorand consensus parameters, enforced at execution): `MAX_APP_ARGS` (16), `MAX_APP_TOTAL_ARG_LEN` (2048), `MAX_APP_ACCOUNTS` (4), `MAX_APP_FOREIGN_APPS` (8), `MAX_APP_FOREIGN_ASSETS` (8), `MAX_APP_TOTAL_REFS` (8 — accounts + apps + assets combined).
 
-**Misc:** `ZERO_ADDR` (the all-zero Algorand address), `EMPTY_BYTES`, `FAR_EXPIRY` (a far-future round for proposal expiry).
+**Misc:** `ZERO_ADDR` (the all-zero Algorand address), `EMPTY_BYTES`, `FAR_EXPIRY` (a far-future round for proposal expiry — **test/convenience only**; see "Approve, execute, cancel" for the MBR-reclamation tradeoff of using it on a real proposal).
 
 ---
 

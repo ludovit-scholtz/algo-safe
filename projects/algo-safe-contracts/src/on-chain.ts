@@ -65,6 +65,26 @@ type RawSignerGroupMember = {
 const MEMBER_BOX_PREFIX = 'm'.charCodeAt(0)
 const BOX_PAGE_SIZE = 10_000
 
+/**
+ * Fetch an app's box names via algod's (non-paginated) boxes endpoint. A
+ * result that exactly fills `max` cannot be distinguished from a truncated
+ * one, so treat it as ambiguous and fail loudly rather than risk silently
+ * operating on a partial box list (2026-07-16 audit, L-02).
+ */
+async function getApplicationBoxNames(algodClient: algosdk.Algodv2, appId: bigint | number): Promise<Uint8Array[]> {
+  const response = (await algodClient.getApplicationBoxes(appId).max(BOX_PAGE_SIZE).do()) as {
+    boxes?: Array<{ name?: Uint8Array }>
+  }
+  const boxes = response.boxes ?? []
+  if (boxes.length >= BOX_PAGE_SIZE) {
+    throw new Error(
+      `App ${appId} has at least ${BOX_PAGE_SIZE} boxes; algod's non-paginated boxes endpoint cannot enumerate them ` +
+        'reliably at this size. Use the indexer (with next-token pagination) to enumerate boxes for this app instead.',
+    )
+  }
+  return boxes.map((box) => box.name).filter((name): name is Uint8Array => name instanceof Uint8Array)
+}
+
 function readUint64BigEndian(bytes: Uint8Array) {
   let value = 0n
   for (const byte of bytes) {
@@ -253,15 +273,11 @@ export async function listAssetGuards(
   appId: bigint | number,
   custodianGroupId?: bigint,
 ): Promise<AssetGuardRecord[]> {
-  const response = (await algodClient.getApplicationBoxes(appId).max(BOX_PAGE_SIZE).do()) as {
-    boxes?: Array<{ name?: Uint8Array }>
-  }
+  const boxNames = await getApplicationBoxNames(algodClient, appId)
 
-  const guardNames = (response.boxes ?? [])
-    .map((box) => box.name)
+  const guardNames = boxNames
     .filter(
       (name): name is Uint8Array =>
-        name instanceof Uint8Array &&
         name.length === ASSET_GUARD_BOX_NAME_LENGTH &&
         name[0] === ASSET_GUARD_BOX_PREFIX[0] &&
         name[1] === ASSET_GUARD_BOX_PREFIX[1],
@@ -306,13 +322,10 @@ async function getSignerGroupRecords(client: TypedClient) {
 }
 
 async function listMemberAddressesForGroup(algodClient: algosdk.Algodv2, safe: AlgoSafeOnChainRef, groupId: bigint) {
-  const response = (await algodClient.getApplicationBoxes(safe.appId).max(BOX_PAGE_SIZE).do()) as {
-    boxes?: Array<{ name?: Uint8Array }>
-  }
+  const boxNames = await getApplicationBoxNames(algodClient, safe.appId)
 
-  return (response.boxes ?? [])
-    .map((box) => box.name)
-    .filter((name): name is Uint8Array => name instanceof Uint8Array && name.length >= 41)
+  return boxNames
+    .filter((name) => name.length >= 41)
     .filter((name) => name[0] === MEMBER_BOX_PREFIX && readUint64BigEndian(name.slice(1, 9)) === groupId)
     .map((name) => algosdk.encodeAddress(name.slice(9, 41)))
 }

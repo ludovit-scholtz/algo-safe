@@ -390,6 +390,13 @@ function algosdkTxnToSafeTxn(txn: algosdk.Transaction): SafeTxn {
 
   if (txn.type === algosdk.TransactionType.keyreg) {
     const kr = txn.keyreg
+    // KeyRegTxn has no nonParticipation field, so the safe cannot express
+    // Algorand's permanent non-participation opt-out. Silently downgrading it
+    // to a plain (reversible) go-offline would misrepresent an irreversible
+    // request as a reversible one, so fail loudly instead (2026-07-16 audit, I-01).
+    if (kr?.nonParticipation) {
+      throw new Error('Unsupported transaction type: keyreg nonParticipation opt-out has no SafeTxn representation')
+    }
     // A standard "go offline" keyreg omits the participation keys while leaving
     // nonParticipation unset (nonParticipation: true is the separate, permanent
     // opt-out flag) — so online is derived from key presence, not from

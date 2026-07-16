@@ -1734,7 +1734,41 @@ describe('AlgoSafe contract', () => {
     expect(recipInfo.balance.microAlgo).toBe((0.3).algo().microAlgo)
   })
 
-  test('prunes box storage for a terminal, expired proposal but not before (L-01)', async () => {
+  test('prunes box storage for an EXECUTED proposal immediately, regardless of expiry (v3.2.0, M-01)', async () => {
+    const { client } = await deployAndBootstrap()
+    const recipient = await localnet.context.generateAccount({ initialFunds: (0).algo() })
+
+    // Created with FAR_EXPIRY — before v3.2.0 this permanently blocked pruning
+    // of a terminal proposal (audit M-01). An EXECUTED proposal needs no
+    // expiry-based retention window: the ledger already retains the record.
+    const { return: pid } = await client.send.proposeTransactionGroup({
+      args: {
+        groupId: 1n,
+        payload: toSafeTxnGroup([safePayment(recipient.toString(), (0.1).algo().microAlgo)]),
+        expiryRound: FAR_EXPIRY,
+        execute: false,
+        ensureBudgetValue: 10000n,
+      },
+      suppressLog: true,
+      staticFee: (0.2).algo(),
+    })
+
+    // Not terminal yet (still READY, unexecuted) — prune must be rejected.
+    await expect(
+      client.send.pruneProposal({ args: { proposalId: pid!, ensureBudgetValue: 0n }, suppressLog: true }),
+    ).rejects.toThrow()
+
+    await client.send.executeProposal({ args: { proposalId: pid!, ensureBudgetValue: 6000n }, ...execParams })
+
+    // Terminal (EXECUTED) and nowhere near its FAR_EXPIRY round — prunable immediately.
+    await client.send.pruneProposal({ args: { proposalId: pid!, ensureBudgetValue: 0n }, suppressLog: true })
+
+    // Pruned boxes are gone — the state readers resolve undefined for them.
+    expect((await getProposal(client, pid!)).return).toBeUndefined()
+    expect((await getTransactionGroup(client, pid!, 1n)).return).toBeUndefined()
+  })
+
+  test('keeps the past-expiry gate for a CANCELLED proposal (v3.2.0, M-01)', async () => {
     const { client, deployer } = await deployAndBootstrap()
     const recipient = await localnet.context.generateAccount({ initialFunds: (0).algo() })
 
@@ -1753,14 +1787,9 @@ describe('AlgoSafe contract', () => {
       staticFee: (0.2).algo(),
     })
 
-    // Not terminal yet (still READY, unexecuted) — prune must be rejected.
-    await expect(
-      client.send.pruneProposal({ args: { proposalId: pid!, ensureBudgetValue: 0n }, suppressLog: true }),
-    ).rejects.toThrow()
+    await client.send.cancelProposal({ args: { proposalId: pid!, ensureBudgetValue: 0n }, suppressLog: true })
 
-    await client.send.executeProposal({ args: { proposalId: pid!, ensureBudgetValue: 6000n }, ...execParams })
-
-    // Terminal (EXECUTED) but not yet past expiry — still rejected.
+    // Terminal (CANCELLED) but not yet past expiry — still rejected.
     await expect(
       client.send.pruneProposal({ args: { proposalId: pid!, ensureBudgetValue: 0n }, suppressLog: true }),
     ).rejects.toThrow()
@@ -1772,7 +1801,6 @@ describe('AlgoSafe contract', () => {
 
     await client.send.pruneProposal({ args: { proposalId: pid!, ensureBudgetValue: 0n }, suppressLog: true })
 
-    // Pruned boxes are gone — the state readers resolve undefined for them.
     expect((await getProposal(client, pid!)).return).toBeUndefined()
     expect((await getTransactionGroup(client, pid!, 1n)).return).toBeUndefined()
   })
@@ -2868,13 +2896,16 @@ describe('AlgoSafe contract', () => {
     expect(offlineTuples[0][0]).toBe(TX_KEYREG)
     expect(decodeKeyRegTxn(offlineTuples[0][1]).online).toBe(0n)
 
-    // Permanent opt-out (nonParticipation: true) is also offline.
+    // Permanent opt-out (nonParticipation: true) has no SafeTxn representation
+    // (KeyRegTxn carries no such field) — silently downgrading it to a plain,
+    // reversible go-offline would misrepresent an irreversible request, so it
+    // must throw instead (v3.2.0, audit I-01).
     const optOut = algosdk.makeKeyRegistrationTxnWithSuggestedParamsFromObject({
       sender: deployer.addr,
       nonParticipation: true,
       suggestedParams: sp,
     })
-    expect(decodeKeyRegTxn(algosdkTxnsToSafeTxnGroup([optOut])[0][1]).online).toBe(0n)
+    expect(() => algosdkTxnsToSafeTxnGroup([optOut])).toThrow(/nonParticipation/)
 
     // A keys-supplied registration still maps to online.
     const goOnline = algosdk.makeKeyRegistrationTxnWithSuggestedParamsFromObject({
@@ -3375,6 +3406,84 @@ describe('AlgoSafe contract', () => {
       .do()
       .catch(() => undefined)
     expect(safeHolding?.assetHolding?.amount ?? 0n).toBe(0n)
+  })
+
+  test('custodian 0-amount ASA opt-in is rejected without a guard, succeeds once a 0-locked guard exists (v3.2.0, L-01)', async () => {
+    const { client, deployer, validatorAppId } = await deployAndBootstrap()
+    const protocol = await localnet.context.generateAccount({ initialFunds: (1).algo() })
+
+    const createAsset = await localnet.algorand.send.assetCreate({
+      sender: deployer,
+      total: 1_000_000n,
+      decimals: 0,
+      unitName: 'SPAM',
+      assetName: 'Ungoverned ASA',
+      suppressLog: true,
+    })
+    const assetId = createAsset.assetId
+
+    await governAdminChange(client, 1n, mkAdminChange({
+      changeType: ADM_CREATE_CUSTODIAN, groupName: 'OptInCustodian', threshold: 1n,
+      allowedActions: ACT_AXFER, memberAddr: protocol.toString(), memberType: 4n, memberLabel: 'protocol',
+    }))
+
+    const proposeOptIn = () =>
+      client.send.proposeTransactionGroup({
+        args: {
+          groupId: 2n,
+          payload: toSafeTxnGroup([
+            createAssetSafeTxn({
+              sender: ZERO_ADDR,
+              xferAsset: assetId,
+              assetReceiver: client.appAddress.toString(),
+              assetAmount: 0n,
+              hasClose: 0n,
+              assetCloseTo: ZERO_ADDR,
+              note: '',
+            }),
+          ]),
+          expiryRound: FAR_EXPIRY,
+          execute: false,
+          ensureBudgetValue: 0n,
+        },
+        sender: protocol,
+        suppressLog: true,
+        staticFee: (0.2).algo(),
+      })
+
+    const executeOptIn = (pid: bigint) => {
+      const appId = BigInt(client.appId)
+      return client.send.executeProposal({
+        args: { proposalId: pid, ensureBudgetValue: 6000n },
+        ...execParams,
+        populateAppCallResources: false,
+        boxReferences: [
+          { appId, name: boxKeyU64('p', pid) },
+          { appId, name: boxKeyU64('g', 2n) },
+          { appId, name: boxKeyU64('txg', pid * 7n + 1n) },
+          { appId, name: guardBoxKey(2n, assetId) },
+        ],
+        assetReferences: [assetId],
+        appReferences: [validatorAppId],
+      })
+    }
+
+    // No guard configured for (custodian group 2, assetId) — the 0-amount
+    // opt-in must be rejected, not silently allowed (audit L-01).
+    const { return: pidNoGuard } = await proposeOptIn()
+    await expect(executeOptIn(pidNoGuard!)).rejects.toThrow()
+
+    // Admin sets a guard with lockedAmount: 0 — asset is now governed (even
+    // though no spend is authorised yet) — the opt-in may proceed.
+    await governAdminChange(client, 1n, mkAdminChange({
+      changeType: ADM_SET_GUARD, targetGroupId: 2n, limitAssetId: assetId, guardAmount: 0n,
+    }))
+
+    const { return: pidWithGuard } = await proposeOptIn()
+    await executeOptIn(pidWithGuard!)
+
+    const guard = await getAssetGuard(client, 2n, assetId)
+    expect(guard.return!.lockedAmount).toBe(0n)
   })
 
   test('custodian ALGO close-out from a rekeyed sender debits the full live balance, not the declared amount (I-01)', async () => {

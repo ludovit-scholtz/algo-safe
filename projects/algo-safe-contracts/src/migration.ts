@@ -6,6 +6,7 @@ import { AlgoSafeFactory } from './latest-client'
 import { LATEST_CONTRACT_HASH } from './get-client'
 import { getAlgoSafeContractVersion } from './version'
 import { createRekeySafeTxn, toSafeTxnGroup, ZERO_ADDR, type SafeTxnTuple } from './safe-tx'
+import { ACT_PAY, ACT_AXFER, GT_CUSTODIAN } from './constants'
 
 // ---------------------------------------------------------------------------
 // Safe migration / upgrade helpers.
@@ -79,7 +80,19 @@ async function listBoxNames(algodClient: algosdk.Algodv2, appId: bigint | number
   const response = (await algodClient.getApplicationBoxes(BigInt(appId)).max(BOX_PAGE_SIZE).do()) as {
     boxes?: Array<{ name?: Uint8Array }>
   }
-  return (response.boxes ?? []).map((box) => box.name).filter((name): name is Uint8Array => name instanceof Uint8Array)
+  const boxes = response.boxes ?? []
+  // algod's boxes endpoint does not paginate: a result that exactly fills the
+  // requested `max` cannot be distinguished from one truncated at that cap, so
+  // treat it as ambiguous rather than silently risking a partial read whose
+  // consumers (clone/migration tooling) would then act on incomplete data
+  // (2026-07-16 audit, L-02).
+  if (boxes.length >= BOX_PAGE_SIZE) {
+    throw new Error(
+      `App ${appId} has at least ${BOX_PAGE_SIZE} boxes; algod's non-paginated boxes endpoint cannot enumerate them ` +
+        'reliably at this size. Use the indexer (with next-token pagination) to enumerate boxes for this app instead.',
+    )
+  }
+  return boxes.map((box) => box.name).filter((name): name is Uint8Array => name instanceof Uint8Array)
 }
 
 /** Detect the deployed contract version of a safe and whether it is the latest. */
@@ -150,6 +163,17 @@ export async function fetchSafeCloneConfig(
       .filter((boxName) => readUint64BigEndian(boxName.slice(1, 9)) === groupId)
       .map((boxName) => algosdk.encodeAddress(boxName.slice(9, 41)))
 
+    // Enumerated member boxes must agree with the group's own memberCount —
+    // if algod ever truncated the box listing instead of erroring (L-02),
+    // this converts a silent partial clone into a loud failure rather than
+    // deploying a successor group missing members.
+    if (BigInt(memberAddresses.length) !== group.memberCount) {
+      throw new Error(
+        `Group ${groupId} ("${String(group.name)}") has memberCount=${group.memberCount} but ${memberAddresses.length} ` +
+          'member box(es) were enumerated; refusing to clone with a mismatched member set.',
+      )
+    }
+
     const members = await Promise.all(
       memberAddresses.map(async (account) => {
         const member = await readMember(client, groupId, account)
@@ -162,17 +186,36 @@ export async function fetchSafeCloneConfig(
     )
     members.sort((left, right) => left.addr.localeCompare(right.addr))
 
+    const groupType = BigInt(group.groupType ?? 0n)
+    let allowedActions = BigInt(group.allowedActions)
+    // Pre-v3.1.0 safes could create custodian groups holding action bits
+    // beyond pay/axfer; cloning them verbatim onto a v3.1.0+ safe reverts
+    // mid-migration inside bootstrapGroup, after the new safe is already
+    // deployed and funded. Mask at read time so deployClonedSafe never sees
+    // an unseedable custodian config (2026-07-16 audit, I-03).
+    if (groupType === GT_CUSTODIAN) {
+      const sanitized = allowedActions & (ACT_PAY | ACT_AXFER)
+      if (sanitized !== allowedActions) {
+        // eslint-disable-next-line no-console
+        console.warn(
+          `Custodian group ${groupId} ("${String(group.name)}") holds allowedActions=${allowedActions} beyond pay/axfer; ` +
+            `masking to ${sanitized} for the clone (custodian groups may only hold ACT_PAY|ACT_AXFER as of v3.1.0).`,
+        )
+        allowedActions = sanitized
+      }
+    }
+
     groups.push({
       seed: {
         name: String(group.name),
         threshold: BigInt(group.threshold),
         adminPrivileges: BigInt(group.adminPrivileges),
-        allowedActions: BigInt(group.allowedActions),
+        allowedActions,
         limitAssetId: BigInt(group.limitAssetId ?? 0n),
         dailyLimit: BigInt(group.dailyLimit),
         monthlyLimit: BigInt(group.monthlyLimit),
         cooldownRounds: BigInt(group.cooldownRounds),
-        groupType: BigInt(group.groupType ?? 0n),
+        groupType,
       },
       members,
     })

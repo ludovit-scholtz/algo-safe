@@ -7,13 +7,15 @@ import { CONTRACT_HASHES, LATEST_CONTRACT_HASH, type ContractVersion } from './v
  * read-only ABI getters (state is read via the box/global readers in on-chain.ts).
  *
  * Extend this list whenever a new contract version ships WITHOUT breaking that
- * surface (e.g. v3.1.0 over v3.0.0). Clients should branch legacy-vs-modern with
- * `hasModernAbi(version)` rather than comparing against LATEST_CONTRACT_HASH —
- * a hash-equality check silently demotes every older-but-compatible deployment
- * to the legacy code path the moment a new version is registered.
+ * surface (e.g. v3.1.0 over v3.0.0, v3.2.0 over v3.1.0). Clients should branch
+ * legacy-vs-modern with `hasModernAbi(version)` rather than comparing against
+ * LATEST_CONTRACT_HASH — a hash-equality check silently demotes every
+ * older-but-compatible deployment to the legacy code path the moment a new
+ * version is registered.
  */
 export const MODERN_ABI_CONTRACT_HASHES: readonly string[] = [
-  LATEST_CONTRACT_HASH, // v3.1.0
+  LATEST_CONTRACT_HASH, // v3.2.0
+  '0ec5f00067169dae3414cffd9f2e04d8e2a91884d7fd0eb903c31aa409da6ead', // v3.1.0
   '8a9073ec02dd208e4757e57180a96b452e074c1731c7ecccdabdbe8dc7f3acee', // v3.0.0
 ]
 
