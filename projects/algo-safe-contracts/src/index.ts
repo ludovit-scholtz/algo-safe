@@ -1,4 +1,5 @@
 export * from './admin'
+export * from './arc56'
 export * from './artifacts'
 export * from './constants'
 export * from './get-client'

@@ -2,7 +2,9 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useSnackbar } from 'notistack'
-import { useProposal, useApproveProposal, useRejectProposal, useExecuteProposal } from '../hooks'
+import { useWallet } from '@txnlab/use-wallet-react'
+import { useProposal, useSafe, useApproveProposal, useRejectProposal, useExecuteProposal } from '../hooks'
+import { AppCallDetails } from '../components/AppCallDetails'
 import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
 import { Icon } from '../components/ui/Icon'
@@ -34,6 +36,8 @@ export const ProposalDetailPage = () => {
   const { enqueueSnackbar } = useSnackbar()
 
   const { data: proposal, isLoading } = useProposal(id)
+  const { data: safe } = useSafe(safeId)
+  const { algodClient } = useWallet()
   const approveProposal = useApproveProposal()
   const rejectProposal = useRejectProposal()
   const executeProposal = useExecuteProposal()
@@ -208,9 +212,12 @@ export const ProposalDetailPage = () => {
                     <div className="flex-shrink-0 pt-0.5">
                       <TxChip type={tx.type} />
                     </div>
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium text-on-surface">{tx.summary}</p>
                       <p className="font-mono text-xs text-on-surface-variant mt-0.5 leading-relaxed">{tx.detail}</p>
+                      {tx.type === 'appl' && tx.appCall && safe && (
+                        <AppCallDetails appCall={tx.appCall} algodClient={algodClient} network={safe.network} />
+                      )}
                     </div>
                   </div>
                 ))}

@@ -315,11 +315,12 @@ async function mapEnvelopeTxLine(
   }
 
   if (txType === TX_APP) {
-    const { appId, appArgs, note } = decodeAppTxn(data)
+    const { appId, appArgs, accounts, foreignApps, foreignAssets, note } = decodeAppTxn(data)
     return {
       type: 'appl',
       summary: `Call app ${appId.toString()}`,
       detail: `${appArgs.length} argument(s)${note ? ` · Note: ${note}` : ''}`,
+      appCall: { appId, sender: safeAddress, appArgs, accounts, foreignApps, foreignAssets },
     }
   }
 
@@ -363,10 +364,10 @@ async function mapLegacyTxLine(
     ,
     appId,
     numArgs,
-    ,
-    ,
-    ,
-    ,
+    arg0,
+    arg1,
+    arg2,
+    arg3,
     online,
     ,
     ,
@@ -404,10 +405,14 @@ async function mapLegacyTxLine(
   }
 
   if (txType === TX_APP) {
+    const appArgs = [arg0, arg1, arg2, arg3].slice(0, Number(numArgs))
     return {
       type: 'appl',
       summary: `Call app ${appId.toString()}`,
       detail: `${numArgs.toString()} argument(s)`,
+      // Legacy tuples carry no accounts/foreignApps/foreignAssets data — any
+      // ARC-4 reference-typed arg can only be shown as an unresolved index.
+      appCall: { appId, sender: safeAddress, appArgs },
     }
   }
 

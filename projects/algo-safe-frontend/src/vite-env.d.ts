@@ -17,6 +17,8 @@ interface ImportMetaEnv {
   readonly VITE_KMD_PORT?: string
   readonly VITE_KMD_PASSWORD?: string
   readonly VITE_KMD_WALLET?: string
+
+  readonly VITE_ARC56_REGISTRY_URL?: string
 }
 
 interface ImportMeta {

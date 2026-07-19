@@ -129,6 +129,19 @@ jobs:
             -e "s|FRONTEND_TLS_SECRET_PLACEHOLDER|${FRONTEND_TLS_SECRET_NAME}|g" \
             ${{ env.PROJECT_PATH }}/deploy/k8s/ingress.yaml | kubectl apply -f -
 
+      - name: Deploy ARC-56 registry
+        shell: bash
+        run: |
+          set -euo pipefail
+          kubectl apply -f ${{ env.PROJECT_PATH }}/deploy/k8s/arc56-registry-deployment.yaml
+          kubectl apply -f ${{ env.PROJECT_PATH }}/deploy/k8s/arc56-registry-service.yaml
+          sed \
+            -e "s|FRONTEND_HOST_PLACEHOLDER|${FRONTEND_HOSTNAME}|g" \
+            -e "s|FRONTEND_TLS_SECRET_PLACEHOLDER|${FRONTEND_TLS_SECRET_NAME}|g" \
+            ${{ env.PROJECT_PATH }}/deploy/k8s/arc56-registry-ingress.yaml | kubectl apply -f -
+
       - name: Verify rollout
-        run: kubectl rollout status deployment/${{ env.K8S_DEPLOYMENT_NAME }} --namespace ${{ env.K8S_NAMESPACE }} --timeout=600s
+        run: |
+          kubectl rollout status deployment/${{ env.K8S_DEPLOYMENT_NAME }} --namespace ${{ env.K8S_NAMESPACE }} --timeout=600s
+          kubectl rollout status deployment/arc56-registry --namespace ${{ env.K8S_NAMESPACE }} --timeout=600s
     

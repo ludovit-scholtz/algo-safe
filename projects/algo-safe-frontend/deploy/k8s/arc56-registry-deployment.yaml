@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: arc56-registry
+  namespace: algo-safe
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: arc56-registry
+  template:
+    metadata:
+      labels:
+        app: arc56-registry
+    spec:
+      containers:
+        - name: arc56-registry
+          image: scholtz2/arc56-registry:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 50m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi

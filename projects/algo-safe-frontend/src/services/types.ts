@@ -51,6 +51,15 @@ export interface TxLine {
   type: 'pay' | 'axfer' | 'appl' | 'keyreg' | 'acfg' | 'rekey'
   summary: string
   detail: string
+  /** Raw app-call data for `type === 'appl'` lines, used to verify+decode the ABI method against the ARC-56 registry at render time. */
+  appCall?: {
+    appId: bigint
+    sender?: string
+    appArgs: Uint8Array[]
+    accounts?: string[]
+    foreignApps?: bigint[]
+    foreignAssets?: bigint[]
+  }
 }
 export interface PolicyCheck {
   label: string

@@ -8,5 +8,9 @@ export const env = {
   quantozMcpUrl: (import.meta.env.VITE_QUANTOZ_MCP_URL as string) ?? 'https://mcp.ai.quantozpay.com',
   quantozAccountCode: import.meta.env.VITE_QUANTOZ_ACCOUNT as string | undefined,
   walletConnectProjectId: (import.meta.env.VITE_WALLETCONNECT_PROJECT_ID as string) || DEFAULT_WALLETCONNECT_PROJECT_ID,
+  // Same-origin path served by the in-cluster arc56-registry deployment (see
+  // deploy/k8s/arc56-registry-*.yaml). Used to verify app-call ABI methods
+  // against their published ARC-56 spec before asking the user to sign.
+  arc56RegistryUrl: (import.meta.env.VITE_ARC56_REGISTRY_URL as string) || '/arc56-registry',
 }
 export const quantozEnabled = () => Boolean(env.quantozApiKey)

@@ -1,0 +1,33 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: arc56-registry
+  namespace: algo-safe
+  annotations:
+    # No cert-manager.io/cluster-issuer annotation here on purpose: the
+    # primary algo-safe-frontend Ingress already requests/owns the
+    # Certificate for this host+secret — a second annotated Ingress would
+    # race a duplicate Certificate for the same secret.
+    nginx.ingress.kubernetes.io/ssl-redirect: 'true'
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: FRONTEND_HOST_PLACEHOLDER
+      http:
+        paths:
+          # Strips the /arc56-registry prefix before forwarding, since the
+          # third-party registry image serves its API from the path root
+          # (e.g. /approval-programs/...) and we don't control its internal
+          # nginx config to mount it under a subpath itself.
+          - path: /arc56-registry(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: arc56-registry
+                port:
+                  number: 8080
+  tls:
+    - hosts:
+        - FRONTEND_HOST_PLACEHOLDER
+      secretName: FRONTEND_TLS_SECRET_PLACEHOLDER

@@ -27,7 +27,21 @@ function toLocalPreview(txn: algosdk.Transaction) {
         detail: `From ${sender}`,
       }
     case 'appl':
-      return { type: 'appl' as const, summary: `Call app ${txn.applicationCall?.appIndex ?? '—'}`, detail: `From ${sender}` }
+      return {
+        type: 'appl' as const,
+        summary: `Call app ${txn.applicationCall?.appIndex ?? '—'}`,
+        detail: `From ${sender}`,
+        appCall: txn.applicationCall
+          ? {
+              appId: txn.applicationCall.appIndex ?? 0n,
+              sender,
+              appArgs: [...txn.applicationCall.appArgs],
+              accounts: txn.applicationCall.accounts.map((account) => account.toString()),
+              foreignApps: [...txn.applicationCall.foreignApps],
+              foreignAssets: [...txn.applicationCall.foreignAssets],
+            }
+          : undefined,
+      }
     case 'keyreg':
       return { type: 'keyreg' as const, summary: 'Participation key registration', detail: `From ${sender}` }
     case 'acfg':
@@ -180,7 +194,7 @@ export function WalletConnectRequestPanel({ request, safe, algodClient, activeAd
     <Card>
       <div className="space-y-4">
         <h3 className="font-semibold text-on-surface">Incoming transaction request</h3>
-        <TransactionPreview lines={preview} />
+        <TransactionPreview lines={preview} algodClient={algodClient} network={safe.network} />
 
         <div className="grid gap-4 md:grid-cols-2">
           <FormField label="Signer Group ID" hint="The group that will hold this proposal.">
