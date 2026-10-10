@@ -11,6 +11,7 @@ import { Card } from '../components/ui/Card'
 import { Icon } from '../components/ui/Icon'
 import { Skeleton } from '../components/ui/Skeleton'
 import { StatusBadge } from '../components/ui/StatusBadge'
+import { stripMarkup } from '../i18n/instance'
 import { fmtEur, fmtNum } from '../lib/format'
 
 // Chip for transaction type: pay/axfer/appl/keyreg/acfg/rekey
@@ -85,7 +86,7 @@ export const ProposalDetailPage = () => {
             <Trans
               t={t}
               i18nKey="detail.notFoundBody"
-              values={{ id }}
+              values={{ id: stripMarkup(String(id)) }}
               components={{ id: <span className="font-mono text-on-surface" /> }}
             />
           </p>

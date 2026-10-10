@@ -79,7 +79,7 @@ type Props = {
 
 export function WalletConnectRequestPanel({ request, safe, algodClient, activeAddress, transactionSigner, onReject, onRespond }: Props) {
   const { t } = useTranslation('walletconnect')
-  const [result, setResult] = useState<ConvertResult | 'loading' | { ok: false; reason: string }>('loading')
+  const [result, setResult] = useState<ConvertResult | 'loading' | { ok: false; reason: string; reasonEn: string }>('loading')
   const [groupId, setGroupId] = useState('1')
   const [expiryRounds, setExpiryRounds] = useState('2000')
   const [busy, setBusy] = useState<'submit' | 'sign-return' | 'reject' | null>(null)
@@ -93,7 +93,12 @@ export function WalletConnectRequestPanel({ request, safe, algodClient, activeAd
     setResult('loading')
 
     if (!isSupportedMethod) {
-      setResult({ ok: false, reason: t('panel.unsupportedMethod', { expected: ALGORAND_WC_METHOD, received: request.method }) })
+      const unsupported = { expected: ALGORAND_WC_METHOD, received: request.method }
+      setResult({
+        ok: false,
+        reason: t('panel.unsupportedMethod', unsupported),
+        reasonEn: t('panel.unsupportedMethod', { ...unsupported, lng: 'en' }),
+      })
       return
     }
 
@@ -103,7 +108,12 @@ export function WalletConnectRequestPanel({ request, safe, algodClient, activeAd
         if (!cancelled) setResult(converted)
       })
     } catch (normalizeError) {
-      setResult({ ok: false, reason: normalizeError instanceof Error ? normalizeError.message : t('panel.unrecognizedShape') })
+      const reason = normalizeError instanceof Error ? normalizeError.message : t('panel.unrecognizedShape')
+      setResult({
+        ok: false,
+        reason,
+        reasonEn: normalizeError instanceof Error ? normalizeError.message : t('panel.unrecognizedShape', { lng: 'en' }),
+      })
     }
 
     return () => {
@@ -120,7 +130,7 @@ export function WalletConnectRequestPanel({ request, safe, algodClient, activeAd
     setBusy('reject')
     setError(null)
     try {
-      const reason = result !== 'loading' && !result.ok ? result.reason : t('panel.rejectedByOperator')
+      const reason = result !== 'loading' && !result.ok ? result.reasonEn : t('panel.rejectedByOperator', { lng: 'en' })
       await onReject(request.topic, request.id, reason)
     } catch (rejectError) {
       setError(rejectError instanceof Error ? rejectError.message : t('panel.rejectFailed'))
@@ -139,7 +149,7 @@ export function WalletConnectRequestPanel({ request, safe, algodClient, activeAd
         { groupId: BigInt(groupId), payload: result.payload, expiryRounds: BigInt(expiryRounds) },
       )
       setOutcome(t('panel.proposalCreated', { proposalId, txId }))
-      await onReject(request.topic, request.id, t('panel.convertedReject', { proposalId }))
+      await onReject(request.topic, request.id, t('panel.convertedReject', { proposalId, lng: 'en' }))
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : t('panel.submitFailed'))
     } finally {

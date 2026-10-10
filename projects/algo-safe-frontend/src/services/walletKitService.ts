@@ -104,14 +104,20 @@ function hasAlgorandNamespace(proposal: ProposalTypes.Struct): boolean {
   )
 }
 
-export async function rejectWalletConnectSession(proposalId: number, message = i18n.t('walletconnect:service.sessionRejected')) {
+export async function rejectWalletConnectSession(
+  proposalId: number,
+  message = i18n.t('walletconnect:service.sessionRejected', { lng: 'en' }),
+) {
   const walletKit = await getWalletKit()
   await walletKit.rejectSession({ id: proposalId, reason: { code: 5000, message } })
 }
 
 export async function disconnectWalletConnectSession(topic: string) {
   const walletKit = await getWalletKit()
-  await walletKit.disconnectSession({ topic, reason: { code: 6000, message: i18n.t('walletconnect:service.sessionDisconnected') } })
+  await walletKit.disconnectSession({
+    topic,
+    reason: { code: 6000, message: i18n.t('walletconnect:service.sessionDisconnected', { lng: 'en' }) },
+  })
 }
 
 export async function respondWalletConnectRequest(topic: string, id: number, result: unknown) {

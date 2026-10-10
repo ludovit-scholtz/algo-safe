@@ -23,14 +23,15 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
 
   render(): ReactNode {
     if (this.state.hasError) {
-      const message = this.state.error?.message?.trim() || i18n.t('layout:errorBoundary.unexpected')
+      const message =
+        this.state.error?.message?.trim() || i18n.t('layout:errorBoundary.unexpected', { defaultValue: 'Unexpected application error.' })
 
       // You can render any custom fallback UI
       return (
         <div className="flex min-h-screen items-center justify-center bg-surface-container">
           <div className="rounded-lg p-6 max-w-md bg-surface-container-high mx-auto text-center">
             <div className="max-w-md">
-              <h1 className="text-4xl text-on-surface">{i18n.t('layout:errorBoundary.title')}</h1>
+              <h1 className="text-4xl text-on-surface">{i18n.t('layout:errorBoundary.title', { defaultValue: 'Error occured' })}</h1>
               <p className="py-6 text-on-surface-variant">{message}</p>
             </div>
           </div>

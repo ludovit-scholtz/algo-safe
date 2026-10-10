@@ -24,6 +24,7 @@ import type { NetworkId, TxLine } from '../services/types'
 import { env } from '../lib/env'
 import { resolveAssetMetadata, type AssetMetadata } from '../lib/assetMetadata'
 import { assetExplorerUrl, appExplorerUrl } from '../lib/explorer'
+import { stripMarkup } from '../i18n/instance'
 import { shortAddr } from '../lib/format'
 import { Icon } from './ui/Icon'
 
@@ -291,7 +292,7 @@ function CandidatesView({
           <Trans
             t={t}
             i18nKey="appCall.borrowedBody"
-            values={{ method: applied.method.name, hash: shortAddr(applied.candidate.approvalHash, 8) }}
+            values={{ method: stripMarkup(applied.method.name), hash: shortAddr(applied.candidate.approvalHash, 8) }}
             components={{ code: <code className="font-mono" /> }}
           />
           <ArgList args={decodeAppCallArgs(applied.method, appCall)} network={network} algodClient={algodClient} />
@@ -362,7 +363,12 @@ export function AppCallDetails({ appCall, algodClient, network }: Props) {
       return (
         <div className="mt-2">
           <Banner tone="warn" icon="wifi_off" title={t('appCall.registryUnreachableTitle')}>
-            <Trans t={t} i18nKey="appCall.registryUnreachableBody" values={{ error: state.error }} components={{ strong: <strong /> }} />
+            <Trans
+              t={t}
+              i18nKey="appCall.registryUnreachableBody"
+              values={{ error: stripMarkup(state.error) }}
+              components={{ strong: <strong /> }}
+            />
           </Banner>
         </div>
       )

@@ -26,7 +26,7 @@ export function Sidebar() {
       <nav className="space-y-1">
         {items.map((it) => (
           <NavLink
-            key={t(`nav.${it.label}`)}
+            key={it.label}
             to={it.to ? `${base}/${it.to}` : base}
             end={it.end}
             className={({ isActive }) =>
@@ -34,7 +34,7 @@ export function Sidebar() {
             }
           >
             <Icon name={it.icon} className="text-lg" />
-            {it.label}
+            {t(`nav.${it.label}`)}
           </NavLink>
         ))}
       </nav>

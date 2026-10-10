@@ -13,7 +13,8 @@ export type WalletConnectTxnEntry = {
   authAddr?: string
 }
 
-export type ConvertResult = { ok: true; payload: SafeTxnTuple[]; txns: algosdk.Transaction[] } | { ok: false; reason: string }
+export type ConvertResult =
+  { ok: true; payload: SafeTxnTuple[]; txns: algosdk.Transaction[] } | { ok: false; reason: string; reasonEn: string }
 
 function isWalletConnectTxnEntry(value: unknown): value is WalletConnectTxnEntry {
   return typeof value === 'object' && value !== null && typeof (value as { txn?: unknown }).txn === 'string'
@@ -44,31 +45,32 @@ async function isSpendableBySafe(algodClient: algosdk.Algodv2, safe: Safe, sende
  * group payload. Returns a discriminated failure with a human-readable reason
  * instead of throwing, so callers can show it directly in the UI.
  */
+/** Localized reason for the operator UI plus an English one for the remote dapp (protocol boundary). */
+const fail = (key: string, opts?: Record<string, unknown>): ConvertResult => ({
+  ok: false,
+  reason: i18n.t(key, opts),
+  reasonEn: i18n.t(key, { ...opts, lng: 'en' }),
+})
+
 export async function convertSessionRequestToSafePayload(
   algodClient: algosdk.Algodv2,
   safe: Safe,
   entries: WalletConnectTxnEntry[],
 ): Promise<ConvertResult> {
   if (entries.length === 0) {
-    return { ok: false, reason: i18n.t('walletconnect:convert.noTransactions') }
+    return fail('walletconnect:convert.noTransactions')
   }
 
   const unsignedByOthers = entries.some((entry) => Array.isArray(entry.signers) && entry.signers.length === 0)
   if (unsignedByOthers) {
-    return {
-      ok: false,
-      reason: i18n.t('walletconnect:convert.unsignedByOthers'),
-    }
+    return fail('walletconnect:convert.unsignedByOthers')
   }
 
   let txns: algosdk.Transaction[]
   try {
     txns = entries.map((entry) => algosdk.decodeUnsignedTransaction(Buffer.from(entry.txn, 'base64')))
   } catch {
-    return {
-      ok: false,
-      reason: i18n.t('walletconnect:convert.decodeFailed'),
-    }
+    return fail('walletconnect:convert.decodeFailed')
   }
 
   for (const txn of txns) {
@@ -76,10 +78,7 @@ export async function convertSessionRequestToSafePayload(
 
     const spendable = await isSpendableBySafe(algodClient, safe, sender)
     if (!spendable) {
-      return {
-        ok: false,
-        reason: i18n.t('walletconnect:convert.notSpendable', { sender }),
-      }
+      return fail('walletconnect:convert.notSpendable', { sender })
     }
   }
 
@@ -87,12 +86,8 @@ export async function convertSessionRequestToSafePayload(
     const payload = algosdkTxnsToSafeTxnGroup(txns)
     return { ok: true, payload, txns }
   } catch (error) {
-    return {
-      ok: false,
-      reason:
-        error instanceof Error
-          ? i18n.t('walletconnect:convert.cannotRepresent', { message: error.message })
-          : i18n.t('walletconnect:convert.cannotRepresentGeneric'),
-    }
+    return error instanceof Error
+      ? fail('walletconnect:convert.cannotRepresent', { message: error.message })
+      : fail('walletconnect:convert.cannotRepresentGeneric')
   }
 }
