@@ -1,7 +1,7 @@
 import i18n from './instance'
 import LanguageDetector from 'i18next-browser-languagedetector'
 import { initReactI18next } from 'react-i18next'
-import { DEFAULT_LANGUAGE, NAMESPACES, SUPPORTED_LANGUAGES } from './languages'
+import { DEFAULT_LANGUAGE, LANGUAGE_STORAGE_KEY, NAMESPACES, SUPPORTED_LANGUAGES } from './languages'
 
 type Resources = Record<string, Record<string, Record<string, unknown>>>
 
@@ -31,8 +31,8 @@ void i18n
     interpolation: { escapeValue: false }, // React already escapes
     detection: {
       order: ['localStorage', 'navigator'],
-      lookupLocalStorage: 'algo-safe-lang',
-      caches: ['localStorage'],
+      lookupLocalStorage: LANGUAGE_STORAGE_KEY,
+      caches: [], // persisted only on an explicit choice (see LanguageSwitcher)
     },
     returnNull: false,
   })

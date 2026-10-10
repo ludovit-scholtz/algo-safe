@@ -17,6 +17,8 @@ export const SUPPORTED_LANGUAGES: readonly LanguageInfo[] = [
   { code: 'es', name: 'Español' },
 ]
 
+export const LANGUAGE_STORAGE_KEY = 'algo-safe-lang'
+
 export const DEFAULT_LANGUAGE = 'en'
 
 /** Namespaces; each maps to src/locales/<lang>/<ns>.json. */

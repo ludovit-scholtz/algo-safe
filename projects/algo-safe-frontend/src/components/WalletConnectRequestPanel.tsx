@@ -112,14 +112,14 @@ export function WalletConnectRequestPanel({ request, safe, algodClient, activeAd
       setResult({
         ok: false,
         reason,
-        reasonEn: normalizeError instanceof Error ? normalizeError.message : i18n.t('walletconnect:panel.unrecognizedShape', { lng: 'en' }),
+        reasonEn: i18n.t('walletconnect:convert.unrecognizedShape', { lng: 'en' }),
       })
     }
 
     return () => {
       cancelled = true
     }
-  }, [request, safe, algodClient, isSupportedMethod, t])
+  }, [request, safe, algodClient, isSupportedMethod])
 
   const preview = useMemo(() => {
     if (result === 'loading' || !result.ok) return []

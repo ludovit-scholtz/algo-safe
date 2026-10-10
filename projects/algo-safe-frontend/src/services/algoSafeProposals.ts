@@ -146,10 +146,7 @@ function formatAssetLabel(asset: AssetMetadata) {
 function humanList(values: string[]) {
   if (values.length === 0) return tr('service.none')
   if (values.length === 1) return values[0]
-  // Intl.ListFormat is not in this project's TS lib target yet.
-  const ListFormat = (Intl as unknown as { ListFormat: new (locale: string, options: object) => { format(items: string[]): string } })
-    .ListFormat
-  return new ListFormat(currentLocale(), { style: 'long', type: 'conjunction' }).format(values)
+  return new Intl.ListFormat(currentLocale(), { style: 'long', type: 'conjunction' }).format(values)
 }
 
 function describeAllowedActions(mask: bigint) {
