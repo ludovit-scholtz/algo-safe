@@ -1,6 +1,7 @@
 packages:
   - projects/*
 allowBuilds:
+  '@parcel/watcher': false
   cbor-extract: false
   esbuild: true
   unrs-resolver: true
