@@ -93,8 +93,10 @@ function getWalletNetworks(algodConfig: ReturnType<typeof getAlgodConfigFromVite
 
 const queryClient = new QueryClient()
 
+const TRANSLATED_QUERY_KEYS = new Set(['safes', 'safe', 'treasury', 'proposals', 'proposal', 'agents', 'qtx', 'eurd'])
+
 // Cached query data (proposal titles, tier labels, ...) embeds translated text; refetch on language change.
-i18n.on('languageChanged', () => void queryClient.invalidateQueries())
+i18n.on('languageChanged', () => void queryClient.invalidateQueries({ predicate: (q) => TRANSLATED_QUERY_KEYS.has(String(q.queryKey[0])) }))
 
 export default function App() {
   const algodConfig = getAlgodConfigFromViteEnvironment()

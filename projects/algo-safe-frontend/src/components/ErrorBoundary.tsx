@@ -31,7 +31,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
         <div className="flex min-h-screen items-center justify-center bg-surface-container">
           <div className="rounded-lg p-6 max-w-md bg-surface-container-high mx-auto text-center">
             <div className="max-w-md">
-              <h1 className="text-4xl text-on-surface">{i18n.t('layout:errorBoundary.title', { defaultValue: 'Error occured' })}</h1>
+              <h1 className="text-4xl text-on-surface">{i18n.t('layout:errorBoundary.title', { defaultValue: 'Error occurred' })}</h1>
               <p className="py-6 text-on-surface-variant">{message}</p>
             </div>
           </div>

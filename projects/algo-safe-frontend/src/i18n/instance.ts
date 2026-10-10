@@ -6,6 +6,3 @@ export default i18n
 
 /** Active language code, usable for Intl formatters. */
 export const currentLocale = () => i18n.resolvedLanguage ?? 'en'
-
-/** Neutralize angle brackets in untrusted values passed to <Trans values>, which are parsed as markup after interpolation. */
-export const stripMarkup = (value: string) => value.replace(/[<>]/g, '')

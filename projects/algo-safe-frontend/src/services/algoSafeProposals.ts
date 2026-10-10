@@ -131,7 +131,12 @@ function formatAlgo(amount: bigint) {
 }
 
 function formatAssetAmount(amount: bigint, asset: AssetMetadata) {
-  return `${formatUnits(amount, asset.decimals)} ${asset.symbol}`
+  // Same locale conventions as formatAlgo so one description never mixes '1,5' and '2.5'.
+  const [whole, fraction] = formatUnits(amount < 0n ? -amount : amount, asset.decimals).split('.')
+  const nf = new Intl.NumberFormat(currentLocale())
+  const decimal = nf.formatToParts(1.1).find((part) => part.type === 'decimal')?.value ?? '.'
+  const text = `${amount < 0n ? '-' : ''}${nf.format(BigInt(whole))}${fraction ? decimal + fraction : ''}`
+  return `${text} ${asset.symbol}`
 }
 
 function formatAssetLabel(asset: AssetMetadata) {

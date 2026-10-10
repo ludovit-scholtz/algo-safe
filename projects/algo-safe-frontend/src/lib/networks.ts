@@ -22,39 +22,29 @@ export const chainOptions = [
   {
     id: 'mainnet',
     label: 'Algorand MainNet',
-    get hint() {
-      return i18n.t('layout:network.hints.mainnet')
-    },
+    hintKey: 'network.hints.mainnet',
   },
   {
     id: 'voimain',
     label: 'Voi MainNet',
-    get hint() {
-      return i18n.t('layout:network.hints.voimain')
-    },
+    hintKey: 'network.hints.voimain',
   },
   {
     id: 'aramidmain',
     label: 'Aramid MainNet',
-    get hint() {
-      return i18n.t('layout:network.hints.aramidmain')
-    },
+    hintKey: 'network.hints.aramidmain',
   },
   {
     id: 'testnet',
     label: 'Algorand TestNet',
-    get hint() {
-      return i18n.t('layout:network.hints.testnet')
-    },
+    hintKey: 'network.hints.testnet',
   },
   {
     id: 'localnet',
     label: 'AlgoKit LocalNet',
-    get hint() {
-      return i18n.t('layout:network.hints.localnet')
-    },
+    hintKey: 'network.hints.localnet',
   },
-]
+] as const
 
 export function getWalletSectionTitle(chainId: string) {
   return chainId === 'localnet' ? i18n.t('layout:network.chooseLocalnetWallet') : i18n.t('layout:network.chooseAlgorandWallet')

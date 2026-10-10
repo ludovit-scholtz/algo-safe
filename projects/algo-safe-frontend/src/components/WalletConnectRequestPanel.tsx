@@ -96,8 +96,8 @@ export function WalletConnectRequestPanel({ request, safe, algodClient, activeAd
       const unsupported = { expected: ALGORAND_WC_METHOD, received: request.method }
       setResult({
         ok: false,
-        reason: t('panel.unsupportedMethod', unsupported),
-        reasonEn: t('panel.unsupportedMethod', { ...unsupported, lng: 'en' }),
+        reason: i18n.t('walletconnect:panel.unsupportedMethod', unsupported),
+        reasonEn: i18n.t('walletconnect:panel.unsupportedMethod', { ...unsupported, lng: 'en' }),
       })
       return
     }
@@ -108,11 +108,11 @@ export function WalletConnectRequestPanel({ request, safe, algodClient, activeAd
         if (!cancelled) setResult(converted)
       })
     } catch (normalizeError) {
-      const reason = normalizeError instanceof Error ? normalizeError.message : t('panel.unrecognizedShape')
+      const reason = normalizeError instanceof Error ? normalizeError.message : i18n.t('walletconnect:panel.unrecognizedShape')
       setResult({
         ok: false,
         reason,
-        reasonEn: normalizeError instanceof Error ? normalizeError.message : t('panel.unrecognizedShape', { lng: 'en' }),
+        reasonEn: normalizeError instanceof Error ? normalizeError.message : i18n.t('walletconnect:panel.unrecognizedShape', { lng: 'en' }),
       })
     }
 

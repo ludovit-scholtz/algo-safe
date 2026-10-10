@@ -1,6 +1,7 @@
 import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
+import { ACT_ACFG, ACT_APPL, ACT_AXFER, ACT_KEYREG, ACT_PAY, ACT_REKEY } from 'algo-safe'
 import { formatUnits } from '../lib/onChainSafe'
 import { useSafeId } from '../lib/SafeContext'
 import type { LiveSignerGroup } from '../services/algoSafeGroups'
@@ -8,17 +9,14 @@ import { Button } from './ui/Button'
 import { Card } from './ui/Card'
 import { Icon } from './ui/Icon'
 
-const ACT_PAY = 1
-const ACT_AXFER = 2
-const ACT_APPL = 4
-const ACT_KEYREG = 8
-
 function getActionLabels(allowedActions: number, t: TFunction<'signers'>) {
   const labels: string[] = []
-  if ((allowedActions & ACT_PAY) !== 0) labels.push('ALGO')
-  if ((allowedActions & ACT_AXFER) !== 0) labels.push('ASA')
-  if ((allowedActions & ACT_APPL) !== 0) labels.push(t('card.actionApp'))
-  if ((allowedActions & ACT_KEYREG) !== 0) labels.push(t('card.actionKeyreg'))
+  if ((BigInt(allowedActions) & ACT_PAY) !== 0n) labels.push('ALGO')
+  if ((BigInt(allowedActions) & ACT_AXFER) !== 0n) labels.push('ASA')
+  if ((BigInt(allowedActions) & ACT_APPL) !== 0n) labels.push(t('card.actionApp'))
+  if ((BigInt(allowedActions) & ACT_KEYREG) !== 0n) labels.push(t('card.actionKeyreg'))
+  if ((BigInt(allowedActions) & ACT_ACFG) !== 0n) labels.push('ACFG')
+  if ((BigInt(allowedActions) & ACT_REKEY) !== 0n) labels.push('Rekey')
   return labels.length > 0 ? labels : [t('card.none')]
 }
 

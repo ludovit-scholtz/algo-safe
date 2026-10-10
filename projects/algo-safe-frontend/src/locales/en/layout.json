@@ -11,7 +11,7 @@
     "walletConnect": "WalletConnect"
   },
   "errorBoundary": {
-    "title": "Error occured",
+    "title": "Error occurred",
     "unexpected": "Unexpected application error."
   },
   "auth": {

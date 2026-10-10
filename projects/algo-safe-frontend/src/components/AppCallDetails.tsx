@@ -24,7 +24,6 @@ import type { NetworkId, TxLine } from '../services/types'
 import { env } from '../lib/env'
 import { resolveAssetMetadata, type AssetMetadata } from '../lib/assetMetadata'
 import { assetExplorerUrl, appExplorerUrl } from '../lib/explorer'
-import { stripMarkup } from '../i18n/instance'
 import { shortAddr } from '../lib/format'
 import { Icon } from './ui/Icon'
 
@@ -279,6 +278,8 @@ function CandidatesView({
     <div className="mt-2 space-y-2">
       <Banner tone="warn" icon="gpp_maybe" title={t('appCall.candidatesTitle')}>
         <Trans
+          tOptions={{ interpolation: { escapeValue: true } }}
+          shouldUnescape
           t={t}
           i18nKey="appCall.candidatesBody"
           count={verification.candidates.length}
@@ -290,9 +291,11 @@ function CandidatesView({
       {applied && (
         <Banner tone="danger" icon="warning" title={t('appCall.borrowedTitle')}>
           <Trans
+            tOptions={{ interpolation: { escapeValue: true } }}
+            shouldUnescape
             t={t}
             i18nKey="appCall.borrowedBody"
-            values={{ method: stripMarkup(applied.method.name), hash: shortAddr(applied.candidate.approvalHash, 8) }}
+            values={{ method: applied.method.name, hash: shortAddr(applied.candidate.approvalHash, 8) }}
             components={{ code: <code className="font-mono" /> }}
           />
           <ArgList args={decodeAppCallArgs(applied.method, appCall)} network={network} algodClient={algodClient} />
@@ -364,9 +367,11 @@ export function AppCallDetails({ appCall, algodClient, network }: Props) {
         <div className="mt-2">
           <Banner tone="warn" icon="wifi_off" title={t('appCall.registryUnreachableTitle')}>
             <Trans
+              tOptions={{ interpolation: { escapeValue: true } }}
+              shouldUnescape
               t={t}
               i18nKey="appCall.registryUnreachableBody"
-              values={{ error: stripMarkup(state.error) }}
+              values={{ error: state.error }}
               components={{ strong: <strong /> }}
             />
           </Banner>
@@ -378,6 +383,8 @@ export function AppCallDetails({ appCall, algodClient, network }: Props) {
         <div className="mt-2">
           <Banner tone="warn" icon="help" title={t('appCall.noSpecTitle')}>
             <Trans
+              tOptions={{ interpolation: { escapeValue: true } }}
+              shouldUnescape
               t={t}
               i18nKey="appCall.noSpecBody"
               values={{ hash: shortAddr(state.approvalHash, 8), selector: state.selectorHex }}
@@ -392,6 +399,8 @@ export function AppCallDetails({ appCall, algodClient, network }: Props) {
         <div className="mt-2">
           <Banner tone="danger" icon="gpp_maybe" title={t('appCall.mismatchTitle')}>
             <Trans
+              tOptions={{ interpolation: { escapeValue: true } }}
+              shouldUnescape
               t={t}
               i18nKey="appCall.mismatchBody"
               values={{ hash: shortAddr(state.approvalHash, 8), selector: state.selectorHex }}
@@ -412,6 +421,8 @@ export function AppCallDetails({ appCall, algodClient, network }: Props) {
         <div className="mt-2 space-y-1.5">
           <Banner tone="success" icon="verified" title={t('appCall.verifiedTitle', { method: state.method.name })}>
             <Trans
+              tOptions={{ interpolation: { escapeValue: true } }}
+              shouldUnescape
               t={t}
               i18nKey="appCall.verifiedBody"
               values={{ hash: shortAddr(state.approvalHash, 8) }}

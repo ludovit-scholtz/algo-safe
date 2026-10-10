@@ -254,6 +254,7 @@ function UnauthenticatedSafeSelection() {
   const selectedChain = availableChainOptions.some((option) => option.id === activeNetwork)
     ? activeNetwork
     : (availableChainOptions[0]?.id ?? 'testnet')
+  const selectedChainHintKey = chainOptions.find((option) => option.id === selectedChain)?.hintKey
   const featuredWallets = wallets
     .filter((wallet) => getWalletKeysForChain(selectedChain).has(wallet.walletKey))
     .sort((left, right) => left.metadata.name.localeCompare(right.metadata.name))
@@ -348,7 +349,7 @@ function UnauthenticatedSafeSelection() {
               </select>
             </FormField>
             <div className="rounded-md border border-outline-variant bg-surface-container px-4 py-3 text-sm text-on-surface-variant">
-              {availableChainOptions.find((option) => option.id === selectedChain)?.hint}
+              {selectedChainHintKey ? t(`layout:${selectedChainHintKey}`) : null}
             </div>
           </div>
 

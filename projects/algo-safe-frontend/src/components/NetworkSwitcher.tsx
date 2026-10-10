@@ -112,7 +112,7 @@ export function NetworkSwitcher() {
                     </span>
                     {!isAvailable && <Icon name="lock" className="text-sm text-on-surface-variant" />}
                   </span>
-                  <span className="mt-0.5 block text-xs text-on-surface-variant">{option.hint}</span>
+                  <span className="mt-0.5 block text-xs text-on-surface-variant">{t(option.hintKey)}</span>
                 </span>
                 {isSelected && <Icon name="check" className="mt-0.5 shrink-0 text-base text-primary" />}
               </button>
