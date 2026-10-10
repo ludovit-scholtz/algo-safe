@@ -1,8 +1,19 @@
 packages:
   - projects/*
 allowBuilds:
+  '@parcel/watcher': false
+  cbor-extract: false
   esbuild: true
   unrs-resolver: true
 ignoredBuiltDependencies:
   - esbuild
   - unrs-resolver
+minimumReleaseAgeExclude:
+  - biatec-wallet-use-wallet-client@0.4.0
+overrides:
+  brace-expansion@<1.1.20: '>=1.1.20'
+  brace-expansion@>=4.0.0 <5.0.11: '>=5.0.11'
+  nanoid@<3.3.18: '>=3.3.18'
+  postcss@<8.5.18: '>=8.5.18'
+  source-map-js@<1.2.2: '>=1.2.2'
+  tar@<7.5.21: '>=7.5.21'

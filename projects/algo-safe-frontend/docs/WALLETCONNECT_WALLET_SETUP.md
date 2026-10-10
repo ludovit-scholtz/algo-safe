@@ -2,7 +2,7 @@
 
 `algo-safe-frontend` can now do two different things with WalletConnect:
 
-1. **Outbound (client)** — connect *out* to a personal wallet (Pera, Defly, or any WalletConnect wallet) to sign the operator's own proposal/approval transactions. This has existed since the beginning (`@txnlab/use-wallet-react`'s `WalletId.WALLETCONNECT` connector, wired up in `src/App.tsx`).
+1. **Outbound (client)** — connect *out* to a personal wallet (Pera, Defly, or any WalletConnect wallet) to sign the operator's own proposal/approval transactions. This has existed since the beginning (`@txnlab/use-wallet-react` v5 `walletConnect()` and `biatec()` adapters, wired up in `src/App.tsx`).
 2. **Inbound (wallet)** — let a third-party dapp pair with this app *as if it were a wallet*, using [Reown WalletKit](https://docs.reown.com/walletkit/overview) (the wallet-side successor to `@walletconnect/web3wallet`). This is new, implemented in `src/services/walletKitService.ts`, `src/hooks/useWalletKit.ts`, and the `/safe/:safeId/walletconnect` page.
 
 This document covers the inbound (wallet) side: how it works, its limitations, and how to register it with Reown so other dapps can find it.

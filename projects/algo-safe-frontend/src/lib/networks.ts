@@ -1,4 +1,4 @@
-import { DEFAULT_NETWORK_CONFIG, NetworkId as WalletNetworkId, WalletId } from '@txnlab/use-wallet-react'
+import { DEFAULT_NETWORK_CONFIG, NetworkId as WalletNetworkId } from '@txnlab/use-wallet-react'
 import type { NetworkId } from '../services/types'
 
 // CAIP-2 chain references for the Algorand `algorand:` namespace, matching the
@@ -24,12 +24,6 @@ export const chainOptions = [
   { id: 'testnet', label: 'Algorand TestNet', hint: 'Public test network for wallet pairing and dry runs.' },
   { id: 'localnet', label: 'AlgoKit LocalNet', hint: 'Local development chain with KMD-backed wallets.' },
 ] as const
-
-const browserWalletKeys = new Set([WalletId.PERA, WalletId.DEFLY, WalletId.WALLETCONNECT, 'walletconnect:biatec'])
-
-export function getWalletKeysForChain(chainId: string) {
-  return chainId === 'localnet' ? new Set<string>([WalletId.KMD]) : browserWalletKeys
-}
 
 export function getWalletSectionTitle(chainId: string) {
   return chainId === 'localnet' ? 'Choose a LocalNet wallet' : 'Choose an Algorand wallet'

@@ -71,7 +71,11 @@ function extractRequestedAlgorandChains(proposal: ProposalTypes.Struct): string[
  * since this wallet represents the Safe, not the operator's personal signer.
  * Used only as a fallback when the dapp's proposal doesn't name a chain itself.
  */
-export async function approveWalletConnectSession(proposal: ProposalTypes.Struct, caipChainId: string, safeAddress: string) {
+export async function approveWalletConnectSession(
+  proposal: ProposalTypes.Struct,
+  caipChainId: string,
+  safeAddress: string,
+): Promise<SessionTypes.Struct> {
   const walletKit = await getWalletKit()
   const requestedChains = extractRequestedAlgorandChains(proposal)
   if (requestedChains.length === 0 && !hasAlgorandNamespace(proposal)) {
