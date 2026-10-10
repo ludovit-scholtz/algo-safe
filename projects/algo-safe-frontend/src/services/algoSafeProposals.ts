@@ -43,6 +43,7 @@ import {
 import algosdk, { type TransactionSigner } from 'algosdk'
 import i18n, { currentLocale } from '../i18n/instance'
 import type { AssetMetadata } from '../lib/assetMetadata'
+import { fmtUnits } from '../lib/format'
 import { resolveAssetMetadata } from '../lib/assetMetadata'
 import { formatUnits } from '../lib/onChainSafe'
 import { ellipseAddress } from '../utils/ellipseAddress'
@@ -131,12 +132,7 @@ function formatAlgo(amount: bigint) {
 }
 
 function formatAssetAmount(amount: bigint, asset: AssetMetadata) {
-  // Same locale conventions as formatAlgo so one description never mixes '1,5' and '2.5'.
-  const [whole, fraction] = formatUnits(amount < 0n ? -amount : amount, asset.decimals).split('.')
-  const nf = new Intl.NumberFormat(currentLocale())
-  const decimal = nf.formatToParts(1.1).find((part) => part.type === 'decimal')?.value ?? '.'
-  const text = `${amount < 0n ? '-' : ''}${nf.format(BigInt(whole))}${fraction ? decimal + fraction : ''}`
-  return `${text} ${asset.symbol}`
+  return `${fmtUnits(amount, asset.decimals)} ${asset.symbol}`
 }
 
 function formatAssetLabel(asset: AssetMetadata) {

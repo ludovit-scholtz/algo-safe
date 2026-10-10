@@ -1,7 +1,7 @@
+import './i18n/setup'
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'
-import './i18n/setup'
 import './styles/main.css'
 import ErrorBoundary from './components/ErrorBoundary'
 

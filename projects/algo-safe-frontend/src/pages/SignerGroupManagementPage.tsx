@@ -37,7 +37,7 @@ import { FormField, inputCls } from '../components/ui/FormField'
 import { Icon } from '../components/ui/Icon'
 import { useSafe, useSignerGroup } from '../hooks'
 import { useOnChainSafeHoldings } from '../hooks/useOnChainSafeHoldings'
-import { getKnownAssets } from '../lib/assetMetadata'
+import { getKnownAssets, getNativeAssetMetadata } from '../lib/assetMetadata'
 import { formatUnits, getZeroAddress } from '../lib/onChainSafe'
 import { useSafeId } from '../lib/SafeContext'
 import type { TFunction } from 'i18next'
@@ -218,7 +218,7 @@ export function SignerGroupManagementPage() {
       upsert({
         key: 'native-algo',
         symbol: 'ALGO',
-        name: 'Algorand Native',
+        name: getNativeAssetMetadata().name,
         assetId: 0,
         decimals: 6,
         balanceDisplay: '0',
@@ -252,7 +252,7 @@ export function SignerGroupManagementPage() {
     spendingLimitAssets[0] ?? {
       key: 'native-algo',
       symbol: 'ALGO',
-      name: 'Algorand Native',
+      name: getNativeAssetMetadata().name,
       assetId: 0,
       decimals: 6,
       balanceDisplay: '—',

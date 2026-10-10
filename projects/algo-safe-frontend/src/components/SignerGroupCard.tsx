@@ -2,7 +2,7 @@ import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { ACT_ACFG, ACT_APPL, ACT_AXFER, ACT_KEYREG, ACT_PAY, ACT_REKEY } from 'algo-safe'
-import { formatUnits } from '../lib/onChainSafe'
+import { fmtUnits } from '../lib/format'
 import { useSafeId } from '../lib/SafeContext'
 import type { LiveSignerGroup } from '../services/algoSafeGroups'
 import { Button } from './ui/Button'
@@ -25,7 +25,7 @@ function getLimitAssetLabel(group: LiveSignerGroup) {
 }
 
 function formatAssetScopedAmount(amount: bigint, group: LiveSignerGroup) {
-  return `${formatUnits(amount, group.limitAsset.decimals)} ${getLimitAssetLabel(group)}`
+  return `${fmtUnits(amount, group.limitAsset.decimals)} ${getLimitAssetLabel(group)}`
 }
 
 function formatLimit(limit: bigint, group: LiveSignerGroup, t: TFunction<'signers'>) {
