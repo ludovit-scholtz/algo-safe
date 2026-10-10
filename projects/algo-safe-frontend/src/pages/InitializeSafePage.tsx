@@ -3,6 +3,7 @@ import { useNetwork, useWallet } from '@txnlab/use-wallet-react'
 import { AlgoSafeFactory, deployValidator, resolveValidatorAppId } from 'algo-safe'
 import algosdk from 'algosdk'
 import { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { AddressDisplay } from '../components/AddressDisplay'
 import { Button } from '../components/ui/Button'
@@ -10,9 +11,9 @@ import { Card } from '../components/ui/Card'
 import { FormField, inputCls } from '../components/ui/FormField'
 import { Icon } from '../components/ui/Icon'
 import { Stepper } from '../components/ui/Stepper'
+import i18n from '../i18n/instance'
 import { normalizeNetworkId, upsertSafeRegistryEntry } from '../lib/safeRegistry'
 
-const STEPS = ['Contract Deployment', 'MBR Funding']
 const TX_VALIDITY_WINDOW = 200
 
 type FlowStage = 'idle' | 'deploying' | 'funding' | 'success' | 'error'
@@ -43,7 +44,7 @@ function getErrorMessage(error: unknown) {
     return error.message
   }
 
-  return 'The transaction was rejected or could not be submitted.'
+  return i18n.t('safes:init.errors.rejected')
 }
 
 function getCanonicalAppAddress(appId: bigint) {
@@ -55,6 +56,7 @@ function getCanonicalSenderAddress(address: string): algosdk.Address {
 }
 
 export function InitializeSafePage() {
+  const { t } = useTranslation('safes')
   const navigate = useNavigate()
   const { activeNetwork } = useNetwork()
   const { activeAddress, algodClient, isReady, transactionSigner } = useWallet()
@@ -67,34 +69,35 @@ export function InitializeSafePage() {
   const isBusy = stage === 'deploying' || stage === 'funding'
   const currentStep = getCurrentStep(stage)
   const networkLabel = formatNetworkLabel(activeNetwork ?? 'mainnet')
+  const steps = useMemo(() => [t('init.steps.deploy'), t('init.steps.fund')], [t])
   const buttonLabel = useMemo(() => {
     switch (stage) {
       case 'deploying':
-        return 'Deploying contract...'
+        return t('init.button.deploying')
       case 'funding':
-        return 'Funding and bootstrapping...'
+        return t('init.button.funding')
       case 'success':
-        return 'Safe Ready'
+        return t('init.button.ready')
       default:
-        return 'Start'
+        return t('init.button.start')
     }
-  }, [stage])
+  }, [stage, t])
 
   async function handleStart() {
     const safeName = name.trim()
 
     if (!safeName) {
-      setErrorMessage('Enter a safe name before starting the deployment.')
+      setErrorMessage(t('init.errors.nameRequired'))
       return
     }
 
     if (!isReady || !activeAddress || !transactionSigner) {
-      setErrorMessage('A connected wallet is required to deploy and fund the safe.')
+      setErrorMessage(t('init.errors.walletRequired'))
       return
     }
 
     if (!Number.isFinite(depositAlgo) || depositAlgo <= 0) {
-      setErrorMessage('Enter a positive ALGO amount for the app account MBR funding.')
+      setErrorMessage(t('init.errors.amountInvalid'))
       return
     }
 
@@ -185,22 +188,19 @@ export function InitializeSafePage() {
       {/* Breadcrumb */}
       <div className="flex items-center gap-1 font-mono text-xs uppercase tracking-widest text-on-surface-variant">
         <Icon name="shield" className="text-sm" />
-        <span>Security Setup</span>
+        <span>{t('init.breadcrumbSecurity')}</span>
         <Icon name="chevron_right" className="text-sm" />
-        <span className="text-primary">Initialization</span>
+        <span className="text-primary">{t('init.breadcrumbInit')}</span>
       </div>
 
       {/* Page title */}
       <div className="text-center">
-        <h1 className="mb-2 text-3xl font-bold tracking-tight text-on-surface">Initialize Smart Account</h1>
-        <p className="mx-auto max-w-lg text-base text-on-surface-variant">
-          Deploy the Algo Safe contract from your connected wallet, then fund the new app account with native ALGO for minimum balance
-          requirements.
-        </p>
+        <h1 className="mb-2 text-3xl font-bold tracking-tight text-on-surface">{t('init.title')}</h1>
+        <p className="mx-auto max-w-lg text-base text-on-surface-variant">{t('init.intro')}</p>
       </div>
 
       {/* Stepper */}
-      <Stepper steps={STEPS} current={currentStep} />
+      <Stepper steps={steps} current={currentStep} />
 
       <Card className="space-y-6">
         <div className="relative grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -210,9 +210,9 @@ export function InitializeSafePage() {
             <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-surface-bright">
               <Icon name="deployed_code" className={`text-2xl ${currentStep === 0 ? 'text-primary' : 'text-on-surface-variant'}`} />
             </div>
-            <span className="mb-1 font-mono text-xs text-primary">Step 01</span>
-            <h3 className="mb-1 text-base font-semibold text-on-surface">Deploy smart contract</h3>
-            <p className="text-sm text-on-surface-variant">Create the Algo Safe application on-chain from the already connected wallet.</p>
+            <span className="mb-1 font-mono text-xs text-primary">{t('init.step01')}</span>
+            <h3 className="mb-1 text-base font-semibold text-on-surface">{t('init.deployTitle')}</h3>
+            <p className="text-sm text-on-surface-variant">{t('init.deployText')}</p>
           </div>
           <div
             className={`flex flex-col items-center rounded-md border p-4 text-center transition-colors ${currentStep === 1 ? 'border-primary/60 bg-primary/5' : 'border-outline-variant bg-surface-container-high'}`}
@@ -223,9 +223,9 @@ export function InitializeSafePage() {
                 className={`text-2xl ${currentStep === 1 ? 'text-primary' : 'text-on-surface-variant'}`}
               />
             </div>
-            <span className="mb-1 font-mono text-xs text-primary">Step 02</span>
-            <h3 className="mb-1 text-base font-semibold text-on-surface">Fund ALGO MBR</h3>
-            <p className="text-sm text-on-surface-variant">Send native ALGO to the new app account for box MBR and bootstrap setup.</p>
+            <span className="mb-1 font-mono text-xs text-primary">{t('init.step02')}</span>
+            <h3 className="mb-1 text-base font-semibold text-on-surface">{t('init.fundTitle')}</h3>
+            <p className="text-sm text-on-surface-variant">{t('init.fundText')}</p>
           </div>
           <div className="absolute left-1/2 top-1/2 z-10 hidden -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-primary/40 bg-primary/20 p-1.5 backdrop-blur-sm md:flex">
             <Icon name="link" className="text-xl text-primary" />
@@ -235,36 +235,34 @@ export function InitializeSafePage() {
         <div className="grid gap-4 md:grid-cols-2">
           <div className="rounded-md border border-outline-variant bg-surface-container-low p-4">
             <div className="mb-1 flex items-center justify-between">
-              <span className="font-mono text-xs text-on-surface-variant">Connected wallet</span>
-              <span className="font-mono text-xs text-primary">Ready</span>
+              <span className="font-mono text-xs text-on-surface-variant">{t('init.connectedWallet')}</span>
+              <span className="font-mono text-xs text-primary">{t('init.ready')}</span>
             </div>
             <AddressDisplay
               address={activeAddress}
-              fallback="Wallet not connected"
+              fallback={t('init.walletNotConnected')}
               textClassName="text-sm text-on-surface"
               buttonClassName="h-5 w-5"
             />
             <div className="mt-3 flex items-center justify-between text-sm">
-              <span className="text-on-surface-variant">Network</span>
+              <span className="text-on-surface-variant">{t('init.network')}</span>
               <span className="font-semibold text-on-surface">{networkLabel}</span>
             </div>
           </div>
           <div className="rounded-md border border-outline-variant bg-surface-container-low p-4">
             <div className="mb-1 flex items-center justify-between">
-              <span className="font-mono text-xs text-on-surface-variant">Deploy flow</span>
-              <span className="font-mono text-xs text-primary">Live</span>
+              <span className="font-mono text-xs text-on-surface-variant">{t('init.deployFlow')}</span>
+              <span className="font-mono text-xs text-primary">{t('init.live')}</span>
             </div>
-            <div className="text-sm text-on-surface-variant">
-              The wallet will first sign the app deployment, then approve one grouped request that funds the app account and bootstraps it.
-            </div>
+            <div className="text-sm text-on-surface-variant">{t('init.flowText')}</div>
           </div>
         </div>
 
-        <FormField label="Safe Name" hint="This name is stored on-chain during application creation.">
-          <input className={inputCls} value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Governance Treasury" />
+        <FormField label={t('init.nameLabel')} hint={t('init.nameHint')}>
+          <input className={inputCls} value={name} onChange={(e) => setName(e.target.value)} placeholder={t('init.namePlaceholder')} />
         </FormField>
 
-        <FormField label="MBR Deposit (ALGO)" hint="Recommended 2 ALGO so the app can cover box minimum balance and bootstrap operations.">
+        <FormField label={t('init.mbrLabel')} hint={t('init.mbrHint')}>
           <input
             type="number"
             min={0.1}
@@ -284,42 +282,32 @@ export function InitializeSafePage() {
             <div className="space-y-1 text-sm">
               {stage === 'idle' && (
                 <>
-                  <p className="font-semibold text-on-surface">
-                    Start will deploy first, then request one grouped ALGO funding plus bootstrap transaction.
-                  </p>
-                  <p className="text-on-surface-variant">
-                    The genesis admin group is created during bootstrap after the app account is funded.
-                  </p>
+                  <p className="font-semibold text-on-surface">{t('init.status.idle.title')}</p>
+                  <p className="text-on-surface-variant">{t('init.status.idle.text')}</p>
                 </>
               )}
               {stage === 'deploying' && (
                 <>
-                  <p className="font-semibold text-on-surface">Deployment in progress.</p>
-                  <p className="text-on-surface-variant">
-                    Approve the smart contract deployment in your wallet. The button stays locked until the chain confirms creation.
-                  </p>
+                  <p className="font-semibold text-on-surface">{t('init.status.deploying.title')}</p>
+                  <p className="text-on-surface-variant">{t('init.status.deploying.text')}</p>
                 </>
               )}
               {stage === 'funding' && (
                 <>
-                  <p className="font-semibold text-on-surface">Contract deployed. Step 02 is now in progress.</p>
-                  <p className="text-on-surface-variant">
-                    Check your wallet for the grouped signature request that funds the new app account with ALGO and bootstraps the safe.
-                  </p>
+                  <p className="font-semibold text-on-surface">{t('init.status.funding.title')}</p>
+                  <p className="text-on-surface-variant">{t('init.status.funding.text')}</p>
                 </>
               )}
               {stage === 'success' && (
                 <>
-                  <p className="font-semibold text-on-surface">Safe initialization completed.</p>
-                  <p className="text-on-surface-variant">
-                    The contract is deployed, funded with ALGO, bootstrapped for governance, and stored in your local safe registry.
-                  </p>
+                  <p className="font-semibold text-on-surface">{t('init.status.success.title')}</p>
+                  <p className="text-on-surface-variant">{t('init.status.success.text')}</p>
                 </>
               )}
               {stage === 'error' && (
                 <>
-                  <p className="font-semibold text-on-surface">Initialization stopped.</p>
-                  <p className="text-on-surface-variant">Review the error below, then restart the flow when the wallet is ready.</p>
+                  <p className="font-semibold text-on-surface">{t('init.status.error.title')}</p>
+                  <p className="text-on-surface-variant">{t('init.status.error.text')}</p>
                 </>
               )}
             </div>
@@ -329,12 +317,14 @@ export function InitializeSafePage() {
         {deployment && (
           <div className="grid gap-4 md:grid-cols-2">
             <div className="rounded-md border border-outline-variant bg-surface-container-low p-4">
-              <div className="mb-1 font-mono text-xs text-on-surface-variant">App ID</div>
+              <div className="mb-1 font-mono text-xs text-on-surface-variant">{t('init.appId')}</div>
               <div className="font-semibold text-on-surface">{deployment.appId}</div>
-              {deployment.txId && <div className="mt-3 text-xs text-on-surface-variant">Create tx: {deployment.txId}</div>}
+              {deployment.txId && (
+                <div className="mt-3 text-xs text-on-surface-variant">{t('init.createTx', { txId: deployment.txId })}</div>
+              )}
             </div>
             <div className="rounded-md border border-outline-variant bg-surface-container-low p-4">
-              <div className="mb-1 font-mono text-xs text-on-surface-variant">App address</div>
+              <div className="mb-1 font-mono text-xs text-on-surface-variant">{t('init.appAddress')}</div>
               <AddressDisplay address={deployment.address} textClassName="text-sm text-on-surface" />
             </div>
           </div>
@@ -349,7 +339,7 @@ export function InitializeSafePage() {
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-1 font-mono text-xs text-on-surface-variant">
             <Icon name="history_edu" className="text-sm" />
-            <span>Network fees are paid in ALGO and depend on wallet-confirmed transactions.</span>
+            <span>{t('init.fees')}</span>
           </div>
           <Button className="min-w-40" onClick={handleStart} disabled={isBusy || !activeAddress || !transactionSigner}>
             {isBusy ? <Icon name="sync" className="animate-spin text-lg" /> : <Icon name="play_arrow" className="text-lg" />}
@@ -362,11 +352,11 @@ export function InitializeSafePage() {
       <div className="flex gap-5 pt-1">
         <a href="#" className="flex items-center gap-1 font-mono text-xs text-on-surface-variant transition-colors hover:text-primary">
           <Icon name="description" className="text-base" />
-          Documentation
+          {t('init.documentation')}
         </a>
         <a href="#" className="flex items-center gap-1 font-mono text-xs text-on-surface-variant transition-colors hover:text-primary">
           <Icon name="support_agent" className="text-base" />
-          Institutional Support
+          {t('init.support')}
         </a>
       </div>
     </div>

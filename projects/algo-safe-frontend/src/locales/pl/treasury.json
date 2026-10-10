@@ -1,0 +1,38 @@
+{
+  "title": "Aktywa",
+  "subtitle": "Zasoby skarbca i pozycje pożyczkowe.",
+  "buyEurd": "Kup EURD",
+  "addFunds": "Dodaj środki",
+  "stats": {
+    "nativeBalance": "Saldo natywne",
+    "nativeBalanceSub": "Wczytane bezpośrednio z adresu sejfu",
+    "optedInAssets": "Aktywa z opt-in",
+    "optedInAssetsSub": "Aktywa konta w Algod z wyłączeniem ALGO",
+    "safeAddress": "Adres sejfu",
+    "app": "Aplikacja {{appId}}"
+  },
+  "empty": "To inteligentne konto nie ma jeszcze salda natywnego ani aktywów z opt-in.",
+  "fundingStarted": "Rozpoczęto sesję finansowania na kwotę {{amount}} € (demo / rozwiązanie zastępcze Quantoz).",
+  "modal": {
+    "title": "Kup EURD",
+    "description": "Kup EURD przelewem bankowym przez Quantoz. Środki trafią na adres skarbca tego sejfu.",
+    "addressUnavailable": "Adres sejfu niedostępny",
+    "amountLabel": "Kwota (EUR)",
+    "exchangeRate": "Kurs wymiany: 1 EUR = 1 EURD · platforma Quantoz",
+    "cancel": "Anuluj",
+    "continue": "Przejdź do banku"
+  },
+  "table": {
+    "asset": "Aktywo",
+    "type": "Typ",
+    "balance": "Saldo",
+    "nativeLower": "natywne",
+    "native": "Natywne",
+    "optedInAsa": "ASA z opt-in",
+    "loading": "Wczytywanie sald on-chain…",
+    "noHoldings": "Nie znaleziono żadnych aktywów."
+  },
+  "row": {
+    "apy": "{{apy}}% APY"
+  }
+}

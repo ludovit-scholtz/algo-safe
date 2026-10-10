@@ -1,0 +1,163 @@
+{
+  "selection": {
+    "checkingWallet": "Sprawdzanie sesji portfela..."
+  },
+  "recover": {
+    "noWallet": "Aby odzyskać istniejący sejf, najpierw połącz portfel.",
+    "invalidAppId": "Wprowadź prawidłowy identyfikator aplikacji Algorand.",
+    "invalidName": "Wybrana aplikacja nie zwróciła prawidłowej nazwy Algo Safe.",
+    "loadFailed": "Nie udało się wczytać tej aplikacji w wybranej sieci.",
+    "success": "Odzyskano sejf {{name}} i zapisano go w tej przeglądarce."
+  },
+  "home": {
+    "titleLine1": "Instytucjonalny skarbiec",
+    "titleLine2": "Stworzony dla gospodarki agentów.",
+    "intro": "Algo Safe to system inteligentnych kont oparty na politykach. Zabezpiecz swoje aktywa dzięki przepływom z wieloma podpisami, automatycznym agentom rebalansującym i szczegółowym protokołom zarządzania, zaprojektowanym dla odpornego blockchaina Algorand.",
+    "walletReady": "Portfel połączony. Twoje sejfy skarbca są gotowe.",
+    "createTitle": "Utwórz nowy sejf",
+    "createText": "Wdróż nowy instytucjonalny skarbiec z własnymi sygnatariuszami i zautomatyzowanymi politykami.",
+    "importTitle": "Importuj istniejące konto",
+    "importText": "Wprowadź identyfikator aplikacji Algo Safe z blockchaina. Panel najpierw odczytuje nazwę kontraktu i dopiero potem zapisuje go w Twoim lokalnym rejestrze.",
+    "appIdLabel": "Identyfikator aplikacji",
+    "appIdHint": "Użyj identyfikatora już wdrożonego Algo Safe w aktualnie wybranej sieci.",
+    "appIdPlaceholder": "np. 123456789",
+    "reading": "Odczytywanie kontraktu...",
+    "recoverButton": "Odzyskaj konto",
+    "network": "Sieć: {{network}}",
+    "existingSafes": "Istniejące sejfy",
+    "accounts_one": "{{count}} KONTO",
+    "accounts_few": "{{count}} KONTA",
+    "accounts_many": "{{count}} KONT",
+    "accounts_other": "{{count}} KONTA",
+    "empty": "Brak sejfów — utwórz pierwszy powyżej.",
+    "registryTitle": "Lokalny rejestr sejfów",
+    "registryLine1": "Wyświetlane są tylko sejfy wdrożone lub odzyskane w tej przeglądarce.",
+    "registryLine2": "Zaimportuj istniejący Algo Safe według identyfikatora aplikacji lub utwórz nowy, aby wypełnić listę.",
+    "documentation": "Dokumentacja",
+    "audit": "Audyt bezpieczeństwa"
+  },
+  "login": {
+    "authRequired": "Wymagane uwierzytelnienie",
+    "titleLine1": "Połącz swój portfel,",
+    "titleLine2": "aby uzyskać dostęp do sejfów skarbca.",
+    "intro": "Wybierz sieć, w której chcesz pracować, a następnie połącz zgodny portfel, aby przeglądać istniejące sejfy, tworzyć nowe skarbce i zarządzać operacjami opartymi na politykach z uwierzytelnionej konsoli.",
+    "secureTitle": "Bezpieczne przekazanie podpisu",
+    "secureText": "Podpisywanie transakcji pozostaje w Twoim portfelu, a Algo Safe używa połączonego konta do uwierzytelnionych działań.",
+    "walletsTitle": "Obsługiwane portfele",
+    "walletsText": "MainNet i TestNet korzystają z portfeli przeglądarkowych i WalletConnect, a LocalNet udostępnia deweloperski portfel KMD.",
+    "whyTitle": "Dlaczego najpierw logowanie",
+    "why1": "Uwierzytelnij się przed wczytaniem sejfów, aby panel mógł powiązać działania z Twoim aktywnym kontem Algorand.",
+    "why2": "Po połączeniu natychmiast dostępny jest przegląd skarbca i konsola zarządzania sejfami.",
+    "why3": "LocalNet pomija portfele przeglądarkowe na rzecz KMD.",
+    "chooseTitle": "Wybierz sieć i portfel",
+    "chooseText": "Połącz się, aby odblokować uwierzytelniony panel.",
+    "chain": "Sieć",
+    "chainHint": "WalletConnect wymaga prawidłowej sieci CAIP, dlatego przed sparowaniem wybierz sieć docelową.",
+    "localnetHint": "Użyj portfela KMD z LocalNet do lokalnych sesji deweloperskich.",
+    "walletsHint": "Użyj Pera, Defly, WalletConnect lub Biatec Wallet dla tej sieci Algorand.",
+    "kmd": "Do pracy deweloperskiej użyj lokalnego portfela KMD zarządzanego przez AlgoKit LocalNet.",
+    "pera": "Zeskanuj kod QR lub zatwierdź w aplikacji Pera.",
+    "defly": "Zatwierdź sesję w aplikacji Defly, aby kontynuować.",
+    "biatec": "Połącz Biatec Wallet bezpośrednio (okno podręczne lub Liquid Auth) i zatwierdź sesję.",
+    "walletConnect": "Połącz dowolny portfel Algorand zgodny z WalletConnect, korzystając ze wspólnego przepływu QR.",
+    "logoAlt": "Logo {{name}}",
+    "connecting": "Łączenie",
+    "connect": "Połącz",
+    "noWallets": "Brak zgodnych dostawców portfeli dla wybranej sieci.",
+    "connectFailed": "Nie udało się połączyć z {{name}}. {{message}}",
+    "connectDefault": "Zatwierdź żądanie w portfelu i spróbuj ponownie."
+  },
+  "card": {
+    "app": "Aplikacja {{appId}}",
+    "agents_one": "{{count}} agent",
+    "agents_few": "{{count}} agenci",
+    "agents_many": "{{count}} agentów",
+    "agents_other": "{{count}} agenta"
+  },
+  "init": {
+    "steps": {
+      "deploy": "Wdrożenie kontraktu",
+      "fund": "Zasilenie MBR"
+    },
+    "errors": {
+      "rejected": "Transakcja została odrzucona lub nie mogła zostać wysłana.",
+      "nameRequired": "Przed rozpoczęciem wdrożenia wprowadź nazwę sejfu.",
+      "walletRequired": "Do wdrożenia i zasilenia sejfu wymagany jest połączony portfel.",
+      "amountInvalid": "Wprowadź dodatnią kwotę ALGO na zasilenie MBR konta aplikacji."
+    },
+    "button": {
+      "deploying": "Wdrażanie kontraktu...",
+      "funding": "Zasilanie i inicjalizacja...",
+      "ready": "Sejf gotowy",
+      "start": "Rozpocznij"
+    },
+    "breadcrumbSecurity": "Konfiguracja zabezpieczeń",
+    "breadcrumbInit": "Inicjalizacja",
+    "title": "Inicjalizacja inteligentnego konta",
+    "intro": "Wdróż kontrakt Algo Safe z połączonego portfela, a następnie zasil nowe konto aplikacji natywnym ALGO, aby spełnić wymagania dotyczące minimalnego salda.",
+    "step01": "Krok 01",
+    "step02": "Krok 02",
+    "deployTitle": "Wdróż inteligentny kontrakt",
+    "deployText": "Utwórz aplikację Algo Safe w blockchainie z już połączonego portfela.",
+    "fundTitle": "Zasil MBR w ALGO",
+    "fundText": "Wyślij natywne ALGO na nowe konto aplikacji na pokrycie MBR boxów i wstępnej konfiguracji.",
+    "connectedWallet": "Połączony portfel",
+    "ready": "Gotowe",
+    "walletNotConnected": "Portfel nie jest połączony",
+    "network": "Sieć",
+    "deployFlow": "Przebieg wdrożenia",
+    "live": "Aktywny",
+    "flowText": "Portfel najpierw podpisze wdrożenie aplikacji, a następnie zatwierdzisz jedno zbiorcze żądanie, które zasili konto aplikacji i je zainicjalizuje.",
+    "nameLabel": "Nazwa sejfu",
+    "nameHint": "Ta nazwa jest zapisywana w blockchainie podczas tworzenia aplikacji.",
+    "namePlaceholder": "np. Skarbiec zarządczy",
+    "mbrLabel": "Depozyt MBR (ALGO)",
+    "mbrHint": "Zalecane 2 ALGO, aby aplikacja mogła pokryć minimalne saldo boxów i operacje inicjalizacji.",
+    "status": {
+      "idle": {
+        "title": "Rozpocznij najpierw wdroży kontrakt, a następnie zażąda jednej zbiorczej transakcji zasilenia ALGO wraz z inicjalizacją.",
+        "text": "Początkowa grupa administratorów jest tworzona podczas inicjalizacji, po zasileniu konta aplikacji."
+      },
+      "deploying": {
+        "title": "Trwa wdrażanie.",
+        "text": "Zatwierdź wdrożenie inteligentnego kontraktu w swoim portfelu. Przycisk pozostaje zablokowany, dopóki sieć nie potwierdzi utworzenia."
+      },
+      "funding": {
+        "title": "Kontrakt wdrożony. Trwa krok 02.",
+        "text": "Sprawdź portfel, czy pojawiło się zbiorcze żądanie podpisu, które zasila nowe konto aplikacji ALGO i inicjalizuje sejf."
+      },
+      "success": {
+        "title": "Inicjalizacja sejfu zakończona.",
+        "text": "Kontrakt został wdrożony, zasilony ALGO, zainicjalizowany na potrzeby zarządzania i zapisany w Twoim lokalnym rejestrze sejfów."
+      },
+      "error": {
+        "title": "Inicjalizacja została zatrzymana.",
+        "text": "Sprawdź poniższy błąd, a następnie uruchom proces ponownie, gdy portfel będzie gotowy."
+      }
+    },
+    "appId": "Identyfikator aplikacji",
+    "createTx": "Transakcja utworzenia: {{txId}}",
+    "appAddress": "Adres aplikacji",
+    "fees": "Opłaty sieciowe są pobierane w ALGO i zależą od transakcji potwierdzonych w portfelu.",
+    "documentation": "Dokumentacja",
+    "support": "Wsparcie instytucjonalne"
+  },
+  "registry": {
+    "tier": "Sejf on-chain"
+  },
+  "holdings": {
+    "nativeName": "Natywny Algorand"
+  },
+  "mock": {
+    "safeNotFound": "Nie znaleziono sejfu {{safeId}} w lokalnym rejestrze.",
+    "tier": "Multipodpis {{threshold}} z {{signerCount}}",
+    "agentRegTitle": "Rejestracja agenta: {{alias}}",
+    "agentRegDesc": "Zarejestruj zautomatyzowanego agenta {{alias}} w grupie {{groupTier}}.",
+    "justNow": "Przed chwilą",
+    "initAgent": "Zainicjalizuj kontrakt agenta",
+    "policyTitle": "Aktualizacja polityki: {{name}}",
+    "policyDesc": "Zmiana polityki wydatków agenta.",
+    "updatePolicyBox": "Zaktualizuj box polityki",
+    "withinRules": "Zgodnie z zasadami zarządzania"
+  }
+}

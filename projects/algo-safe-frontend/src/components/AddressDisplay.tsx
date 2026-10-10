@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ellipseAddress } from '../utils/ellipseAddress'
 import { Icon } from './ui/Icon'
 
@@ -15,6 +16,7 @@ function joinClasses(...values: Array<string | undefined | false>) {
 }
 
 export function AddressDisplay({ address, className, textClassName, buttonClassName, fallback = '—' }: AddressDisplayProps) {
+  const { t } = useTranslation('common')
   const [copied, setCopied] = useState(false)
   const resetTimerRef = useRef<number | null>(null)
 
@@ -51,8 +53,8 @@ export function AddressDisplay({ address, className, textClassName, buttonClassN
       </span>
       <button
         type="button"
-        title={copied ? `Copied ${address}` : `Copy ${address}`}
-        aria-label={copied ? 'Address copied' : 'Copy address'}
+        title={copied ? t('address.copiedTitle', { address }) : t('address.copyTitle', { address })}
+        aria-label={copied ? t('address.copied') : t('address.copy')}
         onClick={(event) => void handleCopy(event)}
         className={joinClasses(
           'inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-sm border border-outline-variant text-on-surface-variant transition hover:border-primary/40 hover:text-primary',

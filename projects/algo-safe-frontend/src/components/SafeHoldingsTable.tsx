@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import type { SafeHoldingRow } from '../lib/onChainSafe'
 import { Card } from './ui/Card'
 import { Icon } from './ui/Icon'
@@ -13,14 +14,15 @@ export function SafeHoldingsTable({
   error?: string | null
   emptyMessage?: string
 }) {
+  const { t } = useTranslation('treasury')
   return (
     <Card>
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-outline-variant font-mono text-xs uppercase text-on-surface-variant">
-            <th className="py-2 text-left">Asset</th>
-            <th className="py-2 text-left">Type</th>
-            <th className="py-2 text-right">Balance</th>
+            <th className="py-2 text-left">{t('table.asset')}</th>
+            <th className="py-2 text-left">{t('table.type')}</th>
+            <th className="py-2 text-right">{t('table.balance')}</th>
           </tr>
         </thead>
         <tbody>
@@ -35,19 +37,19 @@ export function SafeHoldingsTable({
                     <div className="font-medium text-on-surface">{holding.name}</div>
                     <div className="font-mono text-xs text-on-surface-variant">
                       {holding.symbol}
-                      {holding.assetId ? ` · ${holding.assetId}` : ' · native'}
+                      {holding.assetId ? ` · ${holding.assetId}` : ` · ${t('table.nativeLower')}`}
                     </div>
                   </div>
                 </div>
               </td>
-              <td className="py-3 text-on-surface-variant">{holding.isNative ? 'Native' : 'Opted-in ASA'}</td>
+              <td className="py-3 text-on-surface-variant">{holding.isNative ? t('table.native') : t('table.optedInAsa')}</td>
               <td className="py-3 text-right font-mono text-on-surface">{holding.balanceDisplay}</td>
             </tr>
           ))}
           {isLoading && (
             <tr>
               <td colSpan={3} className="py-8 text-center text-sm text-on-surface-variant">
-                Loading on-chain balances…
+                {t('table.loading')}
               </td>
             </tr>
           )}
@@ -61,7 +63,7 @@ export function SafeHoldingsTable({
           {!isLoading && !error && !holdings?.length && (
             <tr>
               <td colSpan={3} className="py-8 text-center text-sm text-on-surface-variant">
-                {emptyMessage ?? 'No holdings found.'}
+                {emptyMessage ?? t('table.noHoldings')}
               </td>
             </tr>
           )}

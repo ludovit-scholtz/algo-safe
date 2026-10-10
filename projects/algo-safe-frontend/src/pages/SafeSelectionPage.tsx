@@ -4,6 +4,7 @@ import { useNetwork, useWallet, type Wallet } from '@txnlab/use-wallet-react'
 import { getAlgoSafeContractVersion, getClient, hasModernAbi, readSafeConfig } from 'algo-safe'
 import algosdk from 'algosdk'
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { SafeCard } from '../components/SafeCard'
 import { Button } from '../components/ui/Button'
@@ -16,13 +17,14 @@ import { WALLET_ID, getWalletKeysForChain } from '../lib/walletIds'
 import { normalizeNetworkId, upsertSafeRegistryEntry } from '../lib/safeRegistry'
 
 export function SafeSelectionPage() {
+  const { t } = useTranslation('safes')
   const { activeAddress, isReady } = useWallet()
 
   if (!isReady) {
     return (
       <Card className="flex min-h-[320px] items-center justify-center gap-3 text-on-surface-variant">
         <Icon name="sync" className="animate-spin text-xl" />
-        <span>Checking wallet session...</span>
+        <span>{t('selection.checkingWallet')}</span>
       </Card>
     )
   }
@@ -35,6 +37,7 @@ export function SafeSelectionPage() {
 }
 
 function AuthenticatedSafeSelection() {
+  const { t } = useTranslation('safes')
   const nav = useNavigate()
   const queryClient = useQueryClient()
   const { activeAddress, algodClient } = useWallet()
@@ -51,13 +54,13 @@ function AuthenticatedSafeSelection() {
     setRecoverSuccess(null)
 
     if (!activeAddress) {
-      setRecoverError('Connect a wallet before recovering an existing safe.')
+      setRecoverError(t('recover.noWallet'))
       return
     }
 
     const parsedAppId = Number(recoverAppId.trim())
     if (!Number.isSafeInteger(parsedAppId) || parsedAppId <= 0) {
-      setRecoverError('Enter a valid Algorand application ID.')
+      setRecoverError(t('recover.invalidAppId'))
       return
     }
 
@@ -82,7 +85,7 @@ function AuthenticatedSafeSelection() {
           (await (appClient.send as any).getConfig({ args: {}, suppressLog: true })).return
       const safeName = extractRecoveredSafeName(configReturn)
       if (!safeName) {
-        throw new Error('The selected app did not return a valid Algo Safe name.')
+        throw new Error(t('recover.invalidName'))
       }
 
       upsertSafeRegistryEntry({
@@ -94,11 +97,10 @@ function AuthenticatedSafeSelection() {
       })
 
       setRecoverAppId('')
-      setRecoverSuccess(`Recovered ${safeName} and saved it to this browser.`)
+      setRecoverSuccess(t('recover.success', { name: safeName }))
       await queryClient.invalidateQueries({ queryKey: ['safes'] })
     } catch (error) {
-      const message =
-        error instanceof Error && error.message.trim() ? error.message : 'Unable to load that application on the selected network.'
+      const message = error instanceof Error && error.message.trim() ? error.message : t('recover.loadFailed')
       setRecoverError(message)
     } finally {
       setIsRecovering(false)
@@ -110,18 +112,15 @@ function AuthenticatedSafeSelection() {
       {/* ── Hero / Action Column ── */}
       <div className="flex flex-col justify-center lg:col-span-7">
         <h1 className="mb-4 text-4xl font-extrabold tracking-tight text-on-surface">
-          Institutional Treasury
+          {t('home.titleLine1')}
           <br />
-          <span className="text-primary">Built for the Agent Economy.</span>
+          <span className="text-primary">{t('home.titleLine2')}</span>
         </h1>
-        <p className="mb-8 max-w-xl text-base text-on-surface-variant">
-          Algo Safe is a policy-driven smart account system. Secure your assets with multi-signature workflows, automated rebalancing
-          agents, and granular governance protocols designed for Algorand's resilient blockchain.
-        </p>
+        <p className="mb-8 max-w-xl text-base text-on-surface-variant">{t('home.intro')}</p>
 
         <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-4 py-2 text-sm text-primary">
           <Icon name="verified_user" className="text-base" />
-          <span>Wallet connected. Your treasury safes are ready.</span>
+          <span>{t('home.walletReady')}</span>
         </div>
 
         <div className="flex max-w-lg flex-col gap-4">
@@ -134,10 +133,8 @@ function AuthenticatedSafeSelection() {
               <Icon name="add_moderator" className="text-3xl text-primary" />
             </div>
             <div className="flex-1">
-              <h3 className="mb-1 text-lg font-bold text-on-surface">Create New Safe</h3>
-              <p className="text-sm text-on-surface-variant">
-                Deploy a fresh institutional treasury with custom signers and automated policies.
-              </p>
+              <h3 className="mb-1 text-lg font-bold text-on-surface">{t('home.createTitle')}</h3>
+              <p className="text-sm text-on-surface-variant">{t('home.createText')}</p>
             </div>
             <Icon name="chevron_right" className="self-center text-xl text-on-surface-variant transition-colors group-hover:text-primary" />
           </button>
@@ -148,18 +145,15 @@ function AuthenticatedSafeSelection() {
               <Icon name="account_balance" className="text-3xl text-on-surface-variant" />
             </div>
             <div className="flex-1">
-              <h3 className="mb-1 text-lg font-bold text-on-surface">Import Existing Account</h3>
-              <p className="mb-3 text-sm text-on-surface-variant">
-                Enter an on-chain Algo Safe application ID. The dashboard reads the contract name first and only then stores it in your
-                local registry.
-              </p>
+              <h3 className="mb-1 text-lg font-bold text-on-surface">{t('home.importTitle')}</h3>
+              <p className="mb-3 text-sm text-on-surface-variant">{t('home.importText')}</p>
               <form className="space-y-3" onSubmit={(event) => void handleRecoverSafe(event)}>
-                <FormField label="Application ID" hint="Use the ID of an already deployed Algo Safe on the currently selected network.">
+                <FormField label={t('home.appIdLabel')} hint={t('home.appIdHint')}>
                   <input
                     className={inputCls}
                     inputMode="numeric"
                     pattern="[0-9]*"
-                    placeholder="e.g. 123456789"
+                    placeholder={t('home.appIdPlaceholder')}
                     value={recoverAppId}
                     onChange={(event) => setRecoverAppId(event.target.value)}
                     disabled={isRecovering}
@@ -168,9 +162,9 @@ function AuthenticatedSafeSelection() {
                 <div className="flex items-center gap-3">
                   <Button type="submit" variant="ghost" disabled={isRecovering || !recoverAppId.trim()}>
                     {isRecovering ? <Icon name="sync" className="animate-spin text-lg" /> : <Icon name="download" className="text-lg" />}
-                    {isRecovering ? 'Reading contract...' : 'Recover Account'}
+                    {isRecovering ? t('home.reading') : t('home.recoverButton')}
                   </Button>
-                  <span className="text-xs text-on-surface-variant">Network: {activeNetwork ?? 'mainnet'}</span>
+                  <span className="text-xs text-on-surface-variant">{t('home.network', { network: activeNetwork ?? 'mainnet' })}</span>
                 </div>
               </form>
               {recoverSuccess && (
@@ -192,12 +186,8 @@ function AuthenticatedSafeSelection() {
       <div className="flex flex-col gap-5 lg:col-span-5">
         {/* Section header */}
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold text-on-surface">Existing Safes</h2>
-          {safes && (
-            <span className="font-mono text-xs font-medium text-primary">
-              {safes.length} {safes.length === 1 ? 'ACCOUNT' : 'ACCOUNTS'}
-            </span>
-          )}
+          <h2 className="text-lg font-bold text-on-surface">{t('home.existingSafes')}</h2>
+          {safes && <span className="font-mono text-xs font-medium text-primary">{t('home.accounts', { count: safes.length })}</span>}
         </div>
 
         {/* Safe cards */}
@@ -211,16 +201,16 @@ function AuthenticatedSafeSelection() {
             safes?.map((s) => <SafeCard key={s.safeId} safe={s} />)
           )}
           {!isLoading && (!safes || safes.length === 0) && (
-            <Card className="py-8 text-center text-sm text-on-surface-variant">No safes yet — create one above.</Card>
+            <Card className="py-8 text-center text-sm text-on-surface-variant">{t('home.empty')}</Card>
           )}
         </div>
 
         <div className="relative overflow-hidden rounded-md border border-outline-variant bg-surface-container-high p-5">
           <div className="pointer-events-none absolute -right-8 -top-8 h-32 w-32 rounded-full bg-primary/5 blur-3xl" />
-          <h4 className="mb-3 font-mono text-xs font-medium uppercase tracking-widest text-primary">Local Safe Registry</h4>
+          <h4 className="mb-3 font-mono text-xs font-medium uppercase tracking-widest text-primary">{t('home.registryTitle')}</h4>
           <div className="space-y-2 text-sm text-on-surface-variant">
-            <p>Only safes you deploy or recover in this browser are shown here.</p>
-            <p>Import an existing Algo Safe by app ID, or create a new one to populate the list.</p>
+            <p>{t('home.registryLine1')}</p>
+            <p>{t('home.registryLine2')}</p>
           </div>
         </div>
 
@@ -228,11 +218,11 @@ function AuthenticatedSafeSelection() {
         <div className="flex gap-5 pt-1">
           <a href="#" className="flex items-center gap-1 font-mono text-xs text-on-surface-variant transition-colors hover:text-primary">
             <Icon name="description" className="text-base" />
-            Documentation
+            {t('home.documentation')}
           </a>
           <a href="#" className="flex items-center gap-1 font-mono text-xs text-on-surface-variant transition-colors hover:text-primary">
             <Icon name="security" className="text-base" />
-            Security Audit
+            {t('home.audit')}
           </a>
         </div>
       </div>
@@ -254,6 +244,7 @@ function extractRecoveredSafeName(value: unknown) {
 }
 
 function UnauthenticatedSafeSelection() {
+  const { t } = useTranslation('safes')
   const { wallets } = useWallet()
   const { activeNetwork, setActiveNetwork } = useNetwork()
   const [connectingWalletKey, setConnectingWalletKey] = useState<string | null>(null)
@@ -280,8 +271,8 @@ function UnauthenticatedSafeSelection() {
       await wallet.connect()
       wallet.setActive()
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Please approve the wallet request and try again.'
-      setConnectError(`Unable to connect ${wallet.metadata.name}. ${message}`)
+      const message = error instanceof Error ? error.message : t('login.connectDefault')
+      setConnectError(t('login.connectFailed', { name: wallet.metadata.name, message }))
     } finally {
       setConnectingWalletKey(null)
     }
@@ -292,46 +283,39 @@ function UnauthenticatedSafeSelection() {
       <div className="flex flex-col justify-center lg:col-span-7">
         <div className="mb-4 inline-flex w-fit items-center gap-2 rounded-full border border-warn/25 bg-warn/10 px-4 py-2 text-sm text-warn">
           <Icon name="lock_person" className="text-base" />
-          <span>Authentication required</span>
+          <span>{t('login.authRequired')}</span>
         </div>
 
         <h1 className="mb-4 text-4xl font-extrabold tracking-tight text-on-surface">
-          Connect your wallet
+          {t('login.titleLine1')}
           <br />
-          <span className="text-primary">to access treasury safes.</span>
+          <span className="text-primary">{t('login.titleLine2')}</span>
         </h1>
-        <p className="mb-8 max-w-xl text-base text-on-surface-variant">
-          Pick the chain you want to work on, then connect a compatible wallet to view existing safes, create new treasuries, and manage
-          policy-driven operations from the authenticated console.
-        </p>
+        <p className="mb-8 max-w-xl text-base text-on-surface-variant">{t('login.intro')}</p>
 
         <div className="grid max-w-2xl gap-4 sm:grid-cols-2">
           <div className="rounded-md border border-outline-variant bg-surface-container p-5">
             <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-primary/15 text-primary">
               <Icon name="shield_lock" className="text-2xl" />
             </div>
-            <h3 className="mb-2 text-lg font-semibold text-on-surface">Secure signer handoff</h3>
-            <p className="text-sm text-on-surface-variant">
-              Keep transaction signing inside your wallet while Algo Safe uses the connected account for authenticated actions.
-            </p>
+            <h3 className="mb-2 text-lg font-semibold text-on-surface">{t('login.secureTitle')}</h3>
+            <p className="text-sm text-on-surface-variant">{t('login.secureText')}</p>
           </div>
           <div className="rounded-md border border-outline-variant bg-surface-container p-5">
             <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-primary/15 text-primary">
               <Icon name="hub" className="text-2xl" />
             </div>
-            <h3 className="mb-2 text-lg font-semibold text-on-surface">Supported wallets</h3>
-            <p className="text-sm text-on-surface-variant">
-              MainNet and TestNet use browser and WalletConnect wallets, while LocalNet exposes the KMD development wallet.
-            </p>
+            <h3 className="mb-2 text-lg font-semibold text-on-surface">{t('login.walletsTitle')}</h3>
+            <p className="text-sm text-on-surface-variant">{t('login.walletsText')}</p>
           </div>
         </div>
         <div className="relative overflow-hidden rounded-md border border-outline-variant bg-surface-container p-5 mt-6 mr-10">
           <div className="pointer-events-none absolute -right-8 -top-8 h-32 w-32 rounded-full bg-primary/5 blur-3xl" />
-          <h4 className="mb-4 font-mono text-xs font-medium uppercase tracking-widest text-primary">Why login first</h4>
+          <h4 className="mb-4 font-mono text-xs font-medium uppercase tracking-widest text-primary">{t('login.whyTitle')}</h4>
           <div className="space-y-2 text-sm text-on-surface-variant">
-            <p>Authenticate before loading safes so the dashboard can bind actions to your active Algorand account.</p>
-            <p>Once connected, the existing treasury overview and safe management console become available immediately.</p>
-            <p>LocalNet skips browser wallets in favor of KMD.</p>
+            <p>{t('login.why1')}</p>
+            <p>{t('login.why2')}</p>
+            <p>{t('login.why3')}</p>
           </div>
         </div>
       </div>
@@ -343,13 +327,13 @@ function UnauthenticatedSafeSelection() {
               <Icon name="account_balance_wallet" className="text-2xl" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-on-surface">Choose chain and wallet</h2>
-              <p className="text-sm text-on-surface-variant">Connect to unlock your authenticated dashboard.</p>
+              <h2 className="text-lg font-bold text-on-surface">{t('login.chooseTitle')}</h2>
+              <p className="text-sm text-on-surface-variant">{t('login.chooseText')}</p>
             </div>
           </div>
 
           <div className="mb-5 space-y-3">
-            <FormField label="Chain" hint="WalletConnect requires a valid CAIP chain, so choose the target chain before pairing.">
+            <FormField label={t('login.chain')} hint={t('login.chainHint')}>
               <select
                 className={inputCls}
                 value={selectedChain}
@@ -371,9 +355,7 @@ function UnauthenticatedSafeSelection() {
           <div className="mb-4">
             <h3 className="text-base font-semibold text-on-surface">{getWalletSectionTitle(selectedChain)}</h3>
             <p className="text-sm text-on-surface-variant">
-              {selectedChain === 'localnet'
-                ? 'Use the LocalNet KMD wallet for local development sessions.'
-                : 'Use Pera, Defly, WalletConnect, or Biatec Wallet for this Algorand chain.'}
+              {selectedChain === 'localnet' ? t('login.localnetHint') : t('login.walletsHint')}
             </p>
           </div>
 
@@ -386,14 +368,14 @@ function UnauthenticatedSafeSelection() {
               const isBiatec = wallet.id === WALLET_ID.BIATEC
               const isWalletConnect = wallet.id === WALLET_ID.WALLETCONNECT
               const description = isKmd
-                ? 'Use the local KMD wallet managed by AlgoKit LocalNet for development flows.'
+                ? t('login.kmd')
                 : isPera
-                  ? 'Scan a QR code or approve in-app with Pera.'
+                  ? t('login.pera')
                   : isDefly
-                    ? 'Approve the session in Defly to continue.'
+                    ? t('login.defly')
                     : isBiatec
-                      ? 'Connect Biatec Wallet directly (popup or Liquid Auth) and approve the session.'
-                      : 'Connect any WalletConnect-compatible Algorand wallet using the shared QR flow.'
+                      ? t('login.biatec')
+                      : t('login.walletConnect')
               const actionIcon = isKmd ? 'developer_mode' : isWalletConnect || isBiatec ? 'qr_code_2' : 'login'
 
               return (
@@ -404,7 +386,11 @@ function UnauthenticatedSafeSelection() {
                   className="flex w-full items-center gap-4 rounded-md border border-outline-variant bg-surface-container px-4 py-4 text-left transition hover:-translate-y-0.5 hover:border-primary disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-surface-bright">
-                    <img src={wallet.metadata.icon} alt={`${wallet.metadata.name} logo`} className="h-8 w-8 object-contain" />
+                    <img
+                      src={wallet.metadata.icon}
+                      alt={t('login.logoAlt', { name: wallet.metadata.name })}
+                      className="h-8 w-8 object-contain"
+                    />
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="text-base font-semibold text-on-surface">{wallet.metadata.name}</div>
@@ -416,16 +402,14 @@ function UnauthenticatedSafeSelection() {
                     ) : (
                       <Icon name={actionIcon} className="text-base" />
                     )}
-                    <span>{isConnecting ? 'Connecting' : 'Connect'}</span>
+                    <span>{isConnecting ? t('login.connecting') : t('login.connect')}</span>
                   </div>
                 </button>
               )
             })}
 
             {featuredWallets.length === 0 && (
-              <Card className="py-8 text-center text-sm text-on-surface-variant">
-                No compatible wallet providers are available for the selected chain.
-              </Card>
+              <Card className="py-8 text-center text-sm text-on-surface-variant">{t('login.noWallets')}</Card>
             )}
           </div>
 

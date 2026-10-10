@@ -1,0 +1,38 @@
+{
+  "title": "자산",
+  "subtitle": "트레저리 보유 자산 및 대출 포지션입니다.",
+  "buyEurd": "EURD 구매",
+  "addFunds": "자금 추가",
+  "stats": {
+    "nativeBalance": "기본 잔액",
+    "nativeBalanceSub": "금고 주소에서 직접 불러옴",
+    "optedInAssets": "opt-in한 자산",
+    "optedInAssetsSub": "ALGO를 제외한 Algod 계정 보유 자산",
+    "safeAddress": "금고 주소",
+    "app": "앱 {{appId}}"
+  },
+  "empty": "이 스마트 계정에는 아직 기본 잔액이나 opt-in한 자산이 없습니다.",
+  "fundingStarted": "€{{amount}} 자금 조달 세션이 시작되었습니다(데모 / Quantoz 대체 방식).",
+  "modal": {
+    "title": "EURD 구매",
+    "description": "Quantoz 은행 이체로 EURD를 구매합니다. 자금은 이 금고의 트레저리 주소로 정산됩니다.",
+    "addressUnavailable": "금고 주소를 사용할 수 없음",
+    "amountLabel": "금액(EUR)",
+    "exchangeRate": "환율: 1 EUR = 1 EURD · Quantoz 플랫폼",
+    "cancel": "취소",
+    "continue": "은행으로 계속"
+  },
+  "table": {
+    "asset": "자산",
+    "type": "유형",
+    "balance": "잔액",
+    "nativeLower": "기본",
+    "native": "기본",
+    "optedInAsa": "opt-in한 ASA",
+    "loading": "온체인 잔액을 불러오는 중…",
+    "noHoldings": "보유 자산이 없습니다."
+  },
+  "row": {
+    "apy": "{{apy}}% APY"
+  }
+}

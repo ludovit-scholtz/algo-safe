@@ -1,5 +1,6 @@
 import { useWallet } from '@txnlab/use-wallet-react'
 import { useState } from 'react'
+import { Trans, useTranslation } from 'react-i18next'
 import { AddressDisplay } from '../components/AddressDisplay'
 import { WalletConnectRequestPanel } from '../components/WalletConnectRequestPanel'
 import { Button } from '../components/ui/Button'
@@ -12,6 +13,7 @@ import { getCaipChainId } from '../lib/networks'
 import { useSafeId } from '../lib/SafeContext'
 
 export function WalletConnectPage() {
+  const { t } = useTranslation('walletconnect')
   const safeId = useSafeId()
   const { data: safe } = useSafe(safeId)
   const { algodClient, activeAddress, transactionSigner } = useWallet()
@@ -47,54 +49,54 @@ export function WalletConnectPage() {
       <div>
         <h1 className="text-3xl font-bold text-on-surface">WalletConnect</h1>
         <p className="mt-1 text-sm text-on-surface-variant">
-          Pair this Safe with a dapp as if it were a wallet. Incoming requests are converted into Safe proposals — see{' '}
-          <code>docs/WALLETCONNECT_WALLET_SETUP.md</code> for setup and limitations.
+          <Trans t={t} i18nKey="page.intro" components={{ code: <code /> }} />
         </p>
       </div>
 
       <Card>
-        <h2 className="mb-3 font-mono text-xs uppercase tracking-wide text-on-surface-variant">Pair a dapp</h2>
+        <h2 className="mb-3 font-mono text-xs uppercase tracking-wide text-on-surface-variant">{t('page.pairTitle')}</h2>
         <div className="flex flex-wrap items-end gap-3">
           <div className="min-w-72 flex-1">
-            <FormField label="WalletConnect URI" hint="Paste the wc: URI shown by the connecting dapp.">
-              <input className={inputCls} value={uri} onChange={(event) => setUri(event.target.value)} placeholder="wc:..." />
+            <FormField label={t('page.uriLabel')} hint={t('page.uriHint')}>
+              <input
+                className={inputCls}
+                value={uri}
+                onChange={(event) => setUri(event.target.value)}
+                placeholder={t('page.uriPlaceholder')}
+              />
             </FormField>
           </div>
           <Button disabled={pairing || !uri.trim() || !isReady} onClick={() => void handlePair()}>
             {pairing ? <Icon name="sync" className="animate-spin text-base" /> : <Icon name="link" className="text-base" />}
-            Pair
+            {t('page.pair')}
           </Button>
         </div>
         {error && <p className="mt-2 text-sm text-error">{error}</p>}
-        {!activeAddress && (
-          <p className="mt-2 text-sm text-on-surface-variant">
-            Connect a wallet first — it will sign proposals raised from incoming requests.
-          </p>
-        )}
+        {!activeAddress && <p className="mt-2 text-sm text-on-surface-variant">{t('page.connectWalletFirst')}</p>}
       </Card>
 
       {pendingProposal && safe && (
         <Card className="border-primary/40 bg-primary/5">
-          <h2 className="mb-3 font-semibold text-on-surface">Session proposal</h2>
+          <h2 className="mb-3 font-semibold text-on-surface">{t('page.sessionProposal')}</h2>
           <p className="text-sm text-on-surface-variant">
-            {pendingProposal.proposer.metadata.name} ({pendingProposal.proposer.metadata.url}) wants to connect to this Safe.
+            {t('page.wantsToConnect', { name: pendingProposal.proposer.metadata.name, url: pendingProposal.proposer.metadata.url })}
           </p>
           <div className="mt-4 flex gap-3">
             <Button onClick={() => void approveSession(pendingProposal, getCaipChainId(safe.network), safe.address)}>
               <Icon name="check" className="text-base" />
-              Approve
+              {t('page.approve')}
             </Button>
             <Button variant="ghost" onClick={() => void rejectSession(pendingProposal.id)}>
-              Reject
+              {t('page.reject')}
             </Button>
           </div>
         </Card>
       )}
 
       <Card>
-        <h2 className="mb-3 font-mono text-xs uppercase tracking-wide text-on-surface-variant">Active sessions</h2>
+        <h2 className="mb-3 font-mono text-xs uppercase tracking-wide text-on-surface-variant">{t('page.activeSessions')}</h2>
         {sessions.length === 0 ? (
-          <p className="text-sm text-on-surface-variant">No dapps are paired yet.</p>
+          <p className="text-sm text-on-surface-variant">{t('page.noSessions')}</p>
         ) : (
           <div className="space-y-2">
             {sessions.map((session) => (
@@ -104,7 +106,7 @@ export function WalletConnectPage() {
                   <div className="text-xs text-on-surface-variant">{session.peer.metadata.url}</div>
                 </div>
                 <Button variant="ghost" onClick={() => void disconnectSession(session.topic)}>
-                  Disconnect
+                  {t('page.disconnect')}
                 </Button>
               </div>
             ))}
@@ -114,8 +116,8 @@ export function WalletConnectPage() {
 
       {safe && (
         <div className="space-y-4">
-          <h2 className="font-mono text-xs uppercase tracking-wide text-on-surface-variant">Pending requests</h2>
-          {pendingRequests.length === 0 && <p className="text-sm text-on-surface-variant">No incoming requests.</p>}
+          <h2 className="font-mono text-xs uppercase tracking-wide text-on-surface-variant">{t('page.pendingRequests')}</h2>
+          {pendingRequests.length === 0 && <p className="text-sm text-on-surface-variant">{t('page.noRequests')}</p>}
           {pendingRequests.map((request) => (
             <WalletConnectRequestPanel
               key={`${request.topic}-${request.id}`}
@@ -132,7 +134,7 @@ export function WalletConnectPage() {
       )}
 
       <Card>
-        <h2 className="mb-2 font-mono text-xs uppercase tracking-wide text-on-surface-variant">Safe account exposed to dapps</h2>
+        <h2 className="mb-2 font-mono text-xs uppercase tracking-wide text-on-surface-variant">{t('page.exposedAccount')}</h2>
         <AddressDisplay address={safe?.address} textClassName="text-sm text-on-surface-variant" fallback="—" />
       </Card>
     </div>

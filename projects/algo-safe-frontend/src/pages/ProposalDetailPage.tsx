@@ -1,5 +1,6 @@
 // src/pages/ProposalDetailPage.tsx
 import { useState } from 'react'
+import { Trans, useTranslation } from 'react-i18next'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useSnackbar } from 'notistack'
 import { useWallet } from '@txnlab/use-wallet-react'
@@ -30,6 +31,7 @@ const TxChip = ({ type }: { type: string }) => (
 )
 
 export const ProposalDetailPage = () => {
+  const { t } = useTranslation('proposals')
   // New nested route: /safe/:safeId/proposals/:id
   const { safeId, id } = useParams<{ safeId: string; id: string }>()
   const navigate = useNavigate()
@@ -78,13 +80,18 @@ export const ProposalDetailPage = () => {
           <div className="w-14 h-14 rounded-full bg-surface-container-high flex items-center justify-center mb-4">
             <Icon name="search_off" className="text-on-surface-variant text-[28px]" />
           </div>
-          <h3 className="text-lg font-semibold text-on-surface mb-1">Proposal not found</h3>
+          <h3 className="text-lg font-semibold text-on-surface mb-1">{t('detail.notFoundTitle')}</h3>
           <p className="text-sm text-on-surface-variant mb-6">
-            No proposal with ID <span className="font-mono text-on-surface">#{id}</span> exists.
+            <Trans
+              t={t}
+              i18nKey="detail.notFoundBody"
+              values={{ id }}
+              components={{ id: <span className="font-mono text-on-surface" /> }}
+            />
           </p>
           <Button variant="secondary" onClick={() => navigate(backPath)}>
             <Icon name="arrow_back" className="text-[16px]" />
-            Back to Proposals
+            {t('detail.back')}
           </Button>
         </div>
       </div>
@@ -94,20 +101,21 @@ export const ProposalDetailPage = () => {
   const isTerminal = proposal.status === 'executed' || proposal.status === 'cancelled' || proposal.status === 'expired'
   const canExecute = proposal.status === 'ready' || (proposal.approvals >= proposal.threshold && !isTerminal)
   const canCancel = proposal.status === 'pending' || proposal.status === 'ready'
-  const approveLabel = proposal.userHasApproved ? 'Approved' : 'Approve'
+  const approveLabel = proposal.userHasApproved ? t('detail.approved') : t('detail.approve')
+  const statusLabel = t(`status.${proposal.status}`, { defaultValue: proposal.status })
   const progressPct = Math.min(100, Math.round((proposal.approvals / proposal.threshold) * 100))
 
   const handleApprove = () => {
     approveProposal.mutate(proposal.id, {
-      onSuccess: () => enqueueSnackbar('Proposal approved', { variant: 'success' }),
-      onError: () => enqueueSnackbar('Failed to approve', { variant: 'error' }),
+      onSuccess: () => enqueueSnackbar(t('detail.toasts.approved'), { variant: 'success' }),
+      onError: () => enqueueSnackbar(t('detail.toasts.approveFailed'), { variant: 'error' }),
     })
   }
 
   const handleReject = () => {
     rejectProposal.mutate(proposal.id, {
-      onSuccess: () => enqueueSnackbar('Proposal cancelled', { variant: 'default' }),
-      onError: () => enqueueSnackbar('Failed to cancel', { variant: 'error' }),
+      onSuccess: () => enqueueSnackbar(t('detail.toasts.cancelled'), { variant: 'default' }),
+      onError: () => enqueueSnackbar(t('detail.toasts.cancelFailed'), { variant: 'error' }),
     })
   }
 
@@ -118,11 +126,11 @@ export const ProposalDetailPage = () => {
         id: proposal.id,
         onSubmitted: ({ txId }) => {
           setExecutionStatus({ phase: 'submitted', txId })
-          enqueueSnackbar(`Transaction ${txId} submitted to the mempool`, { variant: 'info' })
+          enqueueSnackbar(t('detail.toasts.submitted', { txId }), { variant: 'info' })
         },
         onConfirmed: ({ txId, confirmedRound }) => {
           setExecutionStatus({ phase: 'confirmed', txId, confirmedRound })
-          enqueueSnackbar(`Transaction confirmed in round ${confirmedRound}`, { variant: 'success' })
+          enqueueSnackbar(t('detail.toasts.confirmed', { round: confirmedRound }), { variant: 'success' })
         },
       },
       {
@@ -140,7 +148,7 @@ export const ProposalDetailPage = () => {
         },
         onError: () => {
           setExecutionStatus({ phase: 'idle' })
-          enqueueSnackbar('Execution failed', { variant: 'error' })
+          enqueueSnackbar(t('detail.toasts.executionFailed'), { variant: 'error' })
         },
       },
     )
@@ -154,14 +162,14 @@ export const ProposalDetailPage = () => {
           <div className="flex items-center gap-2 mb-1 text-sm text-on-surface-variant">
             <button onClick={() => navigate(backPath)} className="hover:text-primary transition-colors flex items-center gap-1 font-medium">
               <Icon name="arrow_back" className="text-[14px]" />
-              Proposals
+              {t('detail.breadcrumb')}
             </button>
             <Icon name="chevron_right" className="text-[14px]" />
             <span className="font-mono">#{proposal.id}</span>
           </div>
           <div className="flex items-center flex-wrap gap-3">
             <h2 className="text-3xl font-bold text-on-surface tracking-tight">{proposal.title}</h2>
-            <StatusBadge status={proposal.status} />
+            <StatusBadge status={proposal.status}>{statusLabel}</StatusBadge>
           </div>
           <p className="text-sm text-on-surface-variant mt-1">{proposal.date}</p>
         </div>
@@ -171,10 +179,8 @@ export const ProposalDetailPage = () => {
         <div className="rounded-md border border-primary/20 bg-primary/10 px-5 py-4 flex items-start gap-3">
           <Icon name="rocket_launch" className="text-primary text-[22px] flex-shrink-0 mt-0.5" />
           <div>
-            <p className="text-sm font-semibold text-on-surface mb-0.5">Ready to execute</p>
-            <p className="text-sm text-on-surface-variant leading-relaxed">
-              The signer threshold has been met. Any connected user can submit the execution transaction now.
-            </p>
+            <p className="text-sm font-semibold text-on-surface mb-0.5">{t('detail.readyTitle')}</p>
+            <p className="text-sm text-on-surface-variant leading-relaxed">{t('detail.readyBody')}</p>
           </div>
         </div>
       )}
@@ -187,7 +193,7 @@ export const ProposalDetailPage = () => {
           <Card>
             <div className="flex items-center gap-2 mb-4 pb-3 border-b border-outline-variant">
               <Icon name="description" className="text-primary text-[20px]" />
-              <h3 className="text-base font-semibold text-on-surface">Summary</h3>
+              <h3 className="text-base font-semibold text-on-surface">{t('detail.summary')}</h3>
             </div>
             <p className="text-sm text-on-surface-variant leading-relaxed">{proposal.description}</p>
           </Card>
@@ -196,14 +202,14 @@ export const ProposalDetailPage = () => {
           <Card>
             <div className="flex items-center gap-2 mb-4 pb-3 border-b border-outline-variant">
               <Icon name="receipt_long" className="text-primary text-[20px]" />
-              <h3 className="text-base font-semibold text-on-surface">Transaction Group Preview</h3>
+              <h3 className="text-base font-semibold text-on-surface">{t('detail.previewTitle')}</h3>
               <span className="ml-auto text-xs text-on-surface-variant font-medium">
-                {proposal.txPreview.length} transaction{proposal.txPreview.length !== 1 ? 's' : ''}
+                {t('detail.txCount', { count: proposal.txPreview.length })}
               </span>
             </div>
 
             {proposal.txPreview.length === 0 ? (
-              <p className="text-sm text-on-surface-variant italic">No transactions in preview.</p>
+              <p className="text-sm text-on-surface-variant italic">{t('detail.noTransactions')}</p>
             ) : (
               <div className="space-y-2">
                 {/* TxChip row + TransactionPreview for each line */}
@@ -230,7 +236,7 @@ export const ProposalDetailPage = () => {
             <Card>
               <div className="flex items-center gap-2 mb-4 pb-3 border-b border-outline-variant">
                 <Icon name="policy" className="text-primary text-[20px]" />
-                <h3 className="text-base font-semibold text-on-surface">Policy Checks</h3>
+                <h3 className="text-base font-semibold text-on-surface">{t('detail.policyChecks')}</h3>
               </div>
 
               <div className="flex flex-col gap-2">
@@ -251,7 +257,11 @@ export const ProposalDetailPage = () => {
                       {check.label}
                     </span>
                     <span className="ml-auto text-xs font-semibold font-mono">
-                      {check.passed ? <span className="text-primary">PASS</span> : <span className="text-error">FAIL</span>}
+                      {check.passed ? (
+                        <span className="text-primary">{t('detail.pass')}</span>
+                      ) : (
+                        <span className="text-error">{t('detail.fail')}</span>
+                      )}
                     </span>
                   </div>
                 ))}
@@ -270,14 +280,12 @@ export const ProposalDetailPage = () => {
                     <Icon name="sync" className="mt-0.5 animate-spin text-primary text-[18px]" />
                     <div className="space-y-1 text-sm">
                       <p className="font-semibold text-on-surface">
-                        {executionStatus.phase === 'submitting'
-                          ? 'Submitting execution transaction...'
-                          : 'Waiting for block confirmation...'}
+                        {executionStatus.phase === 'submitting' ? t('detail.submittingTitle') : t('detail.waitingTitle')}
                       </p>
                       <p className="text-on-surface-variant">
                         {executionStatus.phase === 'submitting'
-                          ? 'Approve the wallet prompt to sign and broadcast the execute transaction.'
-                          : `Transaction ${executionStatus.txId ?? ''} is in the mempool. We will take you back to the dashboard once it is confirmed.`}
+                          ? t('detail.submittingBody')
+                          : t('detail.waitingBody', { txId: executionStatus.txId ?? '' })}
                       </p>
                     </div>
                   </div>
@@ -287,7 +295,7 @@ export const ProposalDetailPage = () => {
               {/* Approval progress */}
               <div className="mb-5">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-semibold text-on-surface">Approvals</span>
+                  <span className="text-sm font-semibold text-on-surface">{t('detail.approvals')}</span>
                   <span className="text-sm font-bold text-on-surface">
                     {proposal.approvals}
                     <span className="text-on-surface-variant font-medium"> / {proposal.threshold}</span>
@@ -302,7 +310,7 @@ export const ProposalDetailPage = () => {
                 {canExecute && proposal.status !== 'executed' && (
                   <p className="text-xs text-primary font-medium mt-1.5 flex items-center gap-1">
                     <Icon name="check_circle" className="text-[12px]" />
-                    Threshold reached — ready to execute
+                    {t('detail.thresholdReached')}
                   </p>
                 )}
               </div>
@@ -310,13 +318,13 @@ export const ProposalDetailPage = () => {
               {/* Asset / amount */}
               {proposal.amount != null && proposal.asset && (
                 <div className="rounded-md bg-surface-container-high border border-outline-variant px-4 py-3 mb-5">
-                  <div className="text-xs text-on-surface-variant mb-0.5">Transaction Amount</div>
+                  <div className="text-xs text-on-surface-variant mb-0.5">{t('detail.transactionAmount')}</div>
                   <div className="text-xl font-bold text-on-surface">
                     {proposal.asset === 'EURD' || proposal.asset === 'EUR'
                       ? fmtEur(proposal.amount)
                       : `${fmtNum(proposal.amount)} ${proposal.asset}`}
                   </div>
-                  <div className="text-xs text-on-surface-variant mt-0.5">Asset: {proposal.asset}</div>
+                  <div className="text-xs text-on-surface-variant mt-0.5">{t('detail.asset', { asset: proposal.asset })}</div>
                 </div>
               )}
 
@@ -329,13 +337,13 @@ export const ProposalDetailPage = () => {
                   onClick={handleApprove}
                 >
                   <Icon name="thumb_up" className="text-[16px]" />
-                  {approveProposal.isPending ? 'Approving…' : approveLabel}
+                  {approveProposal.isPending ? t('detail.approving') : approveLabel}
                 </Button>
 
                 {canCancel && (
                   <Button variant="danger" className="w-full justify-center" disabled={rejectProposal.isPending} onClick={handleReject}>
                     <Icon name="close" className="text-[16px]" />
-                    {rejectProposal.isPending ? 'Cancelling…' : 'Cancel Proposal'}
+                    {rejectProposal.isPending ? t('detail.cancelling') : t('detail.cancelProposal')}
                   </Button>
                 )}
 
@@ -348,18 +356,16 @@ export const ProposalDetailPage = () => {
                   >
                     <Icon name="rocket_launch" className="text-[16px]" />
                     {executionStatus.phase === 'submitted'
-                      ? 'Awaiting Confirmation…'
+                      ? t('detail.awaitingConfirmation')
                       : executeProposal.isPending || executionStatus.phase === 'submitting'
-                        ? 'Submitting…'
-                        : 'Execute On-Chain'}
+                        ? t('detail.submitting')
+                        : t('detail.executeOnChain')}
                   </Button>
                 )}
               </div>
 
               {isTerminal && (
-                <p className="text-xs text-on-surface-variant text-center mt-3">
-                  This proposal is {proposal.status} — no further actions available.
-                </p>
+                <p className="text-xs text-on-surface-variant text-center mt-3">{t('detail.terminalNotice', { status: statusLabel })}</p>
               )}
             </Card>
 
@@ -367,20 +373,20 @@ export const ProposalDetailPage = () => {
             <div className="rounded-md border border-outline-variant bg-surface-container px-4 py-3">
               <div className="flex items-center gap-2 mb-2">
                 <Icon name="info" className="text-on-surface-variant text-[16px]" />
-                <span className="text-xs font-semibold text-on-surface uppercase tracking-wide">Status</span>
+                <span className="text-xs font-semibold text-on-surface uppercase tracking-wide">{t('detail.statusHeading')}</span>
               </div>
               <div className="flex flex-wrap gap-y-2">
                 <div className="w-full flex justify-between text-xs">
-                  <span className="text-on-surface-variant">Proposal ID</span>
+                  <span className="text-on-surface-variant">{t('detail.proposalId')}</span>
                   <span className="font-mono text-on-surface">#{proposal.id}</span>
                 </div>
                 <div className="w-full flex justify-between text-xs items-center">
-                  <span className="text-on-surface-variant">Status</span>
-                  <StatusBadge status={proposal.status} />
+                  <span className="text-on-surface-variant">{t('detail.statusHeading')}</span>
+                  <StatusBadge status={proposal.status}>{statusLabel}</StatusBadge>
                 </div>
                 <div className="w-full flex justify-between text-xs">
-                  <span className="text-on-surface-variant">Threshold</span>
-                  <span className="text-on-surface">{proposal.threshold} signatures</span>
+                  <span className="text-on-surface-variant">{t('detail.threshold')}</span>
+                  <span className="text-on-surface">{t('detail.signatures', { count: proposal.threshold })}</span>
                 </div>
               </div>
             </div>

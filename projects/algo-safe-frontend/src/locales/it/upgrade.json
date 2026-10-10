@@ -1,0 +1,59 @@
+{
+  "title": "Aggiornamento e indirizzi con rekey",
+  "subtitle": "Gestisci gli indirizzi con rekey verso questa cassaforte e migra la cassaforte all'ultima versione del contratto.",
+  "backToDashboard": "Torna alla dashboard",
+  "errors": {
+    "connectAdmin": "Collega un wallet con accesso amministrativo prima di gestire gli indirizzi con rekey.",
+    "invalidAddress": "Inserisci un indirizzo Algorand valido.",
+    "registryProposalFailed": "Impossibile creare la proposta per il registro.",
+    "connectDeploy": "Collega un wallet prima di distribuire la cassaforte aggiornata.",
+    "deployFailed": "Impossibile distribuire e clonare la cassaforte aggiornata.",
+    "migrationProposalFailed": "Impossibile creare la proposta di rekey per la migrazione."
+  },
+  "version": {
+    "title": "Versione del contratto",
+    "deployedHash": "Hash della versione distribuita:",
+    "detecting": "rilevamento…",
+    "isLatest": "Questa cassaforte usa l'ultima versione del contratto.",
+    "newerAvailable": "È disponibile una versione più recente del contratto — valuta l'aggiornamento qui sotto."
+  },
+  "adminGroup": {
+    "title": "Gruppo amministratore",
+    "label": "Gruppo di firmatari per le proposte",
+    "hint": "Le modifiche al registro e il rekey di migrazione vengono proposti tramite questo gruppo amministratore.",
+    "fallbackOption": "Gruppo 1",
+    "option": "{{name}} · {{threshold}} su {{memberCount}}"
+  },
+  "upgrade": {
+    "title": "Aggiorna la cassaforte",
+    "intro": "L'aggiornamento distribuisce una <strong>nuova cassaforte con l'ultimo contratto</strong>, vi clona i gruppi di firmatari, le policy e il registro degli indirizzi con rekey di questa cassaforte e poi — tramite una proposta di rekey governata — trasferisce alla nuova distribuzione ogni indirizzo controllato (compreso l'account di questa cassaforte). I fondi non lasciano mai gli indirizzi.",
+    "step1": "Distribuisci e clona la configurazione (firmata dal tuo wallet, nessun cambio di custodia).",
+    "step2": "Proponi il rekey di migrazione; gli amministratori lo approvano al raggiungimento della soglia del gruppo.",
+    "step3": "Esegui — la nuova cassaforte subentra e questa diventa uno storico in sola lettura.",
+    "deploying": "Distribuzione…",
+    "deployButton": "1 · Distribuisci e clona",
+    "proposing": "Proposta in corso…",
+    "proposeButton": "2 · Proponi il rekey di migrazione",
+    "deployed": "Nuova cassaforte distribuita — ID app <mono>{{appId}}</mono>",
+    "savedHint": "Salvata nell'elenco delle casseforti di questo browser. Ora crea la proposta di rekey di migrazione e raccogli le approvazioni degli amministratori."
+  },
+  "registry": {
+    "title": "Indirizzi con rekey",
+    "description": "Indirizzi esterni la cui autorità di spesa è stata trasferita (rekey) a questa cassaforte. L'elenco è governato da proposte degli amministratori e, durante la migrazione, serve a rieseguire il rekey di ogni indirizzo controllato verso la nuova cassaforte. Registrare qui un indirizzo non ne esegue il rekey — invia separatamente la transazione di rekey da quell'account.",
+    "addressLabel": "Indirizzo",
+    "addressHint": "L'account con rekey (o in procinto di averlo) verso questa cassaforte.",
+    "addressPlaceholder": "Indirizzo Algorand",
+    "labelLabel": "Etichetta",
+    "labelHint": "Nome leggibile facoltativo.",
+    "labelPlaceholder": "ad es. hot wallet operativo",
+    "proposeAdd": "Proponi aggiunta",
+    "empty": "Nessun indirizzo con rekey registrato.",
+    "unlabelled": "senza etichetta",
+    "recordMeta": "{{label}} · registrato al round {{round}}",
+    "proposeRemove": "Proponi rimozione",
+    "refresh": "Aggiorna"
+  },
+  "service": {
+    "connectWallet": "Collega un wallet prima di eseguire le azioni di migrazione della cassaforte."
+  }
+}

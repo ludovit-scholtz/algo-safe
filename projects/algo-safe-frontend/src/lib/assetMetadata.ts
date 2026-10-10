@@ -1,4 +1,5 @@
 import type algosdk from 'algosdk'
+import i18n from '../i18n/instance'
 import type { NetworkId } from '../services/types'
 
 export type AssetMetadata = {
@@ -9,13 +10,13 @@ export type AssetMetadata = {
   isNative: boolean
 }
 
-const NATIVE_ALGO_METADATA: AssetMetadata = {
+const getNativeAlgoMetadata = (): AssetMetadata => ({
   assetId: 0,
   symbol: 'ALGO',
-  name: 'Algorand Native',
+  name: i18n.t('proposals:asset.nativeName'),
   decimals: 6,
   isNative: true,
-}
+})
 
 const KNOWN_ASSETS: Record<NetworkId, AssetMetadata[]> = {
   mainnet: [
@@ -31,7 +32,7 @@ const KNOWN_ASSETS: Record<NetworkId, AssetMetadata[]> = {
 }
 
 export function getNativeAssetMetadata(): AssetMetadata {
-  return NATIVE_ALGO_METADATA
+  return getNativeAlgoMetadata()
 }
 
 export function getKnownAssets(network?: NetworkId): AssetMetadata[] {
@@ -59,8 +60,8 @@ export async function resolveAssetMetadata(algodClient: algosdk.Algodv2, assetId
 
     return {
       assetId,
-      symbol: params['unit-name'] || knownAsset?.symbol || `ASA ${assetId}`,
-      name: params.name || knownAsset?.name || `Asset ${assetId}`,
+      symbol: params['unit-name'] || knownAsset?.symbol || i18n.t('proposals:asset.unknownSymbol', { id: assetId }),
+      name: params.name || knownAsset?.name || i18n.t('proposals:asset.unknownName', { id: assetId }),
       decimals: params.decimals ?? knownAsset?.decimals ?? 0,
       isNative: false,
     }
@@ -68,8 +69,8 @@ export async function resolveAssetMetadata(algodClient: algosdk.Algodv2, assetId
     return (
       knownAsset ?? {
         assetId,
-        symbol: `ASA ${assetId}`,
-        name: `Asset ${assetId}`,
+        symbol: i18n.t('proposals:asset.unknownSymbol', { id: assetId }),
+        name: i18n.t('proposals:asset.unknownName', { id: assetId }),
         decimals: 0,
         isNative: false,
       }

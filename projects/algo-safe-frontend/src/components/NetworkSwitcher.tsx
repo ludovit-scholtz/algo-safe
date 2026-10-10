@@ -1,5 +1,6 @@
 import { useNetwork, useWallet } from '@txnlab/use-wallet-react'
 import { useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { chainOptions } from '../lib/networks'
 import { WALLET_ID } from '../lib/walletIds'
@@ -14,6 +15,7 @@ const networkDotClass: Record<string, string> = {
 }
 
 export function NetworkSwitcher() {
+  const { t } = useTranslation('layout')
   const { wallets } = useWallet()
   const { activeNetwork, setActiveNetwork } = useNetwork()
   const navigate = useNavigate()
@@ -97,7 +99,7 @@ export function NetworkSwitcher() {
                 aria-selected={isSelected}
                 disabled={!isAvailable}
                 onClick={() => handleChange(option.id)}
-                title={isAvailable ? undefined : 'Connect a LocalNet (KMD) wallet to switch here'}
+                title={isAvailable ? undefined : t('network.localnetLocked')}
                 className={`flex w-full items-start gap-2.5 px-3.5 py-2.5 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
                   isSelected ? 'bg-primary/10' : 'hover:bg-surface-container-highest'
                 }`}

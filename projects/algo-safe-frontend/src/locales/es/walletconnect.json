@@ -1,0 +1,75 @@
+{
+  "page": {
+    "intro": "Vincule esta caja fuerte con una dapp como si fuera una wallet. Las solicitudes entrantes se convierten en propuestas de la caja fuerte; consulte <code>docs/WALLETCONNECT_WALLET_SETUP.md</code> para la configuración y las limitaciones.",
+    "pairTitle": "Vincular una dapp",
+    "uriLabel": "URI de WalletConnect",
+    "uriHint": "Pegue el URI wc: que muestra la dapp que se está conectando.",
+    "uriPlaceholder": "wc:...",
+    "pair": "Vincular",
+    "connectWalletFirst": "Conecte primero una wallet: firmará las propuestas generadas a partir de las solicitudes entrantes.",
+    "sessionProposal": "Propuesta de sesión",
+    "wantsToConnect": "{{name}} ({{url}}) quiere conectarse a esta caja fuerte.",
+    "approve": "Aprobar",
+    "reject": "Rechazar",
+    "activeSessions": "Sesiones activas",
+    "noSessions": "Aún no hay dapps vinculadas.",
+    "disconnect": "Desconectar",
+    "pendingRequests": "Solicitudes pendientes",
+    "noRequests": "No hay solicitudes entrantes.",
+    "exposedAccount": "Cuenta de la caja fuerte expuesta a las dapps"
+  },
+  "panel": {
+    "unsupportedMethod": "Esta wallet solo gestiona solicitudes {{expected}}; se recibió «{{received}}».",
+    "unrecognizedShape": "Formato de solicitud no reconocido.",
+    "rejectedByOperator": "Rechazada por el operador de la caja fuerte.",
+    "rejectFailed": "No se pudo rechazar la solicitud.",
+    "proposalCreated": "La propuesta n.º {{proposalId}} se creó en la cadena (tx {{txId}}). Apruébela desde la página Propuestas cuando el grupo alcance el umbral.",
+    "convertedReject": "Convertida en la propuesta n.º {{proposalId}} de la caja fuerte; haga su seguimiento y apruébela desde la consola de la caja fuerte.",
+    "submitFailed": "No se pudo enviar la propuesta.",
+    "signedReturned": "Se firmó la llamada de la propuesta (tx {{txId}}) y se devolvió a la dapp vinculada. Tenga en cuenta que es la transacción de propuesta de la caja fuerte, no las transacciones originalmente solicitadas.",
+    "signFailed": "No se pudo firmar la propuesta.",
+    "evaluating": "Evaluando la solicitud…",
+    "cantBecome": "Esta solicitud no puede convertirse en una propuesta de la caja fuerte",
+    "rejectRequest": "Rechazar solicitud",
+    "incoming": "Solicitud de transacción entrante",
+    "groupIdLabel": "ID del grupo de firmantes",
+    "groupIdHint": "El grupo que gestionará esta propuesta.",
+    "expiryLabel": "Caducidad (rondas)",
+    "expiryHint": "Se suma a la ronda actual para calcular la ronda de caducidad de la propuesta.",
+    "submitToChain": "Enviar propuesta a la cadena",
+    "signReturn": "Firmar y devolver mediante WalletConnect",
+    "reject": "Rechazar",
+    "signReturnNote": "«Firmar y devolver» devuelve la transacción de <em>propuesta</em> firmada, no las transacciones originales de la dapp; úselo solo con dapps que lo admitan. Es preferible enviar a la cadena y dejar que la dapp consulte el estado de la propuesta en la caja fuerte."
+  },
+  "preview": {
+    "sendAlgo": "Enviar {{amount}} ALGO a {{receiver}}",
+    "transferAsa": "Transferir {{amount}} del ASA {{asset}} a {{receiver}}",
+    "callApp": "Llamar a la app {{app}}",
+    "keyreg": "Registro de clave de participación",
+    "configureAsset": "Configurar el activo {{asset}}",
+    "newAsset": "nuevo activo",
+    "txType": "Tipo de transacción {{type}}",
+    "fromSender": "Desde {{sender}}"
+  },
+  "service": {
+    "noAlgorandNamespace": "La propuesta de sesión de esta dapp no solicitó el espacio de nombres de Algorand, por lo que esta caja fuerte no puede atenderla.",
+    "sessionRejected": "El usuario rechazó la propuesta de sesión.",
+    "sessionDisconnected": "El usuario desconectó la sesión."
+  },
+  "hook": {
+    "initFailed": "No se pudo inicializar WalletConnect.",
+    "pairFailed": "No se pudo vincular con el URI de WalletConnect.",
+    "approveFailed": "No se pudo aprobar la propuesta de sesión.",
+    "rejectSessionFailed": "No se pudo rechazar la propuesta de sesión.",
+    "disconnectFailed": "No se pudo desconectar la sesión."
+  },
+  "convert": {
+    "unrecognizedShape": "Formato de solicitud algo_signTxn no reconocido: se esperaba una matriz de entradas {txn, signers?}.",
+    "noTransactions": "La solicitud no contenía ninguna transacción.",
+    "unsignedByOthers": "Esta solicitud incluye una transacción que debe autorizar otra parte (su lista «signers» está vacía), por ejemplo una cuenta controlada por LogicSig u otro miembro de un multisig. La caja fuerte solo puede cofirmar transacciones enviadas desde su propia dirección o desde direcciones con rekey hacia ella, por lo que este lote no puede convertirse en una propuesta. Rechácelo y pida a la dapp que dirija esa parte de la solicitud directamente al firmante original.",
+    "decodeFailed": "No se pudo decodificar una de las transacciones de esta solicitud: puede que ya esté firmada (p. ej., un blob de LogicSig) en lugar de ser una transacción simple sin firmar.",
+    "notSpendable": "El remitente de la transacción {{sender}} no es la dirección propia de la caja fuerte ni una dirección con rekey hacia ella en este momento. La caja fuerte no tiene autoridad para mover fondos de esta cuenta, por lo que esta solicitud no puede convertirse en una propuesta de la caja fuerte.",
+    "cannotRepresent": "La caja fuerte no puede representar esta transacción: {{message}}",
+    "cannotRepresentGeneric": "La caja fuerte no puede representar una de las transacciones de esta solicitud."
+  }
+}

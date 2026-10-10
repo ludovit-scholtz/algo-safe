@@ -1,0 +1,75 @@
+{
+  "page": {
+    "intro": "Párosítsa ezt a széfet egy dapp alkalmazással úgy, mintha pénztárca volna. A beérkező kérések a széf javaslataivá alakulnak — a beállításról és a korlátozásokról lásd: <code>docs/WALLETCONNECT_WALLET_SETUP.md</code>.",
+    "pairTitle": "Dapp párosítása",
+    "uriLabel": "WalletConnect URI",
+    "uriHint": "Illessze be a csatlakozó dapp által megjelenített wc: URI-t.",
+    "uriPlaceholder": "wc:...",
+    "pair": "Párosítás",
+    "connectWalletFirst": "Először csatlakoztasson egy pénztárcát — az írja alá a beérkező kérésekből létrehozott javaslatokat.",
+    "sessionProposal": "Munkamenet-javaslat",
+    "wantsToConnect": "{{name}} ({{url}}) csatlakozni szeretne ehhez a széfhez.",
+    "approve": "Jóváhagyás",
+    "reject": "Elutasítás",
+    "activeSessions": "Aktív munkamenetek",
+    "noSessions": "Még egyetlen dapp sincs párosítva.",
+    "disconnect": "Leválasztás",
+    "pendingRequests": "Függőben lévő kérések",
+    "noRequests": "Nincs beérkező kérés.",
+    "exposedAccount": "A dappok számára elérhetővé tett széfszámla"
+  },
+  "panel": {
+    "unsupportedMethod": "Ez a pénztárca csak {{expected}} kéréseket kezel — a kapott kérés: „{{received}}”.",
+    "unrecognizedShape": "Ismeretlen kérésformátum.",
+    "rejectedByOperator": "A széf üzemeltetője elutasította.",
+    "rejectFailed": "A kérés elutasítása sikertelen.",
+    "proposalCreated": "A(z) #{{proposalId}} javaslat létrejött a láncon (tx {{txId}}). Amint a csoport eléri a küszöböt, hagyja jóvá a Javaslatok oldalon.",
+    "convertedReject": "Átalakítva a(z) #{{proposalId}} széfjavaslattá — kövesse és hagyja jóvá a széf konzoljában.",
+    "submitFailed": "A javaslat beküldése sikertelen.",
+    "signedReturned": "A javaslathívás aláírva (tx {{txId}}) és visszaküldve a párosított dappnak — ez a széf javaslattranzakciója, nem az eredetileg kért tranzakció(k).",
+    "signFailed": "A javaslat aláírása sikertelen.",
+    "evaluating": "Kérés kiértékelése…",
+    "cantBecome": "Ebből a kérésből nem lehet széfjavaslat",
+    "rejectRequest": "Kérés elutasítása",
+    "incoming": "Beérkező tranzakciós kérés",
+    "groupIdLabel": "Aláírócsoport azonosítója",
+    "groupIdHint": "A csoport, amely ezt a javaslatot kezelni fogja.",
+    "expiryLabel": "Lejárat (körök)",
+    "expiryHint": "Hozzáadódik az aktuális körhöz, így adja a javaslat lejárati körét.",
+    "submitToChain": "Javaslat beküldése a láncra",
+    "signReturn": "Aláírás és visszaküldés WalletConnecten át",
+    "reject": "Elutasítás",
+    "signReturnNote": "Az „Aláírás és visszaküldés” az aláírt <em>javaslat</em>-tranzakciót küldi vissza, nem a dapp eredeti tranzakcióit — csak olyan dappokkal használja, amelyek ezt elfogadják. Inkább küldje be a láncra, és hagyja, hogy a dapp lekérdezze a javaslat állapotát a széfben."
+  },
+  "preview": {
+    "sendAlgo": "{{amount}} ALGO küldése ide: {{receiver}}",
+    "transferAsa": "{{amount}} átutalása a(z) {{asset}} azonosítójú ASA-ból ide: {{receiver}}",
+    "callApp": "Alkalmazás hívása: {{app}}",
+    "keyreg": "Részvételi kulcs regisztrációja",
+    "configureAsset": "Eszköz konfigurálása: {{asset}}",
+    "newAsset": "új eszköz",
+    "txType": "Tranzakció típusa: {{type}}",
+    "fromSender": "Feladó: {{sender}}"
+  },
+  "service": {
+    "noAlgorandNamespace": "Ennek a dappnak a munkamenet-javaslata nem kérte az Algorand névteret, ezért ez a széf nem tudja kiszolgálni.",
+    "sessionRejected": "A felhasználó elutasította a munkamenet-javaslatot.",
+    "sessionDisconnected": "A felhasználó bontotta a munkamenetet."
+  },
+  "hook": {
+    "initFailed": "A WalletConnect inicializálása sikertelen.",
+    "pairFailed": "A párosítás a WalletConnect URI-val sikertelen.",
+    "approveFailed": "A munkamenet-javaslat jóváhagyása sikertelen.",
+    "rejectSessionFailed": "A munkamenet-javaslat elutasítása sikertelen.",
+    "disconnectFailed": "A munkamenet leválasztása sikertelen."
+  },
+  "convert": {
+    "unrecognizedShape": "Ismeretlen algo_signTxn kérésformátum — {txn, signers?} elemekből álló tömb várható.",
+    "noTransactions": "A kérés nem tartalmazott tranzakciót.",
+    "unsignedByOthers": "Ez a kérés olyan tranzakciót is tartalmaz, amelyet más félnek kell engedélyeznie (a „signers” listája üres) — például LogicSig által vezérelt számlát vagy másik multisig-tagot. A széf csak a saját címéről vagy a hozzá rekey-elt címekről küldött tranzakciókat írhatja társaláírásként, ezért ez a köteg nem alakítható széfjavaslattá. Utasítsa el, és kérje meg a dappot, hogy a kérés ezen részét közvetlenül az eredeti aláírón keresztül intézze.",
+    "decodeFailed": "A kérés egyik tranzakciója nem dekódolható — lehet, hogy már alá van írva (pl. LogicSig blob), nem pedig egyszerű aláíratlan tranzakció.",
+    "notSpendable": "A tranzakció feladója ({{sender}}) sem a széf saját címe, sem a jelenleg hozzá rekey-elt cím. A széfnek nincs jogosultsága pénzt mozgatni erről a számláról, ezért ebből a kérésből nem lehet széfjavaslat.",
+    "cannotRepresent": "A széf nem tudja megjeleníteni ezt a tranzakciót: {{message}}",
+    "cannotRepresentGeneric": "A széf nem tudja megjeleníteni a kérés egyik tranzakcióját."
+  }
+}

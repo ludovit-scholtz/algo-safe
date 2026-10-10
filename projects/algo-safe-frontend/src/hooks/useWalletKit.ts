@@ -1,5 +1,6 @@
 import type { ProposalTypes, SessionTypes } from '@walletconnect/types'
 import { useCallback, useEffect, useState } from 'react'
+import i18n from '../i18n/instance'
 import {
   approveWalletConnectSession,
   disconnectWalletConnectSession,
@@ -81,7 +82,7 @@ export function useWalletKit() {
         }
       })
       .catch((walletKitError: unknown) => {
-        setError(walletKitError instanceof Error ? walletKitError.message : 'Failed to initialize WalletConnect.')
+        setError(walletKitError instanceof Error ? walletKitError.message : i18n.t('walletconnect:hook.initFailed'))
       })
 
     return () => {
@@ -94,7 +95,7 @@ export function useWalletKit() {
     try {
       await pairWalletConnect(uri)
     } catch (pairError) {
-      setError(pairError instanceof Error ? pairError.message : 'Failed to pair with the WalletConnect URI.')
+      setError(pairError instanceof Error ? pairError.message : i18n.t('walletconnect:hook.pairFailed'))
     }
   }, [])
 
@@ -105,7 +106,7 @@ export function useWalletKit() {
         await approveWalletConnectSession(proposal, caipChainId, safeAddress)
         await refresh()
       } catch (approveError) {
-        setError(approveError instanceof Error ? approveError.message : 'Failed to approve the session proposal.')
+        setError(approveError instanceof Error ? approveError.message : i18n.t('walletconnect:hook.approveFailed'))
       }
     },
     [refresh],
@@ -118,7 +119,7 @@ export function useWalletKit() {
         await rejectWalletConnectSession(proposalId)
         await refresh()
       } catch (rejectSessionError) {
-        setError(rejectSessionError instanceof Error ? rejectSessionError.message : 'Failed to reject the session proposal.')
+        setError(rejectSessionError instanceof Error ? rejectSessionError.message : i18n.t('walletconnect:hook.rejectSessionFailed'))
       }
     },
     [refresh],
@@ -131,7 +132,7 @@ export function useWalletKit() {
         await disconnectWalletConnectSession(topic)
         await refresh()
       } catch (disconnectError) {
-        setError(disconnectError instanceof Error ? disconnectError.message : 'Failed to disconnect the session.')
+        setError(disconnectError instanceof Error ? disconnectError.message : i18n.t('walletconnect:hook.disconnectFailed'))
       }
     },
     [refresh],

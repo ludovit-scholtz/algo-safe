@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useWallet } from '@txnlab/use-wallet-react'
 import { useSnackbar } from 'notistack'
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { useSafe, useSignerGroups } from '../hooks'
 import { useSafeId } from '../lib/SafeContext'
@@ -16,6 +17,7 @@ import { Icon } from './ui/Icon'
  * only; governance stays live, so unpausing is always possible.
  */
 export function SafeGovernanceControls() {
+  const { t } = useTranslation('signers')
   const safeId = useSafeId()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -49,10 +51,10 @@ export function SafeGovernanceControls() {
         { adminGroupId: BigInt(memberAdminGroup.id), paused: nextPaused },
       )
       await queryClient.invalidateQueries({ queryKey: ['proposals', safeId] })
-      enqueueSnackbar(nextPaused ? 'Pause proposal created' : 'Unpause proposal created', { variant: 'success' })
+      enqueueSnackbar(nextPaused ? t('governance.pauseCreated') : t('governance.unpauseCreated'), { variant: 'success' })
       navigate(`/safe/${safeId}/proposals/${proposalId}`, { state: { txId } })
     } catch (error) {
-      enqueueSnackbar(error instanceof Error ? error.message : 'Failed to create pause proposal', { variant: 'error' })
+      enqueueSnackbar(error instanceof Error ? error.message : t('governance.pauseFailed'), { variant: 'error' })
     } finally {
       setSubmitting(false)
     }
@@ -73,36 +75,34 @@ export function SafeGovernanceControls() {
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h3 className="text-base font-semibold text-on-surface">Safe Status</h3>
+              <h3 className="text-base font-semibold text-on-surface">{t('governance.title')}</h3>
               <span
                 className={`rounded-sm px-2 py-0.5 font-mono text-[11px] uppercase tracking-wide ${
                   paused ? 'bg-error/15 text-error' : 'bg-primary/15 text-primary'
                 }`}
               >
-                {paused ? 'Paused' : 'Active'}
+                {paused ? t('status.paused') : t('status.active')}
               </span>
             </div>
             <p className="mt-1 max-w-md text-sm text-on-surface-variant">
-              {paused
-                ? 'Fund-moving proposals are blocked. Governance stays live — create an unpause proposal to resume operations.'
-                : 'Emergency pause halts all fund-moving proposals while keeping governance available. Use it if a signer key is suspected compromised.'}
+              {paused ? t('governance.pausedDesc') : t('governance.activeDesc')}
             </p>
           </div>
         </div>
         <div className="flex shrink-0 flex-col gap-2 sm:items-end">
           <Button variant={paused ? 'primary' : 'secondary'} disabled={!canSubmit || submitting} onClick={handleTogglePause}>
             <Icon name={paused ? 'play_arrow' : 'pause'} className="text-base" />
-            {submitting ? 'Creating Proposal…' : paused ? 'Propose Unpause' : 'Propose Pause'}
+            {submitting ? t('shared.creatingProposal') : paused ? t('governance.proposeUnpause') : t('governance.proposePause')}
           </Button>
           <Button variant="ghost" onClick={() => navigate(`/safe/${safeId}/signer-groups/create`)}>
             <Icon name="group_add" className="text-base" />
-            New Signer Group
+            {t('governance.newGroup')}
           </Button>
         </div>
       </div>
       {!memberAdminGroup && (
         <p className="border-t border-outline-variant bg-surface-container-low px-5 py-3 text-xs text-warn">
-          No active admin signer group is available for the connected wallet — governance actions are unavailable.
+          {t('governance.noAdminGroup')}
         </p>
       )}
     </Card>

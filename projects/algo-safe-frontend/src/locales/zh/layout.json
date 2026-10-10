@@ -1,0 +1,35 @@
+{
+  "logoAlt": "Algo Safe 标志",
+  "selectSafe": "选择保险库",
+  "registerAgent": "注册代理",
+  "nav": {
+    "dashboard": "仪表盘",
+    "proposals": "提案",
+    "createProposal": "创建提案",
+    "assets": "资产",
+    "upgrade": "升级与 Rekey",
+    "walletConnect": "WalletConnect"
+  },
+  "errorBoundary": {
+    "title": "发生错误",
+    "unexpected": "应用程序发生意外错误。"
+  },
+  "auth": {
+    "checking": "正在检查钱包",
+    "loginPrompt": "请使用 Algorand 钱包登录以访问您的保险库",
+    "loggingOut": "正在退出登录",
+    "logout": "退出登录"
+  },
+  "network": {
+    "localnetLocked": "请连接 LocalNet (KMD) 钱包以切换到此网络",
+    "chooseLocalnetWallet": "选择 LocalNet 钱包",
+    "chooseAlgorandWallet": "选择 Algorand 钱包",
+    "hints": {
+      "mainnet": "用于真实资金库操作的生产网络。",
+      "voimain": "用于专项操作的 Voi 网络。",
+      "aramidmain": "用于专项操作的 Aramid 网络。",
+      "testnet": "用于钱包配对和演练的公共测试网络。",
+      "localnet": "由 KMD 钱包支持的本地开发链。"
+    }
+  }
+}

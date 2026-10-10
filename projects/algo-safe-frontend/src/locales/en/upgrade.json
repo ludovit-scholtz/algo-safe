@@ -1,0 +1,59 @@
+{
+  "title": "Upgrade & Rekeyed Addresses",
+  "subtitle": "Manage the addresses rekeyed to this safe and migrate the safe to the latest contract version.",
+  "backToDashboard": "Back to Dashboard",
+  "errors": {
+    "connectAdmin": "Connect a wallet with admin access before managing rekeyed addresses.",
+    "invalidAddress": "Enter a valid Algorand address.",
+    "registryProposalFailed": "Failed to create the registry proposal.",
+    "connectDeploy": "Connect a wallet before deploying the upgraded safe.",
+    "deployFailed": "Failed to deploy and clone the upgraded safe.",
+    "migrationProposalFailed": "Failed to create the migration rekey proposal."
+  },
+  "version": {
+    "title": "Contract Version",
+    "deployedHash": "Deployed version hash:",
+    "detecting": "detecting…",
+    "isLatest": "This safe runs the latest contract version.",
+    "newerAvailable": "A newer contract version is available — consider upgrading below."
+  },
+  "adminGroup": {
+    "title": "Admin Group",
+    "label": "Signer group for proposals",
+    "hint": "Registry changes and the migration rekey are proposed through this admin group.",
+    "fallbackOption": "Group 1",
+    "option": "{{name}} · {{threshold}}-of-{{memberCount}}"
+  },
+  "upgrade": {
+    "title": "Upgrade Safe",
+    "intro": "Upgrading deploys a <strong>new safe on the latest contract</strong>, clones this safe's signer groups, policies, and rekeyed-address registry onto it, and then — via a governed rekey proposal — hands every controlled address (including this safe's own account) over to the new deployment. Funds never leave the addresses.",
+    "step1": "Deploy & clone the configuration (signed by your wallet, no custody change).",
+    "step2": "Propose the migration rekey; admins approve it at the group threshold.",
+    "step3": "Execute — the new safe takes over, and this safe becomes read-only history.",
+    "deploying": "Deploying…",
+    "deployButton": "1 · Deploy & Clone",
+    "proposing": "Proposing…",
+    "proposeButton": "2 · Propose Migration Rekey",
+    "deployed": "New safe deployed — App ID <mono>{{appId}}</mono>",
+    "savedHint": "Saved to this browser's safe list. Now create the migration rekey proposal and collect admin approvals."
+  },
+  "registry": {
+    "title": "Rekeyed Addresses",
+    "description": "External addresses whose spending authority has been rekeyed to this safe. The list is governed by admin proposals and is used during migration to re-rekey every controlled address to the new safe. Registering an address here does not rekey it — submit the actual rekey transaction from that account separately.",
+    "addressLabel": "Address",
+    "addressHint": "The account rekeyed (or about to be rekeyed) to this safe.",
+    "addressPlaceholder": "Algorand address",
+    "labelLabel": "Label",
+    "labelHint": "Optional human-readable name.",
+    "labelPlaceholder": "e.g. ops hot wallet",
+    "proposeAdd": "Propose Add",
+    "empty": "No rekeyed addresses registered.",
+    "unlabelled": "unlabelled",
+    "recordMeta": "{{label}} · registered at round {{round}}",
+    "proposeRemove": "Propose Remove",
+    "refresh": "Refresh"
+  },
+  "service": {
+    "connectWallet": "Connect a wallet before running safe migration actions."
+  }
+}

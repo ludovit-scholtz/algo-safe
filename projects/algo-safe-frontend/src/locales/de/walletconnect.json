@@ -1,0 +1,75 @@
+{
+  "page": {
+    "intro": "Koppeln Sie diesen Safe mit einer Dapp, als wäre er eine Wallet. Eingehende Anfragen werden in Safe-Vorschläge umgewandelt — Einrichtung und Einschränkungen finden Sie in <code>docs/WALLETCONNECT_WALLET_SETUP.md</code>.",
+    "pairTitle": "Dapp koppeln",
+    "uriLabel": "WalletConnect-URI",
+    "uriHint": "Fügen Sie die wc:-URI ein, die von der verbindenden Dapp angezeigt wird.",
+    "uriPlaceholder": "wc:...",
+    "pair": "Koppeln",
+    "connectWalletFirst": "Verbinden Sie zuerst eine Wallet — sie signiert die Vorschläge, die aus eingehenden Anfragen entstehen.",
+    "sessionProposal": "Sitzungsvorschlag",
+    "wantsToConnect": "{{name}} ({{url}}) möchte sich mit diesem Safe verbinden.",
+    "approve": "Genehmigen",
+    "reject": "Ablehnen",
+    "activeSessions": "Aktive Sitzungen",
+    "noSessions": "Es sind noch keine Dapps gekoppelt.",
+    "disconnect": "Trennen",
+    "pendingRequests": "Ausstehende Anfragen",
+    "noRequests": "Keine eingehenden Anfragen.",
+    "exposedAccount": "Für Dapps freigegebenes Safe-Konto"
+  },
+  "panel": {
+    "unsupportedMethod": "Diese Wallet verarbeitet nur {{expected}}-Anfragen — empfangen wurde „{{received}}“.",
+    "unrecognizedShape": "Unbekanntes Anfrageformat.",
+    "rejectedByOperator": "Vom Safe-Betreiber abgelehnt.",
+    "rejectFailed": "Die Anfrage konnte nicht abgelehnt werden.",
+    "proposalCreated": "Vorschlag #{{proposalId}} wurde on-chain erstellt (tx {{txId}}). Genehmigen Sie ihn auf der Seite „Vorschläge“, sobald die Gruppe den Schwellenwert erreicht.",
+    "convertedReject": "In Safe-Vorschlag #{{proposalId}} umgewandelt — verfolgen und genehmigen Sie ihn in der Safe-Konsole.",
+    "submitFailed": "Der Vorschlag konnte nicht übermittelt werden.",
+    "signedReturned": "Der Vorschlagsaufruf wurde signiert (tx {{txId}}) und an die gekoppelte Dapp zurückgegeben — beachten Sie: Dies ist die Vorschlagstransaktion des Safes, nicht die ursprünglich angeforderte(n) Transaktion(en).",
+    "signFailed": "Der Vorschlag konnte nicht signiert werden.",
+    "evaluating": "Anfrage wird ausgewertet…",
+    "cantBecome": "Aus dieser Anfrage kann kein Safe-Vorschlag werden",
+    "rejectRequest": "Anfrage ablehnen",
+    "incoming": "Eingehende Transaktionsanfrage",
+    "groupIdLabel": "ID der Unterzeichnergruppe",
+    "groupIdHint": "Die Gruppe, die diesen Vorschlag verwalten wird.",
+    "expiryLabel": "Ablauf (Runden)",
+    "expiryHint": "Wird zur aktuellen Runde addiert, um die Ablaufrunde des Vorschlags zu berechnen.",
+    "submitToChain": "Vorschlag an die Chain senden",
+    "signReturn": "Signieren & über WalletConnect zurückgeben",
+    "reject": "Ablehnen",
+    "signReturnNote": "„Signieren & zurückgeben“ sendet die signierte <em>Vorschlags</em>transaktion zurück, nicht die ursprünglichen Transaktionen der Dapp — verwenden Sie dies nur mit Dapps, die das akzeptieren. Besser ist es, den Vorschlag an die Chain zu senden und die Dapp den Vorschlagsstatus des Safes abfragen zu lassen."
+  },
+  "preview": {
+    "sendAlgo": "{{amount}} ALGO an {{receiver}} senden",
+    "transferAsa": "{{amount}} von ASA {{asset}} an {{receiver}} übertragen",
+    "callApp": "App {{app}} aufrufen",
+    "keyreg": "Registrierung des Teilnahmeschlüssels",
+    "configureAsset": "Asset {{asset}} konfigurieren",
+    "newAsset": "neues Asset",
+    "txType": "Transaktionstyp {{type}}",
+    "fromSender": "Von {{sender}}"
+  },
+  "service": {
+    "noAlgorandNamespace": "Der Sitzungsvorschlag dieser Dapp hat den Algorand-Namespace nicht angefordert, daher kann dieser Safe sie nicht bedienen.",
+    "sessionRejected": "Der Benutzer hat den Sitzungsvorschlag abgelehnt.",
+    "sessionDisconnected": "Der Benutzer hat die Sitzung getrennt."
+  },
+  "hook": {
+    "initFailed": "WalletConnect konnte nicht initialisiert werden.",
+    "pairFailed": "Die Kopplung über die WalletConnect-URI ist fehlgeschlagen.",
+    "approveFailed": "Der Sitzungsvorschlag konnte nicht genehmigt werden.",
+    "rejectSessionFailed": "Der Sitzungsvorschlag konnte nicht abgelehnt werden.",
+    "disconnectFailed": "Die Sitzung konnte nicht getrennt werden."
+  },
+  "convert": {
+    "unrecognizedShape": "Unbekanntes algo_signTxn-Anfrageformat — erwartet wurde ein Array aus {txn, signers?}-Einträgen.",
+    "noTransactions": "Die Anfrage enthielt keine Transaktionen.",
+    "unsignedByOthers": "Diese Anfrage enthält eine Transaktion, die von einer anderen Partei autorisiert werden muss (ihre „signers“-Liste ist leer) — zum Beispiel ein von LogicSig kontrolliertes Konto oder ein anderes Multisig-Mitglied. Der Safe kann nur Transaktionen mitsignieren, die von seiner eigenen Adresse oder von Adressen mit Rekey auf ihn gesendet werden, daher kann dieser Stapel nicht in einen Safe-Vorschlag umgewandelt werden. Lehnen Sie ihn ab und bitten Sie die Dapp, diesen Teil der Anfrage direkt über den ursprünglichen Unterzeichner zu leiten.",
+    "decodeFailed": "Eine der Transaktionen in dieser Anfrage konnte nicht dekodiert werden — möglicherweise ist sie bereits signiert (z. B. ein LogicSig-Blob) und keine einfache unsignierte Transaktion.",
+    "notSpendable": "Der Absender {{sender}} der Transaktion ist weder die eigene Adresse des Safes noch eine Adresse, die derzeit per Rekey auf ihn zeigt. Der Safe hat keine Berechtigung, von diesem Konto Gelder zu bewegen, daher kann aus dieser Anfrage kein Safe-Vorschlag werden.",
+    "cannotRepresent": "Der Safe kann diese Transaktion nicht abbilden: {{message}}",
+    "cannotRepresentGeneric": "Der Safe kann eine der Transaktionen in dieser Anfrage nicht abbilden."
+  }
+}

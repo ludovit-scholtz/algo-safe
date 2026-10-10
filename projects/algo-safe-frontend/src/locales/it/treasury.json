@@ -1,0 +1,38 @@
+{
+  "title": "Asset",
+  "subtitle": "Fondi della tesoreria e posizioni di prestito.",
+  "buyEurd": "Acquista EURD",
+  "addFunds": "Aggiungi fondi",
+  "stats": {
+    "nativeBalance": "Saldo nativo",
+    "nativeBalanceSub": "Caricato direttamente dall'indirizzo della cassaforte",
+    "optedInAssets": "Asset con opt-in",
+    "optedInAssetsSub": "Asset dell'account Algod escluso ALGO",
+    "safeAddress": "Indirizzo della cassaforte",
+    "app": "App {{appId}}"
+  },
+  "empty": "Questo smart account non ha ancora alcun saldo nativo né asset con opt-in.",
+  "fundingStarted": "Sessione di finanziamento per {{amount}} € avviata (demo / soluzione di ripiego Quantoz).",
+  "modal": {
+    "title": "Acquista EURD",
+    "description": "Acquista EURD tramite bonifico bancario Quantoz. I fondi vengono accreditati sull'indirizzo di tesoreria di questa cassaforte.",
+    "addressUnavailable": "Indirizzo della cassaforte non disponibile",
+    "amountLabel": "Importo (EUR)",
+    "exchangeRate": "Tasso di cambio: 1 EUR = 1 EURD · piattaforma Quantoz",
+    "cancel": "Annulla",
+    "continue": "Continua verso la banca"
+  },
+  "table": {
+    "asset": "Asset",
+    "type": "Tipo",
+    "balance": "Saldo",
+    "nativeLower": "nativo",
+    "native": "Nativo",
+    "optedInAsa": "ASA con opt-in",
+    "loading": "Caricamento dei saldi on-chain…",
+    "noHoldings": "Nessun asset trovato."
+  },
+  "row": {
+    "apy": "{{apy}}% APY"
+  }
+}

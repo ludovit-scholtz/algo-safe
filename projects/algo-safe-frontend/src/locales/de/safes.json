@@ -1,0 +1,159 @@
+{
+  "selection": {
+    "checkingWallet": "Wallet-Sitzung wird geprüft..."
+  },
+  "recover": {
+    "noWallet": "Verbinden Sie eine Wallet, bevor Sie einen vorhandenen Safe wiederherstellen.",
+    "invalidAppId": "Geben Sie eine gültige Algorand-Anwendungs-ID ein.",
+    "invalidName": "Die ausgewählte App hat keinen gültigen Algo-Safe-Namen zurückgegeben.",
+    "loadFailed": "Diese Anwendung konnte im ausgewählten Netzwerk nicht geladen werden.",
+    "success": "{{name}} wurde wiederhergestellt und in diesem Browser gespeichert."
+  },
+  "home": {
+    "titleLine1": "Institutionelles Treasury",
+    "titleLine2": "Gebaut für die Agenten-Ökonomie.",
+    "intro": "Algo Safe ist ein richtliniengesteuertes Smart-Account-System. Sichern Sie Ihre Assets mit Multisignatur-Workflows, automatisierten Rebalancing-Agenten und fein abgestuften Governance-Protokollen, die für die belastbare Blockchain von Algorand entwickelt wurden.",
+    "walletReady": "Wallet verbunden. Ihre Treasury-Safes sind bereit.",
+    "createTitle": "Neuen Safe erstellen",
+    "createText": "Stellen Sie ein neues institutionelles Treasury mit individuellen Unterzeichnern und automatisierten Richtlinien bereit.",
+    "importTitle": "Vorhandenes Konto importieren",
+    "importText": "Geben Sie die On-Chain-Anwendungs-ID eines Algo Safe ein. Das Dashboard liest zuerst den Vertragsnamen und speichert ihn erst danach in Ihrer lokalen Registry.",
+    "appIdLabel": "Anwendungs-ID",
+    "appIdHint": "Verwenden Sie die ID eines bereits bereitgestellten Algo Safe im aktuell ausgewählten Netzwerk.",
+    "appIdPlaceholder": "z. B. 123456789",
+    "reading": "Vertrag wird gelesen...",
+    "recoverButton": "Konto wiederherstellen",
+    "network": "Netzwerk: {{network}}",
+    "existingSafes": "Vorhandene Safes",
+    "accounts_one": "{{count}} KONTO",
+    "accounts_other": "{{count}} KONTEN",
+    "empty": "Noch keine Safes — erstellen Sie oben einen.",
+    "registryTitle": "Lokale Safe-Registry",
+    "registryLine1": "Hier werden nur Safes angezeigt, die Sie in diesem Browser bereitgestellt oder wiederhergestellt haben.",
+    "registryLine2": "Importieren Sie einen vorhandenen Algo Safe per App-ID oder erstellen Sie einen neuen, um die Liste zu füllen.",
+    "documentation": "Dokumentation",
+    "audit": "Sicherheitsaudit"
+  },
+  "login": {
+    "authRequired": "Authentifizierung erforderlich",
+    "titleLine1": "Verbinden Sie Ihre Wallet,",
+    "titleLine2": "um auf Treasury-Safes zuzugreifen.",
+    "intro": "Wählen Sie das Netzwerk, in dem Sie arbeiten möchten, und verbinden Sie anschließend eine kompatible Wallet, um vorhandene Safes anzuzeigen, neue Treasuries zu erstellen und richtliniengesteuerte Vorgänge in der authentifizierten Konsole zu verwalten.",
+    "secureTitle": "Sichere Signatur-Übergabe",
+    "secureText": "Die Transaktionssignatur bleibt in Ihrer Wallet, während Algo Safe das verbundene Konto für authentifizierte Aktionen verwendet.",
+    "walletsTitle": "Unterstützte Wallets",
+    "walletsText": "MainNet und TestNet nutzen Browser- und WalletConnect-Wallets, während LocalNet die KMD-Entwicklungs-Wallet bereitstellt.",
+    "whyTitle": "Warum zuerst anmelden",
+    "why1": "Authentifizieren Sie sich vor dem Laden der Safes, damit das Dashboard Aktionen an Ihr aktives Algorand-Konto binden kann.",
+    "why2": "Nach der Verbindung stehen die Treasury-Übersicht und die Safe-Verwaltungskonsole sofort zur Verfügung.",
+    "why3": "LocalNet verzichtet auf Browser-Wallets und verwendet stattdessen KMD.",
+    "chooseTitle": "Netzwerk und Wallet wählen",
+    "chooseText": "Verbinden Sie sich, um Ihr authentifiziertes Dashboard freizuschalten.",
+    "chain": "Netzwerk",
+    "chainHint": "WalletConnect benötigt eine gültige CAIP-Chain. Wählen Sie daher vor dem Koppeln das Zielnetzwerk aus.",
+    "localnetHint": "Verwenden Sie die LocalNet-KMD-Wallet für lokale Entwicklungssitzungen.",
+    "walletsHint": "Verwenden Sie Pera, Defly, WalletConnect oder Biatec Wallet für diese Algorand-Chain.",
+    "kmd": "Verwenden Sie die lokale, von AlgoKit LocalNet verwaltete KMD-Wallet für Entwicklungsabläufe.",
+    "pera": "Scannen Sie einen QR-Code oder bestätigen Sie in der Pera-App.",
+    "defly": "Bestätigen Sie die Sitzung in Defly, um fortzufahren.",
+    "biatec": "Verbinden Sie Biatec Wallet direkt (Popup oder Liquid Auth) und bestätigen Sie die Sitzung.",
+    "walletConnect": "Verbinden Sie jede WalletConnect-kompatible Algorand-Wallet über den gemeinsamen QR-Ablauf.",
+    "logoAlt": "{{name}}-Logo",
+    "connecting": "Verbindung wird hergestellt",
+    "connect": "Verbinden",
+    "noWallets": "Für das ausgewählte Netzwerk sind keine kompatiblen Wallet-Anbieter verfügbar.",
+    "connectFailed": "{{name}} konnte nicht verbunden werden. {{message}}",
+    "connectDefault": "Bitte bestätigen Sie die Wallet-Anfrage und versuchen Sie es erneut."
+  },
+  "card": {
+    "app": "App {{appId}}",
+    "agents_one": "{{count}} Agent",
+    "agents_other": "{{count}} Agenten"
+  },
+  "init": {
+    "steps": {
+      "deploy": "Vertragsbereitstellung",
+      "fund": "MBR-Finanzierung"
+    },
+    "errors": {
+      "rejected": "Die Transaktion wurde abgelehnt oder konnte nicht übermittelt werden.",
+      "nameRequired": "Geben Sie einen Safe-Namen ein, bevor Sie die Bereitstellung starten.",
+      "walletRequired": "Zum Bereitstellen und Finanzieren des Safes ist eine verbundene Wallet erforderlich.",
+      "amountInvalid": "Geben Sie einen positiven ALGO-Betrag für die MBR-Finanzierung des App-Kontos ein."
+    },
+    "button": {
+      "deploying": "Vertrag wird bereitgestellt...",
+      "funding": "Finanzierung und Initialisierung...",
+      "ready": "Safe bereit",
+      "start": "Starten"
+    },
+    "breadcrumbSecurity": "Sicherheitseinrichtung",
+    "breadcrumbInit": "Initialisierung",
+    "title": "Smart Account initialisieren",
+    "intro": "Stellen Sie den Algo-Safe-Vertrag über Ihre verbundene Wallet bereit und finanzieren Sie anschließend das neue App-Konto mit nativen ALGO, um die Anforderungen an das Mindestguthaben zu erfüllen.",
+    "step01": "Schritt 01",
+    "step02": "Schritt 02",
+    "deployTitle": "Smart Contract bereitstellen",
+    "deployText": "Erstellen Sie die Algo-Safe-Anwendung On-Chain über die bereits verbundene Wallet.",
+    "fundTitle": "ALGO-MBR finanzieren",
+    "fundText": "Senden Sie native ALGO an das neue App-Konto für Box-MBR und die Ersteinrichtung.",
+    "connectedWallet": "Verbundene Wallet",
+    "ready": "Bereit",
+    "walletNotConnected": "Wallet nicht verbunden",
+    "network": "Netzwerk",
+    "deployFlow": "Bereitstellungsablauf",
+    "live": "Live",
+    "flowText": "Die Wallet signiert zuerst die App-Bereitstellung, danach bestätigen Sie eine gebündelte Anfrage, die das App-Konto finanziert und initialisiert.",
+    "nameLabel": "Safe-Name",
+    "nameHint": "Dieser Name wird bei der Erstellung der Anwendung On-Chain gespeichert.",
+    "namePlaceholder": "z. B. Governance-Treasury",
+    "mbrLabel": "MBR-Einzahlung (ALGO)",
+    "mbrHint": "Empfohlen werden 2 ALGO, damit die App das Box-Mindestguthaben und die Initialisierungsvorgänge abdecken kann.",
+    "status": {
+      "idle": {
+        "title": "Starten stellt zuerst den Vertrag bereit und fordert dann eine gebündelte Transaktion für ALGO-Finanzierung und Initialisierung an.",
+        "text": "Die Genesis-Admin-Gruppe wird bei der Initialisierung erstellt, nachdem das App-Konto finanziert wurde."
+      },
+      "deploying": {
+        "title": "Bereitstellung läuft.",
+        "text": "Bestätigen Sie die Bereitstellung des Smart Contracts in Ihrer Wallet. Die Schaltfläche bleibt gesperrt, bis die Chain die Erstellung bestätigt."
+      },
+      "funding": {
+        "title": "Vertrag bereitgestellt. Schritt 02 läuft.",
+        "text": "Prüfen Sie Ihre Wallet auf die gebündelte Signaturanfrage, die das neue App-Konto mit ALGO finanziert und den Safe initialisiert."
+      },
+      "success": {
+        "title": "Safe-Initialisierung abgeschlossen.",
+        "text": "Der Vertrag ist bereitgestellt, mit ALGO finanziert, für die Governance initialisiert und in Ihrer lokalen Safe-Registry gespeichert."
+      },
+      "error": {
+        "title": "Initialisierung gestoppt.",
+        "text": "Prüfen Sie den folgenden Fehler und starten Sie den Ablauf neu, sobald die Wallet bereit ist."
+      }
+    },
+    "appId": "App-ID",
+    "createTx": "Erstellungs-Tx: {{txId}}",
+    "appAddress": "App-Adresse",
+    "fees": "Netzwerkgebühren werden in ALGO bezahlt und hängen von den in der Wallet bestätigten Transaktionen ab.",
+    "documentation": "Dokumentation",
+    "support": "Institutioneller Support"
+  },
+  "registry": {
+    "tier": "On-Chain-Safe"
+  },
+  "holdings": {
+    "nativeName": "Algorand nativ"
+  },
+  "mock": {
+    "safeNotFound": "Safe {{safeId}} wurde in der lokalen Registry nicht gefunden.",
+    "tier": "{{threshold}}-von-{{signerCount}}-Multisignatur",
+    "agentRegTitle": "Agent-Registrierung: {{alias}}",
+    "agentRegDesc": "Automatisierten Agenten {{alias}} in {{groupTier}} registrieren.",
+    "justNow": "Gerade eben",
+    "initAgent": "Agent-Vertrag initialisieren",
+    "policyTitle": "Richtlinien-Update: {{name}}",
+    "policyDesc": "Ausgabenrichtlinie des Agenten ändern.",
+    "updatePolicyBox": "Richtlinien-Box aktualisieren",
+    "withinRules": "Innerhalb der Governance-Regeln"
+  }
+}

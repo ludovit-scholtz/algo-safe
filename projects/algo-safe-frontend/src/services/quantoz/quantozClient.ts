@@ -1,5 +1,6 @@
 // src/services/quantoz/quantozClient.ts
 // Calls the Quantoz MCP server (JSON-RPC tools/call) with X-API-KEY.
+import i18n from '../../i18n/instance'
 import { env } from '../../lib/env'
 import type { FundByBankBank, FundByBankCountry, FundingSession, QuantozTransaction } from '../types'
 import type { QuantozService } from './QuantozService'
@@ -10,9 +11,10 @@ async function callTool<T>(name: string, args: Record<string, unknown>): Promise
     headers: { 'Content-Type': 'application/json', 'X-API-KEY': env.quantozApiKey ?? '' },
     body: JSON.stringify({ jsonrpc: '2.0', id: Date.now(), method: 'tools/call', params: { name, arguments: args } }),
   })
-  if (!res.ok) throw new Error(`Quantoz ${name} HTTP ${res.status}`)
+  if (!res.ok) throw new Error(i18n.t('agents:quantoz.httpError', { name, status: res.status }))
   const json = await res.json()
-  if (json.error) throw new Error(`Quantoz ${name}: ${json.error.message ?? 'error'}`)
+  if (json.error)
+    throw new Error(i18n.t('agents:quantoz.toolError', { name, message: json.error.message ?? i18n.t('agents:quantoz.unknownError') }))
   // MCP tool results arrive as content[].text (JSON string) — parse the first text part.
   const text = json.result?.content?.find?.((c: { type: string }) => c.type === 'text')?.text
   return (text ? JSON.parse(text) : json.result) as T
@@ -23,7 +25,7 @@ export const quantozClient: QuantozService = {
   async getEurdBalance() {
     const r = await callTool<{ balance?: number; amount?: number }>('get_account_balance', { accountCode: env.quantozAccountCode })
     const amount = r.balance ?? r.amount ?? 0
-    return { symbol: 'EURD', assetId: 1221682136, amount, decimals: 2, label: 'EURD Balance' }
+    return { symbol: 'EURD', assetId: 1221682136, amount, decimals: 2, label: i18n.t('agents:quantoz.eurdBalance') }
   },
   async getTransactions() {
     const r = await callTool<{ items?: QuantozTransaction[] }>('get_transactions', { accountCode: env.quantozAccountCode, pageSize: 10 })

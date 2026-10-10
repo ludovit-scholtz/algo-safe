@@ -1,0 +1,159 @@
+{
+  "selection": {
+    "checkingWallet": "Checking wallet session..."
+  },
+  "recover": {
+    "noWallet": "Connect a wallet before recovering an existing safe.",
+    "invalidAppId": "Enter a valid Algorand application ID.",
+    "invalidName": "The selected app did not return a valid Algo Safe name.",
+    "loadFailed": "Unable to load that application on the selected network.",
+    "success": "Recovered {{name}} and saved it to this browser."
+  },
+  "home": {
+    "titleLine1": "Institutional Treasury",
+    "titleLine2": "Built for the Agent Economy.",
+    "intro": "Algo Safe is a policy-driven smart account system. Secure your assets with multi-signature workflows, automated rebalancing agents, and granular governance protocols designed for Algorand's resilient blockchain.",
+    "walletReady": "Wallet connected. Your treasury safes are ready.",
+    "createTitle": "Create New Safe",
+    "createText": "Deploy a fresh institutional treasury with custom signers and automated policies.",
+    "importTitle": "Import Existing Account",
+    "importText": "Enter an on-chain Algo Safe application ID. The dashboard reads the contract name first and only then stores it in your local registry.",
+    "appIdLabel": "Application ID",
+    "appIdHint": "Use the ID of an already deployed Algo Safe on the currently selected network.",
+    "appIdPlaceholder": "e.g. 123456789",
+    "reading": "Reading contract...",
+    "recoverButton": "Recover Account",
+    "network": "Network: {{network}}",
+    "existingSafes": "Existing Safes",
+    "accounts_one": "{{count}} ACCOUNT",
+    "accounts_other": "{{count}} ACCOUNTS",
+    "empty": "No safes yet — create one above.",
+    "registryTitle": "Local Safe Registry",
+    "registryLine1": "Only safes you deploy or recover in this browser are shown here.",
+    "registryLine2": "Import an existing Algo Safe by app ID, or create a new one to populate the list.",
+    "documentation": "Documentation",
+    "audit": "Security Audit"
+  },
+  "login": {
+    "authRequired": "Authentication required",
+    "titleLine1": "Connect your wallet",
+    "titleLine2": "to access treasury safes.",
+    "intro": "Pick the chain you want to work on, then connect a compatible wallet to view existing safes, create new treasuries, and manage policy-driven operations from the authenticated console.",
+    "secureTitle": "Secure signer handoff",
+    "secureText": "Keep transaction signing inside your wallet while Algo Safe uses the connected account for authenticated actions.",
+    "walletsTitle": "Supported wallets",
+    "walletsText": "MainNet and TestNet use browser and WalletConnect wallets, while LocalNet exposes the KMD development wallet.",
+    "whyTitle": "Why login first",
+    "why1": "Authenticate before loading safes so the dashboard can bind actions to your active Algorand account.",
+    "why2": "Once connected, the existing treasury overview and safe management console become available immediately.",
+    "why3": "LocalNet skips browser wallets in favor of KMD.",
+    "chooseTitle": "Choose chain and wallet",
+    "chooseText": "Connect to unlock your authenticated dashboard.",
+    "chain": "Chain",
+    "chainHint": "WalletConnect requires a valid CAIP chain, so choose the target chain before pairing.",
+    "localnetHint": "Use the LocalNet KMD wallet for local development sessions.",
+    "walletsHint": "Use Pera, Defly, WalletConnect, or Biatec Wallet for this Algorand chain.",
+    "kmd": "Use the local KMD wallet managed by AlgoKit LocalNet for development flows.",
+    "pera": "Scan a QR code or approve in-app with Pera.",
+    "defly": "Approve the session in Defly to continue.",
+    "biatec": "Connect Biatec Wallet directly (popup or Liquid Auth) and approve the session.",
+    "walletConnect": "Connect any WalletConnect-compatible Algorand wallet using the shared QR flow.",
+    "logoAlt": "{{name}} logo",
+    "connecting": "Connecting",
+    "connect": "Connect",
+    "noWallets": "No compatible wallet providers are available for the selected chain.",
+    "connectFailed": "Unable to connect {{name}}. {{message}}",
+    "connectDefault": "Please approve the wallet request and try again."
+  },
+  "card": {
+    "app": "App {{appId}}",
+    "agents_one": "{{count}} agent",
+    "agents_other": "{{count}} agents"
+  },
+  "init": {
+    "steps": {
+      "deploy": "Contract Deployment",
+      "fund": "MBR Funding"
+    },
+    "errors": {
+      "rejected": "The transaction was rejected or could not be submitted.",
+      "nameRequired": "Enter a safe name before starting the deployment.",
+      "walletRequired": "A connected wallet is required to deploy and fund the safe.",
+      "amountInvalid": "Enter a positive ALGO amount for the app account MBR funding."
+    },
+    "button": {
+      "deploying": "Deploying contract...",
+      "funding": "Funding and bootstrapping...",
+      "ready": "Safe Ready",
+      "start": "Start"
+    },
+    "breadcrumbSecurity": "Security Setup",
+    "breadcrumbInit": "Initialization",
+    "title": "Initialize Smart Account",
+    "intro": "Deploy the Algo Safe contract from your connected wallet, then fund the new app account with native ALGO for minimum balance requirements.",
+    "step01": "Step 01",
+    "step02": "Step 02",
+    "deployTitle": "Deploy smart contract",
+    "deployText": "Create the Algo Safe application on-chain from the already connected wallet.",
+    "fundTitle": "Fund ALGO MBR",
+    "fundText": "Send native ALGO to the new app account for box MBR and bootstrap setup.",
+    "connectedWallet": "Connected wallet",
+    "ready": "Ready",
+    "walletNotConnected": "Wallet not connected",
+    "network": "Network",
+    "deployFlow": "Deploy flow",
+    "live": "Live",
+    "flowText": "The wallet will first sign the app deployment, then approve one grouped request that funds the app account and bootstraps it.",
+    "nameLabel": "Safe Name",
+    "nameHint": "This name is stored on-chain during application creation.",
+    "namePlaceholder": "e.g. Governance Treasury",
+    "mbrLabel": "MBR Deposit (ALGO)",
+    "mbrHint": "Recommended 2 ALGO so the app can cover box minimum balance and bootstrap operations.",
+    "status": {
+      "idle": {
+        "title": "Start will deploy first, then request one grouped ALGO funding plus bootstrap transaction.",
+        "text": "The genesis admin group is created during bootstrap after the app account is funded."
+      },
+      "deploying": {
+        "title": "Deployment in progress.",
+        "text": "Approve the smart contract deployment in your wallet. The button stays locked until the chain confirms creation."
+      },
+      "funding": {
+        "title": "Contract deployed. Step 02 is now in progress.",
+        "text": "Check your wallet for the grouped signature request that funds the new app account with ALGO and bootstraps the safe."
+      },
+      "success": {
+        "title": "Safe initialization completed.",
+        "text": "The contract is deployed, funded with ALGO, bootstrapped for governance, and stored in your local safe registry."
+      },
+      "error": {
+        "title": "Initialization stopped.",
+        "text": "Review the error below, then restart the flow when the wallet is ready."
+      }
+    },
+    "appId": "App ID",
+    "createTx": "Create tx: {{txId}}",
+    "appAddress": "App address",
+    "fees": "Network fees are paid in ALGO and depend on wallet-confirmed transactions.",
+    "documentation": "Documentation",
+    "support": "Institutional Support"
+  },
+  "registry": {
+    "tier": "On-chain Safe"
+  },
+  "holdings": {
+    "nativeName": "Algorand Native"
+  },
+  "mock": {
+    "safeNotFound": "Safe {{safeId}} was not found in the local registry.",
+    "tier": "{{threshold}}-of-{{signerCount}} Multisig",
+    "agentRegTitle": "Agent Registration: {{alias}}",
+    "agentRegDesc": "Register automated agent {{alias}} in {{groupTier}}.",
+    "justNow": "Just now",
+    "initAgent": "Initialize agent contract",
+    "policyTitle": "Policy Update: {{name}}",
+    "policyDesc": "Modify agent spending policy.",
+    "updatePolicyBox": "Update policy box",
+    "withinRules": "Within governance rules"
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "title": "资产",
+  "subtitle": "资金库持仓与借贷头寸。",
+  "buyEurd": "购买 EURD",
+  "addFunds": "添加资金",
+  "stats": {
+    "nativeBalance": "原生余额",
+    "nativeBalanceSub": "直接从保险库地址加载",
+    "optedInAssets": "已 opt-in 的资产",
+    "optedInAssetsSub": "Algod 账户持有的资产（不含 ALGO）",
+    "safeAddress": "保险库地址",
+    "app": "应用 {{appId}}"
+  },
+  "empty": "此智能账户目前没有原生余额，也没有已 opt-in 的资产。",
+  "fundingStarted": "已启动 €{{amount}} 的充值会话（演示 / Quantoz 备用方案）。",
+  "modal": {
+    "title": "购买 EURD",
+    "description": "通过 Quantoz 银行转账购买 EURD。资金将结算到此保险库的资金库地址。",
+    "addressUnavailable": "保险库地址不可用",
+    "amountLabel": "金额（EUR）",
+    "exchangeRate": "汇率：1 EUR = 1 EURD · Quantoz 平台",
+    "cancel": "取消",
+    "continue": "前往银行"
+  },
+  "table": {
+    "asset": "资产",
+    "type": "类型",
+    "balance": "余额",
+    "nativeLower": "原生",
+    "native": "原生",
+    "optedInAsa": "已 opt-in 的 ASA",
+    "loading": "正在加载链上余额…",
+    "noHoldings": "未找到持仓。"
+  },
+  "row": {
+    "apy": "{{apy}}% APY"
+  }
+}

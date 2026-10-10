@@ -1,0 +1,35 @@
+{
+  "logoAlt": "Algo Safe logo",
+  "selectSafe": "Select safe",
+  "registerAgent": "Register Agent",
+  "nav": {
+    "dashboard": "Dashboard",
+    "proposals": "Proposals",
+    "createProposal": "Create Proposal",
+    "assets": "Assets",
+    "upgrade": "Upgrade & Rekeys",
+    "walletConnect": "WalletConnect"
+  },
+  "errorBoundary": {
+    "title": "Error occured",
+    "unexpected": "Unexpected application error."
+  },
+  "auth": {
+    "checking": "Checking wallet",
+    "loginPrompt": "Log in with an Algorand wallet to access your safes",
+    "loggingOut": "Logging out",
+    "logout": "Logout"
+  },
+  "network": {
+    "localnetLocked": "Connect a LocalNet (KMD) wallet to switch here",
+    "chooseLocalnetWallet": "Choose a LocalNet wallet",
+    "chooseAlgorandWallet": "Choose an Algorand wallet",
+    "hints": {
+      "mainnet": "Production network for live treasury operations.",
+      "voimain": "Voi network for specialized operations.",
+      "aramidmain": "Aramid network for specialized operations.",
+      "testnet": "Public test network for wallet pairing and dry runs.",
+      "localnet": "Local development chain with KMD-backed wallets."
+    }
+  }
+}

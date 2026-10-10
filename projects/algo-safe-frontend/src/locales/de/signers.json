@@ -1,0 +1,219 @@
+{
+  "memberTypes": {
+    "standard": "Standardkonto",
+    "multisig": "Multisig-Konto",
+    "rekeyed": "Rekey-Konto",
+    "agent": "Agentenkonto",
+    "quantum": "Quantenkonto",
+    "unknown": "Typ {{type}}"
+  },
+  "breadcrumb": {
+    "treasury": "Treasury",
+    "signerGroups": "Unterzeichnergruppen",
+    "createGroup": "Gruppe erstellen",
+    "manageGroup": "Gruppe #{{id}} verwalten"
+  },
+  "role": {
+    "admin": "Admin",
+    "execution": "Ausführung",
+    "custodian": "Verwahrer"
+  },
+  "status": {
+    "active": "Aktiv",
+    "disabled": "Deaktiviert",
+    "paused": "Pausiert"
+  },
+  "shared": {
+    "backToDashboard": "Zurück zum Dashboard",
+    "creatingProposal": "Vorschlag wird erstellt …",
+    "submitting": "Wird gesendet …",
+    "cancel": "Abbrechen",
+    "memberLabel": "Mitgliedsbezeichnung",
+    "accountType": "Kontotyp",
+    "addressPlaceholder": "Algorand-Adresse",
+    "adminGroupLabel": "Einreichende Admin-Unterzeichnergruppe",
+    "noAdminGroups": "Für diesen Safe wurden keine aktiven Admin-Unterzeichnergruppen gefunden.",
+    "safeNotLoaded": "Der ausgewählte Safe konnte nicht geladen werden.",
+    "allowAlgo": "ALGO-Zahlungen erlauben",
+    "allowAsa": "ASA-Überweisungen erlauben",
+    "allowApp": "App-Aufrufe erlauben",
+    "allowKeyreg": "Schlüsselregistrierung erlauben",
+    "allowAcfg": "Asset-Konfiguration erlauben",
+    "allowRekey": "Rekey erlauben"
+  },
+  "card": {
+    "admin": "Admin",
+    "groupSummary": "Gruppe #{{id}} · {{threshold}} von {{count}} Unterzeichnern",
+    "dailyUsage": "Tagesnutzung ({{asset}})",
+    "unlimited": "Unbegrenzt",
+    "monthlyLimit": "Monatslimit",
+    "cooldown": "Abklingzeit",
+    "none": "Keine",
+    "noLimit": "Kein Limit",
+    "actionApp": "App",
+    "actionKeyreg": "Keyreg",
+    "manage": "Verwalten",
+    "rounds_one": "{{count}} Runde",
+    "rounds_other": "{{count}} Runden"
+  },
+  "governance": {
+    "title": "Safe-Status",
+    "pausedDesc": "Vorschläge, die Gelder bewegen, sind blockiert. Die Governance bleibt aktiv – erstellen Sie einen Vorschlag zum Aufheben der Pause, um den Betrieb fortzusetzen.",
+    "activeDesc": "Die Notfallpause stoppt alle Vorschläge, die Gelder bewegen, während die Governance verfügbar bleibt. Nutzen Sie sie, wenn der Schlüssel eines Unterzeichners kompromittiert sein könnte.",
+    "proposeUnpause": "Aufhebung der Pause vorschlagen",
+    "proposePause": "Pause vorschlagen",
+    "newGroup": "Neue Unterzeichnergruppe",
+    "noAdminGroup": "Für die verbundene Wallet ist keine aktive Admin-Unterzeichnergruppe verfügbar – Governance-Aktionen sind nicht möglich.",
+    "pauseCreated": "Vorschlag zur Pause erstellt",
+    "unpauseCreated": "Vorschlag zur Aufhebung der Pause erstellt",
+    "pauseFailed": "Vorschlag zur Pause konnte nicht erstellt werden",
+    "connectWallet": "Verbinden Sie eine Wallet, bevor Sie einen Governance-Vorschlag erstellen.",
+    "invalidFirstMember": "Geben Sie eine gültige Algorand-Adresse für das erste Mitglied ein."
+  },
+  "create": {
+    "title": "Unterzeichnergruppe erstellen",
+    "subtitle": "Schlagen Sie eine neue Standard-Unterzeichnergruppe oder eine Verwahrergruppe für die Integration eines DeFi-Protokolls vor. Eine neue Gruppe startet immer mit einem Mitglied und dem Schwellenwert 1.",
+    "errors": {
+      "nameRequired": "Geben Sie einen Gruppennamen ein.",
+      "noAdminGroup": "Es ist keine Admin-Unterzeichnergruppe verfügbar, um diesen Vorschlag einzureichen.",
+      "failed": "Der Vorschlag für die Unterzeichnergruppe konnte nicht erstellt werden."
+    },
+    "created": "Vorschlag zur Erstellung der Unterzeichnergruppe erstellt",
+    "groupType": {
+      "title": "Gruppentyp",
+      "standard": "Standardgruppe",
+      "standardDesc": "Menschliche oder Agenten-Unterzeichner, verwaltet von Admins. Unterstützt Ausgabenlimits und beliebige Aktionssätze.",
+      "custodian": "Verwahrergruppe",
+      "custodianDesc": "Ein Protokollvertrags-Unterzeichner, begrenzt durch Asset-Schutzlimits. Keine Admin-Rechte; nur pay/axfer-Aktionen."
+    },
+    "identity": {
+      "title": "Gruppenidentität",
+      "nameLabel": "Gruppenname",
+      "nameHint": "Wird bei der Erstellung festgelegt.",
+      "namePlaceholder": "z. B. Handelsabteilung",
+      "firstMemberLabel": "Adresse des ersten Mitglieds",
+      "firstMemberHint": "Das erste (und einzige) Mitglied der Gruppe. Weitere Mitglieder fügen Sie nach der Erstellung über Mitgliedsvorschläge hinzu.",
+      "labelPlaceholder": "Unterzeichner"
+    },
+    "actions": {
+      "title": "Erlaubte Aktionen",
+      "custodianDesc": "Verwahrergruppen sind auf Zahlungen und Asset-Überweisungen beschränkt – ihre Ausgaben werden durch die nach der Erstellung von Admins festgelegten Asset-Schutzlimits begrenzt.",
+      "standardDesc": "Wählen Sie, welche Transaktionstypen diese Gruppe ausführen darf, sobald die Genehmigungen den Schwellenwert erreichen.",
+      "rekeyHint": "Erfordert bei der Ausführung zusätzlich Gruppenadmin-Rechte – überträgt die Kontrolle über das Konto an eine andere Adresse."
+    },
+    "privileges": {
+      "title": "Admin-Rechte",
+      "desc": "Admin-Rechte gelten für den gesamten Safe: Eine Gruppe mit diesen Rechten kann <em>jede</em> Gruppe im Safe verwalten. Vergeben Sie sie sparsam.",
+      "groupAdmin": "Gruppenadmin (PRIV_GROUP)",
+      "groupAdminHint": "Gruppen, Mitglieder, Schwellenwerte und Rechte erstellen/ändern.",
+      "policyAdmin": "Richtlinien-Admin (PRIV_POLICY)",
+      "policyAdminHint": "Ausgabenrichtlinie und Abklingzeit jeder Gruppe ändern."
+    },
+    "adminGroupHint": "Das verbundene Konto muss Mitglied dieser Admin-Gruppe sein, um den Vorschlag einzureichen.",
+    "submit": "Gruppenerstellung vorschlagen"
+  },
+  "manage": {
+    "loading": "Einstellungen der Unterzeichnergruppe werden aus der Blockchain geladen …",
+    "notFound": "Die ausgewählte Unterzeichnergruppe wurde nicht gefunden.",
+    "title": "Unterzeichnergruppe verwalten",
+    "subtitle": "Aktualisieren Sie Mitglieder, Schwellenwerte, Richtlinien und Admin-Berechtigungen über Governance-Vorschläge.",
+    "fixedNameNote": "Gruppennamen werden bei der Erstellung festgelegt. Alle anderen unterstützten Eigenschaften können über Vorschläge einer Admin-Unterzeichnergruppe aktualisiert werden.",
+    "adminGroupHint": "Das verbundene Konto muss Mitglied der ausgewählten Admin-Gruppe sein, um den Vorschlag einzureichen.",
+    "youAreMember": " · Sie sind Mitglied",
+    "mayReject": "Die ausgewählte Admin-Gruppe kann diesen Vorschlag ablehnen, wenn die verbundene Wallet kein Mitglied ist.",
+    "refreshing": "Gruppenstatus wird aktualisiert …",
+    "custodianNotice": "<strong>Verwahrergruppe</strong> – Diese Gruppe wird von einem Smart-Contract-Protokoll verwaltet. Asset-Schutzlimits (von Admins festgelegt) begrenzen, was der Verwahrer ausgeben kann. Sie hat keine Admin-Rechte und nutzt Schutzlimits statt Tages-/Monatslimits. Der Verwahrer kann sich selbst auflösen, sobald alle Schutzlimits entfernt sind.",
+    "members": {
+      "title": "Mitglieder",
+      "desc": "Aktuelle Unterzeichnerkonten und Bezeichnungen, die in den Gruppen-Boxes gespeichert sind.",
+      "defaultLabel": "Mitglied",
+      "removeTitle": "Entfernung des Mitglieds vorschlagen",
+      "removeAria": "Entfernung von {{who}} vorschlagen",
+      "cannotRemove": "Mitglieder können nicht entfernt werden, solange ihre Anzahl dem Signatur-Schwellenwert entspricht – senken Sie zuerst den Schwellenwert.",
+      "addressLabel": "Mitgliedsadresse",
+      "labelPlaceholder": "Treasury-Unterzeichner",
+      "submitAdd": "Hinzufügen eines Mitglieds vorschlagen",
+      "invalidAddress": "Geben Sie eine gültige Algorand-Adresse für das Mitglied ein.",
+      "belowThreshold": "Das Entfernen dieses Mitglieds würde die Gruppe unter ihren Signatur-Schwellenwert bringen. Senken Sie zuerst den Schwellenwert.",
+      "addCreated": "Vorschlag zum Hinzufügen eines Mitglieds erstellt",
+      "removeCreated": "Vorschlag zum Entfernen eines Mitglieds erstellt",
+      "count_one": "{{count}} Mitglied",
+      "count_other": "{{count}} Mitglieder"
+    },
+    "threshold": {
+      "title": "Signatur-Schwellenwert",
+      "desc": "Ändern Sie, wie viele Signaturen erforderlich sind, bevor diese Gruppe die Ausführung genehmigen kann.",
+      "label": "Schwellenwert",
+      "hint": "Aktuell verfügbare Mitglieder: {{max}}",
+      "submit": "Änderung des Schwellenwerts vorschlagen",
+      "invalid": "Der Schwellenwert muss zwischen 1 und {{max}} liegen.",
+      "created": "Vorschlag zur Änderung des Schwellenwerts erstellt"
+    },
+    "policy": {
+      "title": "Ausführungsrichtlinie",
+      "desc": "Aktualisieren Sie erlaubte Aktionen, Asset-basierte Limits und Abklingrunden der Unterzeichnergruppe.",
+      "rekeyHint": "Rekey erfordert bei der Ausführung zusätzlich Gruppenadmin-Rechte – es überträgt die Kontrolle über das Konto an eine andere Adresse.",
+      "assetLabel": "Asset des Ausgabenlimits",
+      "assetHint": "Das gewählte Asset bestimmt, wie die Felder für Tages- und Monatslimit interpretiert und beschriftet werden.",
+      "optionAvailable": "Verfügbar {{balance}}",
+      "notHeld": "nicht gehalten",
+      "dailyLabel": "Tageslimit ({{symbol}})",
+      "monthlyLabel": "Monatslimit ({{symbol}})",
+      "limitHint": "0 bedeutet kein Limit in {{symbol}}.",
+      "cooldownLabel": "Abklingrunden",
+      "cooldownHint": "0 bedeutet keine Abklingzeit.",
+      "submit": "Änderung der Richtlinie vorschlagen",
+      "cooldownInvalid": "Die Abklingrunden müssen eine nicht negative ganze Zahl sein.",
+      "limitsInvalid": "Geben Sie gültige {{symbol}}-Limits für die Richtlinie der Unterzeichnergruppe ein.",
+      "enableAlgo": "Aktivieren Sie ALGO-Zahlungen, wenn das Asset des Ausgabenlimits ALGO ist.",
+      "enableAsa": "Aktivieren Sie ASA-Überweisungen, wenn das Asset des Ausgabenlimits ein ASA ist.",
+      "created": "Vorschlag zur Änderung der Richtlinie erstellt"
+    },
+    "admin": {
+      "title": "Admin-Steuerung",
+      "desc": "Gewähren oder entziehen Sie Governance-Rechte und aktivieren oder deaktivieren Sie die Unterzeichnergruppe.",
+      "groupAdmin": "Gruppenadmin-Rechte",
+      "policyAdmin": "Richtlinien-Admin-Rechte",
+      "submitPrivileges": "Änderung der Rechte vorschlagen",
+      "privilegesCreated": "Vorschlag zu den Admin-Rechten erstellt",
+      "activeLabel": "Die Gruppe ist aktiv und kann an der Genehmigung und Ausführung von Vorschlägen teilnehmen.",
+      "submitStatus": "Statusänderung vorschlagen",
+      "statusCreated": "Vorschlag zum Status der Unterzeichnergruppe erstellt"
+    },
+    "guards": {
+      "title": "Asset-Schutzlimits",
+      "desc": "Ausgabenobergrenzen pro Asset für diesen Verwahrer. Schutzlimits werden durch Vorschläge der Admin-Gruppe erstellt, aktualisiert und entfernt; jede Überweisung des Verwahrers wird vom passenden Schutzlimit abgezogen.",
+      "remaining": "Verbleibende Zuteilung: {{amount}} {{symbol}}",
+      "removeTitle": "Entfernung des Schutzlimits vorschlagen",
+      "removeAria": "Entfernung des {{symbol}}-Schutzlimits vorschlagen",
+      "empty": "Keine Schutzlimits konfiguriert – dieser Verwahrer kann keinen Wert bewegen, bis ein Admin ein Schutzlimit festlegt.",
+      "assetLabel": "Schutzlimit-Asset",
+      "assetHint": "ALGO oder ein ASA, den der Safe hält.",
+      "amountLabel": "Schutzlimit-Betrag",
+      "amountHint": "Legt die verbleibende Zuteilung für dieses Asset fest (oder ersetzt sie).",
+      "submit": "Änderung des Schutzlimits vorschlagen",
+      "amountInvalid": "Geben Sie einen gültigen {{symbol}}-Schutzlimit-Betrag ein.",
+      "setCreated": "Vorschlag zum Asset-Schutzlimit erstellt",
+      "removeCreated": "Vorschlag zum Entfernen des Schutzlimits erstellt",
+      "count_one": "{{count}} Schutzlimit",
+      "count_other": "{{count}} Schutzlimits"
+    },
+    "dissolve": {
+      "title": "Selbstauflösung",
+      "desc": "Eine Verwahrergruppe kann sich selbst auflösen, sobald ein Admin alle Asset-Schutzlimits entfernt hat und die Gruppe auf ein einziges Mitglied reduziert wurde. Der Auflösungsvorschlag löscht die Box dieses letzten Mitglieds zusammen mit der Gruppe.",
+      "submit": "Auflösung vorschlagen",
+      "connectWallet": "Verbinden Sie eine Wallet, bevor Sie die Auflösung vorschlagen.",
+      "needSingleMember": "Für die Auflösung muss die Gruppe zuvor auf genau ein Mitglied reduziert werden (über Vorschläge zum Entfernen von Mitgliedern).",
+      "failed": "Der Auflösungsvorschlag konnte nicht erstellt werden.",
+      "created": "Vorschlag zur Auflösung des Verwahrers erstellt",
+      "guardsWarning_one": "Diese Gruppe hat noch {{count}} aktives Schutzlimit. Ein Admin muss alle Schutzlimits entfernen, bevor die Auflösung fortgesetzt werden kann.",
+      "guardsWarning_other": "Diese Gruppe hat noch {{count}} aktive Schutzlimits. Ein Admin muss alle Schutzlimits entfernen, bevor die Auflösung fortgesetzt werden kann.",
+      "membersWarning_one": "Diese Gruppe hat {{count}} Mitglied. Entfernen Sie vor der Auflösung alle bis auf eines (über Vorschläge zum Entfernen von Mitgliedern).",
+      "membersWarning_other": "Diese Gruppe hat {{count}} Mitglieder. Entfernen Sie vor der Auflösung alle bis auf eines (über Vorschläge zum Entfernen von Mitgliedern)."
+    },
+    "submitFailed": "Der Vorschlag zur Aktualisierung der Unterzeichnergruppe konnte nicht erstellt werden.",
+    "connectWallet": "Verbinden Sie vor der Verwaltung dieser Unterzeichnergruppe eine Wallet mit Zugriff auf eine Admin-Unterzeichnergruppe.",
+    "activeGuards_one": "({{count}} aktives Schutzlimit)",
+    "activeGuards_other": "({{count}} aktive Schutzlimits)"
+  }
+}

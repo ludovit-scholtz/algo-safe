@@ -1,0 +1,23 @@
+{
+  "language": "Language",
+  "demoData": "demo data",
+  "address": {
+    "copy": "Copy address",
+    "copied": "Address copied",
+    "copyTitle": "Copy {{address}}",
+    "copiedTitle": "Copied {{address}}"
+  },
+  "status": {
+    "executed": "executed",
+    "pending": "pending",
+    "ready": "ready",
+    "draft": "draft",
+    "blocked": "blocked",
+    "rejected": "rejected",
+    "expired": "expired",
+    "cancelled": "cancelled",
+    "active": "active",
+    "pending_review": "pending_review",
+    "paused": "paused"
+  }
+}

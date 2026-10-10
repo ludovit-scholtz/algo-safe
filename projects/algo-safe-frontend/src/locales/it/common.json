@@ -1,0 +1,23 @@
+{
+  "language": "Lingua",
+  "demoData": "dati dimostrativi",
+  "address": {
+    "copy": "Copia indirizzo",
+    "copied": "Indirizzo copiato",
+    "copyTitle": "Copia {{address}}",
+    "copiedTitle": "Copiato {{address}}"
+  },
+  "status": {
+    "executed": "eseguita",
+    "pending": "in attesa",
+    "ready": "pronta",
+    "draft": "bozza",
+    "blocked": "bloccata",
+    "rejected": "rifiutata",
+    "expired": "scaduta",
+    "cancelled": "annullata",
+    "active": "attiva",
+    "pending_review": "in attesa di revisione",
+    "paused": "in pausa"
+  }
+}

@@ -3,6 +3,7 @@
 // represented as a Safe proposal at all (see docs/WALLETCONNECT_WALLET_SETUP.md).
 import { algosdkTxnsToSafeTxnGroup, buildAlgoSafeAppClient, readRekeyedAddress, type SafeTxnTuple } from 'algo-safe'
 import algosdk from 'algosdk'
+import i18n from '../i18n/instance'
 import type { Safe } from '../services/types'
 
 export type WalletConnectTxnEntry = {
@@ -25,7 +26,7 @@ function isWalletConnectTxnEntry(value: unknown): value is WalletConnectTxnEntry
 export function normalizeSessionRequestParams(params: unknown): WalletConnectTxnEntry[] {
   const candidate = Array.isArray(params) && Array.isArray(params[0]) ? params[0] : params
   if (!Array.isArray(candidate) || !candidate.every(isWalletConnectTxnEntry)) {
-    throw new Error('Unrecognized algo_signTxn request shape — expected an array of {txn, signers?} entries.')
+    throw new Error(i18n.t('walletconnect:convert.unrecognizedShape'))
   }
   return candidate
 }
@@ -49,18 +50,14 @@ export async function convertSessionRequestToSafePayload(
   entries: WalletConnectTxnEntry[],
 ): Promise<ConvertResult> {
   if (entries.length === 0) {
-    return { ok: false, reason: 'The request did not contain any transactions.' }
+    return { ok: false, reason: i18n.t('walletconnect:convert.noTransactions') }
   }
 
   const unsignedByOthers = entries.some((entry) => Array.isArray(entry.signers) && entry.signers.length === 0)
   if (unsignedByOthers) {
     return {
       ok: false,
-      reason:
-        'This request bundles a transaction that must be authorized by another party (its "signers" list is empty) — for example a ' +
-        'LogicSig-controlled account or a different multisig member. The Safe can only co-sign transactions sent from its own address ' +
-        'or from addresses rekeyed to it, so this batch cannot be turned into a Safe proposal. Reject it and ask the dapp to route that ' +
-        'part of the request through the original signer directly.',
+      reason: i18n.t('walletconnect:convert.unsignedByOthers'),
     }
   }
 
@@ -70,8 +67,7 @@ export async function convertSessionRequestToSafePayload(
   } catch {
     return {
       ok: false,
-      reason:
-        'One of the transactions in this request could not be decoded — it may already be signed (e.g. a LogicSig blob) rather than a plain unsigned transaction.',
+      reason: i18n.t('walletconnect:convert.decodeFailed'),
     }
   }
 
@@ -82,7 +78,7 @@ export async function convertSessionRequestToSafePayload(
     if (!spendable) {
       return {
         ok: false,
-        reason: `Transaction sender ${sender} is neither the Safe's own address nor an address currently rekeyed to it. The Safe has no authority to move funds from this account, so this request can't become a Safe proposal.`,
+        reason: i18n.t('walletconnect:convert.notSpendable', { sender }),
       }
     }
   }
@@ -95,8 +91,8 @@ export async function convertSessionRequestToSafePayload(
       ok: false,
       reason:
         error instanceof Error
-          ? `The Safe can't represent this transaction: ${error.message}`
-          : 'The Safe cannot represent one of the transactions in this request.',
+          ? i18n.t('walletconnect:convert.cannotRepresent', { message: error.message })
+          : i18n.t('walletconnect:convert.cannotRepresentGeneric'),
     }
   }
 }

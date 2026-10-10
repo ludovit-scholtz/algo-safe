@@ -1,0 +1,157 @@
+{
+  "selection": {
+    "checkingWallet": "지갑 세션을 확인하는 중..."
+  },
+  "recover": {
+    "noWallet": "기존 세이프를 복구하려면 먼저 지갑을 연결하세요.",
+    "invalidAppId": "유효한 Algorand 애플리케이션 ID를 입력하세요.",
+    "invalidName": "선택한 앱이 유효한 Algo Safe 이름을 반환하지 않았습니다.",
+    "loadFailed": "선택한 네트워크에서 해당 애플리케이션을 불러올 수 없습니다.",
+    "success": "{{name}}을(를) 복구하여 이 브라우저에 저장했습니다."
+  },
+  "home": {
+    "titleLine1": "기관용 트레저리",
+    "titleLine2": "에이전트 경제를 위해 설계되었습니다.",
+    "intro": "Algo Safe는 정책 기반 스마트 계정 시스템입니다. 다중 서명 워크플로, 자동 리밸런싱 에이전트, 그리고 Algorand의 탄탄한 블록체인을 위해 설계된 세분화된 거버넌스 프로토콜로 자산을 안전하게 보호하세요.",
+    "walletReady": "지갑이 연결되었습니다. 트레저리 세이프가 준비되었습니다.",
+    "createTitle": "새 세이프 만들기",
+    "createText": "맞춤형 서명자와 자동화된 정책을 갖춘 새로운 기관용 트레저리를 배포하세요.",
+    "importTitle": "기존 계정 가져오기",
+    "importText": "온체인 Algo Safe 애플리케이션 ID를 입력하세요. 대시보드는 먼저 컨트랙트 이름을 읽은 다음에야 로컬 레지스트리에 저장합니다.",
+    "appIdLabel": "애플리케이션 ID",
+    "appIdHint": "현재 선택한 네트워크에 이미 배포된 Algo Safe의 ID를 사용하세요.",
+    "appIdPlaceholder": "예: 123456789",
+    "reading": "컨트랙트를 읽는 중...",
+    "recoverButton": "계정 복구",
+    "network": "네트워크: {{network}}",
+    "existingSafes": "기존 세이프",
+    "accounts_other": "계정 {{count}}개",
+    "empty": "아직 세이프가 없습니다 — 위에서 새로 만드세요.",
+    "registryTitle": "로컬 세이프 레지스트리",
+    "registryLine1": "이 브라우저에서 배포했거나 복구한 세이프만 여기에 표시됩니다.",
+    "registryLine2": "앱 ID로 기존 Algo Safe를 가져오거나 새로 만들어 목록을 채우세요.",
+    "documentation": "문서",
+    "audit": "보안 감사"
+  },
+  "login": {
+    "authRequired": "인증이 필요합니다",
+    "titleLine1": "지갑을 연결하여",
+    "titleLine2": "트레저리 세이프에 접근하세요.",
+    "intro": "작업할 체인을 선택한 다음 호환되는 지갑을 연결하면 기존 세이프를 확인하고, 새 트레저리를 만들고, 인증된 콘솔에서 정책 기반 작업을 관리할 수 있습니다.",
+    "secureTitle": "안전한 서명 위임",
+    "secureText": "트랜잭션 서명은 지갑 안에서만 이루어지며, Algo Safe는 연결된 계정을 인증된 작업에만 사용합니다.",
+    "walletsTitle": "지원되는 지갑",
+    "walletsText": "MainNet과 TestNet은 브라우저 지갑과 WalletConnect 지갑을 사용하고, LocalNet은 KMD 개발용 지갑을 제공합니다.",
+    "whyTitle": "먼저 로그인해야 하는 이유",
+    "why1": "세이프를 불러오기 전에 인증하면 대시보드가 작업을 활성 Algorand 계정에 연결할 수 있습니다.",
+    "why2": "연결하면 트레저리 개요와 세이프 관리 콘솔을 바로 사용할 수 있습니다.",
+    "why3": "LocalNet은 브라우저 지갑 대신 KMD를 사용합니다.",
+    "chooseTitle": "체인과 지갑 선택",
+    "chooseText": "연결하여 인증된 대시보드를 여세요.",
+    "chain": "체인",
+    "chainHint": "WalletConnect는 유효한 CAIP 체인이 필요하므로 페어링하기 전에 대상 체인을 선택하세요.",
+    "localnetHint": "로컬 개발 세션에는 LocalNet KMD 지갑을 사용하세요.",
+    "walletsHint": "이 Algorand 체인에는 Pera, Defly, WalletConnect 또는 Biatec Wallet을 사용하세요.",
+    "kmd": "개발 흐름에는 AlgoKit LocalNet이 관리하는 로컬 KMD 지갑을 사용하세요.",
+    "pera": "QR 코드를 스캔하거나 Pera 앱에서 승인하세요.",
+    "defly": "계속하려면 Defly에서 세션을 승인하세요.",
+    "biatec": "Biatec Wallet을 직접(팝업 또는 Liquid Auth) 연결하고 세션을 승인하세요.",
+    "walletConnect": "공용 QR 흐름으로 WalletConnect와 호환되는 모든 Algorand 지갑을 연결하세요.",
+    "logoAlt": "{{name}} 로고",
+    "connecting": "연결 중",
+    "connect": "연결",
+    "noWallets": "선택한 체인에서 사용할 수 있는 호환 지갑 제공업체가 없습니다.",
+    "connectFailed": "{{name}}에 연결할 수 없습니다. {{message}}",
+    "connectDefault": "지갑에서 요청을 승인한 후 다시 시도하세요."
+  },
+  "card": {
+    "app": "앱 {{appId}}",
+    "agents_other": "에이전트 {{count}}개"
+  },
+  "init": {
+    "steps": {
+      "deploy": "컨트랙트 배포",
+      "fund": "MBR 충전"
+    },
+    "errors": {
+      "rejected": "트랜잭션이 거부되었거나 제출할 수 없습니다.",
+      "nameRequired": "배포를 시작하기 전에 세이프 이름을 입력하세요.",
+      "walletRequired": "세이프를 배포하고 충전하려면 연결된 지갑이 필요합니다.",
+      "amountInvalid": "앱 계정 MBR 충전을 위한 양수의 ALGO 금액을 입력하세요."
+    },
+    "button": {
+      "deploying": "컨트랙트 배포 중...",
+      "funding": "충전 및 초기화 중...",
+      "ready": "세이프 준비 완료",
+      "start": "시작"
+    },
+    "breadcrumbSecurity": "보안 설정",
+    "breadcrumbInit": "초기화",
+    "title": "스마트 계정 초기화",
+    "intro": "연결된 지갑에서 Algo Safe 컨트랙트를 배포한 다음, 최소 잔액 요건을 충족하도록 새 앱 계정에 네이티브 ALGO를 충전하세요.",
+    "step01": "1단계",
+    "step02": "2단계",
+    "deployTitle": "스마트 컨트랙트 배포",
+    "deployText": "이미 연결된 지갑으로 온체인에 Algo Safe 애플리케이션을 생성합니다.",
+    "fundTitle": "ALGO MBR 충전",
+    "fundText": "박스 MBR과 초기 설정을 위해 새 앱 계정으로 네이티브 ALGO를 전송합니다.",
+    "connectedWallet": "연결된 지갑",
+    "ready": "준비됨",
+    "walletNotConnected": "지갑이 연결되지 않았습니다",
+    "network": "네트워크",
+    "deployFlow": "배포 흐름",
+    "live": "라이브",
+    "flowText": "지갑이 먼저 앱 배포에 서명한 다음, 앱 계정을 충전하고 초기화하는 하나의 그룹 요청을 승인하게 됩니다.",
+    "nameLabel": "세이프 이름",
+    "nameHint": "이 이름은 애플리케이션 생성 시 온체인에 저장됩니다.",
+    "namePlaceholder": "예: 거버넌스 트레저리",
+    "mbrLabel": "MBR 예치금(ALGO)",
+    "mbrHint": "앱이 박스 최소 잔액과 초기화 작업을 충당할 수 있도록 2 ALGO를 권장합니다.",
+    "status": {
+      "idle": {
+        "title": "시작을 누르면 먼저 배포한 다음, ALGO 충전과 초기화를 묶은 하나의 그룹 트랜잭션을 요청합니다.",
+        "text": "초기 관리자 그룹은 앱 계정이 충전된 후 초기화 과정에서 생성됩니다."
+      },
+      "deploying": {
+        "title": "배포가 진행 중입니다.",
+        "text": "지갑에서 스마트 컨트랙트 배포를 승인하세요. 체인에서 생성이 확인될 때까지 버튼은 잠긴 상태로 유지됩니다."
+      },
+      "funding": {
+        "title": "컨트랙트가 배포되었습니다. 2단계가 진행 중입니다.",
+        "text": "새 앱 계정에 ALGO를 충전하고 세이프를 초기화하는 그룹 서명 요청이 지갑에 도착했는지 확인하세요."
+      },
+      "success": {
+        "title": "세이프 초기화가 완료되었습니다.",
+        "text": "컨트랙트가 배포되고, ALGO로 충전되고, 거버넌스용으로 초기화되었으며, 로컬 세이프 레지스트리에 저장되었습니다."
+      },
+      "error": {
+        "title": "초기화가 중단되었습니다.",
+        "text": "아래 오류를 확인한 다음, 지갑이 준비되면 흐름을 다시 시작하세요."
+      }
+    },
+    "appId": "앱 ID",
+    "createTx": "생성 트랜잭션: {{txId}}",
+    "appAddress": "앱 주소",
+    "fees": "네트워크 수수료는 ALGO로 지불되며 지갑에서 확인한 트랜잭션에 따라 달라집니다.",
+    "documentation": "문서",
+    "support": "기관 지원"
+  },
+  "registry": {
+    "tier": "온체인 세이프"
+  },
+  "holdings": {
+    "nativeName": "Algorand 네이티브"
+  },
+  "mock": {
+    "safeNotFound": "로컬 레지스트리에서 세이프 {{safeId}}을(를) 찾을 수 없습니다.",
+    "tier": "{{signerCount}}명 중 {{threshold}}명 다중 서명",
+    "agentRegTitle": "에이전트 등록: {{alias}}",
+    "agentRegDesc": "자동화 에이전트 {{alias}}을(를) {{groupTier}}에 등록합니다.",
+    "justNow": "방금",
+    "initAgent": "에이전트 컨트랙트 초기화",
+    "policyTitle": "정책 업데이트: {{name}}",
+    "policyDesc": "에이전트 지출 정책을 수정합니다.",
+    "updatePolicyBox": "정책 박스 업데이트",
+    "withinRules": "거버넌스 규칙 범위 내"
+  }
+}

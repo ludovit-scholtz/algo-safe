@@ -1,0 +1,75 @@
+{
+  "page": {
+    "intro": "Sparuj ten sejf z aplikacją dapp tak, jakby był portfelem. Przychodzące żądania są zamieniane na propozycje sejfu — konfigurację i ograniczenia opisuje <code>docs/WALLETCONNECT_WALLET_SETUP.md</code>.",
+    "pairTitle": "Sparuj aplikację dapp",
+    "uriLabel": "URI WalletConnect",
+    "uriHint": "Wklej URI wc: wyświetlone przez łączącą się aplikację dapp.",
+    "uriPlaceholder": "wc:...",
+    "pair": "Sparuj",
+    "connectWalletFirst": "Najpierw połącz portfel — podpisze on propozycje utworzone z przychodzących żądań.",
+    "sessionProposal": "Propozycja sesji",
+    "wantsToConnect": "{{name}} ({{url}}) chce połączyć się z tym sejfem.",
+    "approve": "Zatwierdź",
+    "reject": "Odrzuć",
+    "activeSessions": "Aktywne sesje",
+    "noSessions": "Nie sparowano jeszcze żadnych aplikacji dapp.",
+    "disconnect": "Rozłącz",
+    "pendingRequests": "Oczekujące żądania",
+    "noRequests": "Brak przychodzących żądań.",
+    "exposedAccount": "Konto sejfu udostępnione aplikacjom dapp"
+  },
+  "panel": {
+    "unsupportedMethod": "Ten portfel obsługuje tylko żądania {{expected}} — otrzymano „{{received}}”.",
+    "unrecognizedShape": "Nierozpoznany format żądania.",
+    "rejectedByOperator": "Odrzucone przez operatora sejfu.",
+    "rejectFailed": "Nie udało się odrzucić żądania.",
+    "proposalCreated": "Propozycja nr {{proposalId}} została utworzona on-chain (tx {{txId}}). Zatwierdź ją na stronie Propozycje, gdy grupa osiągnie próg.",
+    "convertedReject": "Zamieniono na propozycję sejfu nr {{proposalId}} — śledź ją i zatwierdź w konsoli sejfu.",
+    "submitFailed": "Nie udało się przesłać propozycji.",
+    "signedReturned": "Podpisano wywołanie propozycji (tx {{txId}}) i zwrócono je sparowanej aplikacji dapp — pamiętaj, że jest to transakcja propozycji sejfu, a nie pierwotnie żądane transakcje.",
+    "signFailed": "Nie udało się podpisać propozycji.",
+    "evaluating": "Ocena żądania…",
+    "cantBecome": "To żądanie nie może zostać propozycją sejfu",
+    "rejectRequest": "Odrzuć żądanie",
+    "incoming": "Przychodzące żądanie transakcji",
+    "groupIdLabel": "ID grupy podpisujących",
+    "groupIdHint": "Grupa, która będzie obsługiwać tę propozycję.",
+    "expiryLabel": "Ważność (rundy)",
+    "expiryHint": "Dodawana do bieżącej rundy, aby obliczyć rundę wygaśnięcia propozycji.",
+    "submitToChain": "Prześlij propozycję do łańcucha",
+    "signReturn": "Podpisz i zwróć przez WalletConnect",
+    "reject": "Odrzuć",
+    "signReturnNote": "Opcja „Podpisz i zwróć” odsyła podpisaną transakcję <em>propozycji</em>, a nie pierwotne transakcje aplikacji dapp — używaj jej tylko z aplikacjami dapp, które to akceptują. Lepiej prześlij propozycję do łańcucha i pozwól aplikacji dapp sprawdzać jej status w sejfie."
+  },
+  "preview": {
+    "sendAlgo": "Wyślij {{amount}} ALGO do {{receiver}}",
+    "transferAsa": "Przelej {{amount}} aktywa ASA {{asset}} do {{receiver}}",
+    "callApp": "Wywołaj aplikację {{app}}",
+    "keyreg": "Rejestracja klucza uczestnictwa",
+    "configureAsset": "Skonfiguruj aktywo {{asset}}",
+    "newAsset": "nowe aktywo",
+    "txType": "Typ transakcji {{type}}",
+    "fromSender": "Od {{sender}}"
+  },
+  "service": {
+    "noAlgorandNamespace": "Propozycja sesji tej aplikacji dapp nie żądała przestrzeni nazw Algorand, więc ten sejf nie może jej obsłużyć.",
+    "sessionRejected": "Użytkownik odrzucił propozycję sesji.",
+    "sessionDisconnected": "Użytkownik rozłączył sesję."
+  },
+  "hook": {
+    "initFailed": "Nie udało się zainicjować WalletConnect.",
+    "pairFailed": "Nie udało się sparować z URI WalletConnect.",
+    "approveFailed": "Nie udało się zatwierdzić propozycji sesji.",
+    "rejectSessionFailed": "Nie udało się odrzucić propozycji sesji.",
+    "disconnectFailed": "Nie udało się rozłączyć sesji."
+  },
+  "convert": {
+    "unrecognizedShape": "Nierozpoznany format żądania algo_signTxn — oczekiwano tablicy wpisów {txn, signers?}.",
+    "noTransactions": "Żądanie nie zawierało żadnych transakcji.",
+    "unsignedByOthers": "To żądanie zawiera transakcję, którą musi autoryzować inna strona (jej lista „signers” jest pusta) — na przykład konto kontrolowane przez LogicSig lub innego członka multisig. Sejf może współpodpisywać tylko transakcje wysyłane z własnego adresu lub z adresów z rekey na sejf, dlatego tej paczki nie można zamienić na propozycję sejfu. Odrzuć ją i poproś aplikację dapp, aby tę część żądania skierowała bezpośrednio do pierwotnego podpisującego.",
+    "decodeFailed": "Nie udało się zdekodować jednej z transakcji w tym żądaniu — może być już podpisana (np. blob LogicSig), a nie zwykłą niepodpisaną transakcją.",
+    "notSpendable": "Nadawca transakcji {{sender}} nie jest ani własnym adresem sejfu, ani adresem, który ma obecnie rekey na sejf. Sejf nie ma uprawnień do przenoszenia środków z tego konta, więc to żądanie nie może zostać propozycją sejfu.",
+    "cannotRepresent": "Sejf nie może przedstawić tej transakcji: {{message}}",
+    "cannotRepresentGeneric": "Sejf nie może przedstawić jednej z transakcji w tym żądaniu."
+  }
+}

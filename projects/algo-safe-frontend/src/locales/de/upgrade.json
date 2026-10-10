@@ -1,0 +1,59 @@
+{
+  "title": "Upgrade & Rekey-Adressen",
+  "subtitle": "Verwalten Sie die per Rekey an diesen Safe gebundenen Adressen und migrieren Sie den Safe auf die neueste Vertragsversion.",
+  "backToDashboard": "Zurück zum Dashboard",
+  "errors": {
+    "connectAdmin": "Verbinden Sie eine Wallet mit Admin-Zugriff, bevor Sie Rekey-Adressen verwalten.",
+    "invalidAddress": "Geben Sie eine gültige Algorand-Adresse ein.",
+    "registryProposalFailed": "Der Registry-Vorschlag konnte nicht erstellt werden.",
+    "connectDeploy": "Verbinden Sie eine Wallet, bevor Sie den aktualisierten Safe bereitstellen.",
+    "deployFailed": "Der aktualisierte Safe konnte nicht bereitgestellt und geklont werden.",
+    "migrationProposalFailed": "Der Migrations-Rekey-Vorschlag konnte nicht erstellt werden."
+  },
+  "version": {
+    "title": "Vertragsversion",
+    "deployedHash": "Hash der bereitgestellten Version:",
+    "detecting": "wird ermittelt…",
+    "isLatest": "Dieser Safe läuft auf der neuesten Vertragsversion.",
+    "newerAvailable": "Eine neuere Vertragsversion ist verfügbar — erwägen Sie das Upgrade unten."
+  },
+  "adminGroup": {
+    "title": "Admin-Gruppe",
+    "label": "Unterzeichnergruppe für Vorschläge",
+    "hint": "Registry-Änderungen und der Migrations-Rekey werden über diese Admin-Gruppe vorgeschlagen.",
+    "fallbackOption": "Gruppe 1",
+    "option": "{{name}} · {{threshold}} von {{memberCount}}"
+  },
+  "upgrade": {
+    "title": "Safe upgraden",
+    "intro": "Beim Upgrade wird ein <strong>neuer Safe auf dem neuesten Vertrag</strong> bereitgestellt, die Unterzeichnergruppen, Richtlinien und die Registry der Rekey-Adressen dieses Safes werden darauf geklont, und anschließend werden — über einen gesteuerten Rekey-Vorschlag — alle kontrollierten Adressen (einschließlich des eigenen Kontos dieses Safes) an die neue Bereitstellung übergeben. Die Gelder verlassen die Adressen nie.",
+    "step1": "Konfiguration bereitstellen & klonen (von Ihrer Wallet signiert, keine Änderung der Verwahrung).",
+    "step2": "Migrations-Rekey vorschlagen; Admins genehmigen ihn bei Erreichen des Gruppen-Schwellenwerts.",
+    "step3": "Ausführen — der neue Safe übernimmt, und dieser Safe wird zur schreibgeschützten Historie.",
+    "deploying": "Wird bereitgestellt…",
+    "deployButton": "1 · Bereitstellen & klonen",
+    "proposing": "Wird vorgeschlagen…",
+    "proposeButton": "2 · Migrations-Rekey vorschlagen",
+    "deployed": "Neuer Safe bereitgestellt — App-ID <mono>{{appId}}</mono>",
+    "savedHint": "In der Safe-Liste dieses Browsers gespeichert. Erstellen Sie nun den Migrations-Rekey-Vorschlag und holen Sie die Admin-Genehmigungen ein."
+  },
+  "registry": {
+    "title": "Rekey-Adressen",
+    "description": "Externe Adressen, deren Ausgabeberechtigung per Rekey an diesen Safe übertragen wurde. Die Liste wird durch Admin-Vorschläge gesteuert und dient bei der Migration dazu, jede kontrollierte Adresse erneut per Rekey auf den neuen Safe zu übertragen. Das Registrieren einer Adresse hier führt keinen Rekey durch — senden Sie die eigentliche Rekey-Transaktion separat von diesem Konto aus.",
+    "addressLabel": "Adresse",
+    "addressHint": "Das Konto, das per Rekey an diesen Safe gebunden ist (oder werden soll).",
+    "addressPlaceholder": "Algorand-Adresse",
+    "labelLabel": "Bezeichnung",
+    "labelHint": "Optionaler, gut lesbarer Name.",
+    "labelPlaceholder": "z. B. Hot Wallet für den Betrieb",
+    "proposeAdd": "Hinzufügen vorschlagen",
+    "empty": "Keine Rekey-Adressen registriert.",
+    "unlabelled": "ohne Bezeichnung",
+    "recordMeta": "{{label}} · registriert in Runde {{round}}",
+    "proposeRemove": "Entfernen vorschlagen",
+    "refresh": "Aktualisieren"
+  },
+  "service": {
+    "connectWallet": "Verbinden Sie eine Wallet, bevor Sie Safe-Migrationsaktionen ausführen."
+  }
+}

@@ -1,4 +1,5 @@
 import { DEFAULT_NETWORK_CONFIG, NetworkId as WalletNetworkId } from '@txnlab/use-wallet-react'
+import i18n from '../i18n/instance'
 import type { NetworkId } from '../services/types'
 
 // CAIP-2 chain references for the Algorand `algorand:` namespace, matching the
@@ -18,13 +19,43 @@ export function getCaipChainId(network: NetworkId): string {
 }
 
 export const chainOptions = [
-  { id: 'mainnet', label: 'Algorand MainNet', hint: 'Production network for live treasury operations.' },
-  { id: 'voimain', label: 'Voi MainNet', hint: 'Voi network for specialized operations.' },
-  { id: 'aramidmain', label: 'Aramid MainNet', hint: 'Aramid network for specialized operations.' },
-  { id: 'testnet', label: 'Algorand TestNet', hint: 'Public test network for wallet pairing and dry runs.' },
-  { id: 'localnet', label: 'AlgoKit LocalNet', hint: 'Local development chain with KMD-backed wallets.' },
-] as const
+  {
+    id: 'mainnet',
+    label: 'Algorand MainNet',
+    get hint() {
+      return i18n.t('layout:network.hints.mainnet')
+    },
+  },
+  {
+    id: 'voimain',
+    label: 'Voi MainNet',
+    get hint() {
+      return i18n.t('layout:network.hints.voimain')
+    },
+  },
+  {
+    id: 'aramidmain',
+    label: 'Aramid MainNet',
+    get hint() {
+      return i18n.t('layout:network.hints.aramidmain')
+    },
+  },
+  {
+    id: 'testnet',
+    label: 'Algorand TestNet',
+    get hint() {
+      return i18n.t('layout:network.hints.testnet')
+    },
+  },
+  {
+    id: 'localnet',
+    label: 'AlgoKit LocalNet',
+    get hint() {
+      return i18n.t('layout:network.hints.localnet')
+    },
+  },
+]
 
 export function getWalletSectionTitle(chainId: string) {
-  return chainId === 'localnet' ? 'Choose a LocalNet wallet' : 'Choose an Algorand wallet'
+  return chainId === 'localnet' ? i18n.t('layout:network.chooseLocalnetWallet') : i18n.t('layout:network.chooseAlgorandWallet')
 }

@@ -1,0 +1,75 @@
+{
+  "page": {
+    "intro": "Pair this Safe with a dapp as if it were a wallet. Incoming requests are converted into Safe proposals — see <code>docs/WALLETCONNECT_WALLET_SETUP.md</code> for setup and limitations.",
+    "pairTitle": "Pair a dapp",
+    "uriLabel": "WalletConnect URI",
+    "uriHint": "Paste the wc: URI shown by the connecting dapp.",
+    "uriPlaceholder": "wc:...",
+    "pair": "Pair",
+    "connectWalletFirst": "Connect a wallet first — it will sign proposals raised from incoming requests.",
+    "sessionProposal": "Session proposal",
+    "wantsToConnect": "{{name}} ({{url}}) wants to connect to this Safe.",
+    "approve": "Approve",
+    "reject": "Reject",
+    "activeSessions": "Active sessions",
+    "noSessions": "No dapps are paired yet.",
+    "disconnect": "Disconnect",
+    "pendingRequests": "Pending requests",
+    "noRequests": "No incoming requests.",
+    "exposedAccount": "Safe account exposed to dapps"
+  },
+  "panel": {
+    "unsupportedMethod": "This wallet only handles {{expected}} requests — received \"{{received}}\".",
+    "unrecognizedShape": "Unrecognized request shape.",
+    "rejectedByOperator": "Rejected by the Safe operator.",
+    "rejectFailed": "Failed to reject the request.",
+    "proposalCreated": "Proposal #{{proposalId}} created on-chain (tx {{txId}}). Approve it from the Proposals page once the group reaches threshold.",
+    "convertedReject": "Converted into Safe proposal #{{proposalId}} — track and approve it from the Safe console.",
+    "submitFailed": "Failed to submit the proposal.",
+    "signedReturned": "Signed the proposal call (tx {{txId}}) and returned it to the paired dapp — note this is the Safe proposal transaction, not the original requested transaction(s).",
+    "signFailed": "Failed to sign the proposal.",
+    "evaluating": "Evaluating request…",
+    "cantBecome": "This request can't become a Safe proposal",
+    "rejectRequest": "Reject Request",
+    "incoming": "Incoming transaction request",
+    "groupIdLabel": "Signer Group ID",
+    "groupIdHint": "The group that will hold this proposal.",
+    "expiryLabel": "Expiry (Rounds)",
+    "expiryHint": "Added to the current round to compute the proposal expiry round.",
+    "submitToChain": "Submit Proposal to Chain",
+    "signReturn": "Sign & Return via WalletConnect",
+    "reject": "Reject",
+    "signReturnNote": "\"Sign & Return\" sends back the signed <em>proposal</em> transaction, not the dapp's original transaction(s) — only use it with dapps that accept that. Prefer submitting to chain and letting the dapp poll the Safe's proposal status."
+  },
+  "preview": {
+    "sendAlgo": "Send {{amount}} ALGO to {{receiver}}",
+    "transferAsa": "Transfer {{amount}} of ASA {{asset}} to {{receiver}}",
+    "callApp": "Call app {{app}}",
+    "keyreg": "Participation key registration",
+    "configureAsset": "Configure asset {{asset}}",
+    "newAsset": "new asset",
+    "txType": "Transaction type {{type}}",
+    "fromSender": "From {{sender}}"
+  },
+  "service": {
+    "noAlgorandNamespace": "This dapp's session proposal did not request the Algorand namespace, so this Safe can't service it.",
+    "sessionRejected": "User rejected the session proposal.",
+    "sessionDisconnected": "User disconnected the session."
+  },
+  "hook": {
+    "initFailed": "Failed to initialize WalletConnect.",
+    "pairFailed": "Failed to pair with the WalletConnect URI.",
+    "approveFailed": "Failed to approve the session proposal.",
+    "rejectSessionFailed": "Failed to reject the session proposal.",
+    "disconnectFailed": "Failed to disconnect the session."
+  },
+  "convert": {
+    "unrecognizedShape": "Unrecognized algo_signTxn request shape — expected an array of {txn, signers?} entries.",
+    "noTransactions": "The request did not contain any transactions.",
+    "unsignedByOthers": "This request bundles a transaction that must be authorized by another party (its \"signers\" list is empty) — for example a LogicSig-controlled account or a different multisig member. The Safe can only co-sign transactions sent from its own address or from addresses rekeyed to it, so this batch cannot be turned into a Safe proposal. Reject it and ask the dapp to route that part of the request through the original signer directly.",
+    "decodeFailed": "One of the transactions in this request could not be decoded — it may already be signed (e.g. a LogicSig blob) rather than a plain unsigned transaction.",
+    "notSpendable": "Transaction sender {{sender}} is neither the Safe's own address nor an address currently rekeyed to it. The Safe has no authority to move funds from this account, so this request can't become a Safe proposal.",
+    "cannotRepresent": "The Safe can't represent this transaction: {{message}}",
+    "cannotRepresentGeneric": "The Safe cannot represent one of the transactions in this request."
+  }
+}

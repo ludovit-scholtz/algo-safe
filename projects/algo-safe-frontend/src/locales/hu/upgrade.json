@@ -1,0 +1,59 @@
+{
+  "title": "Frissítés és rekey-elt címek",
+  "subtitle": "Kezelje a széfhez rekey-elt címeket, és migrálja a széfet a szerződés legújabb verziójára.",
+  "backToDashboard": "Vissza az irányítópultra",
+  "errors": {
+    "connectAdmin": "A rekey-elt címek kezelése előtt csatlakoztasson adminisztrátori hozzáféréssel rendelkező pénztárcát.",
+    "invalidAddress": "Adjon meg érvényes Algorand-címet.",
+    "registryProposalFailed": "A nyilvántartási javaslat létrehozása sikertelen.",
+    "connectDeploy": "A frissített széf telepítése előtt csatlakoztasson pénztárcát.",
+    "deployFailed": "A frissített széf telepítése és klónozása sikertelen.",
+    "migrationProposalFailed": "A migrációs rekey javaslat létrehozása sikertelen."
+  },
+  "version": {
+    "title": "Szerződésverzió",
+    "deployedHash": "A telepített verzió hash-e:",
+    "detecting": "észlelés…",
+    "isLatest": "Ez a széf a szerződés legújabb verzióját futtatja.",
+    "newerAvailable": "Elérhető a szerződés újabb verziója — fontolja meg a frissítést lent."
+  },
+  "adminGroup": {
+    "title": "Adminisztrátori csoport",
+    "label": "Javaslatokat benyújtó aláírócsoport",
+    "hint": "A nyilvántartás módosításait és a migrációs rekey-t ez az adminisztrátori csoport javasolja.",
+    "fallbackOption": "1. csoport",
+    "option": "{{name}} · {{threshold}}/{{memberCount}}"
+  },
+  "upgrade": {
+    "title": "Széf frissítése",
+    "intro": "A frissítés <strong>új széfet telepít a legújabb szerződéssel</strong>, klónozza bele ennek a széfnek az aláírócsoportjait, szabályzatait és a rekey-elt címek nyilvántartását, majd — irányított rekey javaslaton keresztül — átadja az új telepítésnek az összes vezérelt címet (beleértve ennek a széfnek a saját számláját is). A pénzeszközök soha nem hagyják el a címeket.",
+    "step1": "A konfiguráció telepítése és klónozása (a pénztárcája írja alá, a letéti helyzet nem változik).",
+    "step2": "A migrációs rekey javaslata; az adminisztrátorok a csoport küszöbének elérésekor hagyják jóvá.",
+    "step3": "Végrehajtás — az új széf átveszi az irányítást, ez a széf pedig csak olvasható előzmény lesz.",
+    "deploying": "Telepítés…",
+    "deployButton": "1 · Telepítés és klónozás",
+    "proposing": "Javaslattétel…",
+    "proposeButton": "2 · Migrációs rekey javaslata",
+    "deployed": "Az új széf telepítve — alkalmazásazonosító: <mono>{{appId}}</mono>",
+    "savedHint": "Elmentve a böngésző széflistájába. Most hozza létre a migrációs rekey javaslatot, és gyűjtse be az adminisztrátorok jóváhagyását."
+  },
+  "registry": {
+    "title": "Rekey-elt címek",
+    "description": "Külső címek, amelyek költési jogosultságát ehhez a széfhez rekey-elték. A listát adminisztrátori javaslatok szabályozzák, és a migráció során ez alapján rekey-eli újra a rendszer az összes vezérelt címet az új széfhez. A cím itt történő regisztrálása nem hajtja végre a rekey-t — a tényleges rekey tranzakciót külön, arról a számláról küldje el.",
+    "addressLabel": "Cím",
+    "addressHint": "A számla, amelyet ehhez a széfhez rekey-eltek (vagy rekey-elni fognak).",
+    "addressPlaceholder": "Algorand-cím",
+    "labelLabel": "Címke",
+    "labelHint": "Opcionális, emberi olvasásra szánt név.",
+    "labelPlaceholder": "pl. működési hot wallet",
+    "proposeAdd": "Hozzáadás javaslata",
+    "empty": "Nincs regisztrált rekey-elt cím.",
+    "unlabelled": "címke nélkül",
+    "recordMeta": "{{label}} · regisztrálva a(z) {{round}}. körben",
+    "proposeRemove": "Eltávolítás javaslata",
+    "refresh": "Frissítés"
+  },
+  "service": {
+    "connectWallet": "A széf migrációs műveleteinek futtatása előtt csatlakoztasson pénztárcát."
+  }
+}

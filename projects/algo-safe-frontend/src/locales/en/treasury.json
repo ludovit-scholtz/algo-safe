@@ -1,0 +1,38 @@
+{
+  "title": "Assets",
+  "subtitle": "Treasury holdings and lending positions.",
+  "buyEurd": "Buy EURD",
+  "addFunds": "Add Funds",
+  "stats": {
+    "nativeBalance": "Native Balance",
+    "nativeBalanceSub": "Loaded directly from the safe address",
+    "optedInAssets": "Opted-In Assets",
+    "optedInAssetsSub": "Algod account holdings excluding ALGO",
+    "safeAddress": "Safe Address",
+    "app": "App {{appId}}"
+  },
+  "empty": "This smart account has no native balance or opted-in assets yet.",
+  "fundingStarted": "Funding session for €{{amount}} started (demo / Quantoz fallback).",
+  "modal": {
+    "title": "Buy EURD",
+    "description": "Purchase EURD via Quantoz bank transfer. Funds settle to this safe's treasury address.",
+    "addressUnavailable": "Safe address unavailable",
+    "amountLabel": "Amount (EUR)",
+    "exchangeRate": "Exchange rate: 1 EUR = 1 EURD · Quantoz platform",
+    "cancel": "Cancel",
+    "continue": "Continue to Bank"
+  },
+  "table": {
+    "asset": "Asset",
+    "type": "Type",
+    "balance": "Balance",
+    "nativeLower": "native",
+    "native": "Native",
+    "optedInAsa": "Opted-in ASA",
+    "loading": "Loading on-chain balances…",
+    "noHoldings": "No holdings found."
+  },
+  "row": {
+    "apy": "{{apy}}% APY"
+  }
+}

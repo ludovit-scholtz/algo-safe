@@ -1,0 +1,35 @@
+{
+  "logoAlt": "Logo Algo Safe",
+  "selectSafe": "Seleziona cassaforte",
+  "registerAgent": "Registra agente",
+  "nav": {
+    "dashboard": "Dashboard",
+    "proposals": "Proposte",
+    "createProposal": "Crea proposta",
+    "assets": "Asset",
+    "upgrade": "Aggiornamento e rekey",
+    "walletConnect": "WalletConnect"
+  },
+  "errorBoundary": {
+    "title": "Si è verificato un errore",
+    "unexpected": "Errore imprevisto dell'applicazione."
+  },
+  "auth": {
+    "checking": "Verifica del wallet",
+    "loginPrompt": "Accedi con un wallet Algorand per accedere alle tue casseforti",
+    "loggingOut": "Disconnessione in corso",
+    "logout": "Esci"
+  },
+  "network": {
+    "localnetLocked": "Collega un wallet LocalNet (KMD) per passare a questa rete",
+    "chooseLocalnetWallet": "Scegli un wallet LocalNet",
+    "chooseAlgorandWallet": "Scegli un wallet Algorand",
+    "hints": {
+      "mainnet": "Rete di produzione per operazioni di tesoreria reali.",
+      "voimain": "Rete Voi per operazioni specializzate.",
+      "aramidmain": "Rete Aramid per operazioni specializzate.",
+      "testnet": "Rete di test pubblica per l'abbinamento dei wallet e le prove.",
+      "localnet": "Catena di sviluppo locale con wallet basati su KMD."
+    }
+  }
+}

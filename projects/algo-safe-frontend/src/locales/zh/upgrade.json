@@ -1,0 +1,59 @@
+{
+  "title": "升级与 Rekey 地址",
+  "subtitle": "管理已 rekey 到此保险库的地址，并将保险库迁移到最新的合约版本。",
+  "backToDashboard": "返回仪表板",
+  "errors": {
+    "connectAdmin": "请先连接具有管理员权限的钱包，再管理 rekey 地址。",
+    "invalidAddress": "请输入有效的 Algorand 地址。",
+    "registryProposalFailed": "创建注册表提案失败。",
+    "connectDeploy": "请先连接钱包，再部署升级后的保险库。",
+    "deployFailed": "部署并克隆升级后的保险库失败。",
+    "migrationProposalFailed": "创建迁移 rekey 提案失败。"
+  },
+  "version": {
+    "title": "合约版本",
+    "deployedHash": "已部署版本哈希：",
+    "detecting": "检测中…",
+    "isLatest": "此保险库运行的是最新合约版本。",
+    "newerAvailable": "有更新的合约版本可用 — 建议在下方升级。"
+  },
+  "adminGroup": {
+    "title": "管理员组",
+    "label": "用于提案的签名者组",
+    "hint": "注册表变更和迁移 rekey 均通过此管理员组提出。",
+    "fallbackOption": "组 1",
+    "option": "{{name}} · {{threshold}}/{{memberCount}}"
+  },
+  "upgrade": {
+    "title": "升级保险库",
+    "intro": "升级会<strong>在最新合约上部署一个新保险库</strong>，将此保险库的签名者组、策略和 rekey 地址注册表克隆到新保险库，然后通过受治理的 rekey 提案，将所有受控地址（包括此保险库自身的账户）移交给新部署。资金始终留在原地址中。",
+    "step1": "部署并克隆配置（由您的钱包签名，托管权不变）。",
+    "step2": "提出迁移 rekey 提案；管理员在达到组阈值后批准。",
+    "step3": "执行 — 新保险库接管，此保险库成为只读历史记录。",
+    "deploying": "部署中…",
+    "deployButton": "1 · 部署并克隆",
+    "proposing": "提案中…",
+    "proposeButton": "2 · 提出迁移 Rekey",
+    "deployed": "新保险库已部署 — 应用 ID <mono>{{appId}}</mono>",
+    "savedHint": "已保存到此浏览器的保险库列表。现在请创建迁移 rekey 提案并收集管理员批准。"
+  },
+  "registry": {
+    "title": "Rekey 地址",
+    "description": "支出权限已 rekey 到此保险库的外部地址。该列表由管理员提案治理，迁移时用于将所有受控地址重新 rekey 到新保险库。在此注册地址并不会对其执行 rekey — 请另行从该账户提交实际的 rekey 交易。",
+    "addressLabel": "地址",
+    "addressHint": "已 rekey（或即将 rekey）到此保险库的账户。",
+    "addressPlaceholder": "Algorand 地址",
+    "labelLabel": "标签",
+    "labelHint": "可选的易读名称。",
+    "labelPlaceholder": "例如：运营热钱包",
+    "proposeAdd": "提议添加",
+    "empty": "尚未注册 rekey 地址。",
+    "unlabelled": "无标签",
+    "recordMeta": "{{label}} · 注册于轮次 {{round}}",
+    "proposeRemove": "提议移除",
+    "refresh": "刷新"
+  },
+  "service": {
+    "connectWallet": "请先连接钱包，再执行保险库迁移操作。"
+  }
+}

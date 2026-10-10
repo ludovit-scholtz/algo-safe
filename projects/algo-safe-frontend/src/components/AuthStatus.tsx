@@ -1,5 +1,6 @@
 import { useWallet } from '@txnlab/use-wallet-react'
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { AddressDisplay } from './AddressDisplay'
 import { NetworkSwitcher } from './NetworkSwitcher'
@@ -7,6 +8,7 @@ import { Button } from './ui/Button'
 import { Icon } from './ui/Icon'
 
 export function AuthStatus() {
+  const { t } = useTranslation('layout')
   const { activeAddress, activeWallet, isReady } = useWallet()
   const [isDisconnecting, setIsDisconnecting] = useState(false)
   const navigate = useNavigate()
@@ -27,7 +29,7 @@ export function AuthStatus() {
     return (
       <div className="inline-flex items-center gap-2 rounded-full border border-outline-variant bg-surface-container px-3 py-1.5 text-sm text-on-surface-variant">
         <Icon name="sync" className="animate-spin text-base" />
-        <span>Checking wallet</span>
+        <span>{t('auth.checking')}</span>
       </div>
     )
   }
@@ -36,7 +38,7 @@ export function AuthStatus() {
     return (
       <div className="inline-flex items-center gap-2 rounded-full border border-warn/30 bg-warn/10 px-3 py-1.5 text-sm text-warn">
         <Icon name="lock_person" className="text-base" />
-        <span>Log in with an Algorand wallet to access your safes</span>
+        <span>{t('auth.loginPrompt')}</span>
       </div>
     )
   }
@@ -59,7 +61,7 @@ export function AuthStatus() {
       </div>
       <Button variant="ghost" onClick={handleLogout} disabled={isDisconnecting}>
         <Icon name="logout" className="text-lg" />
-        {isDisconnecting ? 'Logging out' : 'Logout'}
+        {isDisconnecting ? t('auth.loggingOut') : t('auth.logout')}
       </Button>
     </div>
   )

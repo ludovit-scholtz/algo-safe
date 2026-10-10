@@ -1,4 +1,5 @@
 import algosdk from 'algosdk'
+import i18n from '../i18n/instance'
 import type { NetworkId } from '../services/types'
 import { resolveAssetMetadata } from './assetMetadata'
 
@@ -37,7 +38,7 @@ export async function fetchSafeHoldings(algodClient: algosdk.Algodv2, address: s
 
   const nativeHolding: SafeHoldingRow = {
     key: 'native-algo',
-    name: 'Algorand Native',
+    name: i18n.t('safes:holdings.nativeName'),
     symbol: 'ALGO',
     assetId: 0,
     rawAmount: amount,

@@ -1,0 +1,35 @@
+{
+  "logoAlt": "Algo Safe logó",
+  "selectSafe": "Széf kiválasztása",
+  "registerAgent": "Ügynök regisztrálása",
+  "nav": {
+    "dashboard": "Irányítópult",
+    "proposals": "Javaslatok",
+    "createProposal": "Javaslat létrehozása",
+    "assets": "Eszközök",
+    "upgrade": "Frissítés és rekey",
+    "walletConnect": "WalletConnect"
+  },
+  "errorBoundary": {
+    "title": "Hiba történt",
+    "unexpected": "Váratlan alkalmazáshiba."
+  },
+  "auth": {
+    "checking": "Tárca ellenőrzése",
+    "loginPrompt": "Jelentkezzen be egy Algorand-tárcával a széfjei eléréséhez",
+    "loggingOut": "Kijelentkezés folyamatban",
+    "logout": "Kijelentkezés"
+  },
+  "network": {
+    "localnetLocked": "A váltáshoz csatlakoztasson egy LocalNet (KMD) tárcát",
+    "chooseLocalnetWallet": "Válasszon LocalNet-tárcát",
+    "chooseAlgorandWallet": "Válasszon Algorand-tárcát",
+    "hints": {
+      "mainnet": "Éles hálózat valós kincstári műveletekhez.",
+      "voimain": "Voi hálózat speciális műveletekhez.",
+      "aramidmain": "Aramid hálózat speciális műveletekhez.",
+      "testnet": "Nyilvános tesztháló tárcapárosításhoz és próbafuttatásokhoz.",
+      "localnet": "Helyi fejlesztői lánc KMD-alapú tárcákkal."
+    }
+  }
+}

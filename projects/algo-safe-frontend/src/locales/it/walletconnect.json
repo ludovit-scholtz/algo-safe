@@ -1,0 +1,75 @@
+{
+  "page": {
+    "intro": "Associa questa cassaforte a una dapp come se fosse un wallet. Le richieste in arrivo vengono convertite in proposte della cassaforte — per configurazione e limitazioni consulta <code>docs/WALLETCONNECT_WALLET_SETUP.md</code>.",
+    "pairTitle": "Associa una dapp",
+    "uriLabel": "URI WalletConnect",
+    "uriHint": "Incolla l'URI wc: mostrato dalla dapp che si sta connettendo.",
+    "uriPlaceholder": "wc:...",
+    "pair": "Associa",
+    "connectWalletFirst": "Collega prima un wallet: firmerà le proposte generate dalle richieste in arrivo.",
+    "sessionProposal": "Proposta di sessione",
+    "wantsToConnect": "{{name}} ({{url}}) vuole connettersi a questa cassaforte.",
+    "approve": "Approva",
+    "reject": "Rifiuta",
+    "activeSessions": "Sessioni attive",
+    "noSessions": "Nessuna dapp è ancora associata.",
+    "disconnect": "Disconnetti",
+    "pendingRequests": "Richieste in sospeso",
+    "noRequests": "Nessuna richiesta in arrivo.",
+    "exposedAccount": "Account della cassaforte esposto alle dapp"
+  },
+  "panel": {
+    "unsupportedMethod": "Questo wallet gestisce solo richieste {{expected}} — ricevuta \"{{received}}\".",
+    "unrecognizedShape": "Formato della richiesta non riconosciuto.",
+    "rejectedByOperator": "Rifiutata dall'operatore della cassaforte.",
+    "rejectFailed": "Impossibile rifiutare la richiesta.",
+    "proposalCreated": "Proposta n. {{proposalId}} creata on-chain (tx {{txId}}). Approvala dalla pagina Proposte non appena il gruppo raggiunge la soglia.",
+    "convertedReject": "Convertita nella proposta n. {{proposalId}} della cassaforte — seguila e approvala dalla console della cassaforte.",
+    "submitFailed": "Impossibile inviare la proposta.",
+    "signedReturned": "Chiamata della proposta firmata (tx {{txId}}) e restituita alla dapp associata — nota: è la transazione di proposta della cassaforte, non la transazione (o le transazioni) originale richiesta.",
+    "signFailed": "Impossibile firmare la proposta.",
+    "evaluating": "Valutazione della richiesta…",
+    "cantBecome": "Questa richiesta non può diventare una proposta della cassaforte",
+    "rejectRequest": "Rifiuta richiesta",
+    "incoming": "Richiesta di transazione in arrivo",
+    "groupIdLabel": "ID del gruppo di firmatari",
+    "groupIdHint": "Il gruppo che gestirà questa proposta.",
+    "expiryLabel": "Scadenza (round)",
+    "expiryHint": "Viene sommata al round corrente per calcolare il round di scadenza della proposta.",
+    "submitToChain": "Invia la proposta alla blockchain",
+    "signReturn": "Firma e restituisci tramite WalletConnect",
+    "reject": "Rifiuta",
+    "signReturnNote": "\"Firma e restituisci\" rimanda indietro la transazione di <em>proposta</em> firmata, non le transazioni originali della dapp — usalo solo con dapp che lo accettano. È preferibile inviare alla blockchain e lasciare che la dapp controlli lo stato della proposta nella cassaforte."
+  },
+  "preview": {
+    "sendAlgo": "Invia {{amount}} ALGO a {{receiver}}",
+    "transferAsa": "Trasferisci {{amount}} dell'ASA {{asset}} a {{receiver}}",
+    "callApp": "Chiama l'app {{app}}",
+    "keyreg": "Registrazione della chiave di partecipazione",
+    "configureAsset": "Configura l'asset {{asset}}",
+    "newAsset": "nuovo asset",
+    "txType": "Tipo di transazione {{type}}",
+    "fromSender": "Da {{sender}}"
+  },
+  "service": {
+    "noAlgorandNamespace": "La proposta di sessione di questa dapp non richiedeva il namespace Algorand, quindi questa cassaforte non può servirla.",
+    "sessionRejected": "L'utente ha rifiutato la proposta di sessione.",
+    "sessionDisconnected": "L'utente ha disconnesso la sessione."
+  },
+  "hook": {
+    "initFailed": "Impossibile inizializzare WalletConnect.",
+    "pairFailed": "Impossibile associare l'URI WalletConnect.",
+    "approveFailed": "Impossibile approvare la proposta di sessione.",
+    "rejectSessionFailed": "Impossibile rifiutare la proposta di sessione.",
+    "disconnectFailed": "Impossibile disconnettere la sessione."
+  },
+  "convert": {
+    "unrecognizedShape": "Formato della richiesta algo_signTxn non riconosciuto — era previsto un array di voci {txn, signers?}.",
+    "noTransactions": "La richiesta non conteneva alcuna transazione.",
+    "unsignedByOthers": "Questa richiesta include una transazione che deve essere autorizzata da un'altra parte (il suo elenco \"signers\" è vuoto), ad esempio un account controllato da LogicSig o un altro membro multisig. La cassaforte può cofirmare solo transazioni inviate dal proprio indirizzo o da indirizzi con rekey verso di essa, quindi questo lotto non può diventare una proposta della cassaforte. Rifiutalo e chiedi alla dapp di instradare quella parte della richiesta direttamente tramite il firmatario originale.",
+    "decodeFailed": "Impossibile decodificare una delle transazioni di questa richiesta: potrebbe essere già firmata (ad es. un blob LogicSig) anziché una semplice transazione non firmata.",
+    "notSpendable": "Il mittente della transazione {{sender}} non è né l'indirizzo della cassaforte né un indirizzo attualmente con rekey verso di essa. La cassaforte non ha l'autorità di spostare fondi da questo account, quindi la richiesta non può diventare una proposta della cassaforte.",
+    "cannotRepresent": "La cassaforte non può rappresentare questa transazione: {{message}}",
+    "cannotRepresentGeneric": "La cassaforte non può rappresentare una delle transazioni di questa richiesta."
+  }
+}

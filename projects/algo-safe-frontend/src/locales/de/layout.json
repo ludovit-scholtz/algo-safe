@@ -1,0 +1,35 @@
+{
+  "logoAlt": "Algo-Safe-Logo",
+  "selectSafe": "Safe auswählen",
+  "registerAgent": "Agent registrieren",
+  "nav": {
+    "dashboard": "Dashboard",
+    "proposals": "Vorschläge",
+    "createProposal": "Vorschlag erstellen",
+    "assets": "Assets",
+    "upgrade": "Upgrade & Rekeys",
+    "walletConnect": "WalletConnect"
+  },
+  "errorBoundary": {
+    "title": "Ein Fehler ist aufgetreten",
+    "unexpected": "Unerwarteter Anwendungsfehler."
+  },
+  "auth": {
+    "checking": "Wallet wird geprüft",
+    "loginPrompt": "Melden Sie sich mit einer Algorand-Wallet an, um auf Ihre Safes zuzugreifen",
+    "loggingOut": "Abmeldung läuft",
+    "logout": "Abmelden"
+  },
+  "network": {
+    "localnetLocked": "Verbinden Sie eine LocalNet-Wallet (KMD), um hierher zu wechseln",
+    "chooseLocalnetWallet": "LocalNet-Wallet auswählen",
+    "chooseAlgorandWallet": "Algorand-Wallet auswählen",
+    "hints": {
+      "mainnet": "Produktivnetzwerk für echte Treasury-Vorgänge.",
+      "voimain": "Voi-Netzwerk für spezialisierte Vorgänge.",
+      "aramidmain": "Aramid-Netzwerk für spezialisierte Vorgänge.",
+      "testnet": "Öffentliches Testnetzwerk für Wallet-Kopplung und Probeläufe.",
+      "localnet": "Lokale Entwicklungskette mit KMD-basierten Wallets."
+    }
+  }
+}

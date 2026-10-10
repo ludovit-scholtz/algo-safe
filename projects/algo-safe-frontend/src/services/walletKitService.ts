@@ -5,6 +5,7 @@ import { Core } from '@walletconnect/core'
 import { buildApprovedNamespaces } from '@walletconnect/utils'
 import { WalletKit, type WalletKitTypes } from '@reown/walletkit'
 import type { ProposalTypes, SessionTypes } from '@walletconnect/types'
+import i18n from '../i18n/instance'
 import { env } from '../lib/env'
 
 export const ALGORAND_WC_METHOD = 'algo_signTxn'
@@ -79,7 +80,7 @@ export async function approveWalletConnectSession(
   const walletKit = await getWalletKit()
   const requestedChains = extractRequestedAlgorandChains(proposal)
   if (requestedChains.length === 0 && !hasAlgorandNamespace(proposal)) {
-    throw new Error("This dapp's session proposal did not request the Algorand namespace, so this Safe can't service it.")
+    throw new Error(i18n.t('walletconnect:service.noAlgorandNamespace'))
   }
   const chains = requestedChains.length > 0 ? requestedChains : [caipChainId]
 
@@ -103,14 +104,14 @@ function hasAlgorandNamespace(proposal: ProposalTypes.Struct): boolean {
   )
 }
 
-export async function rejectWalletConnectSession(proposalId: number, message = 'User rejected the session proposal.') {
+export async function rejectWalletConnectSession(proposalId: number, message = i18n.t('walletconnect:service.sessionRejected')) {
   const walletKit = await getWalletKit()
   await walletKit.rejectSession({ id: proposalId, reason: { code: 5000, message } })
 }
 
 export async function disconnectWalletConnectSession(topic: string) {
   const walletKit = await getWalletKit()
-  await walletKit.disconnectSession({ topic, reason: { code: 6000, message: 'User disconnected the session.' } })
+  await walletKit.disconnectSession({ topic, reason: { code: 6000, message: i18n.t('walletconnect:service.sessionDisconnected') } })
 }
 
 export async function respondWalletConnectRequest(topic: string, id: number, result: unknown) {

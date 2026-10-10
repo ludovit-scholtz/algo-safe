@@ -1,0 +1,59 @@
+{
+  "title": "업그레이드 및 Rekey된 주소",
+  "subtitle": "이 금고로 rekey된 주소를 관리하고 금고를 최신 컨트랙트 버전으로 마이그레이션하세요.",
+  "backToDashboard": "대시보드로 돌아가기",
+  "errors": {
+    "connectAdmin": "rekey된 주소를 관리하기 전에 관리자 권한이 있는 지갑을 연결하세요.",
+    "invalidAddress": "올바른 Algorand 주소를 입력하세요.",
+    "registryProposalFailed": "레지스트리 제안을 생성하지 못했습니다.",
+    "connectDeploy": "업그레이드된 금고를 배포하기 전에 지갑을 연결하세요.",
+    "deployFailed": "업그레이드된 금고를 배포하고 복제하지 못했습니다.",
+    "migrationProposalFailed": "마이그레이션 rekey 제안을 생성하지 못했습니다."
+  },
+  "version": {
+    "title": "컨트랙트 버전",
+    "deployedHash": "배포된 버전 해시:",
+    "detecting": "확인 중…",
+    "isLatest": "이 금고는 최신 컨트랙트 버전을 사용 중입니다.",
+    "newerAvailable": "더 새로운 컨트랙트 버전이 있습니다. 아래에서 업그레이드를 고려해 보세요."
+  },
+  "adminGroup": {
+    "title": "관리자 그룹",
+    "label": "제안용 서명자 그룹",
+    "hint": "레지스트리 변경과 마이그레이션 rekey는 이 관리자 그룹을 통해 제안됩니다.",
+    "fallbackOption": "그룹 1",
+    "option": "{{name}} · {{memberCount}}명 중 {{threshold}}명"
+  },
+  "upgrade": {
+    "title": "금고 업그레이드",
+    "intro": "업그레이드는 <strong>최신 컨트랙트로 새 금고를 배포</strong>하고, 이 금고의 서명자 그룹, 정책, rekey된 주소 레지스트리를 복제한 뒤, 거버넌스 rekey 제안을 통해 제어 중인 모든 주소(이 금고 자체 계정 포함)를 새 배포로 넘깁니다. 자금은 주소를 떠나지 않습니다.",
+    "step1": "구성을 배포하고 복제합니다(지갑으로 서명하며 수탁 상태는 변하지 않음).",
+    "step2": "마이그레이션 rekey를 제안합니다. 관리자가 그룹 임계값에 따라 승인합니다.",
+    "step3": "실행 — 새 금고가 인수하고, 이 금고는 읽기 전용 기록이 됩니다.",
+    "deploying": "배포 중…",
+    "deployButton": "1 · 배포 및 복제",
+    "proposing": "제안 중…",
+    "proposeButton": "2 · 마이그레이션 Rekey 제안",
+    "deployed": "새 금고가 배포되었습니다 — 앱 ID <mono>{{appId}}</mono>",
+    "savedHint": "이 브라우저의 금고 목록에 저장되었습니다. 이제 마이그레이션 rekey 제안을 만들고 관리자 승인을 받으세요."
+  },
+  "registry": {
+    "title": "Rekey된 주소",
+    "description": "지출 권한이 이 금고로 rekey된 외부 주소입니다. 이 목록은 관리자 제안으로 관리되며, 마이그레이션 시 제어 중인 모든 주소를 새 금고로 다시 rekey하는 데 사용됩니다. 여기에 주소를 등록해도 rekey가 수행되지는 않습니다. 해당 계정에서 실제 rekey 트랜잭션을 별도로 제출하세요.",
+    "addressLabel": "주소",
+    "addressHint": "이 금고로 rekey된(또는 rekey될 예정인) 계정입니다.",
+    "addressPlaceholder": "Algorand 주소",
+    "labelLabel": "레이블",
+    "labelHint": "선택 사항인 읽기 쉬운 이름입니다.",
+    "labelPlaceholder": "예: 운영용 핫 월렛",
+    "proposeAdd": "추가 제안",
+    "empty": "등록된 rekey 주소가 없습니다.",
+    "unlabelled": "레이블 없음",
+    "recordMeta": "{{label}} · 라운드 {{round}}에 등록됨",
+    "proposeRemove": "제거 제안",
+    "refresh": "새로 고침"
+  },
+  "service": {
+    "connectWallet": "금고 마이그레이션 작업을 실행하기 전에 지갑을 연결하세요."
+  }
+}

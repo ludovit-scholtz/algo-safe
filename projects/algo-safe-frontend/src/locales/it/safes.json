@@ -1,0 +1,161 @@
+{
+  "selection": {
+    "checkingWallet": "Verifica della sessione del wallet..."
+  },
+  "recover": {
+    "noWallet": "Collega un wallet prima di recuperare una cassaforte esistente.",
+    "invalidAppId": "Inserisci un ID applicazione Algorand valido.",
+    "invalidName": "L'app selezionata non ha restituito un nome Algo Safe valido.",
+    "loadFailed": "Impossibile caricare l'applicazione sulla rete selezionata.",
+    "success": "{{name}} recuperata e salvata in questo browser."
+  },
+  "home": {
+    "titleLine1": "Tesoreria istituzionale",
+    "titleLine2": "Progettata per l'economia degli agenti.",
+    "intro": "Algo Safe è un sistema di smart account basato su policy. Proteggi i tuoi asset con flussi di lavoro multi-firma, agenti di ribilanciamento automatici e protocolli di governance granulari progettati per la resiliente blockchain di Algorand.",
+    "walletReady": "Wallet collegato. Le tue casseforti di tesoreria sono pronte.",
+    "createTitle": "Crea una nuova cassaforte",
+    "createText": "Distribuisci una nuova tesoreria istituzionale con firmatari personalizzati e policy automatizzate.",
+    "importTitle": "Importa un account esistente",
+    "importText": "Inserisci l'ID applicazione di un Algo Safe on-chain. La dashboard legge prima il nome del contratto e solo dopo lo salva nel tuo registro locale.",
+    "appIdLabel": "ID applicazione",
+    "appIdHint": "Usa l'ID di un Algo Safe già distribuito sulla rete attualmente selezionata.",
+    "appIdPlaceholder": "es. 123456789",
+    "reading": "Lettura del contratto...",
+    "recoverButton": "Recupera account",
+    "network": "Rete: {{network}}",
+    "existingSafes": "Casseforti esistenti",
+    "accounts_one": "{{count}} ACCOUNT",
+    "accounts_many": "{{count}} ACCOUNT",
+    "accounts_other": "{{count}} ACCOUNT",
+    "empty": "Nessuna cassaforte per ora — creane una qui sopra.",
+    "registryTitle": "Registro locale delle casseforti",
+    "registryLine1": "Qui sono mostrate solo le casseforti distribuite o recuperate in questo browser.",
+    "registryLine2": "Importa un Algo Safe esistente tramite ID app oppure creane uno nuovo per popolare l'elenco.",
+    "documentation": "Documentazione",
+    "audit": "Audit di sicurezza"
+  },
+  "login": {
+    "authRequired": "Autenticazione richiesta",
+    "titleLine1": "Collega il tuo wallet",
+    "titleLine2": "per accedere alle casseforti di tesoreria.",
+    "intro": "Scegli la rete su cui vuoi lavorare, poi collega un wallet compatibile per visualizzare le casseforti esistenti, creare nuove tesorerie e gestire le operazioni basate su policy dalla console autenticata.",
+    "secureTitle": "Passaggio sicuro della firma",
+    "secureText": "La firma delle transazioni resta nel tuo wallet, mentre Algo Safe usa l'account collegato per le azioni autenticate.",
+    "walletsTitle": "Wallet supportati",
+    "walletsText": "MainNet e TestNet usano wallet del browser e WalletConnect, mentre LocalNet espone il wallet di sviluppo KMD.",
+    "whyTitle": "Perché accedere prima",
+    "why1": "Autenticati prima di caricare le casseforti, così la dashboard può associare le azioni al tuo account Algorand attivo.",
+    "why2": "Una volta collegato, la panoramica della tesoreria e la console di gestione delle casseforti sono subito disponibili.",
+    "why3": "LocalNet salta i wallet del browser a favore di KMD.",
+    "chooseTitle": "Scegli rete e wallet",
+    "chooseText": "Collegati per sbloccare la tua dashboard autenticata.",
+    "chain": "Rete",
+    "chainHint": "WalletConnect richiede una rete CAIP valida, quindi scegli la rete di destinazione prima dell'associazione.",
+    "localnetHint": "Usa il wallet KMD di LocalNet per le sessioni di sviluppo locali.",
+    "walletsHint": "Usa Pera, Defly, WalletConnect o Biatec Wallet per questa rete Algorand.",
+    "kmd": "Usa il wallet KMD locale gestito da AlgoKit LocalNet per i flussi di sviluppo.",
+    "pera": "Scansiona un codice QR o approva nell'app Pera.",
+    "defly": "Approva la sessione in Defly per continuare.",
+    "biatec": "Collega direttamente Biatec Wallet (popup o Liquid Auth) e approva la sessione.",
+    "walletConnect": "Collega qualsiasi wallet Algorand compatibile con WalletConnect usando il flusso QR condiviso.",
+    "logoAlt": "Logo di {{name}}",
+    "connecting": "Connessione in corso",
+    "connect": "Collega",
+    "noWallets": "Nessun provider di wallet compatibile è disponibile per la rete selezionata.",
+    "connectFailed": "Impossibile collegare {{name}}. {{message}}",
+    "connectDefault": "Approva la richiesta nel wallet e riprova."
+  },
+  "card": {
+    "app": "App {{appId}}",
+    "agents_one": "{{count}} agente",
+    "agents_many": "{{count}} di agenti",
+    "agents_other": "{{count}} agenti"
+  },
+  "init": {
+    "steps": {
+      "deploy": "Distribuzione del contratto",
+      "fund": "Finanziamento MBR"
+    },
+    "errors": {
+      "rejected": "La transazione è stata rifiutata o non è stato possibile inviarla.",
+      "nameRequired": "Inserisci il nome della cassaforte prima di avviare la distribuzione.",
+      "walletRequired": "Per distribuire e finanziare la cassaforte è necessario un wallet collegato.",
+      "amountInvalid": "Inserisci un importo ALGO positivo per il finanziamento MBR dell'account dell'app."
+    },
+    "button": {
+      "deploying": "Distribuzione del contratto...",
+      "funding": "Finanziamento e inizializzazione...",
+      "ready": "Cassaforte pronta",
+      "start": "Avvia"
+    },
+    "breadcrumbSecurity": "Configurazione della sicurezza",
+    "breadcrumbInit": "Inizializzazione",
+    "title": "Inizializza smart account",
+    "intro": "Distribuisci il contratto Algo Safe dal wallet collegato, quindi finanzia il nuovo account dell'app con ALGO nativi per soddisfare i requisiti di saldo minimo.",
+    "step01": "Passo 01",
+    "step02": "Passo 02",
+    "deployTitle": "Distribuisci lo smart contract",
+    "deployText": "Crea l'applicazione Algo Safe on-chain dal wallet già collegato.",
+    "fundTitle": "Finanzia l'MBR in ALGO",
+    "fundText": "Invia ALGO nativi al nuovo account dell'app per l'MBR dei box e la configurazione iniziale.",
+    "connectedWallet": "Wallet collegato",
+    "ready": "Pronto",
+    "walletNotConnected": "Wallet non collegato",
+    "network": "Rete",
+    "deployFlow": "Flusso di distribuzione",
+    "live": "Attivo",
+    "flowText": "Il wallet firmerà prima la distribuzione dell'app, poi approverai una richiesta raggruppata che finanzia l'account dell'app e lo inizializza.",
+    "nameLabel": "Nome della cassaforte",
+    "nameHint": "Questo nome viene memorizzato on-chain durante la creazione dell'applicazione.",
+    "namePlaceholder": "es. Tesoreria di governance",
+    "mbrLabel": "Deposito MBR (ALGO)",
+    "mbrHint": "Si consigliano 2 ALGO, così l'app può coprire il saldo minimo dei box e le operazioni di inizializzazione.",
+    "status": {
+      "idle": {
+        "title": "Avvia distribuirà prima il contratto, poi richiederà un'unica transazione raggruppata di finanziamento in ALGO e inizializzazione.",
+        "text": "Il gruppo di amministratori iniziale viene creato durante l'inizializzazione, dopo il finanziamento dell'account dell'app."
+      },
+      "deploying": {
+        "title": "Distribuzione in corso.",
+        "text": "Approva la distribuzione dello smart contract nel tuo wallet. Il pulsante resta bloccato finché la rete non conferma la creazione."
+      },
+      "funding": {
+        "title": "Contratto distribuito. Il passo 02 è in corso.",
+        "text": "Controlla il tuo wallet: troverai la richiesta di firma raggruppata che finanzia il nuovo account dell'app con ALGO e inizializza la cassaforte."
+      },
+      "success": {
+        "title": "Inizializzazione della cassaforte completata.",
+        "text": "Il contratto è distribuito, finanziato con ALGO, inizializzato per la governance e salvato nel tuo registro locale delle casseforti."
+      },
+      "error": {
+        "title": "Inizializzazione interrotta.",
+        "text": "Esamina l'errore qui sotto, poi riavvia il flusso quando il wallet è pronto."
+      }
+    },
+    "appId": "ID app",
+    "createTx": "Tx di creazione: {{txId}}",
+    "appAddress": "Indirizzo dell'app",
+    "fees": "Le commissioni di rete sono pagate in ALGO e dipendono dalle transazioni confermate nel wallet.",
+    "documentation": "Documentazione",
+    "support": "Supporto istituzionale"
+  },
+  "registry": {
+    "tier": "Cassaforte on-chain"
+  },
+  "holdings": {
+    "nativeName": "Algorand nativo"
+  },
+  "mock": {
+    "safeNotFound": "La cassaforte {{safeId}} non è stata trovata nel registro locale.",
+    "tier": "Multifirma {{threshold}} di {{signerCount}}",
+    "agentRegTitle": "Registrazione agente: {{alias}}",
+    "agentRegDesc": "Registra l'agente automatizzato {{alias}} in {{groupTier}}.",
+    "justNow": "Adesso",
+    "initAgent": "Inizializza il contratto dell'agente",
+    "policyTitle": "Aggiornamento policy: {{name}}",
+    "policyDesc": "Modifica la policy di spesa dell'agente.",
+    "updatePolicyBox": "Aggiorna il box della policy",
+    "withinRules": "Conforme alle regole di governance"
+  }
+}

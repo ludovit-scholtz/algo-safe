@@ -1,0 +1,23 @@
+{
+  "language": "Język",
+  "demoData": "dane demonstracyjne",
+  "address": {
+    "copy": "Kopiuj adres",
+    "copied": "Adres skopiowany",
+    "copyTitle": "Kopiuj {{address}}",
+    "copiedTitle": "Skopiowano {{address}}"
+  },
+  "status": {
+    "executed": "wykonana",
+    "pending": "oczekująca",
+    "ready": "gotowa",
+    "draft": "wersja robocza",
+    "blocked": "zablokowana",
+    "rejected": "odrzucona",
+    "expired": "wygasła",
+    "cancelled": "anulowana",
+    "active": "aktywna",
+    "pending_review": "oczekuje na przegląd",
+    "paused": "wstrzymana"
+  }
+}

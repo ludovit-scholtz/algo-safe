@@ -1,0 +1,75 @@
+{
+  "page": {
+    "intro": "Spárujte tento trezor s dapp aplikáciou, akoby išlo o peňaženku. Prichádzajúce požiadavky sa prevedú na návrhy trezora — nastavenie a obmedzenia nájdete v <code>docs/WALLETCONNECT_WALLET_SETUP.md</code>.",
+    "pairTitle": "Spárovať dapp",
+    "uriLabel": "URI WalletConnect",
+    "uriHint": "Vložte URI wc: zobrazené pripájajúcou sa dapp aplikáciou.",
+    "uriPlaceholder": "wc:...",
+    "pair": "Spárovať",
+    "connectWalletFirst": "Najprv pripojte peňaženku — podpíše návrhy vytvorené z prichádzajúcich požiadaviek.",
+    "sessionProposal": "Návrh relácie",
+    "wantsToConnect": "{{name}} ({{url}}) sa chce pripojiť k tomuto trezoru.",
+    "approve": "Schváliť",
+    "reject": "Zamietnuť",
+    "activeSessions": "Aktívne relácie",
+    "noSessions": "Zatiaľ nie sú spárované žiadne dapp aplikácie.",
+    "disconnect": "Odpojiť",
+    "pendingRequests": "Čakajúce požiadavky",
+    "noRequests": "Žiadne prichádzajúce požiadavky.",
+    "exposedAccount": "Účet trezora sprístupnený dapp aplikáciám"
+  },
+  "panel": {
+    "unsupportedMethod": "Táto peňaženka spracúva iba požiadavky {{expected}} — prijatá bola „{{received}}“.",
+    "unrecognizedShape": "Nerozpoznaný tvar požiadavky.",
+    "rejectedByOperator": "Zamietnuté operátorom trezora.",
+    "rejectFailed": "Požiadavku sa nepodarilo zamietnuť.",
+    "proposalCreated": "Návrh #{{proposalId}} bol vytvorený on-chain (tx {{txId}}). Keď skupina dosiahne prah, schváľte ho na stránke Návrhy.",
+    "convertedReject": "Prevedené na návrh trezora #{{proposalId}} — sledujte a schváľte ho v konzole trezora.",
+    "submitFailed": "Návrh sa nepodarilo odoslať.",
+    "signedReturned": "Volanie návrhu bolo podpísané (tx {{txId}}) a vrátené spárovanej dapp aplikácii — ide o transakciu návrhu trezora, nie o pôvodne požadované transakcie.",
+    "signFailed": "Návrh sa nepodarilo podpísať.",
+    "evaluating": "Vyhodnocuje sa požiadavka…",
+    "cantBecome": "Z tejto požiadavky nemožno vytvoriť návrh trezora",
+    "rejectRequest": "Zamietnuť požiadavku",
+    "incoming": "Prichádzajúca požiadavka na transakciu",
+    "groupIdLabel": "ID skupiny podpisovateľov",
+    "groupIdHint": "Skupina, ktorá bude tento návrh spravovať.",
+    "expiryLabel": "Platnosť (kolá)",
+    "expiryHint": "Pripočíta sa k aktuálnemu kolu na výpočet kola vypršania návrhu.",
+    "submitToChain": "Odoslať návrh do reťazca",
+    "signReturn": "Podpísať a vrátiť cez WalletConnect",
+    "reject": "Zamietnuť",
+    "signReturnNote": "„Podpísať a vrátiť“ pošle späť podpísanú transakciu <em>návrhu</em>, nie pôvodné transakcie dapp aplikácie — použite to len s dapp aplikáciami, ktoré to akceptujú. Uprednostnite odoslanie do reťazca a nechajte dapp sledovať stav návrhu v trezore."
+  },
+  "preview": {
+    "sendAlgo": "Odoslať {{amount}} ALGO na {{receiver}}",
+    "transferAsa": "Previesť {{amount}} z ASA {{asset}} na {{receiver}}",
+    "callApp": "Volať aplikáciu {{app}}",
+    "keyreg": "Registrácia participačného kľúča",
+    "configureAsset": "Konfigurovať aktívum {{asset}}",
+    "newAsset": "nové aktívum",
+    "txType": "Typ transakcie {{type}}",
+    "fromSender": "Od {{sender}}"
+  },
+  "service": {
+    "noAlgorandNamespace": "Návrh relácie tejto dapp aplikácie nežiadal menný priestor Algorand, preto ju tento trezor nemôže obsluhovať.",
+    "sessionRejected": "Používateľ zamietol návrh relácie.",
+    "sessionDisconnected": "Používateľ ukončil reláciu."
+  },
+  "hook": {
+    "initFailed": "Inicializácia WalletConnect zlyhala.",
+    "pairFailed": "Párovanie s URI WalletConnect zlyhalo.",
+    "approveFailed": "Schválenie návrhu relácie zlyhalo.",
+    "rejectSessionFailed": "Zamietnutie návrhu relácie zlyhalo.",
+    "disconnectFailed": "Odpojenie relácie zlyhalo."
+  },
+  "convert": {
+    "unrecognizedShape": "Nerozpoznaný tvar požiadavky algo_signTxn — očakávalo sa pole položiek {txn, signers?}.",
+    "noTransactions": "Požiadavka neobsahovala žiadne transakcie.",
+    "unsignedByOthers": "Táto požiadavka obsahuje transakciu, ktorú musí autorizovať iná strana (jej zoznam „signers“ je prázdny) — napríklad účet riadený LogicSig alebo iný člen multisig. Trezor môže spolupodpisovať iba transakcie odosielané z vlastnej adresy alebo z adries s rekey na trezor, preto sa táto dávka nedá previesť na návrh trezora. Zamietnite ju a požiadajte dapp, aby túto časť požiadavky smerovala priamo cez pôvodného podpisovateľa.",
+    "decodeFailed": "Jednu z transakcií v tejto požiadavke sa nepodarilo dekódovať — možno je už podpísaná (napr. blob LogicSig) a nejde o obyčajnú nepodpísanú transakciu.",
+    "notSpendable": "Odosielateľ transakcie {{sender}} nie je ani vlastnou adresou trezora, ani adresou s aktuálnym rekey na trezor. Trezor nemá oprávnenie presúvať prostriedky z tohto účtu, preto z tejto požiadavky nemožno vytvoriť návrh trezora.",
+    "cannotRepresent": "Trezor nedokáže zobraziť túto transakciu: {{message}}",
+    "cannotRepresentGeneric": "Trezor nedokáže zobraziť jednu z transakcií v tejto požiadavke."
+  }
+}

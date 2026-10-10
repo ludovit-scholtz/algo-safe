@@ -1,0 +1,219 @@
+{
+  "memberTypes": {
+    "standard": "Standard account",
+    "multisig": "Multisig account",
+    "rekeyed": "Rekeyed account",
+    "agent": "Agent account",
+    "quantum": "Quantum account",
+    "unknown": "Type {{type}}"
+  },
+  "breadcrumb": {
+    "treasury": "Treasury",
+    "signerGroups": "Signer Groups",
+    "createGroup": "Create Group",
+    "manageGroup": "Manage Group #{{id}}"
+  },
+  "role": {
+    "admin": "Admin",
+    "execution": "Execution",
+    "custodian": "Custodian"
+  },
+  "status": {
+    "active": "Active",
+    "disabled": "Disabled",
+    "paused": "Paused"
+  },
+  "shared": {
+    "backToDashboard": "Back to Dashboard",
+    "creatingProposal": "Creating Proposal…",
+    "submitting": "Submitting…",
+    "cancel": "Cancel",
+    "memberLabel": "Member Label",
+    "accountType": "Account Type",
+    "addressPlaceholder": "Algorand address",
+    "adminGroupLabel": "Submitting Admin Signer Group",
+    "noAdminGroups": "No active admin signer groups were found for this safe.",
+    "safeNotLoaded": "The selected safe could not be loaded.",
+    "allowAlgo": "Allow ALGO payments",
+    "allowAsa": "Allow ASA transfers",
+    "allowApp": "Allow app calls",
+    "allowKeyreg": "Allow key registration",
+    "allowAcfg": "Allow asset configuration",
+    "allowRekey": "Allow rekey"
+  },
+  "card": {
+    "admin": "Admin",
+    "groupSummary": "Group #{{id}} · {{threshold}}-of-{{count}} signers",
+    "dailyUsage": "Daily Usage ({{asset}})",
+    "unlimited": "Unlimited",
+    "monthlyLimit": "Monthly Limit",
+    "cooldown": "Cooldown",
+    "none": "None",
+    "noLimit": "No limit",
+    "actionApp": "App",
+    "actionKeyreg": "Keyreg",
+    "manage": "Manage",
+    "rounds_one": "{{count}} round",
+    "rounds_other": "{{count}} rounds"
+  },
+  "governance": {
+    "title": "Safe Status",
+    "pausedDesc": "Fund-moving proposals are blocked. Governance stays live — create an unpause proposal to resume operations.",
+    "activeDesc": "Emergency pause halts all fund-moving proposals while keeping governance available. Use it if a signer key is suspected compromised.",
+    "proposeUnpause": "Propose Unpause",
+    "proposePause": "Propose Pause",
+    "newGroup": "New Signer Group",
+    "noAdminGroup": "No active admin signer group is available for the connected wallet — governance actions are unavailable.",
+    "pauseCreated": "Pause proposal created",
+    "unpauseCreated": "Unpause proposal created",
+    "pauseFailed": "Failed to create pause proposal",
+    "connectWallet": "Connect a wallet before creating a governance proposal.",
+    "invalidFirstMember": "Enter a valid Algorand address for the first member."
+  },
+  "create": {
+    "title": "Create Signer Group",
+    "subtitle": "Propose a new standard signer group or a custodian group for a DeFi protocol integration. A new group always starts with one member and a threshold of 1.",
+    "errors": {
+      "nameRequired": "Enter a group name.",
+      "noAdminGroup": "No admin signer group is available to submit this proposal.",
+      "failed": "Failed to create signer-group proposal."
+    },
+    "created": "Signer-group creation proposal created",
+    "groupType": {
+      "title": "Group Type",
+      "standard": "Standard group",
+      "standardDesc": "Human or agent signers governed by admins. Supports spending limits and any action set.",
+      "custodian": "Custodian group",
+      "custodianDesc": "A protocol contract signer bounded by asset guards. No admin privileges; pay/axfer actions only."
+    },
+    "identity": {
+      "title": "Group Identity",
+      "nameLabel": "Group Name",
+      "nameHint": "Fixed at creation time.",
+      "namePlaceholder": "e.g. Trading Desk",
+      "firstMemberLabel": "First Member Address",
+      "firstMemberHint": "The group's initial (and only) member. Add more via member proposals after creation.",
+      "labelPlaceholder": "Signer"
+    },
+    "actions": {
+      "title": "Allowed Actions",
+      "custodianDesc": "Custodian groups are restricted to payment and asset-transfer actions — their spend is bounded by asset guards set by admins after creation.",
+      "standardDesc": "Choose which transaction types this group may execute once approvals meet its threshold.",
+      "rekeyHint": "Also requires group-admin privileges at execution — hands account control to another address."
+    },
+    "privileges": {
+      "title": "Admin Privileges",
+      "desc": "Admin privileges are safe-wide: a group with these can administer <em>any</em> group in the safe. Grant sparingly.",
+      "groupAdmin": "Group admin (PRIV_GROUP)",
+      "groupAdminHint": "Create/modify groups, members, thresholds, privileges.",
+      "policyAdmin": "Policy admin (PRIV_POLICY)",
+      "policyAdminHint": "Change any group’s spending policy and cooldown."
+    },
+    "adminGroupHint": "The connected account must be a member of this admin group to submit the proposal.",
+    "submit": "Propose Group Creation"
+  },
+  "manage": {
+    "loading": "Loading signer-group settings from the blockchain…",
+    "notFound": "The selected signer group was not found.",
+    "title": "Manage Signer Group",
+    "subtitle": "Update membership, thresholds, policy controls, and admin permissions through governance proposals.",
+    "fixedNameNote": "Group names are fixed at creation time. All other supported properties can be updated via proposals from an admin signer group.",
+    "adminGroupHint": "The connected account must be a member of the selected admin group to submit the proposal.",
+    "youAreMember": " · you are a member",
+    "mayReject": "The selected admin group may reject this proposal if the connected wallet is not a member.",
+    "refreshing": "Refreshing group state…",
+    "custodianNotice": "<strong>Custodian group</strong> — this group is governed by a smart-contract protocol. Asset guards (set by admins) bound what the custodian can spend. It has no admin privileges and uses guards instead of day/month limits. The custodian can self-dissolve once all guards are removed.",
+    "members": {
+      "title": "Members",
+      "desc": "Current signer accounts and labels recorded in the group boxes.",
+      "defaultLabel": "Member",
+      "removeTitle": "Propose member removal",
+      "removeAria": "Propose removal of {{who}}",
+      "cannotRemove": "Members cannot be removed while the count equals the signing threshold — lower the threshold first.",
+      "addressLabel": "Member Address",
+      "labelPlaceholder": "Treasury signer",
+      "submitAdd": "Propose Member Addition",
+      "invalidAddress": "Enter a valid Algorand address for the member.",
+      "belowThreshold": "Removing this member would drop the group below its signing threshold. Lower the threshold first.",
+      "addCreated": "Member addition proposal created",
+      "removeCreated": "Member removal proposal created",
+      "count_one": "{{count}} member",
+      "count_other": "{{count}} members"
+    },
+    "threshold": {
+      "title": "Signing Threshold",
+      "desc": "Change how many signatures are required before this group can approve execution.",
+      "label": "Threshold",
+      "hint": "Current members available: {{max}}",
+      "submit": "Propose Threshold Update",
+      "invalid": "Threshold must be between 1 and {{max}}.",
+      "created": "Threshold update proposal created"
+    },
+    "policy": {
+      "title": "Execution Policy",
+      "desc": "Update allowed actions, asset-based limits, and cooldown rounds for the signer group.",
+      "rekeyHint": "Rekey also requires group-admin privileges at execution time — it hands account control to another address.",
+      "assetLabel": "Spending Limit Asset",
+      "assetHint": "The selected asset controls how the daily and monthly limit fields are interpreted and labeled.",
+      "optionAvailable": "Available {{balance}}",
+      "notHeld": "not held",
+      "dailyLabel": "Daily Limit ({{symbol}})",
+      "monthlyLabel": "Monthly Limit ({{symbol}})",
+      "limitHint": "Use 0 for no limit in {{symbol}}.",
+      "cooldownLabel": "Cooldown Rounds",
+      "cooldownHint": "Use 0 for no cooldown.",
+      "submit": "Propose Policy Update",
+      "cooldownInvalid": "Cooldown rounds must be a non-negative integer.",
+      "limitsInvalid": "Enter valid {{symbol}} limits for the signer group policy.",
+      "enableAlgo": "Enable ALGO payments when the spending limit asset is ALGO.",
+      "enableAsa": "Enable ASA transfers when the spending limit asset is an ASA.",
+      "created": "Policy update proposal created"
+    },
+    "admin": {
+      "title": "Admin Controls",
+      "desc": "Grant or revoke governance privileges and enable or disable the signer group.",
+      "groupAdmin": "Group admin privileges",
+      "policyAdmin": "Policy admin privileges",
+      "submitPrivileges": "Propose Privilege Update",
+      "privilegesCreated": "Admin privileges proposal created",
+      "activeLabel": "Group is active and can participate in proposal approvals and execution.",
+      "submitStatus": "Propose Status Update",
+      "statusCreated": "Signer-group status proposal created"
+    },
+    "guards": {
+      "title": "Asset Guards",
+      "desc": "Per-asset spending ceilings for this custodian. Guards are created, updated, and removed by admin-group proposals; each custodian transfer deducts from the matching guard.",
+      "remaining": "Remaining allocation: {{amount}} {{symbol}}",
+      "removeTitle": "Propose guard removal",
+      "removeAria": "Propose removal of the {{symbol}} guard",
+      "empty": "No guards configured — this custodian cannot move any value until an admin sets a guard.",
+      "assetLabel": "Guard Asset",
+      "assetHint": "ALGO or an ASA the safe holds.",
+      "amountLabel": "Guard Amount",
+      "amountHint": "Sets (or replaces) the remaining allocation for this asset.",
+      "submit": "Propose Guard Update",
+      "amountInvalid": "Enter a valid {{symbol}} guard amount.",
+      "setCreated": "Asset guard proposal created",
+      "removeCreated": "Guard removal proposal created",
+      "count_one": "{{count}} guard",
+      "count_other": "{{count}} guards"
+    },
+    "dissolve": {
+      "title": "Self-Dissolution",
+      "desc": "A custodian group can dissolve itself once all asset guards are removed by an admin and the group is pruned to a single member. The dissolve proposal deletes that last member's box with the group.",
+      "submit": "Propose Dissolution",
+      "connectWallet": "Connect a wallet before proposing dissolution.",
+      "needSingleMember": "Dissolution requires the group to be pruned to exactly one member first (via member removal proposals).",
+      "failed": "Failed to create dissolution proposal.",
+      "created": "Custodian dissolution proposal created",
+      "guardsWarning_one": "This group still has {{count}} active guard. An admin must remove all guards before dissolution can proceed.",
+      "guardsWarning_other": "This group still has {{count}} active guards. An admin must remove all guards before dissolution can proceed.",
+      "membersWarning_one": "This group has {{count}} member. Remove all but one (via member-removal proposals) before dissolving.",
+      "membersWarning_other": "This group has {{count}} members. Remove all but one (via member-removal proposals) before dissolving."
+    },
+    "submitFailed": "Failed to create signer-group update proposal.",
+    "connectWallet": "Connect a wallet with access to an admin signer group before managing this signer group.",
+    "activeGuards_one": "({{count}} active guard)",
+    "activeGuards_other": "({{count}} active guards)"
+  }
+}
