@@ -38,7 +38,7 @@
     "check-program-size": "ts-node scripts/check-program-size.ts",
     "build:contracts": "pnpm build",
     "build-package": "pnpm run sync-versioned-client && tsup src/index.ts --format cjs,esm --clean --sourcemap --external @algorandfoundation/algokit-utils --external algosdk --external tslib && tsc -p tsconfig.package.json",
-    "deploy": "tsx watch --env-file-if-exists=.env smart_contracts/index.ts",
+    "deploy": "tsx --env-file-if-exists=.env smart_contracts/index.ts",
     "deploy:ci": "ts-node --transpile-only -r dotenv/config smart_contracts/index.ts",
     "lint": "eslint smart_contracts",
     "lint:fix": "eslint smart_contracts --fix",

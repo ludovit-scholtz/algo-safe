@@ -30,8 +30,8 @@ const browserWallets = [
   defly(),
   pera(),
   walletConnect(walletConnectOptions),
-  // Biatec Wallet has its own adapter in v5 (Direct popup + Liquid Auth, WalletConnect only when a projectId is set).
-  biatec(walletConnectProjectId ? { projectId: walletConnectProjectId } : {}),
+  // Biatec Wallet has its own adapter in v5 (Direct popup + Liquid Auth, plus WalletConnect via the shared project id).
+  biatec({ projectId: walletConnectProjectId }),
 ]
 
 const kmd = getKmdConfigFromViteEnvironment()

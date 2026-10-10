@@ -20,7 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: npm
     steps:
-      - name: Use Node.js 22.x
+      - name: Use Node.js 24.x
         uses: actions/setup-node@v4
         with:
           node-version: '24.x'
