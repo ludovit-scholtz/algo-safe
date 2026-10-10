@@ -191,7 +191,8 @@ function ArgList({ args, network, algodClient }: { args: DecodedArg[]; network: 
   return (
     <div className="mt-1.5 space-y-1.5">
       {args.map((arg, i) => {
-        const typeLabel = arg.kind === 'value' ? arg.type : arg.kind === 'reference' ? arg.refType : arg.kind === 'transaction' ? arg.txnType : arg.type
+        const typeLabel =
+          arg.kind === 'value' ? arg.type : arg.kind === 'reference' ? arg.refType : arg.kind === 'transaction' ? arg.txnType : arg.type
         return (
           <div key={i} className="rounded border border-outline-variant bg-surface-container-lowest px-3 py-2">
             <div className="flex items-baseline justify-between gap-2">
@@ -279,11 +280,11 @@ function CandidatesView({
   return (
     <div className="mt-2 space-y-2">
       <Banner tone="warn" icon="gpp_maybe" title="Not verified for this exact contract">
-        No ARC-56 spec is published for this contract&apos;s exact bytecode, but {verification.candidates.length} other published
-        contract{verification.candidates.length === 1 ? '' : 's'} declare
+        No ARC-56 spec is published for this contract&apos;s exact bytecode, but {verification.candidates.length} other published contract
+        {verification.candidates.length === 1 ? '' : 's'} declare
         {verification.candidates.length === 1 ? 's' : ''} a method with the same selector (
-        <code className="font-mono">{verification.selectorHex}</code>). You may inspect and optionally borrow field descriptions from
-        one of them — this is never a guarantee that this app call behaves the same way.
+        <code className="font-mono">{verification.selectorHex}</code>). You may inspect and optionally borrow field descriptions from one of
+        them — this is never a guarantee that this app call behaves the same way.
       </Banner>
 
       {applied && (
@@ -358,8 +359,8 @@ export function AppCallDetails({ appCall, algodClient, network }: Props) {
       return (
         <div className="mt-2">
           <Banner tone="warn" icon="wifi_off" title="Could not reach the ARC-56 registry">
-            Verification status is unknown due to a network error — this is <strong>not</strong> confirmation that the call is
-            unverified. {state.error}
+            Verification status is unknown due to a network error — this is <strong>not</strong> confirmation that the call is unverified.{' '}
+            {state.error}
           </Banner>
         </div>
       )
