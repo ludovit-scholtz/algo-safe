@@ -1,6 +1,11 @@
 // src/App.tsx
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { DEFAULT_NETWORK_CONFIG, NetworkId, SupportedWallet, WalletId, WalletManager, WalletProvider } from '@txnlab/use-wallet-react'
+import { DEFAULT_NETWORK_CONFIG, NetworkId, WalletManager, WalletProvider } from '@txnlab/use-wallet-react'
+import { defly } from '@txnlab/use-wallet-defly'
+import { kmd as kmdWallet } from '@txnlab/use-wallet-kmd'
+import { pera } from '@txnlab/use-wallet-pera'
+import { walletConnect } from '@txnlab/use-wallet-walletconnect'
+import { biatec } from 'biatec-wallet-use-wallet-client'
 import { SnackbarProvider } from 'notistack'
 import { useMemo } from 'react'
 import { RouterProvider } from 'react-router-dom'
@@ -21,18 +26,16 @@ const walletConnectOptions = {
   themeVariables: {},
 }
 
-const browserWallets: SupportedWallet[] = [
-  { id: WalletId.DEFLY },
-  { id: WalletId.PERA },
-  { id: WalletId.WALLETCONNECT, options: walletConnectOptions },
-  { id: WalletId.WALLETCONNECT, options: { ...walletConnectOptions, skin: 'biatec' } },
+const browserWallets = [
+  defly(),
+  pera(),
+  walletConnect(walletConnectOptions),
+  // Biatec Wallet has its own adapter in v5 (Direct popup + Liquid Auth, WalletConnect only when a projectId is set).
+  biatec(walletConnectProjectId ? { projectId: walletConnectProjectId } : {}),
 ]
 
 const kmd = getKmdConfigFromViteEnvironment()
-const supportedWallets: SupportedWallet[] = [
-  { id: WalletId.KMD, options: { baseServer: kmd.server, token: String(kmd.token), port: String(kmd.port) } },
-  ...browserWallets,
-]
+const supportedWallets = [kmdWallet({ baseServer: kmd.server, token: String(kmd.token), port: String(kmd.port) }), ...browserWallets]
 
 type SupportedChainId = NetworkId.MAINNET | NetworkId.TESTNET | NetworkId.LOCALNET | 'voimain' | 'aramidmain'
 
@@ -98,7 +101,7 @@ export default function App() {
         wallets: supportedWallets,
         defaultNetwork,
         networks: getWalletNetworks(algodConfig),
-        options: { resetNetwork: false },
+        options: { persistNetwork: true },
       }),
     [algodConfig.network, algodConfig.port, algodConfig.server, algodConfig.token, defaultNetwork],
   )

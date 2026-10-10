@@ -1,6 +1,6 @@
 import { AlgorandClient } from '@algorandfoundation/algokit-utils'
 import { useQueryClient } from '@tanstack/react-query'
-import { useNetwork, useWallet, WalletId, type Wallet } from '@txnlab/use-wallet-react'
+import { useNetwork, useWallet, type Wallet } from '@txnlab/use-wallet-react'
 import { getAlgoSafeContractVersion, getClient, hasModernAbi, readSafeConfig } from 'algo-safe'
 import algosdk from 'algosdk'
 import { useState } from 'react'
@@ -12,6 +12,7 @@ import { FormField, inputCls } from '../components/ui/FormField'
 import { Icon } from '../components/ui/Icon'
 import { useSafes } from '../hooks'
 import { chainOptions, getWalletKeysForChain, getWalletSectionTitle } from '../lib/networks'
+import { WALLET_ID } from '../lib/walletIds'
 import { normalizeNetworkId, upsertSafeRegistryEntry } from '../lib/safeRegistry'
 
 export function SafeSelectionPage() {
@@ -257,7 +258,7 @@ function UnauthenticatedSafeSelection() {
   const { activeNetwork, setActiveNetwork } = useNetwork()
   const [connectingWalletKey, setConnectingWalletKey] = useState<string | null>(null)
   const [connectError, setConnectError] = useState<string | null>(null)
-  const hasKmdWallet = wallets.some((wallet) => wallet.id === WalletId.KMD)
+  const hasKmdWallet = wallets.some((wallet) => wallet.id === WALLET_ID.KMD)
   const availableChainOptions = chainOptions.filter((option) => option.id !== 'localnet' || hasKmdWallet || activeNetwork === 'localnet')
   const selectedChain = availableChainOptions.some((option) => option.id === activeNetwork)
     ? activeNetwork
@@ -330,7 +331,7 @@ function UnauthenticatedSafeSelection() {
           <div className="space-y-2 text-sm text-on-surface-variant">
             <p>Authenticate before loading safes so the dashboard can bind actions to your active Algorand account.</p>
             <p>Once connected, the existing treasury overview and safe management console become available immediately.</p>
-            <p>WalletConnect and Biatec use the same session relay, and LocalNet skips that flow in favor of KMD.</p>
+            <p>LocalNet skips browser wallets in favor of KMD.</p>
           </div>
         </div>
       </div>
@@ -379,11 +380,11 @@ function UnauthenticatedSafeSelection() {
           <div className="space-y-3">
             {featuredWallets.map((wallet) => {
               const isConnecting = connectingWalletKey === wallet.walletKey
-              const isPera = wallet.id === WalletId.PERA
-              const isDefly = wallet.id === WalletId.DEFLY
-              const isKmd = wallet.id === WalletId.KMD
-              const isBiatec = wallet.walletKey === 'walletconnect:biatec'
-              const isWalletConnect = wallet.id === WalletId.WALLETCONNECT && !isBiatec
+              const isPera = wallet.id === WALLET_ID.PERA
+              const isDefly = wallet.id === WALLET_ID.DEFLY
+              const isKmd = wallet.id === WALLET_ID.KMD
+              const isBiatec = wallet.id === WALLET_ID.BIATEC
+              const isWalletConnect = wallet.id === WALLET_ID.WALLETCONNECT
               const description = isKmd
                 ? 'Use the local KMD wallet managed by AlgoKit LocalNet for development flows.'
                 : isPera
@@ -391,7 +392,7 @@ function UnauthenticatedSafeSelection() {
                   : isDefly
                     ? 'Approve the session in Defly to continue.'
                     : isBiatec
-                      ? 'Open Biatec Wallet through WalletConnect and approve the session.'
+                      ? 'Connect Biatec Wallet directly (popup or Liquid Auth) and approve the session.'
                       : 'Connect any WalletConnect-compatible Algorand wallet using the shared QR flow.'
               const actionIcon = isKmd ? 'developer_mode' : isWalletConnect || isBiatec ? 'qr_code_2' : 'login'
 

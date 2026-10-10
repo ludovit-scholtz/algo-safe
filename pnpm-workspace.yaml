@@ -1,8 +1,11 @@
 packages:
   - projects/*
 allowBuilds:
+  cbor-extract: set this to true or false
   esbuild: true
   unrs-resolver: true
 ignoredBuiltDependencies:
   - esbuild
   - unrs-resolver
+minimumReleaseAgeExclude:
+  - biatec-wallet-use-wallet-client@0.4.0

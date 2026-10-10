@@ -1,7 +1,8 @@
-import { useNetwork, useWallet, WalletId } from '@txnlab/use-wallet-react'
+import { useNetwork, useWallet } from '@txnlab/use-wallet-react'
 import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { chainOptions } from '../lib/networks'
+import { WALLET_ID } from '../lib/walletIds'
 import { Icon } from './ui/Icon'
 
 const networkDotClass: Record<string, string> = {
@@ -21,7 +22,7 @@ export function NetworkSwitcher() {
   const [isOpen, setIsOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
 
-  const hasKmdWallet = wallets.some((wallet) => wallet.id === WalletId.KMD)
+  const hasKmdWallet = wallets.some((wallet) => wallet.id === WALLET_ID.KMD)
   const activeOption = chainOptions.find((option) => option.id === activeNetwork)
 
   useEffect(() => {
