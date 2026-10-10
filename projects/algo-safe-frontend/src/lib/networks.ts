@@ -25,8 +25,6 @@ export const chainOptions = [
   { id: 'localnet', label: 'AlgoKit LocalNet', hint: 'Local development chain with KMD-backed wallets.' },
 ] as const
 
-export { getWalletKeysForChain } from './walletIds'
-
 export function getWalletSectionTitle(chainId: string) {
   return chainId === 'localnet' ? 'Choose a LocalNet wallet' : 'Choose an Algorand wallet'
 }

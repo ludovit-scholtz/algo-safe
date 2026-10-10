@@ -1,7 +1,7 @@
 packages:
   - projects/*
 allowBuilds:
-  cbor-extract: set this to true or false
+  cbor-extract: false
   esbuild: true
   unrs-resolver: true
 ignoredBuiltDependencies:

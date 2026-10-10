@@ -11,8 +11,8 @@ import { Card } from '../components/ui/Card'
 import { FormField, inputCls } from '../components/ui/FormField'
 import { Icon } from '../components/ui/Icon'
 import { useSafes } from '../hooks'
-import { chainOptions, getWalletKeysForChain, getWalletSectionTitle } from '../lib/networks'
-import { WALLET_ID } from '../lib/walletIds'
+import { chainOptions, getWalletSectionTitle } from '../lib/networks'
+import { WALLET_ID, getWalletKeysForChain } from '../lib/walletIds'
 import { normalizeNetworkId, upsertSafeRegistryEntry } from '../lib/safeRegistry'
 
 export function SafeSelectionPage() {

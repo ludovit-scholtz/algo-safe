@@ -10,10 +10,6 @@ export const WALLET_ID = {
 
 const BROWSER_WALLET_IDS: ReadonlySet<string> = new Set([WALLET_ID.PERA, WALLET_ID.DEFLY, WALLET_ID.WALLETCONNECT, WALLET_ID.BIATEC])
 
-export function isBrowserWalletId(walletKey: string): boolean {
-  return BROWSER_WALLET_IDS.has(walletKey)
-}
-
 export function getWalletKeysForChain(chainId: string): ReadonlySet<string> {
   return chainId === 'localnet' ? new Set<string>([WALLET_ID.KMD]) : BROWSER_WALLET_IDS
 }

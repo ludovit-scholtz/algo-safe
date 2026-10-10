@@ -1,4 +1,4 @@
-import { WALLET_ID, getWalletKeysForChain, isBrowserWalletId } from './walletIds'
+import { WALLET_ID, getWalletKeysForChain } from './walletIds'
 
 describe('walletIds (use-wallet v5)', () => {
   it('uses plain v5 string ids, with Biatec as its own adapter (not a WalletConnect skin)', () => {
@@ -26,6 +26,5 @@ describe('walletIds (use-wallet v5)', () => {
 
   it('no longer recognises the v4 walletconnect:biatec key', () => {
     expect(getWalletKeysForChain('mainnet').has('walletconnect:biatec')).toBe(false)
-    expect(isBrowserWalletId('walletconnect:biatec')).toBe(false)
   })
 })
