@@ -4,7 +4,8 @@ WORKDIR /workspace
 
 RUN corepack enable
 
-COPY pnpm-workspace.yaml pnpm-lock.yaml ./
+# Root package.json carries the pinned `packageManager`; without it corepack fetches the latest pnpm.
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 COPY projects/algo-safe-contracts/package.json projects/algo-safe-contracts/package.json
 COPY projects/algo-safe-frontend/package.json projects/algo-safe-frontend/package.json
 
