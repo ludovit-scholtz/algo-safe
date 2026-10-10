@@ -1,0 +1,35 @@
+{
+  "logoAlt": "Logo Algo Safe",
+  "selectSafe": "Wybierz sejf",
+  "registerAgent": "Zarejestruj agenta",
+  "nav": {
+    "dashboard": "Pulpit",
+    "proposals": "Propozycje",
+    "createProposal": "Utwórz propozycję",
+    "assets": "Aktywa",
+    "upgrade": "Aktualizacja i rekey",
+    "walletConnect": "WalletConnect"
+  },
+  "errorBoundary": {
+    "title": "Wystąpił błąd",
+    "unexpected": "Nieoczekiwany błąd aplikacji."
+  },
+  "auth": {
+    "checking": "Sprawdzanie portfela",
+    "loginPrompt": "Zaloguj się portfelem Algorand, aby uzyskać dostęp do swoich sejfów",
+    "loggingOut": "Wylogowywanie",
+    "logout": "Wyloguj"
+  },
+  "network": {
+    "localnetLocked": "Połącz portfel LocalNet (KMD), aby tutaj przełączyć",
+    "chooseLocalnetWallet": "Wybierz portfel LocalNet",
+    "chooseAlgorandWallet": "Wybierz portfel Algorand",
+    "hints": {
+      "mainnet": "Sieć produkcyjna do rzeczywistych operacji skarbcowych.",
+      "voimain": "Sieć Voi do operacji specjalistycznych.",
+      "aramidmain": "Sieć Aramid do operacji specjalistycznych.",
+      "testnet": "Publiczna sieć testowa do parowania portfeli i prób.",
+      "localnet": "Lokalny łańcuch deweloperski z portfelami opartymi na KMD."
+    }
+  }
+}

@@ -1,4 +1,5 @@
 // src/services/mock/safeMock.ts
+import i18n from '../../i18n/instance'
 import {
   getSafeRegistryEntryBySafeId,
   listSafeRegistryEntriesForWallet,
@@ -23,7 +24,7 @@ export const safeMock: SafeService = {
     const registrySafe = getSafeRegistryEntryBySafeId(safeId)
     if (registrySafe) return safeRegistryEntryToSafe(registrySafe)
 
-    throw new Error(`Safe ${safeId} was not found in the local registry.`)
+    throw new Error(i18n.t('safes:mock.safeNotFound', { safeId }))
   },
   async createSafe(input: CreateSafeInput) {
     await wait()
@@ -32,7 +33,7 @@ export const safeMock: SafeService = {
       name: input.name,
       appId: 100000000 + store.safes.length,
       address: `NEW${store.safes.length}...SAFE`,
-      tier: `${input.threshold}-of-${input.signerCount} Multisig`,
+      tier: i18n.t('safes:mock.tier', { threshold: input.threshold, signerCount: input.signerCount }),
       totalValueEur: input.initialDepositEurd,
       agentCount: 0,
       status: 'active' as const,
@@ -76,13 +77,13 @@ export const safeMock: SafeService = {
     }
     const proposal: Proposal = {
       id: store.newProposalId(),
-      title: `Agent Registration: ${input.alias}`,
-      description: `Register automated agent ${input.alias} in ${input.groupTier}.`,
+      title: i18n.t('safes:mock.agentRegTitle', { alias: input.alias }),
+      description: i18n.t('safes:mock.agentRegDesc', { alias: input.alias, groupTier: input.groupTier }),
       status: 'draft',
       approvals: 0,
       threshold: 3,
-      date: 'Just now',
-      txPreview: [{ type: 'appl', summary: 'Initialize agent contract', detail: input.groupTier }],
+      date: i18n.t('safes:mock.justNow'),
+      txPreview: [{ type: 'appl', summary: i18n.t('safes:mock.initAgent'), detail: input.groupTier }],
       policyChecks: [],
     }
     store.proposals.unshift(proposal)
@@ -95,14 +96,14 @@ export const safeMock: SafeService = {
     const agent = store.agents.find((a) => a.id === agentId)
     const proposal: Proposal = {
       id: store.newProposalId(),
-      title: `Policy Update: ${agent?.alias ?? agentId}`,
-      description: 'Modify agent spending policy.',
+      title: i18n.t('safes:mock.policyTitle', { name: agent?.alias ?? agentId }),
+      description: i18n.t('safes:mock.policyDesc'),
       status: 'pending',
       approvals: 1,
       threshold: 3,
-      date: 'Just now',
-      txPreview: [{ type: 'appl', summary: 'Update policy box', detail: JSON.stringify(policy).slice(0, 80) }],
-      policyChecks: [{ label: 'Within governance rules', passed: true }],
+      date: i18n.t('safes:mock.justNow'),
+      txPreview: [{ type: 'appl', summary: i18n.t('safes:mock.updatePolicyBox'), detail: JSON.stringify(policy).slice(0, 80) }],
+      policyChecks: [{ label: i18n.t('safes:mock.withinRules'), passed: true }],
     }
     store.proposals.unshift(proposal)
     return delay(proposal)

@@ -1,0 +1,75 @@
+{
+  "page": {
+    "intro": "이 금고를 지갑처럼 dapp과 연결하세요. 들어오는 요청은 금고 제안으로 변환됩니다. 설정 방법과 제한 사항은 <code>docs/WALLETCONNECT_WALLET_SETUP.md</code>를 참조하세요.",
+    "pairTitle": "dapp 연결",
+    "uriLabel": "WalletConnect URI",
+    "uriHint": "연결하려는 dapp에 표시된 wc: URI를 붙여넣으세요.",
+    "uriPlaceholder": "wc:...",
+    "pair": "연결",
+    "connectWalletFirst": "먼저 지갑을 연결하세요. 들어오는 요청으로 생성된 제안에 서명합니다.",
+    "sessionProposal": "세션 제안",
+    "wantsToConnect": "{{name}}({{url}})이(가) 이 금고에 연결하려고 합니다.",
+    "approve": "승인",
+    "reject": "거부",
+    "activeSessions": "활성 세션",
+    "noSessions": "아직 연결된 dapp이 없습니다.",
+    "disconnect": "연결 해제",
+    "pendingRequests": "대기 중인 요청",
+    "noRequests": "들어온 요청이 없습니다.",
+    "exposedAccount": "dapp에 노출된 금고 계정"
+  },
+  "panel": {
+    "unsupportedMethod": "이 지갑은 {{expected}} 요청만 처리합니다. 수신한 요청: \"{{received}}\".",
+    "unrecognizedShape": "인식할 수 없는 요청 형식입니다.",
+    "rejectedByOperator": "금고 운영자가 거부했습니다.",
+    "rejectFailed": "요청을 거부하지 못했습니다.",
+    "proposalCreated": "제안 #{{proposalId}}이(가) 온체인에서 생성되었습니다(tx {{txId}}). 그룹이 임계값에 도달하면 제안 페이지에서 승인하세요.",
+    "convertedReject": "금고 제안 #{{proposalId}}(으)로 변환되었습니다. 금고 콘솔에서 추적하고 승인하세요.",
+    "submitFailed": "제안을 제출하지 못했습니다.",
+    "signedReturned": "제안 호출에 서명하여(tx {{txId}}) 연결된 dapp에 반환했습니다. 이는 금고 제안 트랜잭션이며, 원래 요청된 트랜잭션이 아닙니다.",
+    "signFailed": "제안에 서명하지 못했습니다.",
+    "evaluating": "요청을 평가하는 중…",
+    "cantBecome": "이 요청은 금고 제안으로 만들 수 없습니다",
+    "rejectRequest": "요청 거부",
+    "incoming": "들어온 트랜잭션 요청",
+    "groupIdLabel": "서명자 그룹 ID",
+    "groupIdHint": "이 제안을 보유할 그룹입니다.",
+    "expiryLabel": "만료(라운드)",
+    "expiryHint": "현재 라운드에 더해 제안 만료 라운드를 계산합니다.",
+    "submitToChain": "제안을 체인에 제출",
+    "signReturn": "WalletConnect로 서명 후 반환",
+    "reject": "거부",
+    "signReturnNote": "\"서명 후 반환\"은 dapp의 원래 트랜잭션이 아니라 서명된 <em>제안</em> 트랜잭션을 돌려보냅니다. 이를 허용하는 dapp에서만 사용하세요. 체인에 제출하고 dapp이 금고의 제안 상태를 조회하게 하는 방식을 권장합니다."
+  },
+  "preview": {
+    "sendAlgo": "{{receiver}}에 {{amount}} ALGO 전송",
+    "transferAsa": "ASA {{asset}} {{amount}}을(를) {{receiver}}에 전송",
+    "callApp": "앱 {{app}} 호출",
+    "keyreg": "참여 키 등록",
+    "configureAsset": "자산 {{asset}} 구성",
+    "newAsset": "새 자산",
+    "txType": "트랜잭션 유형 {{type}}",
+    "fromSender": "보낸 주소 {{sender}}"
+  },
+  "service": {
+    "noAlgorandNamespace": "이 dapp의 세션 제안에 Algorand 네임스페이스가 요청되지 않아 이 금고가 처리할 수 없습니다.",
+    "sessionRejected": "사용자가 세션 제안을 거부했습니다.",
+    "sessionDisconnected": "사용자가 세션 연결을 해제했습니다."
+  },
+  "hook": {
+    "initFailed": "WalletConnect를 초기화하지 못했습니다.",
+    "pairFailed": "WalletConnect URI로 연결하지 못했습니다.",
+    "approveFailed": "세션 제안을 승인하지 못했습니다.",
+    "rejectSessionFailed": "세션 제안을 거부하지 못했습니다.",
+    "disconnectFailed": "세션 연결을 해제하지 못했습니다."
+  },
+  "convert": {
+    "unrecognizedShape": "인식할 수 없는 algo_signTxn 요청 형식입니다. {txn, signers?} 항목 배열이 필요합니다.",
+    "noTransactions": "요청에 트랜잭션이 없습니다.",
+    "unsignedByOthers": "이 요청에는 다른 당사자의 승인이 필요한 트랜잭션이 포함되어 있습니다(\"signers\" 목록이 비어 있음). 예를 들어 LogicSig가 제어하는 계정이나 다른 멀티시그 구성원이 해당됩니다. 금고는 자신의 주소 또는 금고로 rekey된 주소에서 보내는 트랜잭션에만 공동 서명할 수 있으므로 이 묶음은 금고 제안으로 변환할 수 없습니다. 요청을 거부하고, dapp에 해당 부분을 원래 서명자에게 직접 전달하도록 요청하세요.",
+    "decodeFailed": "이 요청의 트랜잭션 중 하나를 디코딩할 수 없습니다. 일반 미서명 트랜잭션이 아니라 이미 서명된 것(예: LogicSig blob)일 수 있습니다.",
+    "notSpendable": "트랜잭션 발신자 {{sender}}은(는) 금고 자체 주소도, 현재 금고로 rekey된 주소도 아닙니다. 금고에는 이 계정에서 자금을 이동할 권한이 없으므로 이 요청은 금고 제안으로 만들 수 없습니다.",
+    "cannotRepresent": "금고가 이 트랜잭션을 표현할 수 없습니다: {{message}}",
+    "cannotRepresentGeneric": "금고가 이 요청의 트랜잭션 중 하나를 표현할 수 없습니다."
+  }
+}

@@ -1,4 +1,5 @@
 // src/pages/ProposalsPage.tsx
+import { useTranslation } from 'react-i18next'
 import { useSafeId } from '../lib/SafeContext'
 import { useProposals, useApproveProposal, useExecuteProposal } from '../hooks'
 import { ProposalRow } from '../components/ProposalRow'
@@ -6,6 +7,7 @@ import { Card } from '../components/ui/Card'
 import { StatCard } from '../components/ui/StatCard'
 
 export function ProposalsPage() {
+  const { t } = useTranslation('proposals')
   const safeId = useSafeId()
   const { data: proposals } = useProposals()
   const approve = useApproveProposal()
@@ -32,25 +34,25 @@ export function ProposalsPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-3xl font-bold text-on-surface">Proposals</h1>
+      <h1 className="text-3xl font-bold text-on-surface">{t('list.title')}</h1>
 
       {/* Stat cards */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <StatCard label="Ready To Execute" value={actionRequired.length} />
-        <StatCard label="Awaiting Your Approval" value={awaiting.length} />
-        <StatCard label="Avg. Consensus" value={`${avg}%`} />
+        <StatCard label={t('list.readyToExecute')} value={actionRequired.length} />
+        <StatCard label={t('list.awaitingYourApproval')} value={awaiting.length} />
+        <StatCard label={t('list.avgConsensus')} value={`${avg}%`} />
       </div>
 
       {/* Grouped sections */}
-      {section('Ready To Execute', actionRequired)}
-      {section('Awaiting Your Approval', awaiting)}
-      {section('Awaiting Other Signers', inProgress)}
-      {section('Completed', completed)}
+      {section(t('list.readyToExecute'), actionRequired)}
+      {section(t('list.awaitingYourApproval'), awaiting)}
+      {section(t('list.awaitingOtherSigners'), inProgress)}
+      {section(t('list.completed'), completed)}
 
       {/* Empty state */}
       {ps.length === 0 && (
         <div className="rounded-md border border-outline-variant bg-surface-container p-10 text-center text-sm text-on-surface-variant">
-          No proposals found.
+          {t('list.empty')}
         </div>
       )}
     </div>

@@ -1,0 +1,23 @@
+{
+  "language": "Язык",
+  "demoData": "демо-данные",
+  "address": {
+    "copy": "Копировать адрес",
+    "copied": "Адрес скопирован",
+    "copyTitle": "Копировать {{address}}",
+    "copiedTitle": "Скопировано {{address}}"
+  },
+  "status": {
+    "executed": "выполнено",
+    "pending": "в ожидании",
+    "ready": "готово",
+    "draft": "черновик",
+    "blocked": "заблокировано",
+    "rejected": "отклонено",
+    "expired": "истекло",
+    "cancelled": "отменено",
+    "active": "активно",
+    "pending_review": "ожидает проверки",
+    "paused": "приостановлено"
+  }
+}

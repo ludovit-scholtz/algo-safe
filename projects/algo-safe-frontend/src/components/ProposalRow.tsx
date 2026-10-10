@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import type { Proposal } from '../services/types'
 import { StatusBadge } from './ui/StatusBadge'
@@ -14,6 +15,7 @@ export function ProposalRow({
   onApprove?: (id: string) => void
   onExecute?: (id: string) => void
 }) {
+  const { t } = useTranslation('proposals')
   const nav = useNavigate()
   const canApprove = p.status === 'pending' && !p.userHasApproved
   const canExecute = p.status === 'ready' || (p.status === 'pending' && p.approvals >= p.threshold)
@@ -25,17 +27,17 @@ export function ProposalRow({
           <span className="font-medium text-on-surface">{p.title}</span>
         </div>
         <div className="mt-1 text-xs text-on-surface-variant">
-          {p.date} · Consensus {p.approvals}/{p.threshold}
+          {p.date} · {t('row.consensus', { approvals: p.approvals, threshold: p.threshold })}
         </div>
       </button>
       <div className="flex items-center gap-3">
-        <StatusBadge status={p.status} />
+        <StatusBadge status={p.status}>{t(`status.${p.status}`, { defaultValue: p.status })}</StatusBadge>
         {canApprove && onApprove && (
           <Button variant="secondary" onClick={() => onApprove(p.id)}>
-            Approve
+            {t('row.approve')}
           </Button>
         )}
-        {canExecute && onExecute && <Button onClick={() => onExecute(p.id)}>Execute</Button>}
+        {canExecute && onExecute && <Button onClick={() => onExecute(p.id)}>{t('row.execute')}</Button>}
       </div>
     </div>
   )

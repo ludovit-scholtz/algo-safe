@@ -1,0 +1,38 @@
+{
+  "title": "Aktíva",
+  "subtitle": "Zostatky pokladnice a pôžičkové pozície.",
+  "buyEurd": "Kúpiť EURD",
+  "addFunds": "Pridať prostriedky",
+  "stats": {
+    "nativeBalance": "Natívny zostatok",
+    "nativeBalanceSub": "Načítané priamo z adresy trezora",
+    "optedInAssets": "Aktíva s opt-in",
+    "optedInAssetsSub": "Aktíva na účte v Algod okrem ALGO",
+    "safeAddress": "Adresa trezora",
+    "app": "Aplikácia {{appId}}"
+  },
+  "empty": "Tento inteligentný účet zatiaľ nemá žiadny natívny zostatok ani aktíva s opt-in.",
+  "fundingStarted": "Financovanie v hodnote {{amount}} € bolo spustené (demo / záložné riešenie Quantoz).",
+  "modal": {
+    "title": "Kúpiť EURD",
+    "description": "Kúpte EURD bankovým prevodom cez Quantoz. Prostriedky sa pripíšu na adresu pokladnice tohto trezora.",
+    "addressUnavailable": "Adresa trezora nie je k dispozícii",
+    "amountLabel": "Suma (EUR)",
+    "exchangeRate": "Výmenný kurz: 1 EUR = 1 EURD · platforma Quantoz",
+    "cancel": "Zrušiť",
+    "continue": "Pokračovať do banky"
+  },
+  "table": {
+    "asset": "Aktívum",
+    "type": "Typ",
+    "balance": "Zostatok",
+    "nativeLower": "natívne",
+    "native": "Natívne",
+    "optedInAsa": "ASA s opt-in",
+    "loading": "Načítavajú sa zostatky on-chain…",
+    "noHoldings": "Nenašli sa žiadne aktíva."
+  },
+  "row": {
+    "apy": "{{apy}} % APY"
+  }
+}

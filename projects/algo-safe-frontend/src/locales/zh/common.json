@@ -1,0 +1,23 @@
+{
+  "language": "语言",
+  "demoData": "演示数据",
+  "address": {
+    "copy": "复制地址",
+    "copied": "地址已复制",
+    "copyTitle": "复制 {{address}}",
+    "copiedTitle": "已复制 {{address}}"
+  },
+  "status": {
+    "executed": "已执行",
+    "pending": "待处理",
+    "ready": "就绪",
+    "draft": "草稿",
+    "blocked": "已阻止",
+    "rejected": "已拒绝",
+    "expired": "已过期",
+    "cancelled": "已取消",
+    "active": "活跃",
+    "pending_review": "待审核",
+    "paused": "已暂停"
+  }
+}

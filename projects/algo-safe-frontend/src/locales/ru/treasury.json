@@ -1,0 +1,38 @@
+{
+  "title": "Активы",
+  "subtitle": "Средства казначейства и кредитные позиции.",
+  "buyEurd": "Купить EURD",
+  "addFunds": "Пополнить",
+  "stats": {
+    "nativeBalance": "Нативный баланс",
+    "nativeBalanceSub": "Загружено напрямую с адреса сейфа",
+    "optedInAssets": "Активы с opt-in",
+    "optedInAssetsSub": "Активы аккаунта в Algod, кроме ALGO",
+    "safeAddress": "Адрес сейфа",
+    "app": "Приложение {{appId}}"
+  },
+  "empty": "У этого смарт-аккаунта пока нет нативного баланса и активов с opt-in.",
+  "fundingStarted": "Сессия пополнения на сумму {{amount}} € начата (демо / резервный вариант Quantoz).",
+  "modal": {
+    "title": "Купить EURD",
+    "description": "Купите EURD банковским переводом через Quantoz. Средства поступят на адрес казначейства этого сейфа.",
+    "addressUnavailable": "Адрес сейфа недоступен",
+    "amountLabel": "Сумма (EUR)",
+    "exchangeRate": "Курс обмена: 1 EUR = 1 EURD · платформа Quantoz",
+    "cancel": "Отмена",
+    "continue": "Перейти в банк"
+  },
+  "table": {
+    "asset": "Актив",
+    "type": "Тип",
+    "balance": "Баланс",
+    "nativeLower": "нативный",
+    "native": "Нативный",
+    "optedInAsa": "ASA с opt-in",
+    "loading": "Загрузка балансов в сети…",
+    "noHoldings": "Активы не найдены."
+  },
+  "row": {
+    "apy": "{{apy}}% APY"
+  }
+}

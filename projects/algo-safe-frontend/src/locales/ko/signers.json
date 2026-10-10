@@ -1,0 +1,213 @@
+{
+  "memberTypes": {
+    "standard": "표준 계정",
+    "multisig": "멀티시그 계정",
+    "rekeyed": "리키된 계정",
+    "agent": "에이전트 계정",
+    "quantum": "양자 계정",
+    "unknown": "유형 {{type}}"
+  },
+  "breadcrumb": {
+    "treasury": "트레저리",
+    "signerGroups": "서명자 그룹",
+    "createGroup": "그룹 만들기",
+    "manageGroup": "그룹 #{{id}} 관리"
+  },
+  "role": {
+    "admin": "관리자",
+    "execution": "실행",
+    "custodian": "수탁자"
+  },
+  "status": {
+    "active": "활성",
+    "disabled": "비활성",
+    "paused": "일시 중지됨"
+  },
+  "shared": {
+    "backToDashboard": "대시보드로 돌아가기",
+    "creatingProposal": "제안 생성 중…",
+    "submitting": "제출 중…",
+    "cancel": "취소",
+    "memberLabel": "멤버 레이블",
+    "accountType": "계정 유형",
+    "addressPlaceholder": "Algorand 주소",
+    "adminGroupLabel": "제안을 제출하는 관리자 서명자 그룹",
+    "noAdminGroups": "이 세이프에서 활성 관리자 서명자 그룹을 찾을 수 없습니다.",
+    "safeNotLoaded": "선택한 세이프를 불러올 수 없습니다.",
+    "allowAlgo": "ALGO 결제 허용",
+    "allowAsa": "ASA 전송 허용",
+    "allowApp": "앱 호출 허용",
+    "allowKeyreg": "키 등록 허용",
+    "allowAcfg": "자산 구성 허용",
+    "allowRekey": "Rekey 허용"
+  },
+  "card": {
+    "admin": "관리자",
+    "groupSummary": "그룹 #{{id}} · 서명자 {{count}}명 중 {{threshold}}명",
+    "dailyUsage": "일일 사용량 ({{asset}})",
+    "unlimited": "무제한",
+    "monthlyLimit": "월 한도",
+    "cooldown": "쿨다운",
+    "none": "없음",
+    "noLimit": "한도 없음",
+    "actionApp": "앱",
+    "actionKeyreg": "Keyreg",
+    "manage": "관리",
+    "rounds_other": "{{count}} 라운드"
+  },
+  "governance": {
+    "title": "세이프 상태",
+    "pausedDesc": "자금을 이동하는 제안이 차단되었습니다. 거버넌스는 계속 작동하며, 운영을 재개하려면 일시 중지 해제 제안을 만드세요.",
+    "activeDesc": "긴급 일시 중지는 거버넌스는 유지한 채 자금을 이동하는 모든 제안을 중단합니다. 서명자 키가 유출된 것으로 의심될 때 사용하세요.",
+    "proposeUnpause": "일시 중지 해제 제안",
+    "proposePause": "일시 중지 제안",
+    "newGroup": "새 서명자 그룹",
+    "noAdminGroup": "연결된 지갑에 사용 가능한 활성 관리자 서명자 그룹이 없어 거버넌스 작업을 사용할 수 없습니다.",
+    "pauseCreated": "일시 중지 제안이 생성되었습니다",
+    "unpauseCreated": "일시 중지 해제 제안이 생성되었습니다",
+    "pauseFailed": "일시 중지 제안을 생성하지 못했습니다",
+    "connectWallet": "거버넌스 제안을 만들기 전에 지갑을 연결하세요.",
+    "invalidFirstMember": "첫 번째 멤버의 올바른 Algorand 주소를 입력하세요."
+  },
+  "create": {
+    "title": "서명자 그룹 만들기",
+    "subtitle": "DeFi 프로토콜 연동을 위한 새 표준 서명자 그룹 또는 수탁자 그룹을 제안합니다. 새 그룹은 항상 멤버 1명과 임계값 1로 시작합니다.",
+    "errors": {
+      "nameRequired": "그룹 이름을 입력하세요.",
+      "noAdminGroup": "이 제안을 제출할 수 있는 관리자 서명자 그룹이 없습니다.",
+      "failed": "서명자 그룹 제안을 생성하지 못했습니다."
+    },
+    "created": "서명자 그룹 생성 제안이 생성되었습니다",
+    "groupType": {
+      "title": "그룹 유형",
+      "standard": "표준 그룹",
+      "standardDesc": "관리자가 관리하는 사람 또는 에이전트 서명자입니다. 지출 한도와 모든 작업 집합을 지원합니다.",
+      "custodian": "수탁자 그룹",
+      "custodianDesc": "자산 가드로 제한되는 프로토콜 컨트랙트 서명자입니다. 관리자 권한이 없으며 pay/axfer 작업만 가능합니다."
+    },
+    "identity": {
+      "title": "그룹 정보",
+      "nameLabel": "그룹 이름",
+      "nameHint": "생성 시 고정되며 변경할 수 없습니다.",
+      "namePlaceholder": "예: 트레이딩 데스크",
+      "firstMemberLabel": "첫 번째 멤버 주소",
+      "firstMemberHint": "그룹의 첫 번째(유일한) 멤버입니다. 생성 후 멤버 제안으로 더 추가할 수 있습니다.",
+      "labelPlaceholder": "서명자"
+    },
+    "actions": {
+      "title": "허용된 작업",
+      "custodianDesc": "수탁자 그룹은 결제 및 자산 전송 작업으로 제한되며, 지출은 생성 후 관리자가 설정하는 자산 가드로 제한됩니다.",
+      "standardDesc": "승인 수가 임계값에 도달했을 때 이 그룹이 실행할 수 있는 트랜잭션 유형을 선택하세요.",
+      "rekeyHint": "실행 시 그룹 관리자 권한도 필요하며, 계정 제어권을 다른 주소로 넘깁니다."
+    },
+    "privileges": {
+      "title": "관리자 권한",
+      "desc": "관리자 권한은 세이프 전체에 적용됩니다. 이 권한을 가진 그룹은 세이프의 <em>모든</em> 그룹을 관리할 수 있습니다. 신중하게 부여하세요.",
+      "groupAdmin": "그룹 관리자 (PRIV_GROUP)",
+      "groupAdminHint": "그룹, 멤버, 임계값, 권한을 생성·수정합니다.",
+      "policyAdmin": "정책 관리자 (PRIV_POLICY)",
+      "policyAdminHint": "모든 그룹의 지출 정책과 쿨다운을 변경합니다."
+    },
+    "adminGroupHint": "제안을 제출하려면 연결된 계정이 이 관리자 그룹의 멤버여야 합니다.",
+    "submit": "그룹 생성 제안"
+  },
+  "manage": {
+    "loading": "블록체인에서 서명자 그룹 설정을 불러오는 중…",
+    "notFound": "선택한 서명자 그룹을 찾을 수 없습니다.",
+    "title": "서명자 그룹 관리",
+    "subtitle": "거버넌스 제안을 통해 멤버, 임계값, 정책 설정, 관리자 권한을 업데이트합니다.",
+    "fixedNameNote": "그룹 이름은 생성 시 고정됩니다. 그 외 지원되는 속성은 관리자 서명자 그룹의 제안으로 업데이트할 수 있습니다.",
+    "adminGroupHint": "제안을 제출하려면 연결된 계정이 선택한 관리자 그룹의 멤버여야 합니다.",
+    "youAreMember": " · 내가 멤버임",
+    "mayReject": "연결된 지갑이 멤버가 아니면 선택한 관리자 그룹이 이 제안을 거부할 수 있습니다.",
+    "refreshing": "그룹 상태 새로 고치는 중…",
+    "custodianNotice": "<strong>수탁자 그룹</strong> — 이 그룹은 스마트 컨트랙트 프로토콜이 관리합니다. 자산 가드(관리자가 설정)가 수탁자의 지출 한도를 제한합니다. 관리자 권한이 없으며 일/월 한도 대신 가드를 사용합니다. 모든 가드가 제거되면 수탁자는 스스로 해산할 수 있습니다.",
+    "members": {
+      "title": "멤버",
+      "desc": "그룹 박스에 기록된 현재 서명자 계정과 레이블입니다.",
+      "defaultLabel": "멤버",
+      "removeTitle": "멤버 제거 제안",
+      "removeAria": "{{who}} 제거 제안",
+      "cannotRemove": "멤버 수가 서명 임계값과 같으면 멤버를 제거할 수 없습니다. 먼저 임계값을 낮추세요.",
+      "addressLabel": "멤버 주소",
+      "labelPlaceholder": "트레저리 서명자",
+      "submitAdd": "멤버 추가 제안",
+      "invalidAddress": "멤버의 올바른 Algorand 주소를 입력하세요.",
+      "belowThreshold": "이 멤버를 제거하면 그룹이 서명 임계값 아래로 떨어집니다. 먼저 임계값을 낮추세요.",
+      "addCreated": "멤버 추가 제안이 생성되었습니다",
+      "removeCreated": "멤버 제거 제안이 생성되었습니다",
+      "count_other": "멤버 {{count}}명"
+    },
+    "threshold": {
+      "title": "서명 임계값",
+      "desc": "이 그룹이 실행을 승인하기 전에 필요한 서명 수를 변경합니다.",
+      "label": "임계값",
+      "hint": "현재 사용 가능한 멤버: {{max}}",
+      "submit": "임계값 변경 제안",
+      "invalid": "임계값은 1에서 {{max}} 사이여야 합니다.",
+      "created": "임계값 변경 제안이 생성되었습니다"
+    },
+    "policy": {
+      "title": "실행 정책",
+      "desc": "서명자 그룹의 허용 작업, 자산별 한도, 쿨다운 라운드를 업데이트합니다.",
+      "rekeyHint": "Rekey는 실행 시 그룹 관리자 권한도 필요하며, 계정 제어권을 다른 주소로 넘깁니다.",
+      "assetLabel": "지출 한도 자산",
+      "assetHint": "선택한 자산에 따라 일일 및 월 한도 필드의 해석과 표시가 결정됩니다.",
+      "optionAvailable": "사용 가능 {{balance}}",
+      "notHeld": "보유하지 않음",
+      "dailyLabel": "일일 한도 ({{symbol}})",
+      "monthlyLabel": "월 한도 ({{symbol}})",
+      "limitHint": "{{symbol}} 한도를 두지 않으려면 0을 입력하세요.",
+      "cooldownLabel": "쿨다운 라운드",
+      "cooldownHint": "쿨다운을 사용하지 않으려면 0을 입력하세요.",
+      "submit": "정책 변경 제안",
+      "cooldownInvalid": "쿨다운 라운드는 0 이상의 정수여야 합니다.",
+      "limitsInvalid": "서명자 그룹 정책에 올바른 {{symbol}} 한도를 입력하세요.",
+      "enableAlgo": "지출 한도 자산이 ALGO인 경우 ALGO 결제를 활성화하세요.",
+      "enableAsa": "지출 한도 자산이 ASA인 경우 ASA 전송을 활성화하세요.",
+      "created": "정책 변경 제안이 생성되었습니다"
+    },
+    "admin": {
+      "title": "관리자 제어",
+      "desc": "거버넌스 권한을 부여하거나 회수하고, 서명자 그룹을 활성화하거나 비활성화합니다.",
+      "groupAdmin": "그룹 관리자 권한",
+      "policyAdmin": "정책 관리자 권한",
+      "submitPrivileges": "권한 변경 제안",
+      "privilegesCreated": "관리자 권한 제안이 생성되었습니다",
+      "activeLabel": "그룹이 활성 상태이며 제안 승인 및 실행에 참여할 수 있습니다.",
+      "submitStatus": "상태 변경 제안",
+      "statusCreated": "서명자 그룹 상태 제안이 생성되었습니다"
+    },
+    "guards": {
+      "title": "자산 가드",
+      "desc": "이 수탁자의 자산별 지출 한도입니다. 가드는 관리자 그룹 제안으로 생성·업데이트·제거되며, 수탁자의 모든 전송은 해당 가드에서 차감됩니다.",
+      "remaining": "남은 한도: {{amount}} {{symbol}}",
+      "removeTitle": "가드 제거 제안",
+      "removeAria": "{{symbol}} 가드 제거 제안",
+      "empty": "구성된 가드가 없습니다. 관리자가 가드를 설정하기 전까지 이 수탁자는 어떤 자산도 이동할 수 없습니다.",
+      "assetLabel": "가드 자산",
+      "assetHint": "ALGO 또는 세이프가 보유한 ASA입니다.",
+      "amountLabel": "가드 금액",
+      "amountHint": "이 자산의 남은 한도를 설정(또는 대체)합니다.",
+      "submit": "가드 변경 제안",
+      "amountInvalid": "올바른 {{symbol}} 가드 금액을 입력하세요.",
+      "setCreated": "자산 가드 제안이 생성되었습니다",
+      "removeCreated": "가드 제거 제안이 생성되었습니다",
+      "count_other": "가드 {{count}}개"
+    },
+    "dissolve": {
+      "title": "자체 해산",
+      "desc": "관리자가 모든 자산 가드를 제거하고 그룹에 멤버가 한 명만 남으면 수탁자 그룹은 스스로 해산할 수 있습니다. 해산 제안은 그룹과 함께 마지막 멤버의 박스도 삭제합니다.",
+      "submit": "해산 제안",
+      "connectWallet": "해산을 제안하기 전에 지갑을 연결하세요.",
+      "needSingleMember": "해산하려면 먼저 멤버 제거 제안으로 그룹을 정확히 한 명으로 줄여야 합니다.",
+      "failed": "해산 제안을 생성하지 못했습니다.",
+      "created": "수탁자 해산 제안이 생성되었습니다",
+      "guardsWarning_other": "이 그룹에는 아직 활성 가드가 {{count}}개 있습니다. 해산하려면 관리자가 모든 가드를 먼저 제거해야 합니다.",
+      "membersWarning_other": "이 그룹에는 멤버가 {{count}}명 있습니다. 해산하기 전에 멤버 제거 제안으로 한 명만 남기고 모두 제거하세요."
+    },
+    "submitFailed": "서명자 그룹 업데이트 제안을 생성하지 못했습니다.",
+    "connectWallet": "이 서명자 그룹을 관리하기 전에 관리자 서명자 그룹에 접근할 수 있는 지갑을 연결하세요.",
+    "activeGuards_other": "(활성 가드 {{count}}개)"
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "title": "Eszközök",
+  "subtitle": "A kincstár állományai és hitelezési pozíciói.",
+  "buyEurd": "EURD vásárlása",
+  "addFunds": "Pénz hozzáadása",
+  "stats": {
+    "nativeBalance": "Natív egyenleg",
+    "nativeBalanceSub": "Közvetlenül a széf címéről betöltve",
+    "optedInAssets": "Opt-in eszközök",
+    "optedInAssetsSub": "Az Algod-számla állományai az ALGO kivételével",
+    "safeAddress": "Széf címe",
+    "app": "Alkalmazás: {{appId}}"
+  },
+  "empty": "Ennek az okosszámlának még nincs natív egyenlege vagy opt-in eszköze.",
+  "fundingStarted": "{{amount}} € összegű finanszírozási munkamenet elindult (demó / Quantoz tartalékmegoldás).",
+  "modal": {
+    "title": "EURD vásárlása",
+    "description": "Vásároljon EURD-t Quantoz banki átutalással. A pénz a széf kincstári címére érkezik meg.",
+    "addressUnavailable": "A széf címe nem érhető el",
+    "amountLabel": "Összeg (EUR)",
+    "exchangeRate": "Árfolyam: 1 EUR = 1 EURD · Quantoz platform",
+    "cancel": "Mégse",
+    "continue": "Tovább a bankhoz"
+  },
+  "table": {
+    "asset": "Eszköz",
+    "type": "Típus",
+    "balance": "Egyenleg",
+    "nativeLower": "natív",
+    "native": "Natív",
+    "optedInAsa": "Opt-in ASA",
+    "loading": "Láncon lévő egyenlegek betöltése…",
+    "noHoldings": "Nem található állomány."
+  },
+  "row": {
+    "apy": "{{apy}}% APY"
+  }
+}

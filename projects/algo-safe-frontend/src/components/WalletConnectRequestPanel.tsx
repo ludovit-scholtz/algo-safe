@@ -1,5 +1,7 @@
 import type algosdk from 'algosdk'
 import { useEffect, useMemo, useState } from 'react'
+import { Trans, useTranslation } from 'react-i18next'
+import i18n from '../i18n/instance'
 import { ALGORAND_WC_METHOD } from '../services/walletKitService'
 import type { PendingWalletConnectRequest } from '../hooks/useWalletKit'
 import { convertSessionRequestToSafePayload, normalizeSessionRequestParams, type ConvertResult } from '../lib/walletConnectConvert'
@@ -13,24 +15,32 @@ import { TransactionPreview } from './TransactionPreview'
 
 function toLocalPreview(txn: algosdk.Transaction) {
   const sender = txn.sender.toString()
+  const fromSender = i18n.t('walletconnect:preview.fromSender', { sender })
   switch (txn.type) {
     case 'pay':
       return {
         type: 'pay' as const,
-        summary: `Send ${Number(txn.payment?.amount ?? 0n) / 1_000_000} ALGO to ${txn.payment?.receiver?.toString() ?? '—'}`,
-        detail: `From ${sender}`,
+        summary: i18n.t('walletconnect:preview.sendAlgo', {
+          amount: String(Number(txn.payment?.amount ?? 0n) / 1_000_000),
+          receiver: txn.payment?.receiver?.toString() ?? '—',
+        }),
+        detail: fromSender,
       }
     case 'axfer':
       return {
         type: 'axfer' as const,
-        summary: `Transfer ${txn.assetTransfer?.amount ?? 0n} of ASA ${txn.assetTransfer?.assetIndex ?? '—'} to ${txn.assetTransfer?.receiver?.toString() ?? '—'}`,
-        detail: `From ${sender}`,
+        summary: i18n.t('walletconnect:preview.transferAsa', {
+          amount: String(txn.assetTransfer?.amount ?? 0n),
+          asset: String(txn.assetTransfer?.assetIndex ?? '—'),
+          receiver: txn.assetTransfer?.receiver?.toString() ?? '—',
+        }),
+        detail: fromSender,
       }
     case 'appl':
       return {
         type: 'appl' as const,
-        summary: `Call app ${txn.applicationCall?.appIndex ?? '—'}`,
-        detail: `From ${sender}`,
+        summary: i18n.t('walletconnect:preview.callApp', { app: String(txn.applicationCall?.appIndex ?? '—') }),
+        detail: fromSender,
         appCall: txn.applicationCall
           ? {
               appId: txn.applicationCall.appIndex ?? 0n,
@@ -43,11 +53,17 @@ function toLocalPreview(txn: algosdk.Transaction) {
           : undefined,
       }
     case 'keyreg':
-      return { type: 'keyreg' as const, summary: 'Participation key registration', detail: `From ${sender}` }
+      return { type: 'keyreg' as const, summary: i18n.t('walletconnect:preview.keyreg'), detail: fromSender }
     case 'acfg':
-      return { type: 'acfg' as const, summary: `Configure asset ${txn.assetConfig?.assetIndex ?? 'new asset'}`, detail: `From ${sender}` }
+      return {
+        type: 'acfg' as const,
+        summary: i18n.t('walletconnect:preview.configureAsset', {
+          asset: txn.assetConfig?.assetIndex ? String(txn.assetConfig.assetIndex) : i18n.t('walletconnect:preview.newAsset'),
+        }),
+        detail: fromSender,
+      }
     default:
-      return { type: 'appl' as const, summary: `Transaction type ${txn.type}`, detail: `From ${sender}` }
+      return { type: 'appl' as const, summary: i18n.t('walletconnect:preview.txType', { type: String(txn.type) }), detail: fromSender }
   }
 }
 
@@ -62,7 +78,8 @@ type Props = {
 }
 
 export function WalletConnectRequestPanel({ request, safe, algodClient, activeAddress, transactionSigner, onReject, onRespond }: Props) {
-  const [result, setResult] = useState<ConvertResult | 'loading' | { ok: false; reason: string }>('loading')
+  const { t } = useTranslation('walletconnect')
+  const [result, setResult] = useState<ConvertResult | 'loading' | { ok: false; reason: string; reasonEn: string }>('loading')
   const [groupId, setGroupId] = useState('1')
   const [expiryRounds, setExpiryRounds] = useState('2000')
   const [busy, setBusy] = useState<'submit' | 'sign-return' | 'reject' | null>(null)
@@ -76,7 +93,12 @@ export function WalletConnectRequestPanel({ request, safe, algodClient, activeAd
     setResult('loading')
 
     if (!isSupportedMethod) {
-      setResult({ ok: false, reason: `This wallet only handles ${ALGORAND_WC_METHOD} requests — received "${request.method}".` })
+      const unsupported = { expected: ALGORAND_WC_METHOD, received: request.method }
+      setResult({
+        ok: false,
+        reason: i18n.t('walletconnect:panel.unsupportedMethod', unsupported),
+        reasonEn: i18n.t('walletconnect:panel.unsupportedMethod', { ...unsupported, lng: 'en' }),
+      })
       return
     }
 
@@ -86,7 +108,12 @@ export function WalletConnectRequestPanel({ request, safe, algodClient, activeAd
         if (!cancelled) setResult(converted)
       })
     } catch (normalizeError) {
-      setResult({ ok: false, reason: normalizeError instanceof Error ? normalizeError.message : 'Unrecognized request shape.' })
+      const reason = normalizeError instanceof Error ? normalizeError.message : i18n.t('walletconnect:panel.unrecognizedShape')
+      setResult({
+        ok: false,
+        reason,
+        reasonEn: i18n.t('walletconnect:convert.unrecognizedShape', { lng: 'en' }),
+      })
     }
 
     return () => {
@@ -103,10 +130,10 @@ export function WalletConnectRequestPanel({ request, safe, algodClient, activeAd
     setBusy('reject')
     setError(null)
     try {
-      const reason = result !== 'loading' && !result.ok ? result.reason : 'Rejected by the Safe operator.'
+      const reason = result !== 'loading' && !result.ok ? result.reasonEn : t('panel.rejectedByOperator', { lng: 'en' })
       await onReject(request.topic, request.id, reason)
     } catch (rejectError) {
-      setError(rejectError instanceof Error ? rejectError.message : 'Failed to reject the request.')
+      setError(rejectError instanceof Error ? rejectError.message : t('panel.rejectFailed'))
     } finally {
       setBusy(null)
     }
@@ -121,12 +148,10 @@ export function WalletConnectRequestPanel({ request, safe, algodClient, activeAd
         { algodClient, safe, activeAddress, transactionSigner },
         { groupId: BigInt(groupId), payload: result.payload, expiryRounds: BigInt(expiryRounds) },
       )
-      setOutcome(
-        `Proposal #${proposalId} created on-chain (tx ${txId}). Approve it from the Proposals page once the group reaches threshold.`,
-      )
-      await onReject(request.topic, request.id, `Converted into Safe proposal #${proposalId} — track and approve it from the Safe console.`)
+      setOutcome(t('panel.proposalCreated', { proposalId, txId }))
+      await onReject(request.topic, request.id, t('panel.convertedReject', { proposalId, lng: 'en' }))
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : 'Failed to submit the proposal.')
+      setError(submitError instanceof Error ? submitError.message : t('panel.submitFailed'))
     } finally {
       setBusy(null)
     }
@@ -143,11 +168,9 @@ export function WalletConnectRequestPanel({ request, safe, algodClient, activeAd
       )
       const encoded = signedTxns.map((bytes) => Buffer.from(bytes).toString('base64'))
       await onRespond(request.topic, request.id, encoded)
-      setOutcome(
-        `Signed the proposal call (tx ${txId}) and returned it to the paired dapp — note this is the Safe proposal transaction, not the original requested transaction(s).`,
-      )
+      setOutcome(t('panel.signedReturned', { txId }))
     } catch (signError) {
-      setError(signError instanceof Error ? signError.message : 'Failed to sign the proposal.')
+      setError(signError instanceof Error ? signError.message : t('panel.signFailed'))
     } finally {
       setBusy(null)
     }
@@ -165,7 +188,7 @@ export function WalletConnectRequestPanel({ request, safe, algodClient, activeAd
     return (
       <Card>
         <p className="flex items-center gap-2 text-sm text-on-surface-variant">
-          <Icon name="sync" className="animate-spin text-base" /> Evaluating request…
+          <Icon name="sync" className="animate-spin text-base" /> {t('panel.evaluating')}
         </p>
       </Card>
     )
@@ -177,12 +200,12 @@ export function WalletConnectRequestPanel({ request, safe, algodClient, activeAd
         <div className="flex items-start gap-3">
           <Icon name="error" className="text-error" />
           <div className="space-y-3">
-            <h3 className="font-semibold text-on-error-container">This request can&apos;t become a Safe proposal</h3>
+            <h3 className="font-semibold text-on-error-container">{t('panel.cantBecome')}</h3>
             <p className="text-sm text-on-error-container">{result.reason}</p>
             {error && <p className="text-xs text-error">{error}</p>}
             <Button variant="danger" disabled={busy !== null} onClick={() => void handleReject()}>
               {busy === 'reject' ? <Icon name="sync" className="animate-spin text-base" /> : <Icon name="block" className="text-base" />}
-              Reject Request
+              {t('panel.rejectRequest')}
             </Button>
           </div>
         </div>
@@ -193,11 +216,11 @@ export function WalletConnectRequestPanel({ request, safe, algodClient, activeAd
   return (
     <Card>
       <div className="space-y-4">
-        <h3 className="font-semibold text-on-surface">Incoming transaction request</h3>
+        <h3 className="font-semibold text-on-surface">{t('panel.incoming')}</h3>
         <TransactionPreview lines={preview} algodClient={algodClient} network={safe.network} />
 
         <div className="grid gap-4 md:grid-cols-2">
-          <FormField label="Signer Group ID" hint="The group that will hold this proposal.">
+          <FormField label={t('panel.groupIdLabel')} hint={t('panel.groupIdHint')}>
             <input
               className={inputCls}
               inputMode="numeric"
@@ -206,7 +229,7 @@ export function WalletConnectRequestPanel({ request, safe, algodClient, activeAd
               onChange={(event) => setGroupId(event.target.value.replace(/[^0-9]/g, ''))}
             />
           </FormField>
-          <FormField label="Expiry (Rounds)" hint="Added to the current round to compute the proposal expiry round.">
+          <FormField label={t('panel.expiryLabel')} hint={t('panel.expiryHint')}>
             <input
               className={inputCls}
               inputMode="numeric"
@@ -222,19 +245,18 @@ export function WalletConnectRequestPanel({ request, safe, algodClient, activeAd
         <div className="flex flex-wrap items-center gap-3">
           <Button disabled={busy !== null || !activeAddress} onClick={() => void handleSubmitToChain()}>
             {busy === 'submit' ? <Icon name="sync" className="animate-spin text-base" /> : <Icon name="save" className="text-base" />}
-            Submit Proposal to Chain
+            {t('panel.submitToChain')}
           </Button>
           <Button variant="secondary" disabled={busy !== null || !activeAddress} onClick={() => void handleSignAndReturn()}>
             {busy === 'sign-return' ? <Icon name="sync" className="animate-spin text-base" /> : <Icon name="reply" className="text-base" />}
-            Sign &amp; Return via WalletConnect
+            {t('panel.signReturn')}
           </Button>
           <Button variant="ghost" disabled={busy !== null} onClick={() => void handleReject()}>
-            Reject
+            {t('panel.reject')}
           </Button>
         </div>
         <p className="text-xs text-on-surface-variant">
-          &quot;Sign &amp; Return&quot; sends back the signed <em>proposal</em> transaction, not the dapp&apos;s original transaction(s) —
-          only use it with dapps that accept that. Prefer submitting to chain and letting the dapp poll the Safe&apos;s proposal status.
+          <Trans t={t} i18nKey="panel.signReturnNote" components={{ em: <em /> }} />
         </p>
       </div>
     </Card>

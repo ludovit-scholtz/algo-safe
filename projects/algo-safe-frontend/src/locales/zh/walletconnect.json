@@ -1,0 +1,75 @@
+{
+  "page": {
+    "intro": "将此保险库与 dapp 配对，使其像钱包一样工作。收到的请求会被转换为保险库提案 — 设置方法和限制请参阅 <code>docs/WALLETCONNECT_WALLET_SETUP.md</code>。",
+    "pairTitle": "配对 dapp",
+    "uriLabel": "WalletConnect URI",
+    "uriHint": "粘贴连接中的 dapp 显示的 wc: URI。",
+    "uriPlaceholder": "wc:...",
+    "pair": "配对",
+    "connectWalletFirst": "请先连接钱包 — 它将为收到的请求所生成的提案签名。",
+    "sessionProposal": "会话提案",
+    "wantsToConnect": "{{name}}（{{url}}）请求连接到此保险库。",
+    "approve": "批准",
+    "reject": "拒绝",
+    "activeSessions": "活动会话",
+    "noSessions": "尚未配对任何 dapp。",
+    "disconnect": "断开连接",
+    "pendingRequests": "待处理请求",
+    "noRequests": "没有收到请求。",
+    "exposedAccount": "向 dapp 公开的保险库账户"
+  },
+  "panel": {
+    "unsupportedMethod": "此钱包仅处理 {{expected}} 请求 — 收到的是“{{received}}”。",
+    "unrecognizedShape": "无法识别的请求格式。",
+    "rejectedByOperator": "已被保险库操作员拒绝。",
+    "rejectFailed": "拒绝请求失败。",
+    "proposalCreated": "提案 #{{proposalId}} 已在链上创建（tx {{txId}}）。待签名者组达到阈值后，请在“提案”页面批准。",
+    "convertedReject": "已转换为保险库提案 #{{proposalId}} — 请在保险库控制台中跟踪并批准。",
+    "submitFailed": "提交提案失败。",
+    "signedReturned": "已对提案调用签名（tx {{txId}}）并返回给已配对的 dapp — 请注意，这是保险库的提案交易，而不是最初请求的交易。",
+    "signFailed": "为提案签名失败。",
+    "evaluating": "正在评估请求…",
+    "cantBecome": "此请求无法转换为保险库提案",
+    "rejectRequest": "拒绝请求",
+    "incoming": "收到的交易请求",
+    "groupIdLabel": "签名者组 ID",
+    "groupIdHint": "将持有此提案的组。",
+    "expiryLabel": "有效期（轮次）",
+    "expiryHint": "加上当前轮次后得出提案的到期轮次。",
+    "submitToChain": "将提案提交到链上",
+    "signReturn": "通过 WalletConnect 签名并返回",
+    "reject": "拒绝",
+    "signReturnNote": "“签名并返回”会送回已签名的<em>提案</em>交易，而不是 dapp 的原始交易 — 仅适用于接受这种方式的 dapp。建议改为提交到链上，并让 dapp 轮询保险库中的提案状态。"
+  },
+  "preview": {
+    "sendAlgo": "向 {{receiver}} 发送 {{amount}} ALGO",
+    "transferAsa": "向 {{receiver}} 转移 {{amount}}（ASA {{asset}}）",
+    "callApp": "调用应用 {{app}}",
+    "keyreg": "参与密钥注册",
+    "configureAsset": "配置资产 {{asset}}",
+    "newAsset": "新资产",
+    "txType": "交易类型 {{type}}",
+    "fromSender": "发送方 {{sender}}"
+  },
+  "service": {
+    "noAlgorandNamespace": "此 dapp 的会话提案未请求 Algorand 命名空间，因此该保险库无法为其提供服务。",
+    "sessionRejected": "用户拒绝了会话提案。",
+    "sessionDisconnected": "用户已断开会话。"
+  },
+  "hook": {
+    "initFailed": "初始化 WalletConnect 失败。",
+    "pairFailed": "使用 WalletConnect URI 配对失败。",
+    "approveFailed": "批准会话提案失败。",
+    "rejectSessionFailed": "拒绝会话提案失败。",
+    "disconnectFailed": "断开会话失败。"
+  },
+  "convert": {
+    "unrecognizedShape": "无法识别的 algo_signTxn 请求格式 — 应为 {txn, signers?} 条目数组。",
+    "noTransactions": "请求中不包含任何交易。",
+    "unsignedByOthers": "此请求包含一笔必须由其他方授权的交易（其 “signers” 列表为空）— 例如由 LogicSig 控制的账户或其他 multisig 成员。保险库只能为从自身地址或已 rekey 到它的地址发出的交易共同签名，因此该批次无法转换为保险库提案。请拒绝它，并请 dapp 将这部分请求直接交由原始签名者处理。",
+    "decodeFailed": "此请求中的某笔交易无法解码 — 它可能已经签名（例如 LogicSig blob），而不是普通的未签名交易。",
+    "notSpendable": "交易发送方 {{sender}} 既不是保险库自身的地址，也不是当前已 rekey 到它的地址。保险库无权从该账户转出资金，因此此请求无法转换为保险库提案。",
+    "cannotRepresent": "保险库无法表示此交易：{{message}}",
+    "cannotRepresentGeneric": "保险库无法表示此请求中的某笔交易。"
+  }
+}

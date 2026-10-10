@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next'
+import { currentLocale } from '../i18n/instance'
 import type { Agent } from '../services/types'
 import { AddressDisplay } from './AddressDisplay'
 import { Card } from './ui/Card'
@@ -8,6 +10,7 @@ const pulse: Record<Agent['status'], string> = {
   pending_review: 'bg-warn',
 }
 export function AgentStatusCard({ agent, dailyUsed = 0 }: { agent: Agent; dailyUsed?: number }) {
+  const { t } = useTranslation('agents')
   const pct = Math.min(100, Math.round((dailyUsed / agent.dailyLimit) * 100))
   return (
     <Card>
@@ -23,14 +26,15 @@ export function AgentStatusCard({ agent, dailyUsed = 0 }: { agent: Agent; dailyU
       <AddressDisplay address={agent.address} className="mt-1" textClassName="text-xs text-on-surface-variant" buttonClassName="h-5 w-5" />
       <div className="mt-4">
         <div className="flex justify-between font-mono text-xs uppercase text-on-surface-variant">
-          <span>Daily Spend</span>
+          <span>{t('card.dailySpend')}</span>
           <span>{pct}%</span>
         </div>
         <div className="mt-1 h-2 w-full rounded-full bg-surface-container-lowest">
           <div className="h-2 rounded-full bg-primary" style={{ width: `${pct}%` }} />
         </div>
         <div className="mt-1 text-xs text-on-surface-variant">
-          {dailyUsed.toLocaleString()} / {agent.dailyLimit.toLocaleString()} {agent.primaryAsset} · {agent.groupTier}
+          {dailyUsed.toLocaleString(currentLocale())} / {agent.dailyLimit.toLocaleString(currentLocale())} {agent.primaryAsset} ·{' '}
+          {agent.groupTier}
         </div>
       </div>
     </Card>

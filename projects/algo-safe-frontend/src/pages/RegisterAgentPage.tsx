@@ -5,6 +5,7 @@ import { useWallet } from '@txnlab/use-wallet-react'
 import { createAdminChange, getAlgoSafeContractVersion, getClient } from 'algo-safe'
 import algosdk from 'algosdk'
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
@@ -34,7 +35,13 @@ type SpendingAssetOption = {
   isNative: boolean
 }
 
-const PURPOSES = ['Algorithmic Trading', 'Treasury Rebalancing', 'Yield Farming', 'Payments']
+// `value` is stored on-chain in the policy label (kept in English); `labelKey` is the localized display text.
+const PURPOSES = [
+  { value: 'Algorithmic Trading', labelKey: 'purposes.trading' },
+  { value: 'Treasury Rebalancing', labelKey: 'purposes.rebalancing' },
+  { value: 'Yield Farming', labelKey: 'purposes.yield' },
+  { value: 'Payments', labelKey: 'purposes.payments' },
+] as const
 
 function parseBaseUnits(value: string, decimals: number) {
   const trimmed = value.trim()
@@ -57,10 +64,11 @@ function getCurrentRound(status: Record<string, unknown>) {
 
 // Enhanced PolicyLogicBlock matching the reference design (icon + CONDITION/ACTION/SIGNERS rows)
 function PolicyPreviewBlock({ condition, action, signers }: { condition: string; action: string; signers: string }) {
+  const { t } = useTranslation('agents')
   const rows = [
-    { icon: 'event_available', label: 'Condition', value: condition },
-    { icon: 'bolt', label: 'Action', value: action },
-    { icon: 'verified_user', label: 'Signers', value: signers },
+    { icon: 'event_available', label: t('register.condition'), value: condition },
+    { icon: 'bolt', label: t('register.action'), value: action },
+    { icon: 'verified_user', label: t('register.signers'), value: signers },
   ]
   return (
     <div className="flex flex-col gap-2">
@@ -84,6 +92,7 @@ function PolicyPreviewBlock({ condition, action, signers }: { condition: string;
 }
 
 export function RegisterAgentPage() {
+  const { t } = useTranslation('agents')
   const safeId = useSafeId()
   const nav = useNavigate()
   const queryClient = useQueryClient()
@@ -121,7 +130,7 @@ export function RegisterAgentPage() {
         name: asset.name,
         assetId: asset.assetId,
         decimals: asset.decimals,
-        balanceDisplay: 'not held',
+        balanceDisplay: t('register.notHeld'),
         isNative: false,
       })),
   ]
@@ -144,23 +153,23 @@ export function RegisterAgentPage() {
     setError(null)
 
     if (!safe) {
-      setError('The selected safe could not be loaded.')
+      setError(t('register.errSafe'))
       return
     }
 
     if (!isReady || !activeAddress || !transactionSigner) {
-      setError('Connect a wallet before creating an agent proposal.')
+      setError(t('register.errWallet'))
       return
     }
 
     if (!algosdk.isValidAddress(address.trim())) {
-      setError('Enter a valid Algorand address for the agent.')
+      setError(t('register.errAddress'))
       return
     }
 
     const rawLimit = parseBaseUnits(dailyLimit, selectedSpendingAsset.decimals)
     if (rawLimit === null || rawLimit < 0n) {
-      setError(`Enter a valid ${selectedSpendingAsset.symbol} spending limit.`)
+      setError(t('register.errLimit', { symbol: selectedSpendingAsset.symbol }))
       return
     }
 
@@ -220,15 +229,19 @@ export function RegisterAgentPage() {
       await queryClient.invalidateQueries({ queryKey: ['proposal', safeId, proposalId] })
       nav(`/safe/${safeId}/proposals/${proposalId}`, { state: { txId } })
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to register agent. Please try again.')
+      setError(err instanceof Error ? err.message : t('register.errFailed'))
     } finally {
       setIsSubmitting(false)
     }
   }
 
-  const conditionText = `Daily cumulative volume < ${dailyLimit || '0'} ${selectedSpendingAsset.symbol}`
-  const actionText = 'Auto-approve and execute Algorand Smart Contract calls'
-  const signersText = purpose !== '' ? `1-of-1 (Tier 3 automated) · ${purpose}` : 'Governance override required for exceeding limits'
+  const purposeLabel = PURPOSES.find((p) => p.value === purpose)
+  const conditionText = t('register.conditionText', { limit: dailyLimit || '0', symbol: selectedSpendingAsset.symbol })
+  const actionText = t('register.actionText')
+  const signersText =
+    purpose !== ''
+      ? t('register.signersWithPurpose', { purpose: purposeLabel ? t(purposeLabel.labelKey) : purpose })
+      : t('register.signersDefault')
 
   return (
     <div className="space-y-6">
@@ -236,14 +249,14 @@ export function RegisterAgentPage() {
       <div className="flex items-end justify-between">
         <div>
           <nav className="mb-2 flex items-center gap-1 font-mono text-xs text-on-surface-variant">
-            <span>Treasury</span>
+            <span>{t('register.breadcrumbTreasury')}</span>
             <Icon name="chevron_right" className="text-sm" />
-            <span>Agents</span>
+            <span>{t('register.breadcrumbAgents')}</span>
             <Icon name="chevron_right" className="text-sm" />
-            <span className="text-primary">Register New Agent</span>
+            <span className="text-primary">{t('register.breadcrumbNew')}</span>
           </nav>
-          <h1 className="text-3xl font-bold text-on-surface">Register AI Agent</h1>
-          <p className="mt-1 text-sm text-on-surface-variant">Provision a secure autonomous operator for the institutional treasury.</p>
+          <h1 className="text-3xl font-bold text-on-surface">{t('register.title')}</h1>
+          <p className="mt-1 text-sm text-on-surface-variant">{t('register.subtitle')}</p>
         </div>
         {/* Treasury balance context */}
         <div className="hidden lg:flex items-center gap-3 rounded-md border border-outline-variant bg-surface-container px-5 py-3">
@@ -251,7 +264,7 @@ export function RegisterAgentPage() {
             <Icon name="account_balance_wallet" className="text-xl" />
           </div>
           <div>
-            <p className="font-mono text-xs uppercase tracking-wide text-on-surface-variant">Spending Asset Balance</p>
+            <p className="font-mono text-xs uppercase tracking-wide text-on-surface-variant">{t('register.balanceLabel')}</p>
             <p className="text-lg font-bold text-on-surface">
               {selectedSpendingAsset.balanceDisplay}{' '}
               <span className="text-sm font-medium text-primary">{selectedSpendingAsset.symbol}</span>
@@ -275,15 +288,15 @@ export function RegisterAgentPage() {
             {/* Agent Identity & Parameters card */}
             <Card className="p-0 overflow-hidden">
               <div className="border-b border-outline-variant bg-surface-container-high px-6 py-4">
-                <h3 className="text-base font-semibold text-on-surface">Agent Identity &amp; Parameters</h3>
+                <h3 className="text-base font-semibold text-on-surface">{t('register.identityTitle')}</h3>
               </div>
               <div className="space-y-6 px-6 py-6">
                 {/* Agent Name */}
-                <FormField label="Agent Name" hint="Required">
+                <FormField label={t('register.nameLabel')} hint={t('register.required')}>
                   <input
                     className={inputCls}
                     type="text"
-                    placeholder="e.g. Yield Optimizer Agent v4"
+                    placeholder={t('register.namePlaceholder')}
                     value={alias}
                     onChange={(e) => setAlias(e.target.value)}
                     required
@@ -292,7 +305,7 @@ export function RegisterAgentPage() {
                 </FormField>
 
                 {/* Agent Algorand Address */}
-                <FormField label="Agent Algorand Address" hint="Must be a valid Algorand address">
+                <FormField label={t('register.addressLabel')} hint={t('register.addressHint')}>
                   <div className="relative">
                     <input
                       className={`${inputCls} font-mono pr-10`}
@@ -311,14 +324,14 @@ export function RegisterAgentPage() {
                 </FormField>
 
                 {/* Purpose */}
-                <FormField label="Purpose" hint="Required">
+                <FormField label={t('register.purposeLabel')} hint={t('register.required')}>
                   <select required className={inputCls} value={purpose} onChange={(e) => setPurpose(e.target.value)} aria-required="true">
                     <option value="" disabled>
-                      Select purpose…
+                      {t('register.selectPurpose')}
                     </option>
                     {PURPOSES.map((p) => (
-                      <option key={p} value={p}>
-                        {p}
+                      <option key={p.value} value={p.value}>
+                        {t(p.labelKey)}
                       </option>
                     ))}
                   </select>
@@ -326,7 +339,7 @@ export function RegisterAgentPage() {
 
                 {/* Daily Spending Limit + Spending Limit Asset */}
                 <div className="grid grid-cols-2 gap-4">
-                  <FormField label="Daily Spending Limit">
+                  <FormField label={t('register.dailyLimitLabel')}>
                     <input
                       type="text"
                       min={0}
@@ -336,10 +349,7 @@ export function RegisterAgentPage() {
                       inputMode="decimal"
                     />
                   </FormField>
-                  <FormField
-                    label="Spending Limit Asset"
-                    hint="Only ALGO and the safe's opted-in assets are available. Algo Safe currently enforces on-chain spending caps in ALGO."
-                  >
+                  <FormField label={t('register.limitAssetLabel')} hint={t('register.limitAssetHint')}>
                     <select
                       className={inputCls}
                       value={selectedSpendingAsset.key}
@@ -347,7 +357,7 @@ export function RegisterAgentPage() {
                     >
                       {spendingLimitAssets.map((asset) => (
                         <option key={asset.key} value={asset.key}>
-                          {asset.symbol} · Available {asset.balanceDisplay}
+                          {t('register.assetOption', { symbol: asset.symbol, balance: asset.balanceDisplay })}
                         </option>
                       ))}
                     </select>
@@ -358,32 +368,30 @@ export function RegisterAgentPage() {
 
             {/* Policy Preview inline (below form on mobile, shown here on all widths) */}
             <div className="lg:hidden">
-              <h2 className="mb-3 font-mono text-xs uppercase tracking-wide text-on-surface-variant">Agent Policy Preview</h2>
+              <h2 className="mb-3 font-mono text-xs uppercase tracking-wide text-on-surface-variant">{t('register.previewTitle')}</h2>
               <PolicyPreviewBlock condition={conditionText} action={actionText} signers={signersText} />
             </div>
 
             {/* Action row */}
             <div className="flex items-center justify-end gap-3">
               <Button type="button" variant="ghost" onClick={() => nav(`/safe/${safeId}`)}>
-                Cancel
+                {t('register.cancel')}
               </Button>
               <Button type="submit" disabled={!valid || isSubmitting || !safe}>
                 <Icon name="send" className="text-lg" />
-                {isSubmitting ? 'Submitting…' : 'Register Agent Proposal'}
+                {isSubmitting ? t('register.submitting') : t('register.submit')}
               </Button>
             </div>
 
             {/* Gas note */}
-            <p className="text-center font-mono text-xs text-on-surface-variant">
-              Network fees are estimated at submission time and paid in ALGO.
-            </p>
+            <p className="text-center font-mono text-xs text-on-surface-variant">{t('register.feeNote')}</p>
           </div>
 
           {/* Right column — Policy preview + Proposal workflow */}
           <div className="lg:col-span-5 space-y-6">
             {/* Policy Preview (desktop) */}
             <div className="hidden lg:block">
-              <h2 className="mb-3 font-mono text-xs uppercase tracking-wide text-on-surface-variant">Agent Policy Preview</h2>
+              <h2 className="mb-3 font-mono text-xs uppercase tracking-wide text-on-surface-variant">{t('register.previewTitle')}</h2>
               <PolicyPreviewBlock condition={conditionText} action={actionText} signers={signersText} />
             </div>
 
@@ -391,7 +399,7 @@ export function RegisterAgentPage() {
             <Card>
               <div className="mb-5 flex items-center gap-3">
                 <Icon name="gavel" className="text-primary" />
-                <h4 className="text-base font-semibold text-on-surface">Proposal Workflow</h4>
+                <h4 className="text-base font-semibold text-on-surface">{t('register.workflowTitle')}</h4>
               </div>
               <ul className="relative space-y-5">
                 {/* connector line */}
@@ -399,20 +407,20 @@ export function RegisterAgentPage() {
                 {[
                   {
                     n: 1,
-                    title: 'Initiation',
-                    desc: 'Submitting this form creates a "Register Agent" proposal on the blockchain.',
+                    title: t('register.step1Title'),
+                    desc: t('register.step1Desc'),
                     active: true,
                   },
                   {
                     n: 2,
-                    title: 'Review Phase',
-                    desc: 'Treasury signers (2/3 majority) must review and sign the transaction.',
+                    title: t('register.step2Title'),
+                    desc: t('register.step2Desc'),
                     active: false,
                   },
                   {
                     n: 3,
-                    title: 'Activation',
-                    desc: 'The agent gains operational rights once the proposal reaches finality.',
+                    title: t('register.step3Title'),
+                    desc: t('register.step3Desc'),
                     active: false,
                   },
                 ].map((step) => (
@@ -439,13 +447,11 @@ export function RegisterAgentPage() {
             <div className="rounded-md border border-outline-variant bg-surface-container-lowest px-4 py-3">
               <div className="mb-1 flex items-center gap-2">
                 <span className="rounded border border-primary/30 bg-primary/20 px-2 py-0.5 font-mono text-xs text-primary">
-                  ENCLAVE SECURE
+                  {t('register.enclave')}
                 </span>
               </div>
-              <p className="text-sm font-semibold text-on-surface">Secured by Algorand State Proofs</p>
-              <p className="mt-1 text-xs text-on-surface-variant">
-                x402 cryptographic headers authenticate every automated request payload with deterministic finality.
-              </p>
+              <p className="text-sm font-semibold text-on-surface">{t('register.secured')}</p>
+              <p className="mt-1 text-xs text-on-surface-variant">{t('register.x402')}</p>
             </div>
           </div>
         </div>

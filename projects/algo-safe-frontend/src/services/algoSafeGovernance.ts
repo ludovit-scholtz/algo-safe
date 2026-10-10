@@ -13,6 +13,7 @@ import {
   readSafeConfig,
 } from 'algo-safe'
 import algosdk, { type TransactionSigner } from 'algosdk'
+import i18n from '../i18n/instance'
 import type { Safe } from './types'
 
 const TX_VALIDITY_WINDOW = 200
@@ -33,7 +34,7 @@ export type AdminProposalResult = {
 
 function assertWalletContext(context: GovernanceContext) {
   if (!context.activeAddress || !context.transactionSigner) {
-    throw new Error('Connect a wallet before creating a governance proposal.')
+    throw new Error(i18n.t('signers:governance.connectWallet'))
   }
 }
 
@@ -128,7 +129,7 @@ export type CreateSignerGroupParams = {
  */
 export async function proposeCreateSignerGroup(context: GovernanceContext, params: CreateSignerGroupParams): Promise<AdminProposalResult> {
   if (!algosdk.isValidAddress(params.memberAddress.trim())) {
-    throw new Error('Enter a valid Algorand address for the first member.')
+    throw new Error(i18n.t('signers:governance.invalidFirstMember'))
   }
   const { appClient, expiryRound } = await buildContext(context)
 

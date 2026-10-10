@@ -1,0 +1,38 @@
+{
+  "title": "Assets",
+  "subtitle": "Treasury-Bestände und Kreditpositionen.",
+  "buyEurd": "EURD kaufen",
+  "addFunds": "Guthaben hinzufügen",
+  "stats": {
+    "nativeBalance": "Nativer Kontostand",
+    "nativeBalanceSub": "Direkt von der Safe-Adresse geladen",
+    "optedInAssets": "Opt-in-Assets",
+    "optedInAssetsSub": "Algod-Kontobestände ohne ALGO",
+    "safeAddress": "Safe-Adresse",
+    "app": "App {{appId}}"
+  },
+  "empty": "Dieses Smart-Konto hat noch keinen nativen Kontostand und keine Opt-in-Assets.",
+  "fundingStarted": "Finanzierungssitzung über {{amount}} € gestartet (Demo / Quantoz-Fallback).",
+  "modal": {
+    "title": "EURD kaufen",
+    "description": "Kaufen Sie EURD per Quantoz-Banküberweisung. Die Gelder werden an die Treasury-Adresse dieses Safes ausgezahlt.",
+    "addressUnavailable": "Safe-Adresse nicht verfügbar",
+    "amountLabel": "Betrag (EUR)",
+    "exchangeRate": "Wechselkurs: 1 EUR = 1 EURD · Quantoz-Plattform",
+    "cancel": "Abbrechen",
+    "continue": "Weiter zur Bank"
+  },
+  "table": {
+    "asset": "Asset",
+    "type": "Typ",
+    "balance": "Kontostand",
+    "nativeLower": "nativ",
+    "native": "Nativ",
+    "optedInAsa": "Opt-in-ASA",
+    "loading": "On-Chain-Kontostände werden geladen…",
+    "noHoldings": "Keine Bestände gefunden."
+  },
+  "row": {
+    "apy": "{{apy}} % APY"
+  }
+}

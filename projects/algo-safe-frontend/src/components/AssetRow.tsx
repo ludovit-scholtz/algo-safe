@@ -1,8 +1,11 @@
+import { useTranslation } from 'react-i18next'
+import { fmtNum } from '../lib/format'
 import type { AssetHolding } from '../services/types'
 import { Icon } from './ui/Icon'
 
 const icon: Record<AssetHolding['type'], string> = { native: 'paid', stablecoin: 'euro', lending: 'savings' }
 export function AssetRow({ a }: { a: AssetHolding }) {
+  const { t } = useTranslation('treasury')
   return (
     <tr className="border-b border-outline-variant last:border-0">
       <td className="py-3">
@@ -15,13 +18,13 @@ export function AssetRow({ a }: { a: AssetHolding }) {
             <div className="font-mono text-xs text-on-surface-variant">
               {a.symbol}
               {a.assetId ? ` · ${a.assetId}` : ''}
-              {a.apy ? ` · ${a.apy}% APY` : ''}
+              {a.apy ? ` · ${t('row.apy', { apy: a.apy })}` : ''}
             </div>
           </div>
         </div>
       </td>
-      <td className="py-3 text-right font-mono text-on-surface">{a.amount.toLocaleString()}</td>
-      <td className="py-3 text-right font-semibold text-on-surface">€{a.valueEur.toLocaleString()}</td>
+      <td className="py-3 text-right font-mono text-on-surface">{fmtNum(a.amount)}</td>
+      <td className="py-3 text-right font-semibold text-on-surface">€{fmtNum(a.valueEur)}</td>
     </tr>
   )
 }

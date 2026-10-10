@@ -3,6 +3,7 @@ import { useWallet } from '@txnlab/use-wallet-react'
 import { ACT_ACFG, ACT_APPL, ACT_AXFER, ACT_KEYREG, ACT_PAY, ACT_REKEY, PRIV_GROUP, PRIV_POLICY } from 'algo-safe'
 import { useSnackbar } from 'notistack'
 import { useMemo, useState } from 'react'
+import { Trans, useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
@@ -13,16 +14,17 @@ import { useSafeId } from '../lib/SafeContext'
 import { proposeCreateSignerGroup } from '../services/algoSafeGovernance'
 
 const MEMBER_TYPE_OPTIONS = [
-  { value: 1, label: 'Standard account' },
-  { value: 2, label: 'Multisig account' },
-  { value: 3, label: 'Rekeyed account' },
-  { value: 4, label: 'Agent account' },
-  { value: 5, label: 'Quantum account' },
+  { value: 1, labelKey: 'memberTypes.standard' },
+  { value: 2, labelKey: 'memberTypes.multisig' },
+  { value: 3, labelKey: 'memberTypes.rekeyed' },
+  { value: 4, labelKey: 'memberTypes.agent' },
+  { value: 5, labelKey: 'memberTypes.quantum' },
 ]
 
 type GroupKind = 'standard' | 'custodian'
 
 export function CreateSignerGroupPage() {
+  const { t } = useTranslation('signers')
   const safeId = useSafeId()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -84,11 +86,11 @@ export function CreateSignerGroupPage() {
     e.preventDefault()
     setError(null)
     if (!name.trim()) {
-      setError('Enter a group name.')
+      setError(t('create.errors.nameRequired'))
       return
     }
     if (!safe || !effectiveAdminGroupId) {
-      setError('No admin signer group is available to submit this proposal.')
+      setError(t('create.errors.noAdminGroup'))
       return
     }
 
@@ -109,10 +111,10 @@ export function CreateSignerGroupPage() {
       )
       await queryClient.invalidateQueries({ queryKey: ['proposals', safeId] })
       await queryClient.invalidateQueries({ queryKey: ['signer-groups', safeId] })
-      enqueueSnackbar('Signer-group creation proposal created', { variant: 'success' })
+      enqueueSnackbar(t('create.created'), { variant: 'success' })
       navigate(`/safe/${safeId}/proposals/${proposalId}`, { state: { txId } })
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : 'Failed to create signer-group proposal.')
+      setError(submitError instanceof Error ? submitError.message : t('create.errors.failed'))
     } finally {
       setSubmitting(false)
     }
@@ -133,21 +135,18 @@ export function CreateSignerGroupPage() {
       <div className="flex items-end justify-between gap-4">
         <div>
           <nav className="mb-2 flex items-center gap-1 font-mono text-xs text-on-surface-variant">
-            <span>Treasury</span>
+            <span>{t('breadcrumb.treasury')}</span>
             <Icon name="chevron_right" className="text-sm" />
-            <span>Signer Groups</span>
+            <span>{t('breadcrumb.signerGroups')}</span>
             <Icon name="chevron_right" className="text-sm" />
-            <span className="text-primary">Create Group</span>
+            <span className="text-primary">{t('breadcrumb.createGroup')}</span>
           </nav>
-          <h1 className="text-3xl font-bold text-on-surface">Create Signer Group</h1>
-          <p className="mt-1 text-sm text-on-surface-variant">
-            Propose a new standard signer group or a custodian group for a DeFi protocol integration. A new group always starts with one
-            member and a threshold of 1.
-          </p>
+          <h1 className="text-3xl font-bold text-on-surface">{t('create.title')}</h1>
+          <p className="mt-1 text-sm text-on-surface-variant">{t('create.subtitle')}</p>
         </div>
         <Button variant="secondary" onClick={() => navigate(`/safe/${safeId}`)}>
           <Icon name="arrow_back" className="text-base" />
-          Back to Dashboard
+          {t('shared.backToDashboard')}
         </Button>
       </div>
 
@@ -160,7 +159,7 @@ export function CreateSignerGroupPage() {
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <Card>
-          <h2 className="text-lg font-semibold text-on-surface">Group Type</h2>
+          <h2 className="text-lg font-semibold text-on-surface">{t('create.groupType.title')}</h2>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             <button
               type="button"
@@ -173,11 +172,9 @@ export function CreateSignerGroupPage() {
             >
               <div className="flex items-center gap-2 text-sm font-semibold text-on-surface">
                 <Icon name="group" className="text-base" />
-                Standard group
+                {t('create.groupType.standard')}
               </div>
-              <p className="mt-1 text-xs text-on-surface-variant">
-                Human or agent signers governed by admins. Supports spending limits and any action set.
-              </p>
+              <p className="mt-1 text-xs text-on-surface-variant">{t('create.groupType.standardDesc')}</p>
             </button>
             <button
               type="button"
@@ -188,46 +185,46 @@ export function CreateSignerGroupPage() {
             >
               <div className="flex items-center gap-2 text-sm font-semibold text-on-surface">
                 <Icon name="account_balance" className="text-base" />
-                Custodian group
+                {t('create.groupType.custodian')}
               </div>
-              <p className="mt-1 text-xs text-on-surface-variant">
-                A protocol contract signer bounded by asset guards. No admin privileges; pay/axfer actions only.
-              </p>
+              <p className="mt-1 text-xs text-on-surface-variant">{t('create.groupType.custodianDesc')}</p>
             </button>
           </div>
         </Card>
 
         <Card>
-          <h2 className="text-lg font-semibold text-on-surface">Group Identity</h2>
+          <h2 className="text-lg font-semibold text-on-surface">{t('create.identity.title')}</h2>
           <div className="mt-4 space-y-4">
-            <FormField label="Group Name" hint="Fixed at creation time.">
-              <input className={inputCls} value={name} onChange={(event) => setName(event.target.value)} placeholder="e.g. Trading Desk" />
+            <FormField label={t('create.identity.nameLabel')} hint={t('create.identity.nameHint')}>
+              <input
+                className={inputCls}
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                placeholder={t('create.identity.namePlaceholder')}
+              />
             </FormField>
-            <FormField
-              label="First Member Address"
-              hint="The group's initial (and only) member. Add more via member proposals after creation."
-            >
+            <FormField label={t('create.identity.firstMemberLabel')} hint={t('create.identity.firstMemberHint')}>
               <input
                 className={`${inputCls} font-mono`}
                 value={memberAddress}
                 onChange={(event) => setMemberAddress(event.target.value)}
-                placeholder="Algorand address"
+                placeholder={t('shared.addressPlaceholder')}
               />
             </FormField>
             <div className="grid gap-4 md:grid-cols-2">
-              <FormField label="Member Label">
+              <FormField label={t('shared.memberLabel')}>
                 <input
                   className={inputCls}
                   value={memberLabel}
                   onChange={(event) => setMemberLabel(event.target.value)}
-                  placeholder="Signer"
+                  placeholder={t('create.identity.labelPlaceholder')}
                 />
               </FormField>
-              <FormField label="Account Type">
+              <FormField label={t('shared.accountType')}>
                 <select className={inputCls} value={memberType} onChange={(event) => setMemberType(event.target.value)}>
                   {MEMBER_TYPE_OPTIONS.map((option) => (
                     <option key={option.value} value={option.value}>
-                      {option.label}
+                      {t(option.labelKey)}
                     </option>
                   ))}
                 </select>
@@ -237,56 +234,35 @@ export function CreateSignerGroupPage() {
         </Card>
 
         <Card>
-          <h2 className="text-lg font-semibold text-on-surface">Allowed Actions</h2>
+          <h2 className="text-lg font-semibold text-on-surface">{t('create.actions.title')}</h2>
           <p className="mt-1 text-sm text-on-surface-variant">
-            {isCustodian
-              ? 'Custodian groups are restricted to payment and asset-transfer actions — their spend is bounded by asset guards set by admins after creation.'
-              : 'Choose which transaction types this group may execute once approvals meet its threshold.'}
+            {isCustodian ? t('create.actions.custodianDesc') : t('create.actions.standardDesc')}
           </p>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            {actionCheckbox(allowAlgo, setAllowAlgo, 'Allow ALGO payments')}
-            {actionCheckbox(allowAsa, setAllowAsa, 'Allow ASA transfers')}
-            {!isCustodian && actionCheckbox(allowApp, setAllowApp, 'Allow app calls')}
-            {!isCustodian && actionCheckbox(allowKeyreg, setAllowKeyreg, 'Allow key registration')}
-            {!isCustodian && actionCheckbox(allowAcfg, setAllowAcfg, 'Allow asset configuration')}
-            {!isCustodian &&
-              actionCheckbox(
-                allowRekey,
-                setAllowRekey,
-                'Allow rekey',
-                'Also requires group-admin privileges at execution — hands account control to another address.',
-              )}
+            {actionCheckbox(allowAlgo, setAllowAlgo, t('shared.allowAlgo'))}
+            {actionCheckbox(allowAsa, setAllowAsa, t('shared.allowAsa'))}
+            {!isCustodian && actionCheckbox(allowApp, setAllowApp, t('shared.allowApp'))}
+            {!isCustodian && actionCheckbox(allowKeyreg, setAllowKeyreg, t('shared.allowKeyreg'))}
+            {!isCustodian && actionCheckbox(allowAcfg, setAllowAcfg, t('shared.allowAcfg'))}
+            {!isCustodian && actionCheckbox(allowRekey, setAllowRekey, t('shared.allowRekey'), t('create.actions.rekeyHint'))}
           </div>
         </Card>
 
         {!isCustodian && (
           <Card>
-            <h2 className="text-lg font-semibold text-on-surface">Admin Privileges</h2>
+            <h2 className="text-lg font-semibold text-on-surface">{t('create.privileges.title')}</h2>
             <p className="mt-1 text-sm text-on-surface-variant">
-              Admin privileges are safe-wide: a group with these can administer <em>any</em> group in the safe. Grant sparingly.
+              <Trans t={t} i18nKey="create.privileges.desc" components={{ em: <em /> }} />
             </p>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
-              {actionCheckbox(
-                groupAdmin,
-                setGroupAdmin,
-                'Group admin (PRIV_GROUP)',
-                'Create/modify groups, members, thresholds, privileges.',
-              )}
-              {actionCheckbox(
-                policyAdmin,
-                setPolicyAdmin,
-                'Policy admin (PRIV_POLICY)',
-                'Change any group’s spending policy and cooldown.',
-              )}
+              {actionCheckbox(groupAdmin, setGroupAdmin, t('create.privileges.groupAdmin'), t('create.privileges.groupAdminHint'))}
+              {actionCheckbox(policyAdmin, setPolicyAdmin, t('create.privileges.policyAdmin'), t('create.privileges.policyAdminHint'))}
             </div>
           </Card>
         )}
 
         <Card>
-          <FormField
-            label="Submitting Admin Signer Group"
-            hint="The connected account must be a member of this admin group to submit the proposal."
-          >
+          <FormField label={t('shared.adminGroupLabel')} hint={t('create.adminGroupHint')}>
             <select className={inputCls} value={effectiveAdminGroupId} onChange={(event) => setSelectedAdminGroupId(event.target.value)}>
               {adminGroups.map((group) => (
                 <option key={group.id} value={group.id}>
@@ -295,16 +271,16 @@ export function CreateSignerGroupPage() {
               ))}
             </select>
           </FormField>
-          {!adminGroups.length && <p className="mt-2 text-xs text-error">No active admin signer groups were found for this safe.</p>}
+          {!adminGroups.length && <p className="mt-2 text-xs text-error">{t('shared.noAdminGroups')}</p>}
         </Card>
 
         <div className="flex items-center justify-end gap-3">
           <Button type="button" variant="ghost" onClick={() => navigate(`/safe/${safeId}`)}>
-            Cancel
+            {t('shared.cancel')}
           </Button>
           <Button type="submit" disabled={!canSubmit || submitting}>
             <Icon name="send" className="text-base" />
-            {submitting ? 'Submitting…' : 'Propose Group Creation'}
+            {submitting ? t('shared.submitting') : t('create.submit')}
           </Button>
         </div>
       </form>

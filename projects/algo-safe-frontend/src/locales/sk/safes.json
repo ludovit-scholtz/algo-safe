@@ -1,0 +1,163 @@
+{
+  "selection": {
+    "checkingWallet": "Kontrolujem reláciu peňaženky..."
+  },
+  "recover": {
+    "noWallet": "Pred obnovením existujúceho trezora pripojte peňaženku.",
+    "invalidAppId": "Zadajte platné ID aplikácie Algorand.",
+    "invalidName": "Vybraná aplikácia nevrátila platný názov Algo Safe.",
+    "loadFailed": "Aplikáciu sa na vybranej sieti nepodarilo načítať.",
+    "success": "Trezor {{name}} bol obnovený a uložený v tomto prehliadači."
+  },
+  "home": {
+    "titleLine1": "Inštitucionálna pokladnica",
+    "titleLine2": "Vytvorená pre ekonomiku agentov.",
+    "intro": "Algo Safe je systém inteligentných účtov riadený politikami. Zabezpečte svoje aktíva pomocou viacpodpisových pracovných postupov, automatizovaných rebalančných agentov a podrobných protokolov správy navrhnutých pre odolný blockchain Algorand.",
+    "walletReady": "Peňaženka je pripojená. Vaše trezory pokladnice sú pripravené.",
+    "createTitle": "Vytvoriť nový trezor",
+    "createText": "Nasaďte novú inštitucionálnu pokladnicu s vlastnými podpisovateľmi a automatizovanými politikami.",
+    "importTitle": "Importovať existujúci účet",
+    "importText": "Zadajte ID aplikácie Algo Safe na blockchaine. Dashboard najprv načíta názov kontraktu a až potom ho uloží do vášho lokálneho registra.",
+    "appIdLabel": "ID aplikácie",
+    "appIdHint": "Použite ID už nasadeného Algo Safe na aktuálne vybranej sieti.",
+    "appIdPlaceholder": "napr. 123456789",
+    "reading": "Načítavam kontrakt...",
+    "recoverButton": "Obnoviť účet",
+    "network": "Sieť: {{network}}",
+    "existingSafes": "Existujúce trezory",
+    "accounts_one": "{{count}} ÚČET",
+    "accounts_few": "{{count}} ÚČTY",
+    "accounts_many": "{{count}} ÚČTU",
+    "accounts_other": "{{count}} ÚČTOV",
+    "empty": "Zatiaľ žiadne trezory — vytvorte si jeden vyššie.",
+    "registryTitle": "Lokálny register trezorov",
+    "registryLine1": "Zobrazené sú iba trezory, ktoré ste v tomto prehliadači nasadili alebo obnovili.",
+    "registryLine2": "Importujte existujúci Algo Safe podľa ID aplikácie alebo vytvorte nový, aby sa zoznam naplnil.",
+    "documentation": "Dokumentácia",
+    "audit": "Bezpečnostný audit"
+  },
+  "login": {
+    "authRequired": "Vyžaduje sa overenie",
+    "titleLine1": "Pripojte svoju peňaženku",
+    "titleLine2": "a získajte prístup k trezorom pokladnice.",
+    "intro": "Vyberte sieť, na ktorej chcete pracovať, a potom pripojte kompatibilnú peňaženku, aby ste mohli zobraziť existujúce trezory, vytvárať nové pokladnice a spravovať operácie riadené politikami z overenej konzoly.",
+    "secureTitle": "Bezpečné odovzdanie podpisu",
+    "secureText": "Podpisovanie transakcií zostáva vo vašej peňaženke, zatiaľ čo Algo Safe používa pripojený účet na overené akcie.",
+    "walletsTitle": "Podporované peňaženky",
+    "walletsText": "MainNet a TestNet používajú peňaženky v prehliadači a WalletConnect, zatiaľ čo LocalNet ponúka vývojársku peňaženku KMD.",
+    "whyTitle": "Prečo sa najprv prihlásiť",
+    "why1": "Overte sa pred načítaním trezorov, aby mohol dashboard viazať akcie na váš aktívny účet Algorand.",
+    "why2": "Po pripojení sa okamžite sprístupní prehľad pokladnice a konzola na správu trezorov.",
+    "why3": "LocalNet namiesto peňaženiek v prehliadači používa KMD.",
+    "chooseTitle": "Vyberte sieť a peňaženku",
+    "chooseText": "Pripojte sa a odomknite overený dashboard.",
+    "chain": "Sieť",
+    "chainHint": "WalletConnect vyžaduje platnú sieť CAIP, preto pred spárovaním vyberte cieľovú sieť.",
+    "localnetHint": "Pre lokálne vývojové relácie použite peňaženku KMD v LocalNet.",
+    "walletsHint": "Pre túto sieť Algorand použite Pera, Defly, WalletConnect alebo Biatec Wallet.",
+    "kmd": "Pre vývojové scenáre použite lokálnu peňaženku KMD spravovanú AlgoKit LocalNet.",
+    "pera": "Naskenujte QR kód alebo schváľte v aplikácii Pera.",
+    "defly": "Pokračujte schválením relácie v aplikácii Defly.",
+    "biatec": "Pripojte Biatec Wallet priamo (vyskakovacie okno alebo Liquid Auth) a schváľte reláciu.",
+    "walletConnect": "Pripojte ľubovoľnú peňaženku Algorand kompatibilnú s WalletConnect pomocou spoločného QR toku.",
+    "logoAlt": "Logo {{name}}",
+    "connecting": "Pripájam",
+    "connect": "Pripojiť",
+    "noWallets": "Pre vybranú sieť nie sú dostupní žiadni kompatibilní poskytovatelia peňaženiek.",
+    "connectFailed": "Nepodarilo sa pripojiť {{name}}. {{message}}",
+    "connectDefault": "Schváľte požiadavku v peňaženke a skúste to znova."
+  },
+  "card": {
+    "app": "Aplikácia {{appId}}",
+    "agents_one": "{{count}} agent",
+    "agents_few": "{{count}} agenti",
+    "agents_many": "{{count}} agenta",
+    "agents_other": "{{count}} agentov"
+  },
+  "init": {
+    "steps": {
+      "deploy": "Nasadenie kontraktu",
+      "fund": "Financovanie MBR"
+    },
+    "errors": {
+      "rejected": "Transakcia bola zamietnutá alebo ju nebolo možné odoslať.",
+      "nameRequired": "Pred spustením nasadenia zadajte názov trezora.",
+      "walletRequired": "Na nasadenie a financovanie trezora je potrebná pripojená peňaženka.",
+      "amountInvalid": "Zadajte kladnú sumu ALGO na financovanie MBR účtu aplikácie."
+    },
+    "button": {
+      "deploying": "Nasadzujem kontrakt...",
+      "funding": "Financujem a inicializujem...",
+      "ready": "Trezor pripravený",
+      "start": "Spustiť"
+    },
+    "breadcrumbSecurity": "Nastavenie zabezpečenia",
+    "breadcrumbInit": "Inicializácia",
+    "title": "Inicializácia inteligentného účtu",
+    "intro": "Nasaďte kontrakt Algo Safe z pripojenej peňaženky a potom financujte nový účet aplikácie natívnym ALGO na pokrytie minimálneho zostatku.",
+    "step01": "Krok 01",
+    "step02": "Krok 02",
+    "deployTitle": "Nasadiť inteligentný kontrakt",
+    "deployText": "Vytvorte aplikáciu Algo Safe na blockchaine z už pripojenej peňaženky.",
+    "fundTitle": "Financovať MBR v ALGO",
+    "fundText": "Pošlite natívne ALGO na nový účet aplikácie na pokrytie MBR boxov a úvodného nastavenia.",
+    "connectedWallet": "Pripojená peňaženka",
+    "ready": "Pripravené",
+    "walletNotConnected": "Peňaženka nie je pripojená",
+    "network": "Sieť",
+    "deployFlow": "Postup nasadenia",
+    "live": "Aktívne",
+    "flowText": "Peňaženka najprv podpíše nasadenie aplikácie a potom schválite jednu skupinovú požiadavku, ktorá financuje účet aplikácie a inicializuje ho.",
+    "nameLabel": "Názov trezora",
+    "nameHint": "Tento názov sa pri vytvorení aplikácie uloží na blockchaine.",
+    "namePlaceholder": "napr. Správcovská pokladnica",
+    "mbrLabel": "Vklad MBR (ALGO)",
+    "mbrHint": "Odporúčame 2 ALGO, aby aplikácia pokryla minimálny zostatok boxov a inicializačné operácie.",
+    "status": {
+      "idle": {
+        "title": "Tlačidlo Spustiť najprv nasadí kontrakt a potom vyžiada jednu skupinovú transakciu s financovaním ALGO a inicializáciou.",
+        "text": "Úvodná skupina administrátorov sa vytvorí počas inicializácie po financovaní účtu aplikácie."
+      },
+      "deploying": {
+        "title": "Prebieha nasadenie.",
+        "text": "Schváľte nasadenie inteligentného kontraktu vo svojej peňaženke. Tlačidlo zostane zamknuté, kým blockchain nepotvrdí vytvorenie."
+      },
+      "funding": {
+        "title": "Kontrakt je nasadený. Prebieha krok 02.",
+        "text": "Skontrolujte peňaženku, či neobsahuje skupinovú požiadavku na podpis, ktorá financuje nový účet aplikácie ALGO a inicializuje trezor."
+      },
+      "success": {
+        "title": "Inicializácia trezora je dokončená.",
+        "text": "Kontrakt je nasadený, financovaný ALGO, inicializovaný pre správu a uložený vo vašom lokálnom registri trezorov."
+      },
+      "error": {
+        "title": "Inicializácia sa zastavila.",
+        "text": "Skontrolujte nižšie uvedenú chybu a po pripravení peňaženky postup spustite znova."
+      }
+    },
+    "appId": "ID aplikácie",
+    "createTx": "Transakcia vytvorenia: {{txId}}",
+    "appAddress": "Adresa aplikácie",
+    "fees": "Sieťové poplatky sa platia v ALGO a závisia od transakcií potvrdených v peňaženke.",
+    "documentation": "Dokumentácia",
+    "support": "Inštitucionálna podpora"
+  },
+  "registry": {
+    "tier": "Trezor na blockchaine"
+  },
+  "holdings": {
+    "nativeName": "Natívny Algorand"
+  },
+  "mock": {
+    "safeNotFound": "Trezor {{safeId}} sa v lokálnom registri nenašiel.",
+    "tier": "Multipodpis {{threshold}} z {{signerCount}}",
+    "agentRegTitle": "Registrácia agenta: {{alias}}",
+    "agentRegDesc": "Zaregistrovať automatizovaného agenta {{alias}} v skupine {{groupTier}}.",
+    "justNow": "Práve teraz",
+    "initAgent": "Inicializovať kontrakt agenta",
+    "policyTitle": "Aktualizácia politiky: {{name}}",
+    "policyDesc": "Úprava politiky výdavkov agenta.",
+    "updatePolicyBox": "Aktualizovať box politiky",
+    "withinRules": "V súlade s pravidlami správy"
+  }
+}

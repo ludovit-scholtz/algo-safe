@@ -1,0 +1,38 @@
+{
+  "title": "Activos",
+  "subtitle": "Fondos de la tesorería y posiciones de préstamo.",
+  "buyEurd": "Comprar EURD",
+  "addFunds": "Añadir fondos",
+  "stats": {
+    "nativeBalance": "Saldo nativo",
+    "nativeBalanceSub": "Cargado directamente desde la dirección de la caja fuerte",
+    "optedInAssets": "Activos con opt-in",
+    "optedInAssetsSub": "Activos de la cuenta en Algod excluyendo ALGO",
+    "safeAddress": "Dirección de la caja fuerte",
+    "app": "App {{appId}}"
+  },
+  "empty": "Esta cuenta inteligente aún no tiene saldo nativo ni activos con opt-in.",
+  "fundingStarted": "Sesión de financiación de {{amount}} € iniciada (demo / alternativa de Quantoz).",
+  "modal": {
+    "title": "Comprar EURD",
+    "description": "Compre EURD mediante transferencia bancaria de Quantoz. Los fondos se abonan en la dirección de tesorería de esta caja fuerte.",
+    "addressUnavailable": "Dirección de la caja fuerte no disponible",
+    "amountLabel": "Importe (EUR)",
+    "exchangeRate": "Tipo de cambio: 1 EUR = 1 EURD · plataforma Quantoz",
+    "cancel": "Cancelar",
+    "continue": "Continuar al banco"
+  },
+  "table": {
+    "asset": "Activo",
+    "type": "Tipo",
+    "balance": "Saldo",
+    "nativeLower": "nativo",
+    "native": "Nativo",
+    "optedInAsa": "ASA con opt-in",
+    "loading": "Cargando saldos en la cadena…",
+    "noHoldings": "No se encontraron fondos."
+  },
+  "row": {
+    "apy": "{{apy}} % APY"
+  }
+}

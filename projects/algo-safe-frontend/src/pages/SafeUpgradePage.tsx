@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNetwork, useWallet } from '@txnlab/use-wallet-react'
 import algosdk from 'algosdk'
 import { useState } from 'react'
+import { Trans, useTranslation } from 'react-i18next'
 import { Link, useNavigate } from 'react-router-dom'
 import { AddressDisplay } from '../components/AddressDisplay'
 import { Button } from '../components/ui/Button'
@@ -21,6 +22,7 @@ import {
 } from '../services/algoSafeMigration'
 
 export function SafeUpgradePage() {
+  const { t } = useTranslation('upgrade')
   const safeId = useSafeId()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -58,11 +60,11 @@ export function SafeUpgradePage() {
   async function handleRegistryChange(action: 'add' | 'remove', address: string, label?: string) {
     setErrorMessage(null)
     if (!safe || !walletReady) {
-      setErrorMessage('Connect a wallet with admin access before managing rekeyed addresses.')
+      setErrorMessage(t('errors.connectAdmin'))
       return
     }
     if (!algosdk.isValidAddress(address.trim())) {
-      setErrorMessage('Enter a valid Algorand address.')
+      setErrorMessage(t('errors.invalidAddress'))
       return
     }
 
@@ -79,7 +81,7 @@ export function SafeUpgradePage() {
       await queryClient.invalidateQueries({ queryKey: ['proposals', safeId] })
       navigate(`/safe/${safeId}/proposals/${proposalId}`, { state: { txId } })
     } catch (error) {
-      reportError(error, 'Failed to create the registry proposal.')
+      reportError(error, t('errors.registryProposalFailed'))
     } finally {
       setBusy(null)
     }
@@ -88,7 +90,7 @@ export function SafeUpgradePage() {
   async function handleDeployUpgrade() {
     setErrorMessage(null)
     if (!safe || !walletReady) {
-      setErrorMessage('Connect a wallet before deploying the upgraded safe.')
+      setErrorMessage(t('errors.connectDeploy'))
       return
     }
 
@@ -106,7 +108,7 @@ export function SafeUpgradePage() {
       })
       await queryClient.invalidateQueries({ queryKey: ['safes'] })
     } catch (error) {
-      reportError(error, 'Failed to deploy and clone the upgraded safe.')
+      reportError(error, t('errors.deployFailed'))
     } finally {
       setBusy(null)
     }
@@ -125,7 +127,7 @@ export function SafeUpgradePage() {
       await queryClient.invalidateQueries({ queryKey: ['proposals', safeId] })
       navigate(`/safe/${safeId}/proposals/${proposalId}`, { state: { txId } })
     } catch (error) {
-      reportError(error, 'Failed to create the migration rekey proposal.')
+      reportError(error, t('errors.migrationProposalFailed'))
     } finally {
       setBusy(null)
     }
@@ -135,15 +137,13 @@ export function SafeUpgradePage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-on-surface">Upgrade & Rekeyed Addresses</h1>
-          <p className="mt-1 text-sm text-on-surface-variant">
-            Manage the addresses rekeyed to this safe and migrate the safe to the latest contract version.
-          </p>
+          <h1 className="text-3xl font-bold text-on-surface">{t('title')}</h1>
+          <p className="mt-1 text-sm text-on-surface-variant">{t('subtitle')}</p>
         </div>
         <Link to={`/safe/${safeId}`}>
           <Button variant="secondary">
             <Icon name="arrow_back" className="text-base" />
-            Back to Dashboard
+            {t('backToDashboard')}
           </Button>
         </Link>
       </div>
@@ -156,39 +156,36 @@ export function SafeUpgradePage() {
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
-          <h2 className="mb-3 font-mono text-xs uppercase tracking-wide text-on-surface-variant">Contract Version</h2>
+          <h2 className="mb-3 font-mono text-xs uppercase tracking-wide text-on-surface-variant">{t('version.title')}</h2>
           <div className="space-y-2 text-sm text-on-surface-variant">
             <p>
-              Deployed version hash:{' '}
+              {t('version.deployedHash')}{' '}
               <span className="font-mono text-on-surface" data-test-id="version-hash">
-                {versionStatus?.versionHash ? `${versionStatus.versionHash.slice(0, 16)}…` : 'detecting…'}
+                {versionStatus?.versionHash ? `${versionStatus.versionHash.slice(0, 16)}…` : t('version.detecting')}
               </span>
             </p>
             {versionStatus?.isLatest ? (
               <p className="flex items-center gap-2 text-primary">
-                <Icon name="check_circle" className="text-base" /> This safe runs the latest contract version.
+                <Icon name="check_circle" className="text-base" /> {t('version.isLatest')}
               </p>
             ) : (
               <p className="flex items-center gap-2 text-warn">
-                <Icon name="warning" className="text-base" /> A newer contract version is available — consider upgrading below.
+                <Icon name="warning" className="text-base" /> {t('version.newerAvailable')}
               </p>
             )}
           </div>
-          <h2 className="mb-3 mt-6 font-mono text-xs uppercase tracking-wide text-on-surface-variant">Admin Group</h2>
-          <FormField
-            label="Signer group for proposals"
-            hint="Registry changes and the migration rekey are proposed through this admin group."
-          >
+          <h2 className="mb-3 mt-6 font-mono text-xs uppercase tracking-wide text-on-surface-variant">{t('adminGroup.title')}</h2>
+          <FormField label={t('adminGroup.label')} hint={t('adminGroup.hint')}>
             <select
               className={inputCls}
               value={adminGroupId}
               onChange={(event) => setAdminGroupId(event.target.value)}
               data-test-id="admin-group-select"
             >
-              {adminGroups.length === 0 && <option value="1">Group 1</option>}
+              {adminGroups.length === 0 && <option value="1">{t('adminGroup.fallbackOption')}</option>}
               {adminGroups.map((group) => (
                 <option key={group.id} value={group.id}>
-                  {group.name} · {group.threshold}-of-{group.memberCount}
+                  {t('adminGroup.option', { name: group.name, threshold: group.threshold, memberCount: group.memberCount })}
                 </option>
               ))}
             </select>
@@ -196,17 +193,15 @@ export function SafeUpgradePage() {
         </Card>
 
         <Card>
-          <h2 className="mb-3 font-mono text-xs uppercase tracking-wide text-on-surface-variant">Upgrade Safe</h2>
+          <h2 className="mb-3 font-mono text-xs uppercase tracking-wide text-on-surface-variant">{t('upgrade.title')}</h2>
           <div className="space-y-3 text-sm text-on-surface-variant">
             <p>
-              Upgrading deploys a <strong>new safe on the latest contract</strong>, clones this safe's signer groups, policies, and
-              rekeyed-address registry onto it, and then — via a governed rekey proposal — hands every controlled address (including this
-              safe's own account) over to the new deployment. Funds never leave the addresses.
+              <Trans t={t} i18nKey="upgrade.intro" components={{ strong: <strong /> }} />
             </p>
             <ol className="list-decimal space-y-1 pl-5">
-              <li>Deploy & clone the configuration (signed by your wallet, no custody change).</li>
-              <li>Propose the migration rekey; admins approve it at the group threshold.</li>
-              <li>Execute — the new safe takes over, and this safe becomes read-only history.</li>
+              <li>{t('upgrade.step1')}</li>
+              <li>{t('upgrade.step2')}</li>
+              <li>{t('upgrade.step3')}</li>
             </ol>
             <div className="flex flex-wrap items-center gap-3 pt-2">
               <Button
@@ -220,7 +215,7 @@ export function SafeUpgradePage() {
                 ) : (
                   <Icon name="rocket_launch" className="text-base" />
                 )}
-                {busy === 'deploy' ? 'Deploying…' : '1 · Deploy & Clone'}
+                {busy === 'deploy' ? t('upgrade.deploying') : t('upgrade.deployButton')}
               </Button>
               <Button
                 type="button"
@@ -230,7 +225,7 @@ export function SafeUpgradePage() {
                 data-test-id="propose-migration"
               >
                 {busy === 'migrate' ? <Icon name="sync" className="animate-spin text-base" /> : <Icon name="key" className="text-base" />}
-                {busy === 'migrate' ? 'Proposing…' : '2 · Propose Migration Rekey'}
+                {busy === 'migrate' ? t('upgrade.proposing') : t('upgrade.proposeButton')}
               </Button>
             </div>
             {upgradeResult && (
@@ -239,12 +234,15 @@ export function SafeUpgradePage() {
                 data-test-id="upgrade-result"
               >
                 <p>
-                  New safe deployed — App ID <span className="font-mono">{upgradeResult.appId.toString()}</span>
+                  <Trans
+                    t={t}
+                    i18nKey="upgrade.deployed"
+                    values={{ appId: upgradeResult.appId.toString() }}
+                    components={{ mono: <span className="font-mono" /> }}
+                  />
                 </p>
                 <AddressDisplay address={upgradeResult.appAddress} textClassName="text-xs text-on-surface-variant" />
-                <p className="mt-1 text-xs text-on-surface-variant">
-                  Saved to this browser's safe list. Now create the migration rekey proposal and collect admin approvals.
-                </p>
+                <p className="mt-1 text-xs text-on-surface-variant">{t('upgrade.savedHint')}</p>
               </div>
             )}
           </div>
@@ -252,12 +250,8 @@ export function SafeUpgradePage() {
       </div>
 
       <Card>
-        <h2 className="mb-3 font-mono text-xs uppercase tracking-wide text-on-surface-variant">Rekeyed Addresses</h2>
-        <p className="mb-4 text-sm text-on-surface-variant">
-          External addresses whose spending authority has been rekeyed to this safe. The list is governed by admin proposals and is used
-          during migration to re-rekey every controlled address to the new safe. Registering an address here does not rekey it — submit the
-          actual rekey transaction from that account separately.
-        </p>
+        <h2 className="mb-3 font-mono text-xs uppercase tracking-wide text-on-surface-variant">{t('registry.title')}</h2>
+        <p className="mb-4 text-sm text-on-surface-variant">{t('registry.description')}</p>
 
         <form
           className="mb-4 grid gap-3 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_auto]"
@@ -266,21 +260,21 @@ export function SafeUpgradePage() {
             void handleRegistryChange('add', newAddress, newLabel)
           }}
         >
-          <FormField label="Address" hint="The account rekeyed (or about to be rekeyed) to this safe.">
+          <FormField label={t('registry.addressLabel')} hint={t('registry.addressHint')}>
             <input
               className={inputCls}
               value={newAddress}
               onChange={(event) => setNewAddress(event.target.value)}
-              placeholder="Algorand address"
+              placeholder={t('registry.addressPlaceholder')}
               data-test-id="rekeyed-address-input"
             />
           </FormField>
-          <FormField label="Label" hint="Optional human-readable name.">
+          <FormField label={t('registry.labelLabel')} hint={t('registry.labelHint')}>
             <input
               className={inputCls}
               value={newLabel}
               onChange={(event) => setNewLabel(event.target.value)}
-              placeholder="e.g. ops hot wallet"
+              placeholder={t('registry.labelPlaceholder')}
             />
           </FormField>
           <div className="flex items-end pb-1">
@@ -290,13 +284,13 @@ export function SafeUpgradePage() {
               ) : (
                 <Icon name="add" className="text-base" />
               )}
-              Propose Add
+              {t('registry.proposeAdd')}
             </Button>
           </div>
         </form>
 
         <div className="space-y-2" data-test-id="rekeyed-address-list">
-          {(rekeyedAddresses ?? []).length === 0 && <p className="text-sm text-on-surface-variant">No rekeyed addresses registered.</p>}
+          {(rekeyedAddresses ?? []).length === 0 && <p className="text-sm text-on-surface-variant">{t('registry.empty')}</p>}
           {(rekeyedAddresses ?? []).map((record) => (
             <div
               key={record.address}
@@ -305,7 +299,7 @@ export function SafeUpgradePage() {
               <div className="min-w-0">
                 <AddressDisplay address={record.address} textClassName="text-sm text-on-surface" />
                 <p className="text-xs text-on-surface-variant">
-                  {record.label || 'unlabelled'} · registered at round {record.addedRound.toString()}
+                  {t('registry.recordMeta', { label: record.label || t('registry.unlabelled'), round: record.addedRound.toString() })}
                 </p>
               </div>
               <Button
@@ -319,14 +313,14 @@ export function SafeUpgradePage() {
                 ) : (
                   <Icon name="delete" className="text-base" />
                 )}
-                Propose Remove
+                {t('registry.proposeRemove')}
               </Button>
             </div>
           ))}
         </div>
         <div className="mt-3">
           <Button type="button" variant="ghost" onClick={() => void refetchRekeyed()}>
-            <Icon name="refresh" className="text-base" /> Refresh
+            <Icon name="refresh" className="text-base" /> {t('registry.refresh')}
           </Button>
         </div>
       </Card>

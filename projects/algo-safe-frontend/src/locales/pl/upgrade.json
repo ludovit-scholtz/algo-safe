@@ -1,0 +1,59 @@
+{
+  "title": "Aktualizacja i adresy z rekey",
+  "subtitle": "Zarządzaj adresami z rekey na ten sejf i przeprowadź migrację sejfu do najnowszej wersji kontraktu.",
+  "backToDashboard": "Wróć do pulpitu",
+  "errors": {
+    "connectAdmin": "Przed zarządzaniem adresami z rekey połącz portfel z uprawnieniami administratora.",
+    "invalidAddress": "Wprowadź prawidłowy adres Algorand.",
+    "registryProposalFailed": "Nie udało się utworzyć propozycji zmiany rejestru.",
+    "connectDeploy": "Przed wdrożeniem zaktualizowanego sejfu połącz portfel.",
+    "deployFailed": "Nie udało się wdrożyć i sklonować zaktualizowanego sejfu.",
+    "migrationProposalFailed": "Nie udało się utworzyć propozycji rekey migracji."
+  },
+  "version": {
+    "title": "Wersja kontraktu",
+    "deployedHash": "Hash wdrożonej wersji:",
+    "detecting": "wykrywanie…",
+    "isLatest": "Ten sejf działa na najnowszej wersji kontraktu.",
+    "newerAvailable": "Dostępna jest nowsza wersja kontraktu — rozważ aktualizację poniżej."
+  },
+  "adminGroup": {
+    "title": "Grupa administratorów",
+    "label": "Grupa podpisujących dla propozycji",
+    "hint": "Zmiany rejestru i rekey migracji są proponowane przez tę grupę administratorów.",
+    "fallbackOption": "Grupa 1",
+    "option": "{{name}} · {{threshold}} z {{memberCount}}"
+  },
+  "upgrade": {
+    "title": "Zaktualizuj sejf",
+    "intro": "Aktualizacja wdraża <strong>nowy sejf na najnowszym kontrakcie</strong>, klonuje do niego grupy podpisujących, polityki i rejestr adresów z rekey tego sejfu, a następnie — w ramach zarządzanej propozycji rekey — przekazuje nowemu wdrożeniu wszystkie kontrolowane adresy (łącznie z kontem tego sejfu). Środki nigdy nie opuszczają adresów.",
+    "step1": "Wdróż i sklonuj konfigurację (podpisuje ją Twój portfel, bez zmiany powiernictwa).",
+    "step2": "Zaproponuj rekey migracji; administratorzy zatwierdzają go po osiągnięciu progu grupy.",
+    "step3": "Wykonaj — nowy sejf przejmuje kontrolę, a ten sejf staje się historią tylko do odczytu.",
+    "deploying": "Wdrażanie…",
+    "deployButton": "1 · Wdróż i sklonuj",
+    "proposing": "Proponowanie…",
+    "proposeButton": "2 · Zaproponuj rekey migracji",
+    "deployed": "Nowy sejf został wdrożony — ID aplikacji <mono>{{appId}}</mono>",
+    "savedHint": "Zapisano na liście sejfów w tej przeglądarce. Teraz utwórz propozycję rekey migracji i zbierz zatwierdzenia administratorów."
+  },
+  "registry": {
+    "title": "Adresy z rekey",
+    "description": "Zewnętrzne adresy, których uprawnienia do wydawania środków zostały przekazane (rekey) temu sejfowi. Lista jest zarządzana propozycjami administratorów i podczas migracji służy do ponownego rekey wszystkich kontrolowanych adresów na nowy sejf. Zarejestrowanie adresu tutaj nie wykonuje rekey — właściwą transakcję rekey wyślij osobno z tego konta.",
+    "addressLabel": "Adres",
+    "addressHint": "Konto z rekey (lub wkrótce z rekey) na ten sejf.",
+    "addressPlaceholder": "Adres Algorand",
+    "labelLabel": "Etykieta",
+    "labelHint": "Opcjonalna nazwa czytelna dla człowieka.",
+    "labelPlaceholder": "np. gorący portfel operacyjny",
+    "proposeAdd": "Zaproponuj dodanie",
+    "empty": "Brak zarejestrowanych adresów z rekey.",
+    "unlabelled": "bez etykiety",
+    "recordMeta": "{{label}} · zarejestrowano w rundzie {{round}}",
+    "proposeRemove": "Zaproponuj usunięcie",
+    "refresh": "Odśwież"
+  },
+  "service": {
+    "connectWallet": "Przed uruchomieniem akcji migracji sejfu połącz portfel."
+  }
+}

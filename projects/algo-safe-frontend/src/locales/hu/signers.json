@@ -1,0 +1,219 @@
+{
+  "memberTypes": {
+    "standard": "Standard fiók",
+    "multisig": "Multisig fiók",
+    "rekeyed": "Rekey-elt fiók",
+    "agent": "Ügynökfiók",
+    "quantum": "Kvantum-fiók",
+    "unknown": "{{type}}. típus"
+  },
+  "breadcrumb": {
+    "treasury": "Kincstár",
+    "signerGroups": "Aláírócsoportok",
+    "createGroup": "Csoport létrehozása",
+    "manageGroup": "A(z) #{{id}} csoport kezelése"
+  },
+  "role": {
+    "admin": "Admin",
+    "execution": "Végrehajtó",
+    "custodian": "Letétkezelő"
+  },
+  "status": {
+    "active": "Aktív",
+    "disabled": "Letiltva",
+    "paused": "Szüneteltetve"
+  },
+  "shared": {
+    "backToDashboard": "Vissza az áttekintéshez",
+    "creatingProposal": "Javaslat létrehozása…",
+    "submitting": "Beküldés…",
+    "cancel": "Mégse",
+    "memberLabel": "Tag címkéje",
+    "accountType": "Fióktípus",
+    "addressPlaceholder": "Algorand-cím",
+    "adminGroupLabel": "Beküldő admin aláírócsoport",
+    "noAdminGroups": "Ehhez a széfhez nem található aktív admin aláírócsoport.",
+    "safeNotLoaded": "A kiválasztott széfet nem sikerült betölteni.",
+    "allowAlgo": "ALGO-fizetések engedélyezése",
+    "allowAsa": "ASA-átutalások engedélyezése",
+    "allowApp": "Alkalmazáshívások engedélyezése",
+    "allowKeyreg": "Kulcsregisztráció engedélyezése",
+    "allowAcfg": "Eszközkonfiguráció engedélyezése",
+    "allowRekey": "Rekey engedélyezése"
+  },
+  "card": {
+    "admin": "Admin",
+    "groupSummary": "#{{id}}. csoport · {{threshold}} / {{count}} aláíró",
+    "dailyUsage": "Napi felhasználás ({{asset}})",
+    "unlimited": "Korlátlan",
+    "monthlyLimit": "Havi limit",
+    "cooldown": "Várakozási idő",
+    "none": "Nincs",
+    "noLimit": "Nincs limit",
+    "actionApp": "Alkalmazás",
+    "actionKeyreg": "Keyreg",
+    "manage": "Kezelés",
+    "rounds_one": "{{count}} kör",
+    "rounds_other": "{{count}} kör"
+  },
+  "governance": {
+    "title": "A széf állapota",
+    "pausedDesc": "A pénzmozgatással járó javaslatok le vannak tiltva. Az irányítás továbbra is működik – a működés folytatásához hozzon létre egy feloldási javaslatot.",
+    "activeDesc": "A vészleállítás minden pénzmozgatással járó javaslatot leállít, miközben az irányítás elérhető marad. Használja, ha egy aláíró kulcsának feltételezett kompromittálódása merül fel.",
+    "proposeUnpause": "Feloldás javaslata",
+    "proposePause": "Szüneteltetés javaslata",
+    "newGroup": "Új aláírócsoport",
+    "noAdminGroup": "A csatlakoztatott tárcához nem érhető el aktív admin aláírócsoport – az irányítási műveletek nem elérhetők.",
+    "pauseCreated": "A szüneteltetési javaslat létrejött",
+    "unpauseCreated": "A feloldási javaslat létrejött",
+    "pauseFailed": "A szüneteltetési javaslat létrehozása sikertelen",
+    "connectWallet": "Irányítási javaslat létrehozása előtt csatlakoztasson egy tárcát.",
+    "invalidFirstMember": "Adjon meg érvényes Algorand-címet az első taghoz."
+  },
+  "create": {
+    "title": "Aláírócsoport létrehozása",
+    "subtitle": "Javasoljon új szokásos aláírócsoportot vagy letétkezelői csoportot egy DeFi-protokoll integrációjához. Az új csoport mindig egy taggal és 1-es küszöbértékkel indul.",
+    "errors": {
+      "nameRequired": "Adja meg a csoport nevét.",
+      "noAdminGroup": "Nincs olyan admin aláírócsoport, amely beküldhetné ezt a javaslatot.",
+      "failed": "Az aláírócsoport-javaslat létrehozása sikertelen."
+    },
+    "created": "Az aláírócsoport létrehozására irányuló javaslat létrejött",
+    "groupType": {
+      "title": "Csoporttípus",
+      "standard": "Szokásos csoport",
+      "standardDesc": "Az adminok által irányított emberi vagy ügynök aláírók. Támogatja a költési limiteket és bármilyen műveletkészletet.",
+      "custodian": "Letétkezelői csoport",
+      "custodianDesc": "Egy protokollszerződés aláírója, amelyet az eszközvédelmek korlátoznak. Nincs admin jogosultság; csak pay/axfer műveletek."
+    },
+    "identity": {
+      "title": "Csoport azonosítója",
+      "nameLabel": "Csoport neve",
+      "nameHint": "A létrehozáskor rögzül.",
+      "namePlaceholder": "pl. Kereskedési részleg",
+      "firstMemberLabel": "Első tag címe",
+      "firstMemberHint": "A csoport kezdeti (és egyetlen) tagja. További tagokat a létrehozás után tagfelvételi javaslatokkal adhat hozzá.",
+      "labelPlaceholder": "Aláíró"
+    },
+    "actions": {
+      "title": "Engedélyezett műveletek",
+      "custodianDesc": "A letétkezelői csoportok csak fizetési és eszközátutalási műveletekre korlátozódnak – költésüket a létrehozás után az adminok által beállított eszközvédelmek korlátozzák.",
+      "standardDesc": "Válassza ki, milyen tranzakciótípusokat hajthat végre a csoport, ha a jóváhagyások elérik a küszöbértéket.",
+      "rekeyHint": "Végrehajtáskor csoportadmin jogosultságot is igényel – a fiók feletti irányítást egy másik címre ruházza át."
+    },
+    "privileges": {
+      "title": "Admin jogosultságok",
+      "desc": "Az admin jogosultságok a teljes széfre érvényesek: az ezekkel rendelkező csoport a széf <em>bármely</em> csoportját kezelheti. Csak indokolt esetben adja meg.",
+      "groupAdmin": "Csoportadmin (PRIV_GROUP)",
+      "groupAdminHint": "Csoportok, tagok, küszöbértékek és jogosultságok létrehozása és módosítása.",
+      "policyAdmin": "Szabályzatadmin (PRIV_POLICY)",
+      "policyAdminHint": "Bármely csoport költési szabályzatának és várakozási idejének módosítása."
+    },
+    "adminGroupHint": "A csatlakoztatott fióknak tagnak kell lennie ebben az admin csoportban a javaslat beküldéséhez.",
+    "submit": "Csoport létrehozásának javaslata"
+  },
+  "manage": {
+    "loading": "Az aláírócsoport beállításainak betöltése a blokkláncról…",
+    "notFound": "A kiválasztott aláírócsoport nem található.",
+    "title": "Aláírócsoport kezelése",
+    "subtitle": "Frissítse a tagságot, a küszöbértékeket, a szabályzati beállításokat és az admin jogosultságokat irányítási javaslatokon keresztül.",
+    "fixedNameNote": "A csoportnevek a létrehozáskor rögzülnek. Minden más támogatott tulajdonság admin aláírócsoport javaslataival frissíthető.",
+    "adminGroupHint": "A csatlakoztatott fióknak tagnak kell lennie a kiválasztott admin csoportban a javaslat beküldéséhez.",
+    "youAreMember": " · Ön tag",
+    "mayReject": "A kiválasztott admin csoport elutasíthatja a javaslatot, ha a csatlakoztatott tárca nem tagja.",
+    "refreshing": "A csoport állapotának frissítése…",
+    "custodianNotice": "<strong>Letétkezelői csoport</strong> – ezt a csoportot egy okosszerződés-protokoll irányítja. Az eszközvédelmek (amelyeket az adminok állítanak be) korlátozzák, mennyit költhet a letétkezelő. Nincs admin jogosultsága, és napi/havi limitek helyett védelmeket használ. A letétkezelő önmagát feloszlathatja, ha minden védelem eltávolításra került.",
+    "members": {
+      "title": "Tagok",
+      "desc": "A csoport boxaiban rögzített aktuális aláírófiókok és címkék.",
+      "defaultLabel": "Tag",
+      "removeTitle": "Tag eltávolításának javaslata",
+      "removeAria": "Eltávolítás javaslata: {{who}}",
+      "cannotRemove": "A tagok nem távolíthatók el, amíg a létszám megegyezik az aláírási küszöbértékkel – előbb csökkentse a küszöbértéket.",
+      "addressLabel": "Tag címe",
+      "labelPlaceholder": "Kincstári aláíró",
+      "submitAdd": "Tag hozzáadásának javaslata",
+      "invalidAddress": "Adjon meg érvényes Algorand-címet a taghoz.",
+      "belowThreshold": "A tag eltávolításával a csoport az aláírási küszöbérték alá csökkenne. Előbb csökkentse a küszöbértéket.",
+      "addCreated": "A tag hozzáadására irányuló javaslat létrejött",
+      "removeCreated": "A tag eltávolítására irányuló javaslat létrejött",
+      "count_one": "{{count}} tag",
+      "count_other": "{{count}} tag"
+    },
+    "threshold": {
+      "title": "Aláírási küszöbérték",
+      "desc": "Módosítsa, hány aláírás szükséges ahhoz, hogy a csoport jóváhagyhassa a végrehajtást.",
+      "label": "Küszöbérték",
+      "hint": "Jelenleg elérhető tagok: {{max}}",
+      "submit": "Küszöbérték módosításának javaslata",
+      "invalid": "A küszöbértéknek 1 és {{max}} között kell lennie.",
+      "created": "A küszöbérték módosítására irányuló javaslat létrejött"
+    },
+    "policy": {
+      "title": "Végrehajtási szabályzat",
+      "desc": "Frissítse az aláírócsoport engedélyezett műveleteit, eszközalapú limitjeit és várakozási köreit.",
+      "rekeyHint": "A rekey végrehajtáskor csoportadmin jogosultságot is igényel – a fiók feletti irányítást egy másik címre ruházza át.",
+      "assetLabel": "Költési limit eszköze",
+      "assetHint": "A kiválasztott eszköz határozza meg, hogyan értelmeződnek és kerülnek feliratozásra a napi és havi limit mezői.",
+      "optionAvailable": "Elérhető: {{balance}}",
+      "notHeld": "nem birtokolt",
+      "dailyLabel": "Napi limit ({{symbol}})",
+      "monthlyLabel": "Havi limit ({{symbol}})",
+      "limitHint": "A 0 érték azt jelenti, hogy nincs limit {{symbol}}-ban.",
+      "cooldownLabel": "Várakozási körök",
+      "cooldownHint": "A 0 érték azt jelenti, hogy nincs várakozási idő.",
+      "submit": "Szabályzat módosításának javaslata",
+      "cooldownInvalid": "A várakozási körök száma nemnegatív egész szám kell, hogy legyen.",
+      "limitsInvalid": "Adjon meg érvényes {{symbol}}-limiteket az aláírócsoport szabályzatához.",
+      "enableAlgo": "Ha a költési limit eszköze az ALGO, engedélyezze az ALGO-fizetéseket.",
+      "enableAsa": "Ha a költési limit eszköze egy ASA, engedélyezze az ASA-átutalásokat.",
+      "created": "A szabályzat módosítására irányuló javaslat létrejött"
+    },
+    "admin": {
+      "title": "Admin vezérlők",
+      "desc": "Adjon vagy vonjon vissza irányítási jogosultságokat, és engedélyezze vagy tiltsa le az aláírócsoportot.",
+      "groupAdmin": "Csoportadmin jogosultságok",
+      "policyAdmin": "Szabályzatadmin jogosultságok",
+      "submitPrivileges": "Jogosultságok módosításának javaslata",
+      "privilegesCreated": "Az admin jogosultságok módosítására irányuló javaslat létrejött",
+      "activeLabel": "A csoport aktív, és részt vehet a javaslatok jóváhagyásában és végrehajtásában.",
+      "submitStatus": "Állapot módosításának javaslata",
+      "statusCreated": "Az aláírócsoport állapotának módosítására irányuló javaslat létrejött"
+    },
+    "guards": {
+      "title": "Eszközvédelmek",
+      "desc": "Eszközönkénti költési plafonok ehhez a letétkezelőhöz. A védelmeket admin csoport javaslatai hozzák létre, frissítik és távolítják el; minden letétkezelői átutalás a megfelelő védelemből vonódik le.",
+      "remaining": "Fennmaradó keret: {{amount}} {{symbol}}",
+      "removeTitle": "Védelem eltávolításának javaslata",
+      "removeAria": "A(z) {{symbol}}-védelem eltávolításának javaslata",
+      "empty": "Nincs beállított védelem – ez a letétkezelő addig nem mozgathat értéket, amíg egy admin be nem állít egy védelmet.",
+      "assetLabel": "Védelem eszköze",
+      "assetHint": "ALGO vagy egy, a széfben lévő ASA.",
+      "amountLabel": "Védelem összege",
+      "amountHint": "Beállítja (vagy felülírja) az eszköz fennmaradó keretét.",
+      "submit": "Védelem módosításának javaslata",
+      "amountInvalid": "Adjon meg érvényes {{symbol}} védelmi összeget.",
+      "setCreated": "Az eszközvédelemre irányuló javaslat létrejött",
+      "removeCreated": "A védelem eltávolítására irányuló javaslat létrejött",
+      "count_one": "{{count}} védelem",
+      "count_other": "{{count}} védelem"
+    },
+    "dissolve": {
+      "title": "Önfeloszlatás",
+      "desc": "A letétkezelői csoport feloszlathatja önmagát, ha egy admin eltávolította az összes eszközvédelmet, és a csoport egyetlen tagra csökkent. A feloszlatási javaslat az utolsó tag boxát is törli a csoporttal együtt.",
+      "submit": "Feloszlatás javaslata",
+      "connectWallet": "A feloszlatás javaslata előtt csatlakoztasson egy tárcát.",
+      "needSingleMember": "A feloszlatáshoz a csoportot előbb pontosan egy tagra kell csökkenteni (tageltávolítási javaslatokkal).",
+      "failed": "A feloszlatási javaslat létrehozása sikertelen.",
+      "created": "A letétkezelői csoport feloszlatására irányuló javaslat létrejött",
+      "guardsWarning_one": "Ennek a csoportnak még {{count}} aktív védelme van. A feloszlatás előtt egy adminnak el kell távolítania az összes védelmet.",
+      "guardsWarning_other": "Ennek a csoportnak még {{count}} aktív védelme van. A feloszlatás előtt egy adminnak el kell távolítania az összes védelmet.",
+      "membersWarning_one": "Ennek a csoportnak {{count}} tagja van. A feloszlatás előtt távolítson el mindenkit egy kivételével (tageltávolítási javaslatokkal).",
+      "membersWarning_other": "Ennek a csoportnak {{count}} tagja van. A feloszlatás előtt távolítson el mindenkit egy kivételével (tageltávolítási javaslatokkal)."
+    },
+    "submitFailed": "Az aláírócsoport frissítésére irányuló javaslat létrehozása sikertelen.",
+    "connectWallet": "Az aláírócsoport kezelése előtt csatlakoztasson egy olyan tárcát, amely hozzáfér egy admin aláírócsoporthoz.",
+    "activeGuards_one": "({{count}} aktív védelem)",
+    "activeGuards_other": "({{count}} aktív védelem)"
+  }
+}

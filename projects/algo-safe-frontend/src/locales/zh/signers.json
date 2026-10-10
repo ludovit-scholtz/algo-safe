@@ -1,0 +1,213 @@
+{
+  "memberTypes": {
+    "standard": "标准账户",
+    "multisig": "多签账户",
+    "rekeyed": "已 rekey 账户",
+    "agent": "代理账户",
+    "quantum": "量子账户",
+    "unknown": "类型 {{type}}"
+  },
+  "breadcrumb": {
+    "treasury": "资金库",
+    "signerGroups": "签名组",
+    "createGroup": "创建签名组",
+    "manageGroup": "管理签名组 #{{id}}"
+  },
+  "role": {
+    "admin": "管理员",
+    "execution": "执行",
+    "custodian": "托管人"
+  },
+  "status": {
+    "active": "已启用",
+    "disabled": "已停用",
+    "paused": "已暂停"
+  },
+  "shared": {
+    "backToDashboard": "返回控制台",
+    "creatingProposal": "正在创建提案…",
+    "submitting": "正在提交…",
+    "cancel": "取消",
+    "memberLabel": "成员标签",
+    "accountType": "账户类型",
+    "addressPlaceholder": "Algorand 地址",
+    "adminGroupLabel": "提交提案的管理员签名组",
+    "noAdminGroups": "未找到此保险库的活跃管理员签名组。",
+    "safeNotLoaded": "无法加载所选保险库。",
+    "allowAlgo": "允许 ALGO 支付",
+    "allowAsa": "允许 ASA 转账",
+    "allowApp": "允许应用调用",
+    "allowKeyreg": "允许密钥注册",
+    "allowAcfg": "允许资产配置",
+    "allowRekey": "允许 rekey"
+  },
+  "card": {
+    "admin": "管理员",
+    "groupSummary": "签名组 #{{id}} · {{count}} 名签名人中需 {{threshold}} 人",
+    "dailyUsage": "每日使用量（{{asset}}）",
+    "unlimited": "无限制",
+    "monthlyLimit": "每月限额",
+    "cooldown": "冷却期",
+    "none": "无",
+    "noLimit": "无限额",
+    "actionApp": "应用",
+    "actionKeyreg": "Keyreg",
+    "manage": "管理",
+    "rounds_other": "{{count}} 个轮次"
+  },
+  "governance": {
+    "title": "保险库状态",
+    "pausedDesc": "转移资金的提案已被阻止。治理功能仍可使用——请创建取消暂停提案以恢复运作。",
+    "activeDesc": "紧急暂停会阻止所有转移资金的提案，同时保持治理功能可用。如果怀疑某个签名人的密钥已泄露，请使用此功能。",
+    "proposeUnpause": "提议取消暂停",
+    "proposePause": "提议暂停",
+    "newGroup": "新建签名组",
+    "noAdminGroup": "已连接的钱包没有可用的活跃管理员签名组——无法执行治理操作。",
+    "pauseCreated": "已创建暂停提案",
+    "unpauseCreated": "已创建取消暂停提案",
+    "pauseFailed": "创建暂停提案失败",
+    "connectWallet": "创建治理提案前，请先连接钱包。",
+    "invalidFirstMember": "请为第一位成员输入有效的 Algorand 地址。"
+  },
+  "create": {
+    "title": "创建签名组",
+    "subtitle": "提议创建新的标准签名组，或用于 DeFi 协议集成的托管人组。新组始终从一名成员和阈值 1 开始。",
+    "errors": {
+      "nameRequired": "请输入组名称。",
+      "noAdminGroup": "没有可用于提交此提案的管理员签名组。",
+      "failed": "创建签名组提案失败。"
+    },
+    "created": "已创建签名组创建提案",
+    "groupType": {
+      "title": "组类型",
+      "standard": "标准组",
+      "standardDesc": "由管理员管理的人类或代理签名人。支持支出限额和任意操作集。",
+      "custodian": "托管人组",
+      "custodianDesc": "受资产防护限制的协议合约签名人。无管理员权限；仅限 pay/axfer 操作。"
+    },
+    "identity": {
+      "title": "组标识",
+      "nameLabel": "组名称",
+      "nameHint": "创建时确定，之后不可更改。",
+      "namePlaceholder": "例如：交易部门",
+      "firstMemberLabel": "第一位成员地址",
+      "firstMemberHint": "该组的初始（也是唯一）成员。创建后可通过成员提案添加更多成员。",
+      "labelPlaceholder": "签名人"
+    },
+    "actions": {
+      "title": "允许的操作",
+      "custodianDesc": "托管人组仅限于支付和资产转账操作——其支出受管理员在创建后设置的资产防护限制。",
+      "standardDesc": "选择该组在批准数达到阈值后可以执行的交易类型。",
+      "rekeyHint": "执行时还需要组管理员权限——会将账户控制权移交给另一个地址。"
+    },
+    "privileges": {
+      "title": "管理员权限",
+      "desc": "管理员权限适用于整个保险库：拥有这些权限的组可以管理保险库中的<em>任何</em>组。请谨慎授予。",
+      "groupAdmin": "组管理员 (PRIV_GROUP)",
+      "groupAdminHint": "创建/修改组、成员、阈值和权限。",
+      "policyAdmin": "策略管理员 (PRIV_POLICY)",
+      "policyAdminHint": "更改任何组的支出策略和冷却期。"
+    },
+    "adminGroupHint": "已连接的账户必须是该管理员组的成员才能提交提案。",
+    "submit": "提议创建签名组"
+  },
+  "manage": {
+    "loading": "正在从区块链加载签名组设置…",
+    "notFound": "未找到所选签名组。",
+    "title": "管理签名组",
+    "subtitle": "通过治理提案更新成员、阈值、策略控制和管理员权限。",
+    "fixedNameNote": "组名称在创建时确定，之后不可更改。其他受支持的属性可通过管理员签名组的提案进行更新。",
+    "adminGroupHint": "已连接的账户必须是所选管理员组的成员才能提交提案。",
+    "youAreMember": " · 您是成员",
+    "mayReject": "如果已连接的钱包不是所选管理员组的成员，该组可能会拒绝此提案。",
+    "refreshing": "正在刷新组状态…",
+    "custodianNotice": "<strong>托管人组</strong>——该组由智能合约协议管理。资产防护（由管理员设置）限制托管人可支出的金额。它没有管理员权限，使用资产防护代替每日/每月限额。移除所有防护后，托管人可以自行解散。",
+    "members": {
+      "title": "成员",
+      "desc": "记录在组 box 中的当前签名人账户和标签。",
+      "defaultLabel": "成员",
+      "removeTitle": "提议移除成员",
+      "removeAria": "提议移除 {{who}}",
+      "cannotRemove": "当成员数等于签名阈值时无法移除成员——请先降低阈值。",
+      "addressLabel": "成员地址",
+      "labelPlaceholder": "资金库签名人",
+      "submitAdd": "提议添加成员",
+      "invalidAddress": "请为该成员输入有效的 Algorand 地址。",
+      "belowThreshold": "移除该成员会使组成员数低于签名阈值。请先降低阈值。",
+      "addCreated": "已创建添加成员提案",
+      "removeCreated": "已创建移除成员提案",
+      "count_other": "{{count}} 名成员"
+    },
+    "threshold": {
+      "title": "签名阈值",
+      "desc": "更改该组批准执行前所需的签名数量。",
+      "label": "阈值",
+      "hint": "当前可用成员：{{max}}",
+      "submit": "提议更新阈值",
+      "invalid": "阈值必须在 1 到 {{max}} 之间。",
+      "created": "已创建阈值更新提案"
+    },
+    "policy": {
+      "title": "执行策略",
+      "desc": "更新该签名组的允许操作、基于资产的限额和冷却轮次。",
+      "rekeyHint": "Rekey 在执行时还需要组管理员权限——它会将账户控制权移交给另一个地址。",
+      "assetLabel": "支出限额资产",
+      "assetHint": "所选资产决定每日和每月限额字段的解释和标注方式。",
+      "optionAvailable": "可用 {{balance}}",
+      "notHeld": "未持有",
+      "dailyLabel": "每日限额（{{symbol}}）",
+      "monthlyLabel": "每月限额（{{symbol}}）",
+      "limitHint": "填 0 表示 {{symbol}} 不设限额。",
+      "cooldownLabel": "冷却轮次",
+      "cooldownHint": "填 0 表示无冷却期。",
+      "submit": "提议更新策略",
+      "cooldownInvalid": "冷却轮次必须是非负整数。",
+      "limitsInvalid": "请为签名组策略输入有效的 {{symbol}} 限额。",
+      "enableAlgo": "当支出限额资产为 ALGO 时，请启用 ALGO 支付。",
+      "enableAsa": "当支出限额资产为 ASA 时，请启用 ASA 转账。",
+      "created": "已创建策略更新提案"
+    },
+    "admin": {
+      "title": "管理员控制",
+      "desc": "授予或撤销治理权限，并启用或停用签名组。",
+      "groupAdmin": "组管理员权限",
+      "policyAdmin": "策略管理员权限",
+      "submitPrivileges": "提议更新权限",
+      "privilegesCreated": "已创建管理员权限提案",
+      "activeLabel": "该组已启用，可以参与提案的批准和执行。",
+      "submitStatus": "提议更新状态",
+      "statusCreated": "已创建签名组状态提案"
+    },
+    "guards": {
+      "title": "资产防护",
+      "desc": "此托管人按资产设置的支出上限。防护由管理员组提案创建、更新和移除；托管人的每笔转账都会从对应防护中扣减。",
+      "remaining": "剩余额度：{{amount}} {{symbol}}",
+      "removeTitle": "提议移除防护",
+      "removeAria": "提议移除 {{symbol}} 防护",
+      "empty": "尚未配置防护——在管理员设置防护之前，此托管人无法转移任何价值。",
+      "assetLabel": "防护资产",
+      "assetHint": "ALGO 或保险库持有的 ASA。",
+      "amountLabel": "防护额度",
+      "amountHint": "设置（或替换）此资产的剩余额度。",
+      "submit": "提议更新防护",
+      "amountInvalid": "请输入有效的 {{symbol}} 防护额度。",
+      "setCreated": "已创建资产防护提案",
+      "removeCreated": "已创建移除防护提案",
+      "count_other": "{{count}} 个防护"
+    },
+    "dissolve": {
+      "title": "自行解散",
+      "desc": "当管理员移除所有资产防护且该组精简至仅剩一名成员后，托管人组可以自行解散。解散提案会将最后一名成员的 box 与该组一并删除。",
+      "submit": "提议解散",
+      "connectWallet": "提议解散前请先连接钱包。",
+      "needSingleMember": "解散前，必须先（通过移除成员提案）将该组精简为恰好一名成员。",
+      "failed": "创建解散提案失败。",
+      "created": "已创建托管人解散提案",
+      "guardsWarning_other": "该组仍有 {{count}} 个活跃防护。解散前，管理员必须移除所有防护。",
+      "membersWarning_other": "该组有 {{count}} 名成员。解散前，请（通过移除成员提案）只保留一名成员。"
+    },
+    "submitFailed": "创建签名组更新提案失败。",
+    "connectWallet": "管理此签名组前，请连接可访问管理员签名组的钱包。",
+    "activeGuards_other": "（{{count}} 个活跃防护）"
+  }
+}

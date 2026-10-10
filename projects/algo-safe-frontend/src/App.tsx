@@ -1,4 +1,5 @@
 // src/App.tsx
+import i18n from './i18n/instance'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { DEFAULT_NETWORK_CONFIG, NetworkId, WalletManager, WalletProvider } from '@txnlab/use-wallet-react'
 import { defly } from '@txnlab/use-wallet-defly'
@@ -91,6 +92,25 @@ function getWalletNetworks(algodConfig: ReturnType<typeof getAlgodConfigFromVite
 }
 
 const queryClient = new QueryClient()
+
+const TRANSLATED_QUERY_KEYS = new Set([
+  'safes',
+  'safe',
+  'treasury',
+  'proposals',
+  'proposal',
+  'agents',
+  'qtx',
+  'eurd',
+  'signer-groups',
+  'signer-group',
+  'safe-holdings',
+  'assets',
+  'policy',
+])
+
+// Cached query data (proposal titles, tier labels, ...) embeds translated text; refetch on language change.
+i18n.on('languageChanged', () => void queryClient.invalidateQueries({ predicate: (q) => TRANSLATED_QUERY_KEYS.has(String(q.queryKey[0])) }))
 
 export default function App() {
   const algodConfig = getAlgodConfigFromViteEnvironment()

@@ -1,0 +1,23 @@
+{
+  "language": "Jazyk",
+  "demoData": "ukážkové údaje",
+  "address": {
+    "copy": "Kopírovať adresu",
+    "copied": "Adresa skopírovaná",
+    "copyTitle": "Kopírovať {{address}}",
+    "copiedTitle": "Skopírované {{address}}"
+  },
+  "status": {
+    "executed": "vykonaný",
+    "pending": "čaká",
+    "ready": "pripravený",
+    "draft": "koncept",
+    "blocked": "zablokovaný",
+    "rejected": "zamietnutý",
+    "expired": "vypršaný",
+    "cancelled": "zrušený",
+    "active": "aktívny",
+    "pending_review": "čaká na kontrolu",
+    "paused": "pozastavený"
+  }
+}

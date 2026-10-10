@@ -41,11 +41,15 @@ import {
   type Proposal as ContractProposal,
 } from 'algo-safe'
 import algosdk, { type TransactionSigner } from 'algosdk'
+import i18n, { currentLocale } from '../i18n/instance'
 import type { AssetMetadata } from '../lib/assetMetadata'
+import { fmtUnits } from '../lib/format'
 import { resolveAssetMetadata } from '../lib/assetMetadata'
 import { formatUnits } from '../lib/onChainSafe'
 import { ellipseAddress } from '../utils/ellipseAddress'
 import type { PolicyCheck, Proposal, ProposalStatus, Safe, TxLine } from './types'
+
+const tr = (key: string, options?: Record<string, unknown>): string => i18n.t(`proposals:${key}`, options) as string
 
 const TX_VALIDITY_WINDOW = 200
 // Fee *caps* only — actual fees are derived from simulation via
@@ -124,11 +128,11 @@ function getCurrentRound(status: Record<string, unknown>) {
 }
 
 function formatAlgo(amount: bigint) {
-  return new Intl.NumberFormat('en-US', { maximumFractionDigits: 6 }).format(Number(amount) / 1_000_000)
+  return new Intl.NumberFormat(currentLocale(), { maximumFractionDigits: 6 }).format(Number(amount) / 1_000_000)
 }
 
 function formatAssetAmount(amount: bigint, asset: AssetMetadata) {
-  return `${formatUnits(amount, asset.decimals)} ${asset.symbol}`
+  return `${fmtUnits(amount, asset.decimals)} ${asset.symbol}`
 }
 
 function formatAssetLabel(asset: AssetMetadata) {
@@ -136,47 +140,46 @@ function formatAssetLabel(asset: AssetMetadata) {
 }
 
 function humanList(values: string[]) {
-  if (values.length === 0) return 'none'
+  if (values.length === 0) return tr('service.none')
   if (values.length === 1) return values[0]
-  if (values.length === 2) return `${values[0]} and ${values[1]}`
-  return `${values.slice(0, -1).join(', ')}, and ${values[values.length - 1]}`
+  return new Intl.ListFormat(currentLocale(), { style: 'long', type: 'conjunction' }).format(values)
 }
 
 function describeAllowedActions(mask: bigint) {
   const labels: string[] = []
-  if ((mask & ACT_PAY) !== 0n) labels.push('ALGO payments')
-  if ((mask & ACT_AXFER) !== 0n) labels.push('ASA transfers')
-  if ((mask & ACT_APPL) !== 0n) labels.push('app calls')
-  if ((mask & ACT_KEYREG) !== 0n) labels.push('key registration')
-  if ((mask & ACT_ACFG) !== 0n) labels.push('asset configuration')
-  if ((mask & ACT_REKEY) !== 0n) labels.push('rekeying')
+  if ((mask & ACT_PAY) !== 0n) labels.push(tr('service.actions.pay'))
+  if ((mask & ACT_AXFER) !== 0n) labels.push(tr('service.actions.axfer'))
+  if ((mask & ACT_APPL) !== 0n) labels.push(tr('service.actions.appl'))
+  if ((mask & ACT_KEYREG) !== 0n) labels.push(tr('service.actions.keyreg'))
+  if ((mask & ACT_ACFG) !== 0n) labels.push(tr('service.actions.acfg'))
+  if ((mask & ACT_REKEY) !== 0n) labels.push(tr('service.actions.rekey'))
   return humanList(labels)
 }
 
 function describePrivileges(mask: bigint) {
   const labels: string[] = []
-  if ((mask & PRIV_GROUP) !== 0n) labels.push('group administration')
-  if ((mask & PRIV_POLICY) !== 0n) labels.push('policy administration')
+  if ((mask & PRIV_GROUP) !== 0n) labels.push(tr('service.privileges.group'))
+  if ((mask & PRIV_POLICY) !== 0n) labels.push(tr('service.privileges.policy'))
   return humanList(labels)
 }
 
 function describeMemberType(accountType: bigint) {
   switch (accountType) {
     case 2n:
-      return 'multisig account'
+      return tr('service.memberTypes.multisig')
     case 3n:
-      return 'rekeyed account'
+      return tr('service.memberTypes.rekeyed')
     case 4n:
-      return 'agent account'
+      return tr('service.memberTypes.agent')
     case 5n:
-      return 'quantum account'
+      return tr('service.memberTypes.quantum')
     default:
-      return 'standard account'
+      return tr('service.memberTypes.standard')
   }
 }
 
 function describeCooldown(rounds: bigint) {
-  return rounds > 0n ? `${rounds.toString()} rounds` : 'no cooldown'
+  return rounds > 0n ? tr('service.cooldown', { count: Number(rounds) }) : tr('service.noCooldown')
 }
 
 function createAssetResolver(algodClient: algosdk.Algodv2, safe: Safe) {
@@ -276,11 +279,11 @@ async function mapEnvelopeTxLine(
 ): Promise<TxLine> {
   if (txType === TX_PAYMENT) {
     const { sender, receiver, amount, note } = decodePaymentTxn(data)
-    const fromLabel = sender !== ZERO_ADDR ? ` from rekeyed account ${ellipseAddress(sender)}` : ''
+    const summaryParams = { amount: formatAlgo(amount), receiver: ellipseAddress(receiver), sender: ellipseAddress(sender) }
     return {
       type: 'pay',
-      summary: `Send ${formatAlgo(amount)} ALGO to ${ellipseAddress(receiver)}${fromLabel}`,
-      detail: note ? `${receiver} · Note: ${note}` : receiver,
+      summary: sender !== ZERO_ADDR ? tr('service.tx.paySummaryRekeyed', summaryParams) : tr('service.tx.paySummary', summaryParams),
+      detail: note ? tr('service.withNote', { value: receiver, note }) : receiver,
     }
   }
 
@@ -291,26 +294,35 @@ async function mapEnvelopeTxLine(
     if (assetAmount === 0n && assetReceiver === safeAddress) {
       return {
         type: 'axfer',
-        summary: `Opt in to ${formatAssetLabel(asset)}`,
-        detail: `${asset.name} · Safe address ${safeAddress}`,
+        summary: tr('service.tx.optInSummary', { asset: formatAssetLabel(asset) }),
+        detail: tr('service.tx.optInDetail', { name: asset.name, address: safeAddress }),
       }
     }
 
-    const fromLabel = sender !== ZERO_ADDR ? ` from rekeyed account ${ellipseAddress(sender)}` : ''
+    const transferParams = {
+      amount: formatAssetAmount(assetAmount, asset),
+      receiver: ellipseAddress(assetReceiver),
+      sender: ellipseAddress(sender),
+    }
     return {
       type: 'axfer',
-      summary: `Transfer ${formatAssetAmount(assetAmount, asset)} to ${ellipseAddress(assetReceiver)}${fromLabel}`,
-      detail: `${asset.name} · ${assetReceiver}${note ? ` · Note: ${note}` : ''}`,
+      summary:
+        sender !== ZERO_ADDR ? tr('service.tx.transferSummaryRekeyed', transferParams) : tr('service.tx.transferSummary', transferParams),
+      detail: note
+        ? tr('service.tx.transferDetailNote', { name: asset.name, receiver: assetReceiver, note })
+        : tr('service.tx.transferDetail', { name: asset.name, receiver: assetReceiver }),
     }
   }
 
   if (txType === TX_REKEY) {
     const { sender, rekeyTo, note } = decodeRekeyTxn(data)
-    const target = sender === ZERO_ADDR ? 'the safe account' : `rekeyed account ${ellipseAddress(sender)}`
     return {
       type: 'rekey',
-      summary: `Rekey ${target} to ${ellipseAddress(rekeyTo)}`,
-      detail: `${rekeyTo}${note ? ` · Note: ${note}` : ''}`,
+      summary:
+        sender === ZERO_ADDR
+          ? tr('service.tx.rekeySafeSummary', { to: ellipseAddress(rekeyTo) })
+          : tr('service.tx.rekeyAccountSummary', { account: ellipseAddress(sender), to: ellipseAddress(rekeyTo) }),
+      detail: note ? tr('service.withNote', { value: rekeyTo, note }) : rekeyTo,
     }
   }
 
@@ -318,19 +330,23 @@ async function mapEnvelopeTxLine(
     const { appId, appArgs, accounts, foreignApps, foreignAssets, note } = decodeAppTxn(data)
     return {
       type: 'appl',
-      summary: `Call app ${appId.toString()}`,
-      detail: `${appArgs.length} argument(s)${note ? ` · Note: ${note}` : ''}`,
+      summary: tr('service.tx.callApp', { appId: appId.toString() }),
+      detail: note
+        ? tr('service.withNote', { value: tr('service.tx.arguments', { count: appArgs.length }), note })
+        : tr('service.tx.arguments', { count: appArgs.length }),
       appCall: { appId, sender: safeAddress, appArgs, accounts, foreignApps, foreignAssets },
     }
   }
 
   if (txType === TX_ACFG) {
     const { configAsset, assetName, unitName, note } = decodeAssetConfigTxn(data)
-    const label = assetName || unitName || (configAsset === 0n ? 'new asset' : `asset ${configAsset.toString()}`)
+    const label =
+      assetName || unitName || (configAsset === 0n ? tr('service.newAsset') : tr('service.assetNumber', { id: configAsset.toString() }))
     return {
       type: 'acfg',
-      summary: configAsset === 0n ? `Create asset ${label}` : `Reconfigure asset ${configAsset.toString()}`,
-      detail: note ? `${label} · Note: ${note}` : label,
+      summary:
+        configAsset === 0n ? tr('service.tx.createAsset', { label }) : tr('service.tx.reconfigureAsset', { id: configAsset.toString() }),
+      detail: note ? tr('service.withNote', { value: label, note }) : label,
     }
   }
 
@@ -338,12 +354,12 @@ async function mapEnvelopeTxLine(
     const { online, voteFirst, voteLast } = decodeKeyRegTxn(data)
     return {
       type: 'keyreg',
-      summary: online === 0n ? 'Take account offline' : 'Register participation keys',
-      detail: `Rounds ${voteFirst.toString()}-${voteLast.toString()}`,
+      summary: online === 0n ? tr('service.tx.takeOffline') : tr('service.tx.registerKeys'),
+      detail: tr('service.tx.rounds', { first: voteFirst.toString(), last: voteLast.toString() }),
     }
   }
 
-  return { type: 'appl', summary: `Transaction type ${txType.toString()}`, detail: 'Unrecognized transaction type' }
+  return { type: 'appl', summary: tr('service.tx.unknownType', { type: txType.toString() }), detail: tr('service.tx.unknownTypeDetail') }
 }
 
 async function mapLegacyTxLine(
@@ -381,8 +397,8 @@ async function mapLegacyTxLine(
   if (txType === TX_PAYMENT) {
     return {
       type: 'pay',
-      summary: `Send ${formatAlgo(amount)} ALGO to ${ellipseAddress(receiver)}`,
-      detail: note ? `${receiver} · Note: ${note}` : receiver,
+      summary: tr('service.tx.paySummary', { amount: formatAlgo(amount), receiver: ellipseAddress(receiver) }),
+      detail: note ? tr('service.withNote', { value: receiver, note }) : receiver,
     }
   }
 
@@ -392,15 +408,17 @@ async function mapLegacyTxLine(
     if (assetAmount === 0n && assetReceiver === safeAddress) {
       return {
         type: 'axfer',
-        summary: `Opt in to ${formatAssetLabel(asset)}`,
-        detail: `${asset.name} · Safe address ${safeAddress}`,
+        summary: tr('service.tx.optInSummary', { asset: formatAssetLabel(asset) }),
+        detail: tr('service.tx.optInDetail', { name: asset.name, address: safeAddress }),
       }
     }
 
     return {
       type: 'axfer',
-      summary: `Transfer ${formatAssetAmount(assetAmount, asset)} to ${ellipseAddress(assetReceiver)}`,
-      detail: `${asset.name} · ${assetReceiver}${note ? ` · Note: ${note}` : ''}`,
+      summary: tr('service.tx.transferSummary', { amount: formatAssetAmount(assetAmount, asset), receiver: ellipseAddress(assetReceiver) }),
+      detail: note
+        ? tr('service.tx.transferDetailNote', { name: asset.name, receiver: assetReceiver, note })
+        : tr('service.tx.transferDetail', { name: asset.name, receiver: assetReceiver }),
     }
   }
 
@@ -408,8 +426,8 @@ async function mapLegacyTxLine(
     const appArgs = [arg0, arg1, arg2, arg3].slice(0, Number(numArgs))
     return {
       type: 'appl',
-      summary: `Call app ${appId.toString()}`,
-      detail: `${numArgs.toString()} argument(s)`,
+      summary: tr('service.tx.callApp', { appId: appId.toString() }),
+      detail: tr('service.tx.arguments', { count: Number(numArgs) }),
       // Legacy tuples carry no accounts/foreignApps/foreignAssets data — any
       // ARC-4 reference-typed arg can only be shown as an unresolved index.
       appCall: { appId, sender: safeAddress, appArgs },
@@ -418,8 +436,8 @@ async function mapLegacyTxLine(
 
   return {
     type: 'keyreg',
-    summary: online === 0n ? 'Take account offline' : 'Register participation keys',
-    detail: `Rounds ${voteFirst.toString()}-${voteLast.toString()}`,
+    summary: online === 0n ? tr('service.tx.takeOffline') : tr('service.tx.registerKeys'),
+    detail: tr('service.tx.rounds', { first: voteFirst.toString(), last: voteLast.toString() }),
   }
 }
 
@@ -440,13 +458,17 @@ async function mapTxPreview(
 
 function deriveHeadline(txPreview: TxLine[], payloadType: bigint) {
   if (txPreview.length > 0) return txPreview[0].summary
-  if (payloadType === PAYLOAD_TRANSACTION_GROUP) return 'Transaction group proposal'
-  return 'Admin proposal'
+  if (payloadType === PAYLOAD_TRANSACTION_GROUP) return tr('service.headline.transactionGroup')
+  return tr('service.headline.admin')
 }
 
 function deriveDescription(contractProposal: ContractProposal, txPreview: TxLine[]) {
-  const actionSummary = txPreview.length === 1 ? txPreview[0].detail : `${txPreview.length} transactions queued for execution.`
-  return `Signer group ${contractProposal.groupId.toString()} proposal from ${ellipseAddress(contractProposal.proposer)}. ${actionSummary}`
+  const actionSummary = txPreview.length === 1 ? txPreview[0].detail : tr('service.queued', { count: txPreview.length })
+  return tr('service.description', {
+    groupId: contractProposal.groupId.toString(),
+    proposer: ellipseAddress(contractProposal.proposer),
+    summary: actionSummary,
+  })
 }
 
 async function deriveAmount(txns: TxTuple[], isLatest: boolean, resolveAsset: (assetId: number) => Promise<AssetMetadata>) {
@@ -483,59 +505,89 @@ async function deriveAdminChangePresentation(
   contractProposal: ContractProposal,
   resolveAsset: (assetId: number) => Promise<AssetMetadata>,
 ): Promise<{ title: string; description: string; txPreview: TxLine[] }> {
-  const groupLabel = `group #${change.targetGroupId.toString()}`
+  const id = change.targetGroupId.toString()
+  const entry = (title: string, description: string) => ({
+    title,
+    description,
+    txPreview: [{ type: 'appl' as const, summary: title, detail: description }],
+  })
 
   if (change.changeType === ADM_CREATE_GROUP) {
     const asset = await resolveAsset(Number(change.limitAssetId ?? 0n))
-    const title = `Create signer group ${change.groupName || `#${contractProposal.groupId.toString()}`}`
-    const description = `Create a new signer group named ${change.groupName || 'Untitled Group'} with threshold ${change.threshold.toString()}, first member ${ellipseAddress(change.memberAddr)}, ${describeAllowedActions(change.allowedActions)} enabled, and ${formatAssetLabel(asset)} policy limits of ${formatAssetAmount(change.dailyLimit, asset)} daily and ${formatAssetAmount(change.monthlyLimit, asset)} monthly.`
-    return {
-      title,
-      description,
-      txPreview: [{ type: 'appl', summary: title, detail: description }],
-    }
+    const title = tr('service.admin.createTitle', { name: change.groupName || `#${contractProposal.groupId.toString()}` })
+    const description = tr('service.admin.createDescription', {
+      name: change.groupName || tr('service.admin.untitledGroup'),
+      threshold: change.threshold.toString(),
+      member: ellipseAddress(change.memberAddr),
+      actions: describeAllowedActions(change.allowedActions),
+      asset: formatAssetLabel(asset),
+      daily: formatAssetAmount(change.dailyLimit, asset),
+      monthly: formatAssetAmount(change.monthlyLimit, asset),
+    })
+    return entry(title, description)
   }
 
   if (change.changeType === ADM_ADD_MEMBER) {
-    const title = `Add member to ${groupLabel}`
-    const description = `Add ${change.memberLabel || 'member'} at ${ellipseAddress(change.memberAddr)} to ${groupLabel} as a ${describeMemberType(change.memberType)}.`
-    return { title, description, txPreview: [{ type: 'appl', summary: title, detail: description }] }
+    return entry(
+      tr('service.admin.addMemberTitle', { id }),
+      tr('service.admin.addMemberDescription', {
+        label: change.memberLabel || tr('service.admin.memberFallback'),
+        address: ellipseAddress(change.memberAddr),
+        id,
+        type: describeMemberType(change.memberType),
+      }),
+    )
   }
 
   if (change.changeType === ADM_REMOVE_MEMBER) {
-    const title = `Remove member from ${groupLabel}`
-    const description = `Remove ${ellipseAddress(change.memberAddr)} from ${groupLabel}.`
-    return { title, description, txPreview: [{ type: 'appl', summary: title, detail: description }] }
+    return entry(
+      tr('service.admin.removeMemberTitle', { id }),
+      tr('service.admin.removeMemberDescription', { address: ellipseAddress(change.memberAddr), id }),
+    )
   }
 
   if (change.changeType === ADM_CHANGE_THRESHOLD) {
-    const title = `Update threshold for ${groupLabel}`
-    const description = `Require ${change.threshold.toString()} approval${change.threshold === 1n ? '' : 's'} before ${groupLabel} can approve execution.`
-    return { title, description, txPreview: [{ type: 'appl', summary: title, detail: description }] }
+    return entry(
+      tr('service.admin.thresholdTitle', { id }),
+      tr('service.admin.thresholdDescription', { count: Number(change.threshold), id }),
+    )
   }
 
   if (change.changeType === ADM_SET_POLICY) {
     const asset = await resolveAsset(Number(change.limitAssetId ?? 0n))
-    const title = `Update ${formatAssetLabel(asset)} policy for ${groupLabel}`
-    const description = `Set ${groupLabel} to track spending in ${formatAssetLabel(asset)}, allow ${describeAllowedActions(change.allowedActions)}, enforce a daily limit of ${formatAssetAmount(change.dailyLimit, asset)}, a monthly limit of ${formatAssetAmount(change.monthlyLimit, asset)}, and ${describeCooldown(change.cooldownRounds)}.`
-    return { title, description, txPreview: [{ type: 'appl', summary: title, detail: description }] }
+    return entry(
+      tr('service.admin.policyTitle', { asset: formatAssetLabel(asset), id }),
+      tr('service.admin.policyDescription', {
+        id,
+        asset: formatAssetLabel(asset),
+        actions: describeAllowedActions(change.allowedActions),
+        daily: formatAssetAmount(change.dailyLimit, asset),
+        monthly: formatAssetAmount(change.monthlyLimit, asset),
+        cooldown: describeCooldown(change.cooldownRounds),
+      }),
+    )
   }
 
   if (change.changeType === ADM_SET_PRIVILEGES) {
-    const title = `Update admin privileges for ${groupLabel}`
-    const description = `Grant ${groupLabel} ${describePrivileges(change.adminPrivileges)}.`
-    return { title, description, txPreview: [{ type: 'appl', summary: title, detail: description }] }
+    return entry(
+      tr('service.admin.privilegesTitle', { id }),
+      tr('service.admin.privilegesDescription', { id, privileges: describePrivileges(change.adminPrivileges) }),
+    )
   }
 
   if (change.changeType === ADM_SET_ACTIVE) {
-    const title = `${change.activeFlag === 0n ? 'Disable' : 'Enable'} ${groupLabel}`
-    const description = `${change.activeFlag === 0n ? 'Disable' : 'Enable'} ${groupLabel} for proposal approvals and execution.`
-    return { title, description, txPreview: [{ type: 'appl', summary: title, detail: description }] }
+    return change.activeFlag === 0n
+      ? entry(tr('service.admin.disableTitle', { id }), tr('service.admin.disableDescription', { id }))
+      : entry(tr('service.admin.enableTitle', { id }), tr('service.admin.enableDescription', { id }))
   }
 
-  const title = 'Admin proposal'
-  const description = `Signer group ${contractProposal.groupId.toString()} proposal from ${ellipseAddress(contractProposal.proposer)}.`
-  return { title, description, txPreview: [{ type: 'appl', summary: title, detail: description }] }
+  return entry(
+    tr('service.admin.fallbackTitle'),
+    tr('service.admin.fallbackDescription', {
+      groupId: contractProposal.groupId.toString(),
+      proposer: ellipseAddress(contractProposal.proposer),
+    }),
+  )
 }
 
 // The latest contract keys payloads by slot (1..numPayloads) and requires the
@@ -585,7 +637,7 @@ async function hydrateProposal(
         await (client as any).getProposal({ args: [proposalId] })
   ) as ContractProposal | undefined
   if (!contractProposal) {
-    throw new Error(`Proposal ${proposalId.toString()} was not found on the safe (it may have been pruned).`)
+    throw new Error(tr('service.errors.proposalNotFound', { id: proposalId.toString() }))
   }
   const userHasApproved = activeAddress
     ? isLatest
@@ -617,7 +669,7 @@ async function hydrateProposal(
     threshold: Number(contractProposal.threshold),
     amount: amountDetails?.amount,
     asset: amountDetails?.asset,
-    date: `Expires at round ${contractProposal.expiryRound.toString()}`,
+    date: tr('service.expires', { round: contractProposal.expiryRound.toString() }),
     txPreview: adminPresentation?.txPreview ?? txPreview,
     policyChecks: [] as PolicyCheck[],
     proposer: contractProposal.proposer,
@@ -656,7 +708,7 @@ export async function fetchLiveProposal(context: Omit<ProposalContext, 'transact
 
 function assertWalletContext(context: ProposalContext) {
   if (!context.activeAddress || !context.transactionSigner) {
-    throw new Error('Connect a wallet before signing proposal actions.')
+    throw new Error(tr('service.errors.connectWallet'))
   }
 }
 
@@ -693,7 +745,7 @@ export async function approveLiveProposal(context: ProposalContext, proposalId: 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const live = await readProposal(client as any, BigInt(proposalId))
     if (!live) {
-      throw new Error(`Proposal ${proposalId} was not found on the safe (it may have been pruned).`)
+      throw new Error(tr('service.errors.proposalNotFound', { id: proposalId }))
     }
     args = [BigInt(proposalId), live.payloadVersion ?? 1n, 0n]
   } else {
@@ -780,7 +832,7 @@ export async function proposeLiveTransactionGroup(
   const executeNow = Boolean(params.executeNow)
 
   if (executeNow && !isLatest) {
-    throw new Error('Propose-and-execute in one call requires the latest safe contract version.')
+    throw new Error(tr('service.errors.proposeExecuteRequiresLatest'))
   }
 
   const status = (await context.algodClient.status().do()) as unknown as Record<string, unknown>
@@ -862,7 +914,7 @@ export async function executeLiveProposal(
         await (client as any).getProposal({ args: [proposalIdValue] })
   ) as ContractProposal | undefined
   if (!contractProposal) {
-    throw new Error(`Proposal ${proposalId} was not found on the safe (it may have been pruned).`)
+    throw new Error(tr('service.errors.proposalNotFound', { id: proposalId }))
   }
   const submissionParams = {
     method: isLatest ? METHOD_EXECUTE_PROPOSAL_LATEST : METHOD_EXECUTE_PROPOSAL,
@@ -879,7 +931,7 @@ export async function executeLiveProposal(
   const txId = submission.txIds[0] ?? submission.transactions[0]?.txID()
 
   if (!txId) {
-    throw new Error('Unable to determine the submitted execution transaction ID.')
+    throw new Error(tr('service.errors.txIdUnknown'))
   }
 
   lifecycle?.onSubmitted?.({ txId })

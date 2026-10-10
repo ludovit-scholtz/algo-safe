@@ -1,0 +1,35 @@
+{
+  "logoAlt": "Logo Algo Safe",
+  "selectSafe": "Vybrať sejf",
+  "registerAgent": "Registrovať agenta",
+  "nav": {
+    "dashboard": "Prehľad",
+    "proposals": "Návrhy",
+    "createProposal": "Vytvoriť návrh",
+    "assets": "Aktíva",
+    "upgrade": "Upgrade a rekey",
+    "walletConnect": "WalletConnect"
+  },
+  "errorBoundary": {
+    "title": "Vyskytla sa chyba",
+    "unexpected": "Neočakávaná chyba aplikácie."
+  },
+  "auth": {
+    "checking": "Kontrolujem peňaženku",
+    "loginPrompt": "Prihláste sa peňaženkou Algorand a získate prístup k svojim sejfom",
+    "loggingOut": "Odhlasovanie",
+    "logout": "Odhlásiť sa"
+  },
+  "network": {
+    "localnetLocked": "Na prepnutie sem pripojte peňaženku LocalNet (KMD)",
+    "chooseLocalnetWallet": "Vyberte peňaženku LocalNet",
+    "chooseAlgorandWallet": "Vyberte peňaženku Algorand",
+    "hints": {
+      "mainnet": "Produkčná sieť pre ostré operácie s pokladnicou.",
+      "voimain": "Sieť Voi pre špecializované operácie.",
+      "aramidmain": "Sieť Aramid pre špecializované operácie.",
+      "testnet": "Verejná testovacia sieť na párovanie peňaženiek a skúšobné behy.",
+      "localnet": "Lokálny vývojový reťazec s peňaženkami cez KMD."
+    }
+  }
+}

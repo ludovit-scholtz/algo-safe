@@ -1,4 +1,5 @@
 import algosdk from 'algosdk'
+import i18n from '../i18n/instance'
 import type { NetworkId, Safe, SafeSummary } from '../services/types'
 
 export type SafeRegistryEntry = {
@@ -133,7 +134,7 @@ export function safeRegistryEntryToSummary(entry: SafeRegistryEntry): SafeSummar
     name: entry.name,
     appId: entry.appId,
     address: getCanonicalAppAddress(entry.appId),
-    tier: 'On-chain Safe',
+    tier: i18n.t('safes:registry.tier'),
     totalValueEur: 0,
     agentCount: 0,
     status: 'active',

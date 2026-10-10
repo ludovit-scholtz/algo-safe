@@ -3,6 +3,7 @@
 // represented as a Safe proposal at all (see docs/WALLETCONNECT_WALLET_SETUP.md).
 import { algosdkTxnsToSafeTxnGroup, buildAlgoSafeAppClient, readRekeyedAddress, type SafeTxnTuple } from 'algo-safe'
 import algosdk from 'algosdk'
+import i18n from '../i18n/instance'
 import type { Safe } from '../services/types'
 
 export type WalletConnectTxnEntry = {
@@ -12,7 +13,8 @@ export type WalletConnectTxnEntry = {
   authAddr?: string
 }
 
-export type ConvertResult = { ok: true; payload: SafeTxnTuple[]; txns: algosdk.Transaction[] } | { ok: false; reason: string }
+export type ConvertResult =
+  { ok: true; payload: SafeTxnTuple[]; txns: algosdk.Transaction[] } | { ok: false; reason: string; reasonEn: string }
 
 function isWalletConnectTxnEntry(value: unknown): value is WalletConnectTxnEntry {
   return typeof value === 'object' && value !== null && typeof (value as { txn?: unknown }).txn === 'string'
@@ -25,7 +27,7 @@ function isWalletConnectTxnEntry(value: unknown): value is WalletConnectTxnEntry
 export function normalizeSessionRequestParams(params: unknown): WalletConnectTxnEntry[] {
   const candidate = Array.isArray(params) && Array.isArray(params[0]) ? params[0] : params
   if (!Array.isArray(candidate) || !candidate.every(isWalletConnectTxnEntry)) {
-    throw new Error('Unrecognized algo_signTxn request shape — expected an array of {txn, signers?} entries.')
+    throw new Error(i18n.t('walletconnect:convert.unrecognizedShape'))
   }
   return candidate
 }
@@ -43,36 +45,32 @@ async function isSpendableBySafe(algodClient: algosdk.Algodv2, safe: Safe, sende
  * group payload. Returns a discriminated failure with a human-readable reason
  * instead of throwing, so callers can show it directly in the UI.
  */
+/** Localized reason for the operator UI plus an English one for the remote dapp (protocol boundary). */
+const fail = (key: string, opts?: Record<string, unknown>): ConvertResult => ({
+  ok: false,
+  reason: i18n.t(key, opts),
+  reasonEn: i18n.t(key, { ...opts, lng: 'en' }),
+})
+
 export async function convertSessionRequestToSafePayload(
   algodClient: algosdk.Algodv2,
   safe: Safe,
   entries: WalletConnectTxnEntry[],
 ): Promise<ConvertResult> {
   if (entries.length === 0) {
-    return { ok: false, reason: 'The request did not contain any transactions.' }
+    return fail('walletconnect:convert.noTransactions')
   }
 
   const unsignedByOthers = entries.some((entry) => Array.isArray(entry.signers) && entry.signers.length === 0)
   if (unsignedByOthers) {
-    return {
-      ok: false,
-      reason:
-        'This request bundles a transaction that must be authorized by another party (its "signers" list is empty) — for example a ' +
-        'LogicSig-controlled account or a different multisig member. The Safe can only co-sign transactions sent from its own address ' +
-        'or from addresses rekeyed to it, so this batch cannot be turned into a Safe proposal. Reject it and ask the dapp to route that ' +
-        'part of the request through the original signer directly.',
-    }
+    return fail('walletconnect:convert.unsignedByOthers')
   }
 
   let txns: algosdk.Transaction[]
   try {
     txns = entries.map((entry) => algosdk.decodeUnsignedTransaction(Buffer.from(entry.txn, 'base64')))
   } catch {
-    return {
-      ok: false,
-      reason:
-        'One of the transactions in this request could not be decoded — it may already be signed (e.g. a LogicSig blob) rather than a plain unsigned transaction.',
-    }
+    return fail('walletconnect:convert.decodeFailed')
   }
 
   for (const txn of txns) {
@@ -80,10 +78,7 @@ export async function convertSessionRequestToSafePayload(
 
     const spendable = await isSpendableBySafe(algodClient, safe, sender)
     if (!spendable) {
-      return {
-        ok: false,
-        reason: `Transaction sender ${sender} is neither the Safe's own address nor an address currently rekeyed to it. The Safe has no authority to move funds from this account, so this request can't become a Safe proposal.`,
-      }
+      return fail('walletconnect:convert.notSpendable', { sender })
     }
   }
 
@@ -91,12 +86,8 @@ export async function convertSessionRequestToSafePayload(
     const payload = algosdkTxnsToSafeTxnGroup(txns)
     return { ok: true, payload, txns }
   } catch (error) {
-    return {
-      ok: false,
-      reason:
-        error instanceof Error
-          ? `The Safe can't represent this transaction: ${error.message}`
-          : 'The Safe cannot represent one of the transactions in this request.',
-    }
+    return error instanceof Error
+      ? fail('walletconnect:convert.cannotRepresent', { message: error.message })
+      : fail('walletconnect:convert.cannotRepresentGeneric')
   }
 }

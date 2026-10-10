@@ -1,0 +1,159 @@
+{
+  "selection": {
+    "checkingWallet": "Tárca-munkamenet ellenőrzése..."
+  },
+  "recover": {
+    "noWallet": "Meglévő széf helyreállítása előtt csatlakoztasson egy tárcát.",
+    "invalidAppId": "Adjon meg egy érvényes Algorand alkalmazásazonosítót.",
+    "invalidName": "A kiválasztott alkalmazás nem adott vissza érvényes Algo Safe nevet.",
+    "loadFailed": "Az alkalmazást nem sikerült betölteni a kiválasztott hálózaton.",
+    "success": "A(z) {{name}} széf helyreállítva, és mentve ebben a böngészőben."
+  },
+  "home": {
+    "titleLine1": "Intézményi kincstár",
+    "titleLine2": "Az ügynökgazdaságra szabva.",
+    "intro": "Az Algo Safe egy szabályzatvezérelt okosszámla-rendszer. Védje eszközeit többaláírásos munkafolyamatokkal, automatizált újraegyensúlyozó ügynökökkel és az Algorand ellenálló blokkláncára tervezett, részletes irányítási protokollokkal.",
+    "walletReady": "A tárca csatlakoztatva. A kincstári széfjei készen állnak.",
+    "createTitle": "Új széf létrehozása",
+    "createText": "Telepítsen új intézményi kincstárat egyéni aláírókkal és automatizált szabályzatokkal.",
+    "importTitle": "Meglévő számla importálása",
+    "importText": "Adja meg egy blokkláncon lévő Algo Safe alkalmazásazonosítóját. Az irányítópult először beolvassa a szerződés nevét, és csak ezután menti a helyi nyilvántartásba.",
+    "appIdLabel": "Alkalmazásazonosító",
+    "appIdHint": "Egy már telepített Algo Safe azonosítóját adja meg a jelenleg kiválasztott hálózaton.",
+    "appIdPlaceholder": "pl. 123456789",
+    "reading": "Szerződés beolvasása...",
+    "recoverButton": "Számla helyreállítása",
+    "network": "Hálózat: {{network}}",
+    "existingSafes": "Meglévő széfek",
+    "accounts_one": "{{count}} SZÁMLA",
+    "accounts_other": "{{count}} SZÁMLA",
+    "empty": "Még nincs széf — hozzon létre egyet fent.",
+    "registryTitle": "Helyi széfnyilvántartás",
+    "registryLine1": "Csak az ebben a böngészőben telepített vagy helyreállított széfek jelennek meg itt.",
+    "registryLine2": "Importáljon meglévő Algo Safe-et alkalmazásazonosító alapján, vagy hozzon létre újat a lista feltöltéséhez.",
+    "documentation": "Dokumentáció",
+    "audit": "Biztonsági audit"
+  },
+  "login": {
+    "authRequired": "Hitelesítés szükséges",
+    "titleLine1": "Csatlakoztassa a tárcáját,",
+    "titleLine2": "hogy hozzáférjen a kincstári széfekhez.",
+    "intro": "Válassza ki a hálózatot, amelyen dolgozni szeretne, majd csatlakoztasson egy kompatibilis tárcát a meglévő széfek megtekintéséhez, új kincstárak létrehozásához és a szabályzatvezérelt műveletek kezeléséhez a hitelesített konzolból.",
+    "secureTitle": "Biztonságos aláírásátadás",
+    "secureText": "A tranzakciók aláírása a tárcában marad, miközben az Algo Safe a csatlakoztatott számlát használja a hitelesített műveletekhez.",
+    "walletsTitle": "Támogatott tárcák",
+    "walletsText": "A MainNet és a TestNet böngészős és WalletConnect tárcákat használ, a LocalNet pedig a KMD fejlesztői tárcát kínálja.",
+    "whyTitle": "Miért kell előbb bejelentkezni",
+    "why1": "A széfek betöltése előtt hitelesítse magát, hogy az irányítópult a műveleteket az aktív Algorand-számlájához köthesse.",
+    "why2": "A csatlakozás után a kincstári áttekintés és a széfkezelő konzol azonnal elérhető.",
+    "why3": "A LocalNet a böngészős tárcák helyett a KMD-t használja.",
+    "chooseTitle": "Válasszon hálózatot és tárcát",
+    "chooseText": "Csatlakozzon a hitelesített irányítópult feloldásához.",
+    "chain": "Hálózat",
+    "chainHint": "A WalletConnect érvényes CAIP-láncot igényel, ezért a párosítás előtt válassza ki a célhálózatot.",
+    "localnetHint": "Helyi fejlesztési munkamenetekhez használja a LocalNet KMD tárcáját.",
+    "walletsHint": "Ehhez az Algorand-hálózathoz használja a Perát, a Defly-t, a WalletConnectet vagy a Biatec Walletet.",
+    "kmd": "Fejlesztési folyamatokhoz használja az AlgoKit LocalNet által kezelt helyi KMD tárcát.",
+    "pera": "Olvasson be egy QR-kódot, vagy hagyja jóvá a Pera alkalmazásban.",
+    "defly": "A folytatáshoz hagyja jóvá a munkamenetet a Defly alkalmazásban.",
+    "biatec": "Csatlakoztassa közvetlenül a Biatec Walletet (felugró ablak vagy Liquid Auth), és hagyja jóvá a munkamenetet.",
+    "walletConnect": "Csatlakoztasson bármely WalletConnect-kompatibilis Algorand-tárcát a közös QR-folyamattal.",
+    "logoAlt": "{{name}} logó",
+    "connecting": "Csatlakozás",
+    "connect": "Csatlakozás",
+    "noWallets": "A kiválasztott hálózathoz nem érhető el kompatibilis tárcaszolgáltató.",
+    "connectFailed": "Nem sikerült csatlakozni: {{name}}. {{message}}",
+    "connectDefault": "Hagyja jóvá a tárcakérést, és próbálja újra."
+  },
+  "card": {
+    "app": "{{appId}} alkalmazás",
+    "agents_one": "{{count}} ügynök",
+    "agents_other": "{{count}} ügynök"
+  },
+  "init": {
+    "steps": {
+      "deploy": "Szerződéstelepítés",
+      "fund": "MBR-feltöltés"
+    },
+    "errors": {
+      "rejected": "A tranzakciót elutasították, vagy nem sikerült elküldeni.",
+      "nameRequired": "A telepítés indítása előtt adja meg a széf nevét.",
+      "walletRequired": "A széf telepítéséhez és feltöltéséhez csatlakoztatott tárca szükséges.",
+      "amountInvalid": "Adjon meg pozitív ALGO-összeget az alkalmazásszámla MBR-feltöltéséhez."
+    },
+    "button": {
+      "deploying": "Szerződés telepítése...",
+      "funding": "Feltöltés és inicializálás...",
+      "ready": "A széf kész",
+      "start": "Indítás"
+    },
+    "breadcrumbSecurity": "Biztonsági beállítás",
+    "breadcrumbInit": "Inicializálás",
+    "title": "Okosszámla inicializálása",
+    "intro": "Telepítse az Algo Safe szerződést a csatlakoztatott tárcából, majd töltse fel az új alkalmazásszámlát natív ALGO-val a minimális egyenleg biztosításához.",
+    "step01": "01. lépés",
+    "step02": "02. lépés",
+    "deployTitle": "Okosszerződés telepítése",
+    "deployText": "Hozza létre az Algo Safe alkalmazást a blokkláncon a már csatlakoztatott tárcából.",
+    "fundTitle": "ALGO MBR feltöltése",
+    "fundText": "Küldjön natív ALGO-t az új alkalmazásszámlára a boxok MBR-jéhez és a kezdeti beállításhoz.",
+    "connectedWallet": "Csatlakoztatott tárca",
+    "ready": "Kész",
+    "walletNotConnected": "A tárca nincs csatlakoztatva",
+    "network": "Hálózat",
+    "deployFlow": "Telepítési folyamat",
+    "live": "Élő",
+    "flowText": "A tárca először aláírja az alkalmazás telepítését, majd Ön jóváhagy egy csoportos kérést, amely feltölti az alkalmazásszámlát és inicializálja azt.",
+    "nameLabel": "Széf neve",
+    "nameHint": "Ez a név az alkalmazás létrehozásakor a blokkláncon tárolódik.",
+    "namePlaceholder": "pl. Irányítási kincstár",
+    "mbrLabel": "MBR-letét (ALGO)",
+    "mbrHint": "Ajánlott 2 ALGO, hogy az alkalmazás fedezni tudja a boxok minimális egyenlegét és az inicializálási műveleteket.",
+    "status": {
+      "idle": {
+        "title": "Az Indítás először telepíti a szerződést, majd egy csoportos tranzakciót kér ALGO-feltöltéssel és inicializálással.",
+        "text": "A kezdeti adminisztrátori csoport az inicializálás során jön létre, miután az alkalmazásszámla feltöltődött."
+      },
+      "deploying": {
+        "title": "A telepítés folyamatban van.",
+        "text": "Hagyja jóvá az okosszerződés telepítését a tárcájában. A gomb addig zárolva marad, amíg a lánc meg nem erősíti a létrehozást."
+      },
+      "funding": {
+        "title": "A szerződés telepítve. A 02. lépés folyamatban van.",
+        "text": "Ellenőrizze a tárcáját a csoportos aláírási kérésért, amely ALGO-val feltölti az új alkalmazásszámlát, és inicializálja a széfet."
+      },
+      "success": {
+        "title": "A széf inicializálása befejeződött.",
+        "text": "A szerződés telepítve, ALGO-val feltöltve, az irányításhoz inicializálva és a helyi széfnyilvántartásba mentve."
+      },
+      "error": {
+        "title": "Az inicializálás leállt.",
+        "text": "Tekintse át az alábbi hibát, majd indítsa újra a folyamatot, amikor a tárca készen áll."
+      }
+    },
+    "appId": "Alkalmazásazonosító",
+    "createTx": "Létrehozó tranzakció: {{txId}}",
+    "appAddress": "Alkalmazáscím",
+    "fees": "A hálózati díjakat ALGO-ban kell fizetni, és a tárcában jóváhagyott tranzakcióktól függenek.",
+    "documentation": "Dokumentáció",
+    "support": "Intézményi támogatás"
+  },
+  "registry": {
+    "tier": "Blokkláncon lévő széf"
+  },
+  "holdings": {
+    "nativeName": "Algorand natív"
+  },
+  "mock": {
+    "safeNotFound": "A(z) {{safeId}} széf nem található a helyi nyilvántartásban.",
+    "tier": "{{threshold}} a(z) {{signerCount}}-ból többaláírásos",
+    "agentRegTitle": "Ügynök regisztrációja: {{alias}}",
+    "agentRegDesc": "{{alias}} automatizált ügynök regisztrálása ebben: {{groupTier}}.",
+    "justNow": "Épp most",
+    "initAgent": "Ügynökszerződés inicializálása",
+    "policyTitle": "Szabályzatfrissítés: {{name}}",
+    "policyDesc": "Az ügynök költési szabályzatának módosítása.",
+    "updatePolicyBox": "Szabályzat-box frissítése",
+    "withinRules": "Az irányítási szabályokon belül"
+  }
+}

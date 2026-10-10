@@ -57,9 +57,12 @@
     "algo-safe": "workspace:*",
     "algosdk": "^3.6.0",
     "biatec-wallet-use-wallet-client": "^0.4.0",
+    "i18next": "^26.4.2",
+    "i18next-browser-languagedetector": "^8.2.1",
     "notistack": "^3.0.2",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
+    "react-i18next": "^17.0.16",
     "react-router-dom": "^7.18.1",
     "tslib": "^2.8.1"
   },

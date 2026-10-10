@@ -1,0 +1,35 @@
+{
+  "logoAlt": "Logotipo de Algo Safe",
+  "selectSafe": "Seleccionar caja fuerte",
+  "registerAgent": "Registrar agente",
+  "nav": {
+    "dashboard": "Panel",
+    "proposals": "Propuestas",
+    "createProposal": "Crear propuesta",
+    "assets": "Activos",
+    "upgrade": "Actualización y rekeys",
+    "walletConnect": "WalletConnect"
+  },
+  "errorBoundary": {
+    "title": "Se ha producido un error",
+    "unexpected": "Error inesperado de la aplicación."
+  },
+  "auth": {
+    "checking": "Comprobando la billetera",
+    "loginPrompt": "Inicie sesión con una billetera Algorand para acceder a sus cajas fuertes",
+    "loggingOut": "Cerrando sesión",
+    "logout": "Cerrar sesión"
+  },
+  "network": {
+    "localnetLocked": "Conecte una billetera LocalNet (KMD) para cambiar a esta red",
+    "chooseLocalnetWallet": "Elija una billetera LocalNet",
+    "chooseAlgorandWallet": "Elija una billetera Algorand",
+    "hints": {
+      "mainnet": "Red de producción para operaciones reales de tesorería.",
+      "voimain": "Red Voi para operaciones especializadas.",
+      "aramidmain": "Red Aramid para operaciones especializadas.",
+      "testnet": "Red de pruebas pública para emparejar billeteras y hacer ensayos.",
+      "localnet": "Cadena de desarrollo local con billeteras basadas en KMD."
+    }
+  }
+}

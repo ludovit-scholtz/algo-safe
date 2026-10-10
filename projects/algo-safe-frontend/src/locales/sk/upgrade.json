@@ -1,0 +1,59 @@
+{
+  "title": "Upgrade a adresy s rekey",
+  "subtitle": "Spravujte adresy s rekey na tento trezor a migrujte trezor na najnovšiu verziu kontraktu.",
+  "backToDashboard": "Späť na prehľad",
+  "errors": {
+    "connectAdmin": "Pred správou adries s rekey pripojte peňaženku s administrátorským prístupom.",
+    "invalidAddress": "Zadajte platnú adresu Algorand.",
+    "registryProposalFailed": "Návrh zmeny registra sa nepodarilo vytvoriť.",
+    "connectDeploy": "Pred nasadením aktualizovaného trezora pripojte peňaženku.",
+    "deployFailed": "Aktualizovaný trezor sa nepodarilo nasadiť a naklonovať.",
+    "migrationProposalFailed": "Návrh migračného rekey sa nepodarilo vytvoriť."
+  },
+  "version": {
+    "title": "Verzia kontraktu",
+    "deployedHash": "Hash nasadenej verzie:",
+    "detecting": "zisťuje sa…",
+    "isLatest": "Tento trezor používa najnovšiu verziu kontraktu.",
+    "newerAvailable": "K dispozícii je novšia verzia kontraktu — zvážte upgrade nižšie."
+  },
+  "adminGroup": {
+    "title": "Administrátorská skupina",
+    "label": "Skupina podpisovateľov pre návrhy",
+    "hint": "Zmeny registra a migračný rekey sa navrhujú prostredníctvom tejto administrátorskej skupiny.",
+    "fallbackOption": "Skupina 1",
+    "option": "{{name}} · {{threshold}} z {{memberCount}}"
+  },
+  "upgrade": {
+    "title": "Upgradovať trezor",
+    "intro": "Upgrade nasadí <strong>nový trezor s najnovším kontraktom</strong>, naklonuje do neho skupiny podpisovateľov, politiky a register adries s rekey tohto trezora a potom — prostredníctvom riadeného návrhu rekey — odovzdá novému nasadeniu všetky spravované adresy (vrátane účtu tohto trezora). Prostriedky adresy nikdy neopustia.",
+    "step1": "Nasadiť a naklonovať konfiguráciu (podpisuje vaša peňaženka, bez zmeny správy aktív).",
+    "step2": "Navrhnúť migračný rekey; administrátori ho schvália pri dosiahnutí prahu skupiny.",
+    "step3": "Vykonať — nový trezor prevezme správu a tento trezor sa stane iba históriou na čítanie.",
+    "deploying": "Nasadzuje sa…",
+    "deployButton": "1 · Nasadiť a naklonovať",
+    "proposing": "Navrhuje sa…",
+    "proposeButton": "2 · Navrhnúť migračný rekey",
+    "deployed": "Nový trezor bol nasadený — ID aplikácie <mono>{{appId}}</mono>",
+    "savedHint": "Uložené do zoznamu trezorov v tomto prehliadači. Teraz vytvorte návrh migračného rekey a získajte schválenia administrátorov."
+  },
+  "registry": {
+    "title": "Adresy s rekey",
+    "description": "Externé adresy, ktorých právomoc míňať prostriedky bola presmerovaná (rekey) na tento trezor. Zoznam sa riadi návrhmi administrátorov a pri migrácii sa použije na opätovný rekey všetkých spravovaných adries na nový trezor. Registrácia adresy tu rekey nevykoná — skutočnú transakciu rekey odošlite z daného účtu samostatne.",
+    "addressLabel": "Adresa",
+    "addressHint": "Účet s rekey (alebo tesne pred rekey) na tento trezor.",
+    "addressPlaceholder": "Adresa Algorand",
+    "labelLabel": "Označenie",
+    "labelHint": "Voliteľný zrozumiteľný názov.",
+    "labelPlaceholder": "napr. prevádzková hot peňaženka",
+    "proposeAdd": "Navrhnúť pridanie",
+    "empty": "Nie sú zaregistrované žiadne adresy s rekey.",
+    "unlabelled": "bez označenia",
+    "recordMeta": "{{label}} · zaregistrované v kole {{round}}",
+    "proposeRemove": "Navrhnúť odstránenie",
+    "refresh": "Obnoviť"
+  },
+  "service": {
+    "connectWallet": "Pred spustením migračných akcií trezora pripojte peňaženku."
+  }
+}

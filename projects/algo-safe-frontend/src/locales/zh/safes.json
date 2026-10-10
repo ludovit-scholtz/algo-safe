@@ -1,0 +1,157 @@
+{
+  "selection": {
+    "checkingWallet": "正在检查钱包会话..."
+  },
+  "recover": {
+    "noWallet": "恢复现有保险库之前，请先连接钱包。",
+    "invalidAppId": "请输入有效的 Algorand 应用 ID。",
+    "invalidName": "所选应用未返回有效的 Algo Safe 名称。",
+    "loadFailed": "无法在所选网络上加载该应用。",
+    "success": "已恢复 {{name}} 并保存到此浏览器。"
+  },
+  "home": {
+    "titleLine1": "机构级金库",
+    "titleLine2": "为智能体经济而生。",
+    "intro": "Algo Safe 是一个由策略驱动的智能账户系统。借助多重签名工作流、自动再平衡智能体，以及为 Algorand 稳健区块链设计的精细治理协议，保护您的资产。",
+    "walletReady": "钱包已连接。您的金库保险库已就绪。",
+    "createTitle": "创建新的保险库",
+    "createText": "部署全新的机构级金库，配置自定义签名者和自动化策略。",
+    "importTitle": "导入现有账户",
+    "importText": "输入链上 Algo Safe 的应用 ID。控制台会先读取合约名称，然后才将其保存到您的本地注册表。",
+    "appIdLabel": "应用 ID",
+    "appIdHint": "请使用当前所选网络上已部署的 Algo Safe 的 ID。",
+    "appIdPlaceholder": "例如 123456789",
+    "reading": "正在读取合约...",
+    "recoverButton": "恢复账户",
+    "network": "网络：{{network}}",
+    "existingSafes": "现有保险库",
+    "accounts_other": "{{count}} 个账户",
+    "empty": "暂无保险库 — 请在上方创建一个。",
+    "registryTitle": "本地保险库注册表",
+    "registryLine1": "此处仅显示您在此浏览器中部署或恢复的保险库。",
+    "registryLine2": "通过应用 ID 导入现有的 Algo Safe，或创建新的保险库来填充列表。",
+    "documentation": "文档",
+    "audit": "安全审计"
+  },
+  "login": {
+    "authRequired": "需要身份验证",
+    "titleLine1": "连接您的钱包",
+    "titleLine2": "以访问金库保险库。",
+    "intro": "选择您要使用的链，然后连接兼容的钱包，即可查看现有保险库、创建新金库，并在已验证的控制台中管理由策略驱动的操作。",
+    "secureTitle": "安全的签名交接",
+    "secureText": "交易签名始终在您的钱包内完成，Algo Safe 仅使用已连接的账户执行经过验证的操作。",
+    "walletsTitle": "支持的钱包",
+    "walletsText": "MainNet 和 TestNet 使用浏览器钱包和 WalletConnect 钱包，LocalNet 则提供 KMD 开发钱包。",
+    "whyTitle": "为什么要先登录",
+    "why1": "请先完成身份验证再加载保险库，这样控制台才能将操作绑定到您当前的 Algorand 账户。",
+    "why2": "连接后，即可立即使用现有的金库概览和保险库管理控制台。",
+    "why3": "LocalNet 不使用浏览器钱包，而是使用 KMD。",
+    "chooseTitle": "选择链和钱包",
+    "chooseText": "连接后即可解锁已验证的控制台。",
+    "chain": "链",
+    "chainHint": "WalletConnect 需要有效的 CAIP 链，因此请在配对前选择目标链。",
+    "localnetHint": "本地开发会话请使用 LocalNet 的 KMD 钱包。",
+    "walletsHint": "此 Algorand 链请使用 Pera、Defly、WalletConnect 或 Biatec Wallet。",
+    "kmd": "开发流程请使用由 AlgoKit LocalNet 管理的本地 KMD 钱包。",
+    "pera": "扫描二维码，或在 Pera 应用中确认。",
+    "defly": "请在 Defly 中批准会话以继续。",
+    "biatec": "直接连接 Biatec Wallet（弹窗或 Liquid Auth）并批准会话。",
+    "walletConnect": "通过通用二维码流程连接任何兼容 WalletConnect 的 Algorand 钱包。",
+    "logoAlt": "{{name}} 徽标",
+    "connecting": "连接中",
+    "connect": "连接",
+    "noWallets": "所选链上没有可用的兼容钱包提供商。",
+    "connectFailed": "无法连接 {{name}}。{{message}}",
+    "connectDefault": "请在钱包中批准请求后重试。"
+  },
+  "card": {
+    "app": "应用 {{appId}}",
+    "agents_other": "{{count}} 个智能体"
+  },
+  "init": {
+    "steps": {
+      "deploy": "合约部署",
+      "fund": "MBR 充值"
+    },
+    "errors": {
+      "rejected": "交易被拒绝或无法提交。",
+      "nameRequired": "开始部署前，请输入保险库名称。",
+      "walletRequired": "部署并充值保险库需要连接钱包。",
+      "amountInvalid": "请输入用于应用账户 MBR 充值的正数 ALGO 金额。"
+    },
+    "button": {
+      "deploying": "正在部署合约...",
+      "funding": "正在充值并初始化...",
+      "ready": "保险库已就绪",
+      "start": "开始"
+    },
+    "breadcrumbSecurity": "安全设置",
+    "breadcrumbInit": "初始化",
+    "title": "初始化智能账户",
+    "intro": "通过已连接的钱包部署 Algo Safe 合约，然后向新的应用账户充入原生 ALGO，以满足最低余额要求。",
+    "step01": "步骤 01",
+    "step02": "步骤 02",
+    "deployTitle": "部署智能合约",
+    "deployText": "通过已连接的钱包在链上创建 Algo Safe 应用。",
+    "fundTitle": "充值 ALGO MBR",
+    "fundText": "向新的应用账户发送原生 ALGO，用于 box 的 MBR 和初始化设置。",
+    "connectedWallet": "已连接的钱包",
+    "ready": "就绪",
+    "walletNotConnected": "钱包未连接",
+    "network": "网络",
+    "deployFlow": "部署流程",
+    "live": "运行中",
+    "flowText": "钱包将先签署应用部署，然后您再批准一个组合请求，为应用账户充值并完成初始化。",
+    "nameLabel": "保险库名称",
+    "nameHint": "该名称会在创建应用时存储在链上。",
+    "namePlaceholder": "例如 治理金库",
+    "mbrLabel": "MBR 存款（ALGO）",
+    "mbrHint": "建议存入 2 ALGO，以便应用支付 box 最低余额和初始化操作。",
+    "status": {
+      "idle": {
+        "title": "点击“开始”将先部署合约，然后请求一笔包含 ALGO 充值与初始化的组合交易。",
+        "text": "创世管理员组将在应用账户充值后的初始化过程中创建。"
+      },
+      "deploying": {
+        "title": "正在部署。",
+        "text": "请在钱包中批准智能合约部署。在链上确认创建之前，按钮将保持锁定。"
+      },
+      "funding": {
+        "title": "合约已部署。步骤 02 正在进行。",
+        "text": "请查看钱包中的组合签名请求，该请求将向新的应用账户充入 ALGO 并初始化保险库。"
+      },
+      "success": {
+        "title": "保险库初始化完成。",
+        "text": "合约已部署、已充入 ALGO、已完成治理初始化，并已保存到您的本地保险库注册表。"
+      },
+      "error": {
+        "title": "初始化已停止。",
+        "text": "请查看下方的错误信息，待钱包准备就绪后重新启动流程。"
+      }
+    },
+    "appId": "应用 ID",
+    "createTx": "创建交易：{{txId}}",
+    "appAddress": "应用地址",
+    "fees": "网络费用以 ALGO 支付，并取决于钱包确认的交易。",
+    "documentation": "文档",
+    "support": "机构支持"
+  },
+  "registry": {
+    "tier": "链上保险库"
+  },
+  "holdings": {
+    "nativeName": "Algorand 原生"
+  },
+  "mock": {
+    "safeNotFound": "在本地注册表中未找到保险库 {{safeId}}。",
+    "tier": "{{signerCount}} 选 {{threshold}} 多重签名",
+    "agentRegTitle": "智能体注册：{{alias}}",
+    "agentRegDesc": "在 {{groupTier}} 中注册自动化智能体 {{alias}}。",
+    "justNow": "刚刚",
+    "initAgent": "初始化智能体合约",
+    "policyTitle": "策略更新：{{name}}",
+    "policyDesc": "修改智能体支出策略。",
+    "updatePolicyBox": "更新策略 box",
+    "withinRules": "符合治理规则"
+  }
+}

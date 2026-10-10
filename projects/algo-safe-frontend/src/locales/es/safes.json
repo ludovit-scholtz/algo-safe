@@ -1,0 +1,161 @@
+{
+  "selection": {
+    "checkingWallet": "Comprobando la sesión de la billetera..."
+  },
+  "recover": {
+    "noWallet": "Conecte una billetera antes de recuperar una caja fuerte existente.",
+    "invalidAppId": "Introduzca un ID de aplicación de Algorand válido.",
+    "invalidName": "La aplicación seleccionada no devolvió un nombre de Algo Safe válido.",
+    "loadFailed": "No se pudo cargar esa aplicación en la red seleccionada.",
+    "success": "Se recuperó {{name}} y se guardó en este navegador."
+  },
+  "home": {
+    "titleLine1": "Tesorería institucional",
+    "titleLine2": "Creada para la economía de agentes.",
+    "intro": "Algo Safe es un sistema de cuentas inteligentes basado en políticas. Proteja sus activos con flujos de trabajo multifirma, agentes de reequilibrio automatizados y protocolos de gobernanza granulares diseñados para la resistente blockchain de Algorand.",
+    "walletReady": "Billetera conectada. Sus cajas fuertes de tesorería están listas.",
+    "createTitle": "Crear una caja fuerte nueva",
+    "createText": "Despliegue una nueva tesorería institucional con firmantes personalizados y políticas automatizadas.",
+    "importTitle": "Importar una cuenta existente",
+    "importText": "Introduzca el ID de aplicación de un Algo Safe en la cadena. El panel lee primero el nombre del contrato y solo después lo guarda en su registro local.",
+    "appIdLabel": "ID de aplicación",
+    "appIdHint": "Use el ID de un Algo Safe ya desplegado en la red seleccionada actualmente.",
+    "appIdPlaceholder": "p. ej., 123456789",
+    "reading": "Leyendo el contrato...",
+    "recoverButton": "Recuperar cuenta",
+    "network": "Red: {{network}}",
+    "existingSafes": "Cajas fuertes existentes",
+    "accounts_one": "{{count}} CUENTA",
+    "accounts_many": "{{count}} DE CUENTAS",
+    "accounts_other": "{{count}} CUENTAS",
+    "empty": "Aún no hay cajas fuertes — cree una arriba.",
+    "registryTitle": "Registro local de cajas fuertes",
+    "registryLine1": "Aquí solo se muestran las cajas fuertes que haya desplegado o recuperado en este navegador.",
+    "registryLine2": "Importe un Algo Safe existente por ID de aplicación o cree uno nuevo para rellenar la lista.",
+    "documentation": "Documentación",
+    "audit": "Auditoría de seguridad"
+  },
+  "login": {
+    "authRequired": "Se requiere autenticación",
+    "titleLine1": "Conecte su billetera",
+    "titleLine2": "para acceder a las cajas fuertes de tesorería.",
+    "intro": "Elija la red en la que quiere trabajar y conecte una billetera compatible para ver las cajas fuertes existentes, crear nuevas tesorerías y gestionar operaciones basadas en políticas desde la consola autenticada.",
+    "secureTitle": "Traspaso seguro de la firma",
+    "secureText": "La firma de transacciones permanece en su billetera, mientras que Algo Safe usa la cuenta conectada para las acciones autenticadas.",
+    "walletsTitle": "Billeteras compatibles",
+    "walletsText": "MainNet y TestNet usan billeteras de navegador y WalletConnect, mientras que LocalNet ofrece la billetera de desarrollo KMD.",
+    "whyTitle": "Por qué iniciar sesión primero",
+    "why1": "Autentíquese antes de cargar las cajas fuertes para que el panel pueda vincular las acciones a su cuenta activa de Algorand.",
+    "why2": "Una vez conectado, el resumen de tesorería y la consola de gestión de cajas fuertes estarán disponibles de inmediato.",
+    "why3": "LocalNet prescinde de las billeteras de navegador y usa KMD.",
+    "chooseTitle": "Elija la red y la billetera",
+    "chooseText": "Conéctese para desbloquear su panel autenticado.",
+    "chain": "Red",
+    "chainHint": "WalletConnect requiere una cadena CAIP válida, así que elija la red de destino antes de emparejar.",
+    "localnetHint": "Use la billetera KMD de LocalNet para sesiones de desarrollo local.",
+    "walletsHint": "Use Pera, Defly, WalletConnect o Biatec Wallet para esta red de Algorand.",
+    "kmd": "Use la billetera KMD local gestionada por AlgoKit LocalNet para los flujos de desarrollo.",
+    "pera": "Escanee un código QR o apruebe en la app de Pera.",
+    "defly": "Apruebe la sesión en Defly para continuar.",
+    "biatec": "Conecte Biatec Wallet directamente (ventana emergente o Liquid Auth) y apruebe la sesión.",
+    "walletConnect": "Conecte cualquier billetera de Algorand compatible con WalletConnect mediante el flujo QR compartido.",
+    "logoAlt": "Logotipo de {{name}}",
+    "connecting": "Conectando",
+    "connect": "Conectar",
+    "noWallets": "No hay proveedores de billeteras compatibles para la red seleccionada.",
+    "connectFailed": "No se pudo conectar {{name}}. {{message}}",
+    "connectDefault": "Apruebe la solicitud en la billetera e inténtelo de nuevo."
+  },
+  "card": {
+    "app": "App {{appId}}",
+    "agents_one": "{{count}} agente",
+    "agents_many": "{{count}} de agentes",
+    "agents_other": "{{count}} agentes"
+  },
+  "init": {
+    "steps": {
+      "deploy": "Despliegue del contrato",
+      "fund": "Financiación de MBR"
+    },
+    "errors": {
+      "rejected": "La transacción fue rechazada o no se pudo enviar.",
+      "nameRequired": "Introduzca un nombre para la caja fuerte antes de iniciar el despliegue.",
+      "walletRequired": "Se necesita una billetera conectada para desplegar y financiar la caja fuerte.",
+      "amountInvalid": "Introduzca una cantidad positiva de ALGO para la financiación del MBR de la cuenta de la aplicación."
+    },
+    "button": {
+      "deploying": "Desplegando el contrato...",
+      "funding": "Financiando e inicializando...",
+      "ready": "Caja fuerte lista",
+      "start": "Iniciar"
+    },
+    "breadcrumbSecurity": "Configuración de seguridad",
+    "breadcrumbInit": "Inicialización",
+    "title": "Inicializar cuenta inteligente",
+    "intro": "Despliegue el contrato de Algo Safe desde su billetera conectada y, después, financie la nueva cuenta de la aplicación con ALGO nativos para cumplir los requisitos de saldo mínimo.",
+    "step01": "Paso 01",
+    "step02": "Paso 02",
+    "deployTitle": "Desplegar el contrato inteligente",
+    "deployText": "Cree la aplicación de Algo Safe en la cadena desde la billetera ya conectada.",
+    "fundTitle": "Financiar el MBR en ALGO",
+    "fundText": "Envíe ALGO nativos a la nueva cuenta de la aplicación para el MBR de las cajas y la configuración inicial.",
+    "connectedWallet": "Billetera conectada",
+    "ready": "Lista",
+    "walletNotConnected": "Billetera no conectada",
+    "network": "Red",
+    "deployFlow": "Flujo de despliegue",
+    "live": "Activo",
+    "flowText": "La billetera firmará primero el despliegue de la aplicación y, después, usted aprobará una solicitud agrupada que financia la cuenta de la aplicación y la inicializa.",
+    "nameLabel": "Nombre de la caja fuerte",
+    "nameHint": "Este nombre se almacena en la cadena al crear la aplicación.",
+    "namePlaceholder": "p. ej., Tesorería de gobernanza",
+    "mbrLabel": "Depósito de MBR (ALGO)",
+    "mbrHint": "Se recomiendan 2 ALGO para que la aplicación pueda cubrir el saldo mínimo de las cajas y las operaciones de inicialización.",
+    "status": {
+      "idle": {
+        "title": "Iniciar desplegará primero el contrato y después solicitará una única transacción agrupada con la financiación en ALGO y la inicialización.",
+        "text": "El grupo de administración inicial se crea durante la inicialización, una vez financiada la cuenta de la aplicación."
+      },
+      "deploying": {
+        "title": "Despliegue en curso.",
+        "text": "Apruebe el despliegue del contrato inteligente en su billetera. El botón permanece bloqueado hasta que la cadena confirme la creación."
+      },
+      "funding": {
+        "title": "Contrato desplegado. El paso 02 está en curso.",
+        "text": "Revise su billetera para ver la solicitud de firma agrupada que financia la nueva cuenta de la aplicación con ALGO e inicializa la caja fuerte."
+      },
+      "success": {
+        "title": "Inicialización de la caja fuerte completada.",
+        "text": "El contrato está desplegado, financiado con ALGO, inicializado para la gobernanza y guardado en su registro local de cajas fuertes."
+      },
+      "error": {
+        "title": "La inicialización se detuvo.",
+        "text": "Revise el error que aparece abajo y reinicie el flujo cuando la billetera esté lista."
+      }
+    },
+    "appId": "ID de aplicación",
+    "createTx": "Tx de creación: {{txId}}",
+    "appAddress": "Dirección de la aplicación",
+    "fees": "Las comisiones de red se pagan en ALGO y dependen de las transacciones confirmadas en la billetera.",
+    "documentation": "Documentación",
+    "support": "Soporte institucional"
+  },
+  "registry": {
+    "tier": "Caja fuerte en la cadena"
+  },
+  "holdings": {
+    "nativeName": "Algorand nativo"
+  },
+  "mock": {
+    "safeNotFound": "No se encontró la caja fuerte {{safeId}} en el registro local.",
+    "tier": "Multifirma {{threshold}} de {{signerCount}}",
+    "agentRegTitle": "Registro de agente: {{alias}}",
+    "agentRegDesc": "Registrar al agente automatizado {{alias}} en {{groupTier}}.",
+    "justNow": "Ahora mismo",
+    "initAgent": "Inicializar el contrato del agente",
+    "policyTitle": "Actualización de política: {{name}}",
+    "policyDesc": "Modificar la política de gasto del agente.",
+    "updatePolicyBox": "Actualizar la caja de política",
+    "withinRules": "Dentro de las reglas de gobernanza"
+  }
+}

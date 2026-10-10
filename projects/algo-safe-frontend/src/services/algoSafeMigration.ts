@@ -19,6 +19,7 @@ import {
   type SafeVersionStatus,
 } from 'algo-safe'
 import algosdk, { type TransactionSigner } from 'algosdk'
+import i18n from '../i18n/instance'
 import { proposeLiveTransactionGroup, type ProposeTransactionGroupResult } from './algoSafeProposals'
 import type { Safe } from './types'
 
@@ -35,7 +36,7 @@ type MigrationContext = {
 
 function assertWalletContext(context: MigrationContext) {
   if (!context.activeAddress || !context.transactionSigner) {
-    throw new Error('Connect a wallet before running safe migration actions.')
+    throw new Error(i18n.t('upgrade:service.connectWallet'))
   }
 }
 

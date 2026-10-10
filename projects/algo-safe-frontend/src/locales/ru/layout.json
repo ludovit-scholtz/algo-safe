@@ -1,0 +1,35 @@
+{
+  "logoAlt": "Логотип Algo Safe",
+  "selectSafe": "Выберите сейф",
+  "registerAgent": "Зарегистрировать агента",
+  "nav": {
+    "dashboard": "Панель",
+    "proposals": "Предложения",
+    "createProposal": "Создать предложение",
+    "assets": "Активы",
+    "upgrade": "Обновление и rekey",
+    "walletConnect": "WalletConnect"
+  },
+  "errorBoundary": {
+    "title": "Произошла ошибка",
+    "unexpected": "Непредвиденная ошибка приложения."
+  },
+  "auth": {
+    "checking": "Проверка кошелька",
+    "loginPrompt": "Войдите с помощью кошелька Algorand, чтобы получить доступ к своим сейфам",
+    "loggingOut": "Выход",
+    "logout": "Выйти"
+  },
+  "network": {
+    "localnetLocked": "Подключите кошелёк LocalNet (KMD), чтобы переключиться сюда",
+    "chooseLocalnetWallet": "Выберите кошелёк LocalNet",
+    "chooseAlgorandWallet": "Выберите кошелёк Algorand",
+    "hints": {
+      "mainnet": "Рабочая сеть для реальных операций с казной.",
+      "voimain": "Сеть Voi для специализированных операций.",
+      "aramidmain": "Сеть Aramid для специализированных операций.",
+      "testnet": "Публичная тестовая сеть для подключения кошельков и пробных запусков.",
+      "localnet": "Локальная сеть для разработки с кошельками на базе KMD."
+    }
+  }
+}

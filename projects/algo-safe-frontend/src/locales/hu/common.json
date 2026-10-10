@@ -1,0 +1,23 @@
+{
+  "language": "Nyelv",
+  "demoData": "demóadatok",
+  "address": {
+    "copy": "Cím másolása",
+    "copied": "Cím másolva",
+    "copyTitle": "{{address}} másolása",
+    "copiedTitle": "Másolva: {{address}}"
+  },
+  "status": {
+    "executed": "végrehajtva",
+    "pending": "függőben",
+    "ready": "kész",
+    "draft": "piszkozat",
+    "blocked": "blokkolva",
+    "rejected": "elutasítva",
+    "expired": "lejárt",
+    "cancelled": "visszavonva",
+    "active": "aktív",
+    "pending_review": "felülvizsgálatra vár",
+    "paused": "szüneteltetve"
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "logoAlt": "Algo Safe 로고",
+  "selectSafe": "세이프 선택",
+  "registerAgent": "에이전트 등록",
+  "nav": {
+    "dashboard": "대시보드",
+    "proposals": "제안",
+    "createProposal": "제안 만들기",
+    "assets": "자산",
+    "upgrade": "업그레이드 및 Rekey",
+    "walletConnect": "WalletConnect"
+  },
+  "errorBoundary": {
+    "title": "오류가 발생했습니다",
+    "unexpected": "예기치 않은 애플리케이션 오류입니다."
+  },
+  "auth": {
+    "checking": "지갑 확인 중",
+    "loginPrompt": "세이프에 접근하려면 Algorand 지갑으로 로그인하세요",
+    "loggingOut": "로그아웃 중",
+    "logout": "로그아웃"
+  },
+  "network": {
+    "localnetLocked": "여기로 전환하려면 LocalNet(KMD) 지갑을 연결하세요",
+    "chooseLocalnetWallet": "LocalNet 지갑 선택",
+    "chooseAlgorandWallet": "Algorand 지갑 선택",
+    "hints": {
+      "mainnet": "실제 트레저리 운영을 위한 프로덕션 네트워크입니다.",
+      "voimain": "특수 운영을 위한 Voi 네트워크입니다.",
+      "aramidmain": "특수 운영을 위한 Aramid 네트워크입니다.",
+      "testnet": "지갑 연결 및 테스트 실행을 위한 공개 테스트 네트워크입니다.",
+      "localnet": "KMD 기반 지갑을 사용하는 로컬 개발 체인입니다."
+    }
+  }
+}

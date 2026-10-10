@@ -1,0 +1,59 @@
+{
+  "title": "Actualización y direcciones con rekey",
+  "subtitle": "Gestione las direcciones con rekey hacia esta caja fuerte y migre la caja fuerte a la última versión del contrato.",
+  "backToDashboard": "Volver al panel",
+  "errors": {
+    "connectAdmin": "Conecte una wallet con acceso de administrador antes de gestionar las direcciones con rekey.",
+    "invalidAddress": "Introduzca una dirección de Algorand válida.",
+    "registryProposalFailed": "No se pudo crear la propuesta del registro.",
+    "connectDeploy": "Conecte una wallet antes de desplegar la caja fuerte actualizada.",
+    "deployFailed": "No se pudo desplegar y clonar la caja fuerte actualizada.",
+    "migrationProposalFailed": "No se pudo crear la propuesta de rekey de migración."
+  },
+  "version": {
+    "title": "Versión del contrato",
+    "deployedHash": "Hash de la versión desplegada:",
+    "detecting": "detectando…",
+    "isLatest": "Esta caja fuerte usa la última versión del contrato.",
+    "newerAvailable": "Hay una versión más reciente del contrato disponible; considere actualizar más abajo."
+  },
+  "adminGroup": {
+    "title": "Grupo de administración",
+    "label": "Grupo de firmantes para las propuestas",
+    "hint": "Los cambios del registro y el rekey de migración se proponen a través de este grupo de administración.",
+    "fallbackOption": "Grupo 1",
+    "option": "{{name}} · {{threshold}} de {{memberCount}}"
+  },
+  "upgrade": {
+    "title": "Actualizar la caja fuerte",
+    "intro": "La actualización despliega una <strong>nueva caja fuerte con el último contrato</strong>, le clona los grupos de firmantes, las políticas y el registro de direcciones con rekey de esta caja fuerte y, después, mediante una propuesta de rekey gobernada, entrega al nuevo despliegue todas las direcciones controladas (incluida la cuenta de esta caja fuerte). Los fondos nunca salen de las direcciones.",
+    "step1": "Desplegar y clonar la configuración (firmada con su wallet, sin cambio de custodia).",
+    "step2": "Proponer el rekey de migración; los administradores lo aprueban al alcanzar el umbral del grupo.",
+    "step3": "Ejecutar: la nueva caja fuerte toma el control y esta pasa a ser un historial de solo lectura.",
+    "deploying": "Desplegando…",
+    "deployButton": "1 · Desplegar y clonar",
+    "proposing": "Proponiendo…",
+    "proposeButton": "2 · Proponer rekey de migración",
+    "deployed": "Nueva caja fuerte desplegada — ID de app <mono>{{appId}}</mono>",
+    "savedHint": "Guardada en la lista de cajas fuertes de este navegador. Ahora cree la propuesta de rekey de migración y reúna las aprobaciones de los administradores."
+  },
+  "registry": {
+    "title": "Direcciones con rekey",
+    "description": "Direcciones externas cuya autoridad de gasto se ha transferido (rekey) a esta caja fuerte. La lista se rige por propuestas de administración y se usa durante la migración para volver a hacer rekey de cada dirección controlada hacia la nueva caja fuerte. Registrar una dirección aquí no ejecuta el rekey: envíe la transacción de rekey real desde esa cuenta por separado.",
+    "addressLabel": "Dirección",
+    "addressHint": "La cuenta con rekey (o a punto de tenerlo) hacia esta caja fuerte.",
+    "addressPlaceholder": "Dirección de Algorand",
+    "labelLabel": "Etiqueta",
+    "labelHint": "Nombre legible opcional.",
+    "labelPlaceholder": "p. ej., hot wallet operativa",
+    "proposeAdd": "Proponer añadir",
+    "empty": "No hay direcciones con rekey registradas.",
+    "unlabelled": "sin etiqueta",
+    "recordMeta": "{{label}} · registrada en la ronda {{round}}",
+    "proposeRemove": "Proponer eliminar",
+    "refresh": "Actualizar"
+  },
+  "service": {
+    "connectWallet": "Conecte una wallet antes de ejecutar acciones de migración de la caja fuerte."
+  }
+}

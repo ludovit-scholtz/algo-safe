@@ -3,6 +3,7 @@ import { useWallet } from '@txnlab/use-wallet-react'
 import { ACT_AXFER, ACT_PAY, ACT_REKEY, createAssetSafeTxn, createPaymentSafeTxn, createRekeySafeTxn, toSafeTxnGroup } from 'algo-safe'
 import algosdk from 'algosdk'
 import { useMemo, useState } from 'react'
+import { Trans, useTranslation } from 'react-i18next'
 import { Link, useNavigate } from 'react-router-dom'
 import { AddressDisplay } from '../components/AddressDisplay'
 import { Button } from '../components/ui/Button'
@@ -36,6 +37,7 @@ function parseBaseUnits(value: string, decimals: number) {
 }
 
 export function CreateProposalPage() {
+  const { t } = useTranslation('proposals')
   const safeId = useSafeId()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -79,24 +81,24 @@ export function CreateProposalPage() {
     setCreatedProposal(null)
 
     if (!safe) {
-      setErrorMessage('The selected safe could not be loaded.')
+      setErrorMessage(t('create.errors.safeNotLoaded'))
       return
     }
 
     if (!isReady || !activeAddress || !transactionSigner) {
-      setErrorMessage('Connect a wallet before creating a proposal.')
+      setErrorMessage(t('create.errors.connectWallet'))
       return
     }
 
     if (!algosdk.isValidAddress(effectiveReceiver.trim())) {
-      setErrorMessage('Enter a valid Algorand receiver address.')
+      setErrorMessage(t('create.errors.invalidReceiver'))
       return
     }
 
     const parsedGroupId = BigInt(groupId)
     const parsedExpiryRounds = Number(expiryRounds)
     if (parsedGroupId <= 0n || !Number.isInteger(parsedExpiryRounds) || parsedExpiryRounds <= 0) {
-      setErrorMessage('Group ID and expiry rounds must both be positive values.')
+      setErrorMessage(t('create.errors.nonPositive'))
       return
     }
 
@@ -118,7 +120,7 @@ export function CreateProposalPage() {
       } else if (proposalKind === 'payment') {
         const rawAmount = parseBaseUnits(amount, 6)
         if (rawAmount === null || rawAmount < 0n) {
-          throw new Error('Enter a valid ALGO amount for the payment proposal.')
+          throw new Error(t('create.errors.invalidAlgoAmount'))
         }
 
         payload = toSafeTxnGroup([
@@ -134,21 +136,13 @@ export function CreateProposalPage() {
       } else {
         const resolvedAssetId = assetId.trim()
         if (!resolvedAssetId || !/^\d+$/.test(resolvedAssetId)) {
-          throw new Error(
-            proposalKind === 'opt-in'
-              ? 'Enter a valid asset ID to create an opt-in proposal.'
-              : 'Select an opted-in asset for the asset transfer proposal.',
-          )
+          throw new Error(proposalKind === 'opt-in' ? t('create.errors.optInAssetId') : t('create.errors.selectOptedInAsset'))
         }
 
         const resolvedAssetDecimals = proposalKind === 'opt-in' ? 0 : (selectedAsset?.decimals ?? 0)
         const rawAmount = proposalKind === 'opt-in' ? 0n : parseBaseUnits(amount, resolvedAssetDecimals)
         if (rawAmount === null || rawAmount < 0n) {
-          throw new Error(
-            proposalKind === 'opt-in'
-              ? 'Opt-in proposals must use a zero amount.'
-              : 'Enter a valid asset amount for the transfer proposal.',
-          )
+          throw new Error(proposalKind === 'opt-in' ? t('create.errors.optInZeroAmount') : t('create.errors.invalidAssetAmount'))
         }
 
         payload = toSafeTxnGroup([
@@ -174,7 +168,7 @@ export function CreateProposalPage() {
       await queryClient.invalidateQueries({ queryKey: ['proposal', safeId, proposalId] })
       navigate(`/safe/${safeId}/proposals/${proposalId}`, { state: { txId } })
     } catch (error) {
-      setErrorMessage(error instanceof Error && error.message.trim() ? error.message : 'Failed to save the proposal on-chain.')
+      setErrorMessage(error instanceof Error && error.message.trim() ? error.message : t('create.errors.saveFailed'))
     } finally {
       setSubmitMode(null)
     }
@@ -184,15 +178,13 @@ export function CreateProposalPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-on-surface">Create Proposal</h1>
-          <p className="mt-1 text-sm text-on-surface-variant">
-            Build a payment, ASA transfer, or rekey proposal and write it directly to the selected Algo Safe contract.
-          </p>
+          <h1 className="text-3xl font-bold text-on-surface">{t('create.title')}</h1>
+          <p className="mt-1 text-sm text-on-surface-variant">{t('create.subtitle')}</p>
         </div>
         <Link to={`/safe/${safeId}/proposals`}>
           <Button variant="secondary">
             <Icon name="arrow_back" className="text-base" />
-            Back to Proposals
+            {t('create.back')}
           </Button>
         </Link>
       </div>
@@ -207,18 +199,15 @@ export function CreateProposalPage() {
             }}
           >
             <div className="grid gap-4 md:grid-cols-2">
-              <FormField label="Proposal Type" hint="Choose the transaction type the safe should execute once approved.">
+              <FormField label={t('create.proposalType')} hint={t('create.proposalTypeHint')}>
                 <select className={inputCls} value={proposalKind} onChange={(event) => setProposalKind(event.target.value as ProposalKind)}>
-                  <option value="payment">ALGO payment</option>
-                  <option value="asset-transfer">ASA transfer</option>
-                  <option value="opt-in">Opt in ASA</option>
-                  <option value="rekey">Rekey safe</option>
+                  <option value="payment">{t('create.kinds.payment')}</option>
+                  <option value="asset-transfer">{t('create.kinds.assetTransfer')}</option>
+                  <option value="opt-in">{t('create.kinds.optIn')}</option>
+                  <option value="rekey">{t('create.kinds.rekey')}</option>
                 </select>
               </FormField>
-              <FormField
-                label="Signer Group ID"
-                hint="Bootstrap creates group 1 by default; change this only if your safe uses another signer group."
-              >
+              <FormField label={t('create.groupId')} hint={t('create.groupIdHint')}>
                 <input
                   className={inputCls}
                   inputMode="numeric"
@@ -231,36 +220,31 @@ export function CreateProposalPage() {
 
             {proposalKind === 'rekey' && (
               <div className="rounded-sm border border-error/40 bg-error-container/30 px-3 py-2 text-sm text-on-error-container">
-                <strong>Danger:</strong> executing this proposal permanently hands control of the safe address to the target address — the
-                safe contract can no longer move any funds afterwards. Use it only to migrate to a newly deployed Algo Safe. It requires a
-                signer group holding both the rekey action and group-admin privileges, at full threshold.
+                <Trans t={t} i18nKey="create.rekeyWarning" components={{ strong: <strong /> }} />
               </div>
             )}
 
             <div className="grid gap-4 md:grid-cols-2">
               {proposalKind === 'rekey' ? (
-                <FormField
-                  label="Rekey target"
-                  hint="The address that takes over the safe account — usually a newly deployed safe's application address."
-                >
+                <FormField label={t('create.rekeyTarget')} hint={t('create.rekeyTargetHint')}>
                   <input
                     className={inputCls}
                     value={receiver}
                     onChange={(event) => setReceiver(event.target.value)}
-                    placeholder="New controller address"
+                    placeholder={t('create.rekeyTargetPlaceholder')}
                   />
                 </FormField>
               ) : proposalKind !== 'opt-in' ? (
-                <FormField label="Receiver" hint="The address that will receive the ALGO payment or ASA transfer.">
+                <FormField label={t('create.receiver')} hint={t('create.receiverHint')}>
                   <input
                     className={inputCls}
                     value={receiver}
                     onChange={(event) => setReceiver(event.target.value)}
-                    placeholder="Algorand address"
+                    placeholder={t('create.receiverPlaceholder')}
                   />
                 </FormField>
               ) : (
-                <FormField label="Receiver" hint="Opt-in proposals always target the safe address itself.">
+                <FormField label={t('create.receiver')} hint={t('create.receiverOptInHint')}>
                   <div className={`${inputCls} flex min-h-11 items-center justify-between gap-3 text-on-surface-variant`}>
                     <AddressDisplay address={safe?.address} textClassName="text-sm text-on-surface-variant" fallback="—" />
                   </div>
@@ -268,18 +252,18 @@ export function CreateProposalPage() {
               )}
 
               {proposalKind === 'rekey' ? (
-                <FormField label="Amount" hint="A rekey is a zero-amount transaction carrying only the new auth address.">
+                <FormField label={t('create.amount')} hint={t('create.rekeyAmountHint')}>
                   <input className={`${inputCls} text-on-surface-variant`} value="0" disabled readOnly />
                 </FormField>
               ) : proposalKind !== 'opt-in' ? (
                 <FormField
-                  label={proposalKind === 'payment' ? 'Amount (ALGO)' : 'Amount'}
+                  label={proposalKind === 'payment' ? t('create.amountAlgo') : t('create.amount')}
                   hint={
                     proposalKind === 'payment'
-                      ? 'The amount is converted to microAlgos before submission.'
+                      ? t('create.amountAlgoHint')
                       : selectedAsset
-                        ? `Uses ${selectedAsset.symbol} with ${selectedAsset.decimals} decimals.`
-                        : 'Select an opted-in asset first.'
+                        ? t('create.amountAssetHint', { symbol: selectedAsset.symbol, decimals: selectedAsset.decimals })
+                        : t('create.amountSelectAssetFirst')
                   }
                 >
                   <input
@@ -287,11 +271,11 @@ export function CreateProposalPage() {
                     inputMode="decimal"
                     value={amount}
                     onChange={(event) => setAmount(event.target.value)}
-                    placeholder="0.00"
+                    placeholder={t('create.amountPlaceholder')}
                   />
                 </FormField>
               ) : (
-                <FormField label="Amount" hint="Opt-in proposals always use amount 0.">
+                <FormField label={t('create.amount')} hint={t('create.optInAmountHint')}>
                   <input className={`${inputCls} text-on-surface-variant`} value="0" disabled readOnly />
                 </FormField>
               )}
@@ -300,12 +284,12 @@ export function CreateProposalPage() {
             {showsAssetIdInput && (
               <div className="space-y-3">
                 {proposalKind === 'asset-transfer' ? (
-                  <FormField label="Opted-in Asset" hint="Only assets already opted in by the safe are available here.">
+                  <FormField label={t('create.optedInAsset')} hint={t('create.optedInAssetHint')}>
                     <select className={inputCls} value={assetId} onChange={(event) => setAssetId(event.target.value)}>
-                      <option value="">Select asset</option>
+                      <option value="">{t('create.selectAsset')}</option>
                       {assetOptions.map((holding) => (
                         <option key={holding.key} value={holding.assetId}>
-                          {holding.symbol} · {holding.assetId} · Available {holding.balanceDisplay}
+                          {t('create.assetOption', { symbol: holding.symbol, assetId: holding.assetId, balance: holding.balanceDisplay })}
                         </option>
                       ))}
                     </select>
@@ -313,12 +297,8 @@ export function CreateProposalPage() {
                 ) : (
                   <>
                     <FormField
-                      label="Asset ID"
-                      hint={
-                        knownAssets.length
-                          ? 'Choose a known asset for this network or enter any ASA ID manually.'
-                          : 'Enter the ASA ID the safe should opt in to.'
-                      }
+                      label={t('create.assetId')}
+                      hint={knownAssets.length ? t('create.assetIdHintKnown') : t('create.assetIdHintManual')}
                     >
                       <input
                         list="known-asset-ids"
@@ -327,7 +307,7 @@ export function CreateProposalPage() {
                         pattern="[0-9]*"
                         value={assetId}
                         onChange={(event) => setAssetId(event.target.value.replace(/[^0-9]/g, ''))}
-                        placeholder="e.g. 31566704"
+                        placeholder={t('create.assetIdPlaceholder')}
                       />
                     </FormField>
                     {knownAssets.length > 0 && (
@@ -359,7 +339,7 @@ export function CreateProposalPage() {
             )}
 
             <div className="grid gap-4 md:grid-cols-2">
-              <FormField label="Expiry (Rounds)" hint="Added to the current chain round to compute the proposal expiry round.">
+              <FormField label={t('create.expiry')} hint={t('create.expiryHint')}>
                 <input
                   className={inputCls}
                   inputMode="numeric"
@@ -368,8 +348,13 @@ export function CreateProposalPage() {
                   onChange={(event) => setExpiryRounds(event.target.value.replace(/[^0-9]/g, ''))}
                 />
               </FormField>
-              <FormField label="Note" hint="Optional note stored with the proposal payload.">
-                <input className={inputCls} value={note} onChange={(event) => setNote(event.target.value)} placeholder="Optional note" />
+              <FormField label={t('create.note')} hint={t('create.noteHint')}>
+                <input
+                  className={inputCls}
+                  value={note}
+                  onChange={(event) => setNote(event.target.value)}
+                  placeholder={t('create.notePlaceholder')}
+                />
               </FormField>
             </div>
 
@@ -380,19 +365,18 @@ export function CreateProposalPage() {
             )}
             {createdProposal && (
               <div className="rounded-sm border border-primary/30 bg-primary/10 px-3 py-2 text-sm text-on-surface">
-                Proposal #{createdProposal.proposalId || 'unknown'} was saved on-chain. Tx ID: {createdProposal.txId || 'pending'}
+                {t('create.created', {
+                  proposalId: createdProposal.proposalId || t('create.createdUnknown'),
+                  txId: createdProposal.txId || t('create.createdPending'),
+                })}
               </div>
             )}
 
-            {canSelfExecute && (
-              <p className="text-xs text-on-surface-variant">
-                Your signer group is 1-of-1, so your proposal is approved by itself — you can execute it in the same transaction.
-              </p>
-            )}
+            {canSelfExecute && <p className="text-xs text-on-surface-variant">{t('create.selfExecuteHint')}</p>}
             <div className="flex items-center justify-end gap-3">
               <Link to={`/safe/${safeId}/proposals`}>
                 <Button type="button" variant="ghost">
-                  Cancel
+                  {t('create.cancel')}
                 </Button>
               </Link>
               <Button type="submit" variant={canSelfExecute ? 'secondary' : 'primary'} disabled={isSubmitting || !safe}>
@@ -401,7 +385,7 @@ export function CreateProposalPage() {
                 ) : (
                   <Icon name="save" className="text-base" />
                 )}
-                {submitMode === 'prepare' ? 'Saving Proposal...' : canSelfExecute ? 'Prepare Transaction' : 'Save Proposal'}
+                {submitMode === 'prepare' ? t('create.saving') : canSelfExecute ? t('create.prepare') : t('create.save')}
               </Button>
               {canSelfExecute && (
                 <Button type="button" disabled={isSubmitting || !safe} onClick={() => void submitProposal(true)}>
@@ -410,7 +394,7 @@ export function CreateProposalPage() {
                   ) : (
                     <Icon name="bolt" className="text-base" />
                   )}
-                  {submitMode === 'execute' ? 'Executing...' : 'Execute Right Away'}
+                  {submitMode === 'execute' ? t('create.executing') : t('create.executeNow')}
                 </Button>
               )}
             </div>
@@ -419,42 +403,42 @@ export function CreateProposalPage() {
 
         <div className="space-y-4">
           <Card>
-            <h2 className="mb-3 font-mono text-xs uppercase tracking-wide text-on-surface-variant">Selected Safe</h2>
+            <h2 className="mb-3 font-mono text-xs uppercase tracking-wide text-on-surface-variant">{t('create.selectedSafe')}</h2>
             <div className="space-y-2 text-sm text-on-surface-variant">
-              <p className="font-semibold text-on-surface">{safe?.name ?? 'Loading safe...'}</p>
+              <p className="font-semibold text-on-surface">{safe?.name ?? t('create.loadingSafe')}</p>
               <AddressDisplay address={safe?.address} textClassName="text-sm text-on-surface-variant" fallback="—" />
-              <p>App ID {safe?.appId ?? '—'}</p>
+              <p>{t('create.appId', { appId: safe?.appId ?? '—' })}</p>
             </div>
           </Card>
           <Card>
-            <h2 className="mb-3 font-mono text-xs uppercase tracking-wide text-on-surface-variant">Available Balances</h2>
+            <h2 className="mb-3 font-mono text-xs uppercase tracking-wide text-on-surface-variant">{t('create.balances')}</h2>
             <div className="max-h-52 space-y-2 overflow-y-auto pr-1 text-sm text-on-surface-variant">
               <p>
-                Native ALGO:{' '}
+                {t('create.nativeAlgo')}{' '}
                 <span className="font-mono text-on-surface">{holdings?.find((holding) => holding.isNative)?.balanceDisplay ?? '—'}</span>
               </p>
               {proposalKind === 'opt-in' && (
                 <div className="flex flex-wrap items-center gap-2">
-                  <span>Opt-in target:</span>
+                  <span>{t('create.optInTarget')}</span>
                   <AddressDisplay address={safe?.address} textClassName="text-sm text-on-surface" fallback="—" />
                 </div>
               )}
               {selectedAsset && (
                 <p>
-                  Selected ASA balance:{' '}
+                  {t('create.selectedBalance')}{' '}
                   <span className="font-mono text-on-surface">{formatUnits(selectedAsset.rawAmount, selectedAsset.decimals)}</span>
                 </p>
               )}
               {proposalKind === 'opt-in' && selectedKnownAsset && (
                 <p>
-                  Known asset:{' '}
+                  {t('create.knownAsset')}{' '}
                   <span className="font-mono text-on-surface">
                     {selectedKnownAsset.label} · {selectedKnownAsset.id}
                   </span>
                 </p>
               )}
-              {!selectedAsset && proposalKind === 'asset-transfer' && <p>Select an asset to see its available balance.</p>}
-              {proposalKind === 'opt-in' && !assetId && <p>Choose a known asset ID or enter an ASA ID manually.</p>}
+              {!selectedAsset && proposalKind === 'asset-transfer' && <p>{t('create.selectAssetForBalance')}</p>}
+              {proposalKind === 'opt-in' && !assetId && <p>{t('create.chooseKnownAsset')}</p>}
             </div>
           </Card>
         </div>

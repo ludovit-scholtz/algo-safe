@@ -1,0 +1,23 @@
+{
+  "language": "언어",
+  "demoData": "데모 데이터",
+  "address": {
+    "copy": "주소 복사",
+    "copied": "주소가 복사되었습니다",
+    "copyTitle": "{{address}} 복사",
+    "copiedTitle": "{{address}} 복사됨"
+  },
+  "status": {
+    "executed": "실행됨",
+    "pending": "대기 중",
+    "ready": "준비됨",
+    "draft": "초안",
+    "blocked": "차단됨",
+    "rejected": "거부됨",
+    "expired": "만료됨",
+    "cancelled": "취소됨",
+    "active": "활성",
+    "pending_review": "검토 대기",
+    "paused": "일시 중지됨"
+  }
+}

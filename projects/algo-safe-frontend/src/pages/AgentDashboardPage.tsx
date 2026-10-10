@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useWallet } from '@txnlab/use-wallet-react'
 import { getAlgoSafeContractVersion } from 'algo-safe'
 import { useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { AddressDisplay } from '../components/AddressDisplay'
 import { SafeGovernanceControls } from '../components/SafeGovernanceControls'
@@ -19,8 +20,10 @@ import { useOnChainSafeHoldings } from '../hooks/useOnChainSafeHoldings'
 import { getKnownAssets } from '../lib/assetMetadata'
 import { proposeAssetOptIn } from '../lib/optInProposal'
 import { useSafeId } from '../lib/SafeContext'
+import { currentLocale } from '../i18n/instance'
 
 export function AgentDashboardPage() {
+  const { t } = useTranslation('agents')
   const safeId = useSafeId()
   const location = useLocation()
   const navigate = useNavigate()
@@ -95,7 +98,7 @@ export function AgentDashboardPage() {
   async function handleOpenEurd() {
     if (!safe || !eurdAsset) return
     if (!isReady || !activeAddress || !transactionSigner) {
-      setEurdError('Connect a wallet to open an EURD account.')
+      setEurdError(t('dashboard.eurdConnect'))
       return
     }
     setEurdError(null)
@@ -112,7 +115,7 @@ export function AgentDashboardPage() {
       await queryClient.invalidateQueries({ queryKey: ['proposals', safeId] })
       navigate(`/safe/${safeId}/proposals/${proposalId}`, { state: { txId } })
     } catch (error) {
-      setEurdError(error instanceof Error && error.message.trim() ? error.message : 'Failed to create the EURD opt-in proposal.')
+      setEurdError(error instanceof Error && error.message.trim() ? error.message : t('dashboard.eurdFailed'))
     } finally {
       setOpeningEurd(false)
     }
@@ -138,9 +141,9 @@ export function AgentDashboardPage() {
           <div className="flex items-start gap-3 pr-4">
             <Icon name="celebration" className="mt-0.5 text-primary text-[22px]" />
             <div>
-              <p className="text-sm font-semibold text-on-surface">Safe initialization completed</p>
+              <p className="text-sm font-semibold text-on-surface">{t('dashboard.initTitle')}</p>
               <p className="text-sm text-on-surface-variant">
-                {initializationSuccess.name} is live on-chain as safe #{initializationSuccess.appId}. The dashboard is ready.
+                {t('dashboard.initBody', { name: initializationSuccess.name, appId: initializationSuccess.appId })}
               </p>
             </div>
           </div>
@@ -152,10 +155,13 @@ export function AgentDashboardPage() {
           <div className="flex items-start gap-3 pr-4">
             <Icon name="celebration" className="mt-0.5 text-primary text-[22px]" />
             <div>
-              <p className="text-sm font-semibold text-on-surface">Execution confirmed and balances refreshed</p>
+              <p className="text-sm font-semibold text-on-surface">{t('dashboard.execTitle')}</p>
               <p className="text-sm text-on-surface-variant">
-                Proposal #{executionSuccess.proposalId} was confirmed in round {executionSuccess.confirmedRound}. Tx ID:{' '}
-                {executionSuccess.txId}
+                {t('dashboard.execBody', {
+                  proposalId: executionSuccess.proposalId,
+                  round: executionSuccess.confirmedRound,
+                  txId: executionSuccess.txId,
+                })}
               </p>
             </div>
           </div>
@@ -168,16 +174,14 @@ export function AgentDashboardPage() {
           <div className="flex items-start gap-3">
             <Icon name="euro" className="mt-0.5 text-secondary text-[22px]" />
             <div>
-              <p className="text-sm font-semibold text-on-surface">This safe isn't set up to hold EURD yet</p>
-              <p className="text-sm text-on-surface-variant">
-                Create an opt-in proposal so the safe can receive and hold Quantoz EURD (asset {eurdAsset?.assetId}).
-              </p>
+              <p className="text-sm font-semibold text-on-surface">{t('dashboard.eurdTitle')}</p>
+              <p className="text-sm text-on-surface-variant">{t('dashboard.eurdBody', { assetId: eurdAsset?.assetId })}</p>
               {eurdError && <p className="mt-1 text-sm text-error">{eurdError}</p>}
             </div>
           </div>
           <Button onClick={() => void handleOpenEurd()} disabled={openingEurd} className="shrink-0">
             {openingEurd ? <Icon name="sync" className="animate-spin text-base" /> : <Icon name="add_card" className="text-base" />}
-            {openingEurd ? 'Creating proposal…' : 'Open EURD account'}
+            {openingEurd ? t('dashboard.creating') : t('dashboard.openEurd')}
           </Button>
         </div>
       )}
@@ -185,21 +189,21 @@ export function AgentDashboardPage() {
       {/* Page Header */}
       <div className="flex items-end justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-on-surface">Agent Dashboard</h1>
-          <p className="mt-1 text-sm text-on-surface-variant">Monitor and interact with specialized treasury execution agents.</p>
+          <h1 className="text-3xl font-bold text-on-surface">{t('dashboard.title')}</h1>
+          <p className="mt-1 text-sm text-on-surface-variant">{t('dashboard.subtitle')}</p>
           <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-on-surface-variant">
-            <span className="font-mono text-xs uppercase tracking-wide">Safe Address</span>
+            <span className="font-mono text-xs uppercase tracking-wide">{t('dashboard.safeAddress')}</span>
             <AddressDisplay address={safe?.address} textClassName="text-sm text-on-surface" buttonClassName="h-5 w-5" />
           </div>
           <div className="mt-3 inline-flex flex-wrap items-center gap-2 rounded-md border border-outline-variant bg-surface-container-low px-3 py-2 text-sm">
-            <span className="font-mono text-xs uppercase tracking-wide text-on-surface-variant">Contract Version</span>
+            <span className="font-mono text-xs uppercase tracking-wide text-on-surface-variant">{t('dashboard.contractVersion')}</span>
             <span className="font-semibold text-on-surface">
-              {contractVersionLoading ? 'Loading...' : (contractVersion ?? 'Version not detected for this deployment.')}
+              {contractVersionLoading ? t('dashboard.loading') : (contractVersion ?? t('dashboard.versionNotDetected'))}
             </span>
           </div>
         </div>
         <div className="text-right">
-          <p className="font-mono text-xs uppercase tracking-wide text-on-surface-variant">Native Balance</p>
+          <p className="font-mono text-xs uppercase tracking-wide text-on-surface-variant">{t('dashboard.nativeBalance')}</p>
           <p className="mt-0.5 text-lg font-bold text-on-surface">{nativeHolding?.balanceDisplay ?? '—'} ALGO</p>
         </div>
       </div>
@@ -207,26 +211,30 @@ export function AgentDashboardPage() {
       {/* Stat Cards */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <StatCard
-          label="Native Balance"
+          label={t('dashboard.nativeBalance')}
           value={nativeHolding ? `${nativeHolding.balanceDisplay} ALGO` : '—'}
-          sub="Current smart-account ALGO balance"
+          sub={t('dashboard.nativeSub')}
         />
-        <StatCard label="Opted-In Assets" value={optedInAssets.length} sub="ASA holdings loaded directly from algod" />
-        <StatCard label="Action Required" value={pending} sub={pending > 0 ? 'Proposals need attention' : 'All clear'} />
+        <StatCard label={t('dashboard.optedIn')} value={optedInAssets.length} sub={t('dashboard.optedInSub')} />
+        <StatCard
+          label={t('dashboard.actionRequired')}
+          value={pending}
+          sub={pending > 0 ? t('dashboard.needAttention') : t('dashboard.allClear')}
+        />
       </div>
 
       <section>
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="font-mono text-xs uppercase tracking-wide text-on-surface-variant">Treasury Holdings</h2>
+          <h2 className="font-mono text-xs uppercase tracking-wide text-on-surface-variant">{t('dashboard.holdings')}</h2>
           <button className="font-mono text-xs text-primary hover:underline" onClick={() => navigate(`/safe/${safeId}/assets`)}>
-            Open Assets Page
+            {t('dashboard.openAssets')}
           </button>
         </div>
         <SafeHoldingsTable
           holdings={holdings}
           isLoading={holdingsLoading}
           error={holdingsError instanceof Error ? holdingsError.message : null}
-          emptyMessage="No on-chain balances were found for this smart-account address."
+          emptyMessage={t('dashboard.noBalances')}
         />
       </section>
 
@@ -238,10 +246,10 @@ export function AgentDashboardPage() {
       {/* Agents Grid */}
       <section>
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="font-mono text-xs uppercase tracking-wide text-on-surface-variant">Registered Signer Groups</h2>
+          <h2 className="font-mono text-xs uppercase tracking-wide text-on-surface-variant">{t('dashboard.groups')}</h2>
           <div className="flex items-center gap-2 font-mono text-xs text-on-surface-variant">
             {(signerGroupsLoading || signerGroupsFetching) && <Icon name="progress_activity" className="animate-spin text-sm" />}
-            <span>Round #{currentRound?.toLocaleString() ?? '—'}</span>
+            <span>{t('dashboard.round', { round: currentRound?.toLocaleString(currentLocale()) ?? '—' })}</span>
           </div>
         </div>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -252,7 +260,7 @@ export function AgentDashboardPage() {
             <div className="col-span-full flex h-32 items-center justify-center rounded-md border border-outline-variant bg-surface-container-low">
               <div className="flex items-center gap-3 text-sm text-on-surface-variant">
                 <Icon name="progress_activity" className="animate-spin text-lg" />
-                <span>Loading signer groups from the blockchain…</span>
+                <span>{t('dashboard.loadingGroups')}</span>
               </div>
             </div>
           )}
@@ -260,9 +268,7 @@ export function AgentDashboardPage() {
             <Card className="col-span-full px-6 py-8 text-center text-sm text-error">{signerGroupsError.message}</Card>
           )}
           {!signerGroupsLoading && !signerGroupsFetching && !(signerGroupsError instanceof Error) && !signerGroups?.length && (
-            <Card className="col-span-full px-6 py-8 text-center text-sm text-on-surface-variant">
-              No signer groups were found for this safe.
-            </Card>
+            <Card className="col-span-full px-6 py-8 text-center text-sm text-on-surface-variant">{t('dashboard.noGroups')}</Card>
           )}
         </div>
       </section>
@@ -270,9 +276,9 @@ export function AgentDashboardPage() {
       {/* Activity Log */}
       <section>
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="font-mono text-xs uppercase tracking-wide text-on-surface-variant">Activity Log</h2>
+          <h2 className="font-mono text-xs uppercase tracking-wide text-on-surface-variant">{t('dashboard.activity')}</h2>
           <button className="font-mono text-xs text-primary hover:underline" onClick={() => navigate(`/safe/${safeId}/proposals`)}>
-            View All Transactions
+            {t('dashboard.viewAll')}
           </button>
         </div>
         <Card className="p-0">
@@ -295,7 +301,7 @@ export function AgentDashboardPage() {
                     </p>
                     {p.amount != null && (
                       <p className="font-mono text-xs text-on-surface-variant">
-                        {p.amount.toLocaleString()} {p.asset}
+                        {p.amount.toLocaleString(currentLocale())} {p.asset}
                       </p>
                     )}
                   </div>
@@ -305,13 +311,13 @@ export function AgentDashboardPage() {
                   <div>
                     <p className="font-mono text-xs text-on-surface">{p.date}</p>
                     <p className="font-mono text-xs text-on-surface-variant">
-                      {p.approvals}/{p.threshold} signatures
+                      {t('dashboard.signatures', { approvals: p.approvals, threshold: p.threshold })}
                     </p>
                   </div>
                 </div>
               </li>
             ))}
-            {!proposals?.length && <li className="px-6 py-8 text-center text-sm text-on-surface-variant">No activity yet.</li>}
+            {!proposals?.length && <li className="px-6 py-8 text-center text-sm text-on-surface-variant">{t('dashboard.noActivity')}</li>}
           </ul>
         </Card>
       </section>

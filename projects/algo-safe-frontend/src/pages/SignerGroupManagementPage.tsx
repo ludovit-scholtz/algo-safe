@@ -28,6 +28,7 @@ import {
 import algosdk from 'algosdk'
 import { useSnackbar } from 'notistack'
 import { useEffect, useMemo, useState } from 'react'
+import { Trans, useTranslation } from 'react-i18next'
 import { useNavigate, useParams } from 'react-router-dom'
 import { AddressDisplay } from '../components/AddressDisplay'
 import { Button } from '../components/ui/Button'
@@ -36,9 +37,10 @@ import { FormField, inputCls } from '../components/ui/FormField'
 import { Icon } from '../components/ui/Icon'
 import { useSafe, useSignerGroup } from '../hooks'
 import { useOnChainSafeHoldings } from '../hooks/useOnChainSafeHoldings'
-import { getKnownAssets } from '../lib/assetMetadata'
+import { getKnownAssets, getNativeAssetMetadata } from '../lib/assetMetadata'
 import { formatUnits, getZeroAddress } from '../lib/onChainSafe'
 import { useSafeId } from '../lib/SafeContext'
+import type { TFunction } from 'i18next'
 import type { AssetSymbol } from '../services/types'
 
 const TX_VALIDITY_WINDOW = 200
@@ -46,11 +48,11 @@ const TX_VALIDITY_WINDOW = 200
 const PROPOSAL_MAX_FEE = algo(0.05)
 
 const MEMBER_TYPE_OPTIONS = [
-  { value: 1, label: 'Standard account' },
-  { value: 2, label: 'Multisig account' },
-  { value: 3, label: 'Rekeyed account' },
-  { value: 4, label: 'Agent account' },
-  { value: 5, label: 'Quantum account' },
+  { value: 1, labelKey: 'memberTypes.standard' },
+  { value: 2, labelKey: 'memberTypes.multisig' },
+  { value: 3, labelKey: 'memberTypes.rekeyed' },
+  { value: 4, labelKey: 'memberTypes.agent' },
+  { value: 5, labelKey: 'memberTypes.quantum' },
 ]
 
 const ZERO_ADDRESS = getZeroAddress()
@@ -102,8 +104,9 @@ function parseBaseUnits(value: string, decimals: number) {
   return BigInt(normalized || '0')
 }
 
-function accountTypeLabel(accountType: number) {
-  return MEMBER_TYPE_OPTIONS.find((option) => option.value === accountType)?.label ?? `Type ${accountType}`
+function accountTypeLabel(accountType: number, t: TFunction<'signers'>) {
+  const option = MEMBER_TYPE_OPTIONS.find((candidate) => candidate.value === accountType)
+  return option ? t(option.labelKey) : t('memberTypes.unknown', { type: accountType })
 }
 
 function flagSet(mask: number, flag: bigint) {
@@ -131,6 +134,7 @@ function toAdminChangeTuple(change: AdminChange): AdminChangeTuple {
 }
 
 export function SignerGroupManagementPage() {
+  const { t } = useTranslation('signers')
   const safeId = useSafeId()
   const { groupId = '' } = useParams<{ groupId: string }>()
   const navigate = useNavigate()
@@ -205,7 +209,7 @@ export function SignerGroupManagementPage() {
         name: asset.name,
         assetId: asset.assetId,
         decimals: asset.decimals,
-        balanceDisplay: 'not held',
+        balanceDisplay: t('manage.policy.notHeld'),
         isNative: false,
       })
     }
@@ -214,7 +218,7 @@ export function SignerGroupManagementPage() {
       upsert({
         key: 'native-algo',
         symbol: 'ALGO',
-        name: 'Algorand Native',
+        name: getNativeAssetMetadata().name,
         assetId: 0,
         decimals: 6,
         balanceDisplay: '0',
@@ -232,7 +236,7 @@ export function SignerGroupManagementPage() {
           name: trackedAsset.name,
           assetId: trackedAsset.assetId,
           decimals: trackedAsset.decimals,
-          balanceDisplay: 'not held',
+          balanceDisplay: t('manage.policy.notHeld'),
           isNative: trackedAsset.isNative,
         })
       }
@@ -242,13 +246,13 @@ export function SignerGroupManagementPage() {
       if (left.isNative !== right.isNative) return left.isNative ? -1 : 1
       return left.symbol.localeCompare(right.symbol) || (left.assetId ?? 0) - (right.assetId ?? 0)
     })
-  }, [detail, holdings, knownAssets])
+  }, [detail, holdings, knownAssets, t])
 
   const selectedSpendingAsset = spendingLimitAssets.find((asset) => asset.key === spendingLimitAssetKey) ??
     spendingLimitAssets[0] ?? {
       key: 'native-algo',
       symbol: 'ALGO',
-      name: 'Algorand Native',
+      name: getNativeAssetMetadata().name,
       assetId: 0,
       decimals: 6,
       balanceDisplay: '—',
@@ -326,12 +330,12 @@ export function SignerGroupManagementPage() {
     setError(null)
 
     if (!safe) {
-      reportError('The selected safe could not be loaded.')
+      reportError(t('shared.safeNotLoaded'))
       return
     }
 
     if (!canSubmit) {
-      reportError('Connect a wallet with access to an admin signer group before managing this signer group.')
+      reportError(t('manage.connectWallet'))
       return
     }
 
@@ -372,7 +376,7 @@ export function SignerGroupManagementPage() {
       enqueueSnackbar(successMessage, { variant: 'success' })
       navigate(`/safe/${safeId}/proposals/${proposalId}`, { state: { txId } })
     } catch (submitError) {
-      reportError(submitError instanceof Error ? submitError.message : 'Failed to create signer-group update proposal.')
+      reportError(submitError instanceof Error ? submitError.message : t('manage.submitFailed'))
     } finally {
       setSubmittingSection(null)
     }
@@ -382,7 +386,7 @@ export function SignerGroupManagementPage() {
     e.preventDefault()
 
     if (!algosdk.isValidAddress(memberAddress.trim())) {
-      reportError('Enter a valid Algorand address for the member.')
+      reportError(t('manage.members.invalidAddress'))
       return
     }
 
@@ -404,14 +408,14 @@ export function SignerGroupManagementPage() {
         cooldownRounds: 0n,
         activeFlag: 1n,
       }),
-      'Member addition proposal created',
+      t('manage.members.addCreated'),
     )
   }
 
   async function handleRemoveMember(address: string) {
     const remaining = (detail?.group.memberCount ?? 1) - 1
     if (remaining < (detail?.group.threshold ?? 1)) {
-      reportError('Removing this member would drop the group below its signing threshold. Lower the threshold first.')
+      reportError(t('manage.members.belowThreshold'))
       return
     }
 
@@ -422,7 +426,7 @@ export function SignerGroupManagementPage() {
         targetGroupId: BigInt(groupId),
         memberAddr: address,
       }),
-      'Member removal proposal created',
+      t('manage.members.removeCreated'),
     )
   }
 
@@ -431,7 +435,7 @@ export function SignerGroupManagementPage() {
     const guardAsset = spendingLimitAssets.find((asset) => asset.key === guardAssetKey) ?? selectedSpendingAsset
     const parsedGuardAmount = parseBaseUnits(guardAmount, guardAsset.decimals)
     if (parsedGuardAmount === null) {
-      reportError(`Enter a valid ${guardAsset.symbol} guard amount.`)
+      reportError(t('manage.guards.amountInvalid', { symbol: guardAsset.symbol }))
       return
     }
 
@@ -443,7 +447,7 @@ export function SignerGroupManagementPage() {
         limitAssetId: BigInt(guardAsset.assetId ?? 0),
         guardAmount: parsedGuardAmount,
       }),
-      'Asset guard proposal created',
+      t('manage.guards.setCreated'),
     )
   }
 
@@ -455,7 +459,7 @@ export function SignerGroupManagementPage() {
         targetGroupId: BigInt(groupId),
         limitAssetId: assetId,
       }),
-      'Guard removal proposal created',
+      t('manage.guards.removeCreated'),
     )
   }
 
@@ -464,7 +468,7 @@ export function SignerGroupManagementPage() {
     const parsedThreshold = Number(threshold)
 
     if (!Number.isInteger(parsedThreshold) || parsedThreshold < 1 || parsedThreshold > maxThreshold) {
-      reportError(`Threshold must be between 1 and ${maxThreshold}.`)
+      reportError(t('manage.threshold.invalid', { max: maxThreshold }))
       return
     }
 
@@ -486,7 +490,7 @@ export function SignerGroupManagementPage() {
         cooldownRounds: 0n,
         activeFlag: 1n,
       }),
-      'Threshold update proposal created',
+      t('manage.threshold.created'),
     )
   }
 
@@ -495,25 +499,25 @@ export function SignerGroupManagementPage() {
     const parsedDailyLimit = parseBaseUnits(dailyLimit, selectedSpendingAsset.decimals)
     const parsedMonthlyLimit = parseBaseUnits(monthlyLimit, selectedSpendingAsset.decimals)
     if (!/^\d+$/.test(cooldownRounds || '0')) {
-      reportError('Cooldown rounds must be a non-negative integer.')
+      reportError(t('manage.policy.cooldownInvalid'))
       return
     }
     const parsedCooldown = BigInt(cooldownRounds || '0')
     const limitAssetId = BigInt(selectedSpendingAsset.assetId ?? 0)
 
     if (parsedDailyLimit === null || parsedMonthlyLimit === null) {
-      reportError(`Enter valid ${selectedSpendingAsset.symbol} limits for the signer group policy.`)
+      reportError(t('manage.policy.limitsInvalid', { symbol: selectedSpendingAsset.symbol }))
       return
     }
 
     const hasSpendingLimit = parsedDailyLimit > 0n || parsedMonthlyLimit > 0n
     if (hasSpendingLimit && limitAssetId === 0n && !allowAlgo) {
-      reportError('Enable ALGO payments when the spending limit asset is ALGO.')
+      reportError(t('manage.policy.enableAlgo'))
       return
     }
 
     if (hasSpendingLimit && limitAssetId !== 0n && !allowAsa) {
-      reportError('Enable ASA transfers when the spending limit asset is an ASA.')
+      reportError(t('manage.policy.enableAsa'))
       return
     }
 
@@ -535,7 +539,7 @@ export function SignerGroupManagementPage() {
         cooldownRounds: parsedCooldown,
         activeFlag: 1n,
       }),
-      'Policy update proposal created',
+      t('manage.policy.created'),
     )
   }
 
@@ -559,7 +563,7 @@ export function SignerGroupManagementPage() {
         cooldownRounds: 0n,
         activeFlag: 1n,
       }),
-      'Admin privileges proposal created',
+      t('manage.admin.privilegesCreated'),
     )
   }
 
@@ -583,7 +587,7 @@ export function SignerGroupManagementPage() {
         cooldownRounds: 0n,
         activeFlag: isActive ? 1n : 0n,
       }),
-      'Signer-group status proposal created',
+      t('manage.admin.statusCreated'),
     )
   }
 
@@ -593,12 +597,12 @@ export function SignerGroupManagementPage() {
     setError(null)
 
     if (!safe) {
-      reportError('The selected safe could not be loaded.')
+      reportError(t('shared.safeNotLoaded'))
       return
     }
 
     if (!canSubmit) {
-      reportError('Connect a wallet before proposing dissolution.')
+      reportError(t('manage.dissolve.connectWallet'))
       return
     }
 
@@ -622,7 +626,7 @@ export function SignerGroupManagementPage() {
       // last remaining member — its box is deleted together with the group box.
       const lastMember = detail?.members[0]?.address
       if (!lastMember || (detail?.group.memberCount ?? 0) !== 1) {
-        reportError('Dissolution requires the group to be pruned to exactly one member first (via member removal proposals).')
+        reportError(t('manage.dissolve.needSingleMember'))
         setSubmittingSection(null)
         return
       }
@@ -648,10 +652,10 @@ export function SignerGroupManagementPage() {
       await queryClient.invalidateQueries({ queryKey: ['proposal', safeId, proposalId] })
       await queryClient.invalidateQueries({ queryKey: ['signer-groups', safeId] })
 
-      enqueueSnackbar('Custodian dissolution proposal created', { variant: 'success' })
+      enqueueSnackbar(t('manage.dissolve.created'), { variant: 'success' })
       navigate(`/safe/${safeId}/proposals/${proposalId}`, { state: { txId } })
     } catch (submitError) {
-      reportError(submitError instanceof Error ? submitError.message : 'Failed to create dissolution proposal.')
+      reportError(submitError instanceof Error ? submitError.message : t('manage.dissolve.failed'))
     } finally {
       setSubmittingSection(null)
     }
@@ -662,7 +666,7 @@ export function SignerGroupManagementPage() {
       <div className="flex min-h-[320px] items-center justify-center">
         <div className="flex items-center gap-3 text-sm text-on-surface-variant">
           <Icon name="progress_activity" className="animate-spin text-lg" />
-          <span>Loading signer-group settings from the blockchain…</span>
+          <span>{t('manage.loading')}</span>
         </div>
       </div>
     )
@@ -673,9 +677,9 @@ export function SignerGroupManagementPage() {
       <div className="space-y-4">
         <Button variant="ghost" className="px-0" onClick={() => navigate(`/safe/${safeId}`)}>
           <Icon name="arrow_back" className="text-base" />
-          Back to Dashboard
+          {t('shared.backToDashboard')}
         </Button>
-        <Card className="px-6 py-8 text-center text-sm text-on-surface-variant">The selected signer group was not found.</Card>
+        <Card className="px-6 py-8 text-center text-sm text-on-surface-variant">{t('manage.notFound')}</Card>
       </div>
     )
   }
@@ -685,20 +689,18 @@ export function SignerGroupManagementPage() {
       <div className="flex items-end justify-between gap-4">
         <div>
           <nav className="mb-2 flex items-center gap-1 font-mono text-xs text-on-surface-variant">
-            <span>Treasury</span>
+            <span>{t('breadcrumb.treasury')}</span>
             <Icon name="chevron_right" className="text-sm" />
-            <span>Signer Groups</span>
+            <span>{t('breadcrumb.signerGroups')}</span>
             <Icon name="chevron_right" className="text-sm" />
-            <span className="text-primary">Manage Group #{detail.group.id}</span>
+            <span className="text-primary">{t('breadcrumb.manageGroup', { id: detail.group.id })}</span>
           </nav>
-          <h1 className="text-3xl font-bold text-on-surface">Manage Signer Group</h1>
-          <p className="mt-1 text-sm text-on-surface-variant">
-            Update membership, thresholds, policy controls, and admin permissions through governance proposals.
-          </p>
+          <h1 className="text-3xl font-bold text-on-surface">{t('manage.title')}</h1>
+          <p className="mt-1 text-sm text-on-surface-variant">{t('manage.subtitle')}</p>
         </div>
         <Button variant="secondary" onClick={() => navigate(`/safe/${safeId}`)}>
           <Icon name="arrow_back" className="text-base" />
-          Back to Dashboard
+          {t('shared.backToDashboard')}
         </Button>
       </div>
 
@@ -715,47 +717,37 @@ export function SignerGroupManagementPage() {
             <div className="flex items-center gap-2">
               <h2 className="text-xl font-semibold text-on-surface">{detail.group.name}</h2>
               {detail.group.isCustodian ? (
-                <span className="rounded-sm bg-warn/15 px-2 py-0.5 font-mono text-[11px] uppercase tracking-wide text-warn">Custodian</span>
+                <span className="rounded-sm bg-warn/15 px-2 py-0.5 font-mono text-[11px] uppercase tracking-wide text-warn">
+                  {t('role.custodian')}
+                </span>
               ) : (
                 <span
                   className={`rounded-sm px-2 py-0.5 font-mono text-[11px] uppercase tracking-wide ${detail.group.isAdminGroup ? 'bg-primary/15 text-primary' : 'bg-secondary-container/20 text-secondary'}`}
                 >
-                  {detail.group.isAdminGroup ? 'Admin' : 'Execution'}
+                  {detail.group.isAdminGroup ? t('role.admin') : t('role.execution')}
                 </span>
               )}
             </div>
-            <p className="mt-1 text-sm text-on-surface-variant">
-              Group names are fixed at creation time. All other supported properties can be updated via proposals from an admin signer
-              group.
-            </p>
+            <p className="mt-1 text-sm text-on-surface-variant">{t('manage.fixedNameNote')}</p>
           </div>
 
           <div className="w-full max-w-sm">
-            <FormField
-              label="Submitting Admin Signer Group"
-              hint="The connected account must be a member of the selected admin group to submit the proposal."
-            >
+            <FormField label={t('shared.adminGroupLabel')} hint={t('manage.adminGroupHint')}>
               <select className={inputCls} value={selectedAdminGroupId} onChange={(event) => setSelectedAdminGroupId(event.target.value)}>
                 {detail.adminGroupOptions.map((option) => (
                   <option key={option.id} value={option.id}>
                     #{option.id} {option.name}
-                    {option.isMember ? ' · you are a member' : ''}
+                    {option.isMember ? t('manage.youAreMember') : ''}
                   </option>
                 ))}
               </select>
             </FormField>
-            {!detail.adminGroupOptions.length && (
-              <p className="mt-2 text-xs text-error">No active admin signer groups were found for this safe.</p>
-            )}
-            {selectedAdminGroup && !selectedAdminGroup.isMember && (
-              <p className="mt-2 text-xs text-warn">
-                The selected admin group may reject this proposal if the connected wallet is not a member.
-              </p>
-            )}
+            {!detail.adminGroupOptions.length && <p className="mt-2 text-xs text-error">{t('shared.noAdminGroups')}</p>}
+            {selectedAdminGroup && !selectedAdminGroup.isMember && <p className="mt-2 text-xs text-warn">{t('manage.mayReject')}</p>}
             {isFetching && (
               <div className="mt-2 flex items-center gap-2 text-xs text-on-surface-variant">
                 <Icon name="progress_activity" className="animate-spin text-sm" />
-                Refreshing group state…
+                {t('manage.refreshing')}
               </div>
             )}
           </div>
@@ -764,13 +756,9 @@ export function SignerGroupManagementPage() {
 
       {detail.group.isCustodian && (
         <div className="rounded-md border border-outline-variant bg-surface-container-low px-4 py-3 text-sm text-on-surface-variant">
-          <span className="font-semibold text-on-surface">Custodian group</span> — this group is governed by a smart-contract protocol.
-          Asset guards (set by admins) bound what the custodian can spend. It has no admin privileges and uses guards instead of day/month
-          limits. The custodian can self-dissolve once all guards are removed.
+          <Trans t={t} i18nKey="manage.custodianNotice" components={{ strong: <span className="font-semibold text-on-surface" /> }} />
           {detail.group.guardCount > 0 && (
-            <span className="ml-2 font-mono text-[11px] text-warn">
-              ({detail.group.guardCount} active guard{detail.group.guardCount !== 1 ? 's' : ''})
-            </span>
+            <span className="ml-2 font-mono text-[11px] text-warn">{t('manage.activeGuards', { count: detail.group.guardCount })}</span>
           )}
         </div>
       )}
@@ -779,11 +767,11 @@ export function SignerGroupManagementPage() {
         <Card>
           <div className="mb-4 flex items-center justify-between">
             <div>
-              <h2 className="text-lg font-semibold text-on-surface">Members</h2>
-              <p className="text-sm text-on-surface-variant">Current signer accounts and labels recorded in the group boxes.</p>
+              <h2 className="text-lg font-semibold text-on-surface">{t('manage.members.title')}</h2>
+              <p className="text-sm text-on-surface-variant">{t('manage.members.desc')}</p>
             </div>
             <span className="rounded-sm bg-surface-container-high px-3 py-1 font-mono text-xs text-on-surface-variant">
-              {detail.group.memberCount} member{detail.group.memberCount === 1 ? '' : 's'}
+              {t('manage.members.count', { count: detail.group.memberCount })}
             </span>
           </div>
 
@@ -792,19 +780,19 @@ export function SignerGroupManagementPage() {
               <div key={member.address} className="rounded-md border border-outline-variant bg-surface-container-low px-4 py-3">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <div className="text-sm font-semibold text-on-surface">{member.label || 'Member'}</div>
+                    <div className="text-sm font-semibold text-on-surface">{member.label || t('manage.members.defaultLabel')}</div>
                     <div className="mt-1">
                       <AddressDisplay address={member.address} textClassName="text-xs text-on-surface-variant" buttonClassName="h-5 w-5" />
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="rounded-sm bg-surface-container-high px-2 py-1 font-mono text-[11px] uppercase tracking-wide text-on-surface-variant">
-                      {accountTypeLabel(member.accountType)}
+                      {accountTypeLabel(member.accountType, t)}
                     </span>
                     <button
                       type="button"
-                      title="Propose member removal"
-                      aria-label={`Propose removal of ${member.label || member.address}`}
+                      title={t('manage.members.removeTitle')}
+                      aria-label={t('manage.members.removeAria', { who: member.label || member.address })}
                       className="flex h-7 w-7 items-center justify-center rounded text-on-surface-variant transition-colors hover:bg-error-container/40 hover:text-error disabled:opacity-40"
                       disabled={!canSubmit || submittingSection !== null || detail.group.memberCount <= detail.group.threshold}
                       onClick={() => handleRemoveMember(member.address)}
@@ -819,35 +807,33 @@ export function SignerGroupManagementPage() {
               </div>
             ))}
             {detail.group.memberCount <= detail.group.threshold && detail.group.memberCount > 0 && (
-              <p className="text-xs text-on-surface-variant">
-                Members cannot be removed while the count equals the signing threshold — lower the threshold first.
-              </p>
+              <p className="text-xs text-on-surface-variant">{t('manage.members.cannotRemove')}</p>
             )}
           </div>
 
           <form className="mt-5 space-y-4" onSubmit={handleAddMember}>
-            <FormField label="Member Address">
+            <FormField label={t('manage.members.addressLabel')}>
               <input
                 className={inputCls}
                 value={memberAddress}
                 onChange={(event) => setMemberAddress(event.target.value)}
-                placeholder="Algorand address"
+                placeholder={t('shared.addressPlaceholder')}
               />
             </FormField>
             <div className="grid gap-4 md:grid-cols-2">
-              <FormField label="Member Label">
+              <FormField label={t('shared.memberLabel')}>
                 <input
                   className={inputCls}
                   value={memberLabel}
                   onChange={(event) => setMemberLabel(event.target.value)}
-                  placeholder="Treasury signer"
+                  placeholder={t('manage.members.labelPlaceholder')}
                 />
               </FormField>
-              <FormField label="Account Type">
+              <FormField label={t('shared.accountType')}>
                 <select className={inputCls} value={memberType} onChange={(event) => setMemberType(event.target.value)}>
                   {MEMBER_TYPE_OPTIONS.map((option) => (
                     <option key={option.value} value={option.value}>
-                      {option.label}
+                      {t(option.labelKey)}
                     </option>
                   ))}
                 </select>
@@ -855,18 +841,16 @@ export function SignerGroupManagementPage() {
             </div>
             <Button type="submit" disabled={!canSubmit || submittingSection !== null}>
               <Icon name="person_add" className="text-base" />
-              {submittingSection === 'member' ? 'Creating Proposal…' : 'Propose Member Addition'}
+              {submittingSection === 'member' ? t('shared.creatingProposal') : t('manage.members.submitAdd')}
             </Button>
           </form>
         </Card>
 
         <Card>
-          <h2 className="text-lg font-semibold text-on-surface">Signing Threshold</h2>
-          <p className="mt-1 text-sm text-on-surface-variant">
-            Change how many signatures are required before this group can approve execution.
-          </p>
+          <h2 className="text-lg font-semibold text-on-surface">{t('manage.threshold.title')}</h2>
+          <p className="mt-1 text-sm text-on-surface-variant">{t('manage.threshold.desc')}</p>
           <form className="mt-5 space-y-4" onSubmit={handleThresholdUpdate}>
-            <FormField label="Threshold" hint={`Current members available: ${maxThreshold}`}>
+            <FormField label={t('manage.threshold.label')} hint={t('manage.threshold.hint', { max: maxThreshold })}>
               <input
                 className={inputCls}
                 type="number"
@@ -878,53 +862,46 @@ export function SignerGroupManagementPage() {
             </FormField>
             <Button type="submit" disabled={!canSubmit || submittingSection !== null}>
               <Icon name="rule" className="text-base" />
-              {submittingSection === 'threshold' ? 'Creating Proposal…' : 'Propose Threshold Update'}
+              {submittingSection === 'threshold' ? t('shared.creatingProposal') : t('manage.threshold.submit')}
             </Button>
           </form>
         </Card>
 
         {!detail.group.isCustodian && (
           <Card>
-            <h2 className="text-lg font-semibold text-on-surface">Execution Policy</h2>
-            <p className="mt-1 text-sm text-on-surface-variant">
-              Update allowed actions, asset-based limits, and cooldown rounds for the signer group.
-            </p>
+            <h2 className="text-lg font-semibold text-on-surface">{t('manage.policy.title')}</h2>
+            <p className="mt-1 text-sm text-on-surface-variant">{t('manage.policy.desc')}</p>
             <form className="mt-5 space-y-4" onSubmit={handlePolicyUpdate}>
               <div className="grid gap-3 sm:grid-cols-2">
                 <label className="flex items-center gap-3 rounded-md border border-outline-variant bg-surface-container-low px-4 py-3 text-sm text-on-surface">
                   <input type="checkbox" checked={allowAlgo} onChange={(event) => setAllowAlgo(event.target.checked)} />
-                  Allow ALGO payments
+                  {t('shared.allowAlgo')}
                 </label>
                 <label className="flex items-center gap-3 rounded-md border border-outline-variant bg-surface-container-low px-4 py-3 text-sm text-on-surface">
                   <input type="checkbox" checked={allowAsa} onChange={(event) => setAllowAsa(event.target.checked)} />
-                  Allow ASA transfers
+                  {t('shared.allowAsa')}
                 </label>
                 <label className="flex items-center gap-3 rounded-md border border-outline-variant bg-surface-container-low px-4 py-3 text-sm text-on-surface">
                   <input type="checkbox" checked={allowApp} onChange={(event) => setAllowApp(event.target.checked)} />
-                  Allow app calls
+                  {t('shared.allowApp')}
                 </label>
                 <label className="flex items-center gap-3 rounded-md border border-outline-variant bg-surface-container-low px-4 py-3 text-sm text-on-surface">
                   <input type="checkbox" checked={allowKeyreg} onChange={(event) => setAllowKeyreg(event.target.checked)} />
-                  Allow key registration
+                  {t('shared.allowKeyreg')}
                 </label>
                 <label className="flex items-center gap-3 rounded-md border border-outline-variant bg-surface-container-low px-4 py-3 text-sm text-on-surface">
                   <input type="checkbox" checked={allowAcfg} onChange={(event) => setAllowAcfg(event.target.checked)} />
-                  Allow asset configuration
+                  {t('shared.allowAcfg')}
                 </label>
                 <label className="flex items-center gap-3 rounded-md border border-outline-variant bg-surface-container-low px-4 py-3 text-sm text-on-surface">
                   <input type="checkbox" checked={allowRekey} onChange={(event) => setAllowRekey(event.target.checked)} />
                   <span>
-                    Allow rekey
-                    <span className="mt-0.5 block text-xs text-on-surface-variant">
-                      Rekey also requires group-admin privileges at execution time — it hands account control to another address.
-                    </span>
+                    {t('shared.allowRekey')}
+                    <span className="mt-0.5 block text-xs text-on-surface-variant">{t('manage.policy.rekeyHint')}</span>
                   </span>
                 </label>
               </div>
-              <FormField
-                label="Spending Limit Asset"
-                hint="The selected asset controls how the daily and monthly limit fields are interpreted and labeled."
-              >
+              <FormField label={t('manage.policy.assetLabel')} hint={t('manage.policy.assetHint')}>
                 <select
                   className={inputCls}
                   value={spendingLimitAssetKey}
@@ -935,25 +912,25 @@ export function SignerGroupManagementPage() {
                       {asset.symbol}
                       {asset.name ? ` · ${asset.name}` : ''}
                       {asset.assetId && asset.assetId !== 0 ? ` · ${asset.assetId}` : ''}
-                      {` · Available ${asset.balanceDisplay}`}
+                      {` · ${t('manage.policy.optionAvailable', { balance: asset.balanceDisplay })}`}
                     </option>
                   ))}
                 </select>
               </FormField>
               <div className="grid gap-4 md:grid-cols-3">
                 <FormField
-                  label={`Daily Limit (${selectedSpendingAsset.symbol})`}
-                  hint={`Use 0 for no limit in ${selectedSpendingAsset.symbol}.`}
+                  label={t('manage.policy.dailyLabel', { symbol: selectedSpendingAsset.symbol })}
+                  hint={t('manage.policy.limitHint', { symbol: selectedSpendingAsset.symbol })}
                 >
                   <input className={inputCls} value={dailyLimit} onChange={(event) => setDailyLimit(event.target.value)} />
                 </FormField>
                 <FormField
-                  label={`Monthly Limit (${selectedSpendingAsset.symbol})`}
-                  hint={`Use 0 for no limit in ${selectedSpendingAsset.symbol}.`}
+                  label={t('manage.policy.monthlyLabel', { symbol: selectedSpendingAsset.symbol })}
+                  hint={t('manage.policy.limitHint', { symbol: selectedSpendingAsset.symbol })}
                 >
                   <input className={inputCls} value={monthlyLimit} onChange={(event) => setMonthlyLimit(event.target.value)} />
                 </FormField>
-                <FormField label="Cooldown Rounds" hint="Use 0 for no cooldown.">
+                <FormField label={t('manage.policy.cooldownLabel')} hint={t('manage.policy.cooldownHint')}>
                   <input
                     className={inputCls}
                     type="number"
@@ -965,7 +942,7 @@ export function SignerGroupManagementPage() {
               </div>
               <Button type="submit" disabled={!canSubmit || submittingSection !== null}>
                 <Icon name="tune" className="text-base" />
-                {submittingSection === 'policy' ? 'Creating Proposal…' : 'Propose Policy Update'}
+                {submittingSection === 'policy' ? t('shared.creatingProposal') : t('manage.policy.submit')}
               </Button>
             </form>
           </Card>
@@ -973,36 +950,34 @@ export function SignerGroupManagementPage() {
 
         {!detail.group.isCustodian && (
           <Card>
-            <h2 className="text-lg font-semibold text-on-surface">Admin Controls</h2>
-            <p className="mt-1 text-sm text-on-surface-variant">
-              Grant or revoke governance privileges and enable or disable the signer group.
-            </p>
+            <h2 className="text-lg font-semibold text-on-surface">{t('manage.admin.title')}</h2>
+            <p className="mt-1 text-sm text-on-surface-variant">{t('manage.admin.desc')}</p>
 
             <form className="mt-5 space-y-4" onSubmit={handlePrivilegesUpdate}>
               <div className="grid gap-3 sm:grid-cols-2">
                 <label className="flex items-center gap-3 rounded-md border border-outline-variant bg-surface-container-low px-4 py-3 text-sm text-on-surface">
                   <input type="checkbox" checked={groupAdmin} onChange={(event) => setGroupAdmin(event.target.checked)} />
-                  Group admin privileges
+                  {t('manage.admin.groupAdmin')}
                 </label>
                 <label className="flex items-center gap-3 rounded-md border border-outline-variant bg-surface-container-low px-4 py-3 text-sm text-on-surface">
                   <input type="checkbox" checked={policyAdmin} onChange={(event) => setPolicyAdmin(event.target.checked)} />
-                  Policy admin privileges
+                  {t('manage.admin.policyAdmin')}
                 </label>
               </div>
               <Button type="submit" disabled={!canSubmit || submittingSection !== null}>
                 <Icon name="admin_panel_settings" className="text-base" />
-                {submittingSection === 'privileges' ? 'Creating Proposal…' : 'Propose Privilege Update'}
+                {submittingSection === 'privileges' ? t('shared.creatingProposal') : t('manage.admin.submitPrivileges')}
               </Button>
             </form>
 
             <form className="mt-6 space-y-4 border-t border-outline-variant pt-6" onSubmit={handleActiveUpdate}>
               <label className="flex items-center gap-3 rounded-md border border-outline-variant bg-surface-container-low px-4 py-3 text-sm text-on-surface">
                 <input type="checkbox" checked={isActive} onChange={(event) => setIsActive(event.target.checked)} />
-                Group is active and can participate in proposal approvals and execution.
+                {t('manage.admin.activeLabel')}
               </label>
               <Button type="submit" disabled={!canSubmit || submittingSection !== null}>
                 <Icon name={isActive ? 'toggle_on' : 'toggle_off'} className="text-base" />
-                {submittingSection === 'status' ? 'Creating Proposal…' : 'Propose Status Update'}
+                {submittingSection === 'status' ? t('shared.creatingProposal') : t('manage.admin.submitStatus')}
               </Button>
             </form>
           </Card>
@@ -1012,14 +987,11 @@ export function SignerGroupManagementPage() {
           <Card>
             <div className="mb-4 flex items-center justify-between">
               <div>
-                <h2 className="text-lg font-semibold text-on-surface">Asset Guards</h2>
-                <p className="text-sm text-on-surface-variant">
-                  Per-asset spending ceilings for this custodian. Guards are created, updated, and removed by admin-group proposals; each
-                  custodian transfer deducts from the matching guard.
-                </p>
+                <h2 className="text-lg font-semibold text-on-surface">{t('manage.guards.title')}</h2>
+                <p className="text-sm text-on-surface-variant">{t('manage.guards.desc')}</p>
               </div>
               <span className="rounded-sm bg-surface-container-high px-3 py-1 font-mono text-xs text-on-surface-variant">
-                {detail.group.guardCount} guard{detail.group.guardCount === 1 ? '' : 's'}
+                {t('manage.guards.count', { count: detail.group.guardCount })}
               </span>
             </div>
 
@@ -1039,13 +1011,13 @@ export function SignerGroupManagementPage() {
                         )}
                       </div>
                       <div className="mt-0.5 font-mono text-xs text-on-surface-variant">
-                        Remaining allocation: {formatUnits(guard.lockedAmount, meta.decimals)} {meta.symbol}
+                        {t('manage.guards.remaining', { amount: formatUnits(guard.lockedAmount, meta.decimals), symbol: meta.symbol })}
                       </div>
                     </div>
                     <button
                       type="button"
-                      title="Propose guard removal"
-                      aria-label={`Propose removal of the ${meta.symbol} guard`}
+                      title={t('manage.guards.removeTitle')}
+                      aria-label={t('manage.guards.removeAria', { symbol: meta.symbol })}
                       className="flex h-7 w-7 items-center justify-center rounded text-on-surface-variant transition-colors hover:bg-error-container/40 hover:text-error disabled:opacity-40"
                       disabled={!canSubmit || submittingSection !== null}
                       onClick={() => handleRemoveGuard(guard.assetId)}
@@ -1060,25 +1032,25 @@ export function SignerGroupManagementPage() {
               })}
               {(assetGuards ?? []).length === 0 && (
                 <p className="rounded-md border border-outline-variant bg-surface-container-lowest px-4 py-3 text-sm text-on-surface-variant">
-                  No guards configured — this custodian cannot move any value until an admin sets a guard.
+                  {t('manage.guards.empty')}
                 </p>
               )}
             </div>
 
             <form className="mt-5 space-y-4 border-t border-outline-variant pt-5" onSubmit={handleSetGuard}>
               <div className="grid gap-4 md:grid-cols-2">
-                <FormField label="Guard Asset" hint="ALGO or an ASA the safe holds.">
+                <FormField label={t('manage.guards.assetLabel')} hint={t('manage.guards.assetHint')}>
                   <select className={inputCls} value={guardAssetKey} onChange={(event) => setGuardAssetKey(event.target.value)}>
                     {spendingLimitAssets.map((asset) => (
                       <option key={asset.key} value={asset.key}>
                         {asset.symbol}
                         {asset.assetId && asset.assetId !== 0 ? ` · ${asset.assetId}` : ''}
-                        {` · Available ${asset.balanceDisplay}`}
+                        {` · ${t('manage.policy.optionAvailable', { balance: asset.balanceDisplay })}`}
                       </option>
                     ))}
                   </select>
                 </FormField>
-                <FormField label="Guard Amount" hint="Sets (or replaces) the remaining allocation for this asset.">
+                <FormField label={t('manage.guards.amountLabel')} hint={t('manage.guards.amountHint')}>
                   <input
                     className={inputCls}
                     value={guardAmount}
@@ -1089,7 +1061,7 @@ export function SignerGroupManagementPage() {
               </div>
               <Button type="submit" disabled={!canSubmit || submittingSection !== null}>
                 <Icon name="shield" className="text-base" />
-                {submittingSection === 'set-guard' ? 'Creating Proposal…' : 'Propose Guard Update'}
+                {submittingSection === 'set-guard' ? t('shared.creatingProposal') : t('manage.guards.submit')}
               </Button>
             </form>
           </Card>
@@ -1097,21 +1069,17 @@ export function SignerGroupManagementPage() {
 
         {detail.group.isCustodian && (
           <Card>
-            <h2 className="text-lg font-semibold text-on-surface">Self-Dissolution</h2>
-            <p className="mt-1 text-sm text-on-surface-variant">
-              A custodian group can dissolve itself once all asset guards are removed by an admin and the group is pruned to a single
-              member. The dissolve proposal deletes that last member's box with the group.
-            </p>
+            <h2 className="text-lg font-semibold text-on-surface">{t('manage.dissolve.title')}</h2>
+            <p className="mt-1 text-sm text-on-surface-variant">{t('manage.dissolve.desc')}</p>
             <form className="mt-5 space-y-4" onSubmit={handleDissolveCustodian}>
               {detail.group.guardCount > 0 && (
                 <div className="rounded-md border border-error-container bg-error-container/30 px-4 py-3 text-sm text-on-error-container">
-                  This group still has {detail.group.guardCount} active guard{detail.group.guardCount !== 1 ? 's' : ''}. An admin must
-                  remove all guards before dissolution can proceed.
+                  {t('manage.dissolve.guardsWarning', { count: detail.group.guardCount })}
                 </div>
               )}
               {detail.group.memberCount > 1 && (
                 <div className="rounded-md border border-outline-variant bg-surface-container-low px-4 py-3 text-sm text-on-surface-variant">
-                  This group has {detail.group.memberCount} members. Remove all but one (via member-removal proposals) before dissolving.
+                  {t('manage.dissolve.membersWarning', { count: detail.group.memberCount })}
                 </div>
               )}
               <Button
@@ -1120,7 +1088,7 @@ export function SignerGroupManagementPage() {
                 disabled={!canSubmit || submittingSection !== null || detail.group.guardCount > 0 || detail.group.memberCount !== 1}
               >
                 <Icon name="delete_forever" className="text-base" />
-                {submittingSection === 'dissolve' ? 'Creating Proposal…' : 'Propose Dissolution'}
+                {submittingSection === 'dissolve' ? t('shared.creatingProposal') : t('manage.dissolve.submit')}
               </Button>
             </form>
           </Card>
