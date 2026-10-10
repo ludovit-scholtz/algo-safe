@@ -85,7 +85,9 @@ export const ProposalDetailPage = () => {
             <Trans
               t={t}
               i18nKey="detail.notFoundBody"
-              values={{ id: id }}
+              tOptions={{ interpolation: { escapeValue: true } }}
+              shouldUnescape
+              values={{ id }}
               components={{ id: <span className="font-mono text-on-surface" /> }}
             />
           </p>

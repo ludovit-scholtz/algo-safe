@@ -139,7 +139,7 @@
     "statusHeading": "Status",
     "proposalId": "Proposal ID",
     "threshold": "Threshold",
-    "signatures_one": "{{count}} signatures",
+    "signatures_one": "{{count}} signature",
     "signatures_other": "{{count}} signatures",
     "toasts": {
       "approved": "Proposal approved",
@@ -209,7 +209,7 @@
       "quantum": "quantum account",
       "standard": "standard account"
     },
-    "cooldown_one": "{{count}} rounds",
+    "cooldown_one": "{{count}} round",
     "cooldown_other": "{{count}} rounds",
     "noCooldown": "no cooldown",
     "newAsset": "new asset",
@@ -242,7 +242,7 @@
       "admin": "Admin proposal"
     },
     "description": "Signer group {{groupId}} proposal from {{proposer}}. {{summary}}",
-    "queued_one": "{{count}} transactions queued for execution.",
+    "queued_one": "{{count}} transaction queued for execution.",
     "queued_other": "{{count}} transactions queued for execution.",
     "expires": "Expires at round {{round}}",
     "admin": {
