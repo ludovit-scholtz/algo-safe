@@ -20,21 +20,24 @@ spec:
           ports:
             - containerPort: 8080
           readinessProbe:
-            httpGet:
-              path: /
+            tcpSocket:
               port: 8080
             initialDelaySeconds: 5
             periodSeconds: 10
+            timeoutSeconds: 5
           livenessProbe:
-            httpGet:
-              path: /
+            tcpSocket:
               port: 8080
             initialDelaySeconds: 15
             periodSeconds: 20
+            timeoutSeconds: 5
+          # nginx `worker_processes auto` spawns one worker per host CPU
+          # (~90 on our nodes); the old 64Mi limit got the pod OOMKilled
+          # right after "start worker processes". Matches biatec-scan-web.
           resources:
             requests:
               cpu: 50m
-              memory: 32Mi
-            limits:
-              cpu: 100m
               memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
