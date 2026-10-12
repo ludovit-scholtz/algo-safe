@@ -56,7 +56,7 @@
     "@walletconnect/utils": "^2.23.10",
     "algo-safe": "workspace:*",
     "algosdk": "^3.6.0",
-    "biatec-wallet-use-wallet-client": "^0.4.0",
+    "biatec-wallet-use-wallet-client": "^0.6.0",
     "i18next": "^26.4.2",
     "i18next-browser-languagedetector": "^8.2.1",
     "notistack": "^3.0.2",

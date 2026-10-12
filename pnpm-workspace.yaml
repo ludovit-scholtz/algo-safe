@@ -9,7 +9,7 @@ ignoredBuiltDependencies:
   - esbuild
   - unrs-resolver
 minimumReleaseAgeExclude:
-  - biatec-wallet-use-wallet-client@0.4.0
+  - biatec-wallet-use-wallet-client@0.6.0
 overrides:
   brace-expansion@<1.1.20: '>=1.1.20'
   brace-expansion@>=4.0.0 <5.0.11: '>=5.0.11'

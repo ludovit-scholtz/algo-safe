@@ -149,8 +149,8 @@ importers:
         specifier: ^3.6.0
         version: 3.6.0
       biatec-wallet-use-wallet-client:
-        specifier: ^0.4.0
-        version: 0.4.0(@txnlab/use-wallet@5.0.1(algosdk@3.6.0))(algosdk@3.6.0)(typescript@5.9.3)(zod@3.25.76)
+        specifier: ^0.6.0
+        version: 0.6.0(@txnlab/use-wallet@5.0.1(algosdk@3.6.0))(algosdk@3.6.0)(typescript@5.9.3)(zod@3.25.76)
       i18next:
         specifier: ^26.4.2
         version: 26.4.2(typescript@5.9.3)
@@ -2368,8 +2368,8 @@ packages:
     engines: {node: '>=6.0.0'}
     hasBin: true
 
-  biatec-wallet-use-wallet-client@0.4.0:
-    resolution: {integrity: sha512-WuZgIygZcbKpPWQ16IGqx3L0lSAEmv3lcogpFsmbtCDWkzyA2j7jv1Z59QURbe+emBZd1JIR9/Xu42Qvjgdmtw==}
+  biatec-wallet-use-wallet-client@0.6.0:
+    resolution: {integrity: sha512-yXj2BpasufMBAK4SBjHZPbZXWNud7IeeH+6eQwUwqw58b2Zr2GZEGe9fhTEuGwLLUxW5mmYmyC7H+Rxm5RnhrQ==}
     engines: {node: '>=20.19'}
     peerDependencies:
       '@txnlab/use-wallet': ^5.0.0
@@ -7449,7 +7449,7 @@ snapshots:
 
   baseline-browser-mapping@2.10.42: {}
 
-  biatec-wallet-use-wallet-client@0.4.0(@txnlab/use-wallet@5.0.1(algosdk@3.6.0))(algosdk@3.6.0)(typescript@5.9.3)(zod@3.25.76):
+  biatec-wallet-use-wallet-client@0.6.0(@txnlab/use-wallet@5.0.1(algosdk@3.6.0))(algosdk@3.6.0)(typescript@5.9.3)(zod@3.25.76):
     dependencies:
       '@txnlab/use-wallet': 5.0.1(algosdk@3.6.0)
       '@walletconnect/sign-client': 2.24.0(typescript@5.9.3)(zod@3.25.76)
