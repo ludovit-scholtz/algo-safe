@@ -5839,7 +5839,7 @@ _executeProposalInternal_else_body@76:
 
 _executeProposalInternal_else_body@78:
     // smart_contracts/algo_safe/contract.algo.ts:1439
-    // assert(change.changeType === Uint64(10), 'unknown change type')
+    // assert(change.changeType === ADM_SET_PAUSED, 'unknown change type')
     frame_dig 75
     pushint 10 // 10
     ==

@@ -130,7 +130,7 @@ const ADM_ADD_REKEYED_ADDR: uint64 = Uint64(8)
 const ADM_REMOVE_REKEYED_ADDR: uint64 = Uint64(9)
 
 // 10 = ADM_SET_PAUSED — handled as the else-branch in _applyAdminChange.
-// Kept in src/constants.ts for external callers but not declared here to save space.
+const ADM_SET_PAUSED: uint64 = Uint64(10)
 
 // Custodian group lifecycle (all require PRIV_GROUP except ADM_DISSOLVE_CUSTODIAN).
 const ADM_CREATE_CUSTODIAN: uint64 = Uint64(11)   // admin creates a new custodian group
@@ -1436,7 +1436,7 @@ export class AlgoSafe extends Contract {
     } else {
       // ADM_SET_PAUSED (value 10) — not declared as a constant to save program space.
       // I-01 (2026-10-14): unknown change types must revert, not toggle the pause flag.
-      assert(change.changeType === Uint64(10), 'unknown change type')
+      assert(change.changeType === ADM_SET_PAUSED, 'unknown change type')
       // activeFlag nonzero = pause; zero = unpause.
       this.paused.value = change.activeFlag !== Uint64(0) ? Uint64(1) : Uint64(0)
       emit<SafePaused>({ paused: this.paused.value })

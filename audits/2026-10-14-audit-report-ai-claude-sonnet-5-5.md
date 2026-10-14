@@ -63,7 +63,7 @@ Compiled approval program: **7,054 / 8,192 bytes** (1,138-byte margin, 13.9%).
 | I-02 / I-03 | **Fixed (doc)** | Comment corrected; `CLAUDE.md` size figure and v3.3.0 bullet. (`AI-AUDIT-INSTRUCTIONS.md` getter references left for a separate pass.) |
 | L-02 | **Fixed** | `algosdkTxnsToSafeTxnGroup` throws on `assetSender`; unit test. |
 | L-03 | **Fixed** | `decodeAppCallArgs` treats arguments from the 15th as packed when the method has more than 15 value arguments; unit tests. |
-| L-04 | **Partially fixed** | A spec whose embedded `byteCode.approval` does not hash to the on-chain program is rejected (`no-spec`); unit tests. Pinning the registry image by digest remains an operational follow-up (digest unknown to this repo). |
+| L-04 | **Partially fixed** | A spec whose embedded `byteCode.approval` does not hash to the on-chain program is treated as unpublished (falls through to the candidate lookup); template-variable specs are exempt. This only catches stale/mismatched specs — a malicious registry can still omit `byteCode`. Pinning the registry image by digest remains an operational follow-up (digest unknown to this repo). |
 
 ---
 

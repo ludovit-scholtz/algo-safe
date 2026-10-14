@@ -475,7 +475,9 @@ await client.send.executeProposal({
   maxFee: (0.02).algo(),
 })
 
-// Or cancel while pending (proposer or any group member).
+// Or cancel while pending (v3.3.0+: the proposer only; any member once the proposal is
+// expired or stranded by a member removal). Use finite expiry rounds so an unwanted
+// proposal can age out, or deactivate the group via ADM_SET_ACTIVE.
 await client.send.cancelProposal({ args: { proposalId: proposalId!, ensureBudgetValue: 0n } })
 ```
 
