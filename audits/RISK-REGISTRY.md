@@ -71,11 +71,11 @@ Probabilities are independent per-risk estimates (not mutually exclusive outcome
 | R-41 | Terminal proposals with far-future expiry can never be pruned (permanent MBR loss; `FAR_EXPIRY` is the documented default) | Availability | Medium | **<1%** | Low | Mitigated ([M-01 2026-07-16](./2026-07-16-audit-report-ai-claude-fable-5.md)) |
 | R-42 | Custodian 0-amount transfers bypass guard gating (ungoverned ASA opt-ins / MBR-lock griefing) | Governance/Economic | Low | **<1%** | Low | Mitigated ([L-01 2026-07-16](./2026-07-16-audit-report-ai-claude-fable-5.md)) |
 | R-43 | Box-enumeration helpers cap at 10,000 boxes; approval-box growth eventually breaks migration/UI enumeration | Integration/Client | Medium | **3%** | Low | Partially Mitigated ([L-02 2026-07-16](./2026-07-16-audit-report-ai-claude-fable-5.md)) |
-| R-44 | Any single group member can cancel any pending/READY proposal (minority veto; can block removal of a hostile signer) | Governance/Availability | Medium | **8%** | Medium | **Open** ([M-01 2026-10-14](./2026-10-14-audit-report-ai-claude-sonnet-5-5.md)) |
-| R-45 | Admin-change input validation gaps (`ADM_SET_POLICY`/`ADM_SET_PRIVILEGES` bitmasks unbounded; unknown `changeType` acts as pause) | State Machine | Low | **2%** | Low | **Open** ([L-01/I-01 2026-10-14](./2026-10-14-audit-report-ai-claude-sonnet-5-5.md)) |
-| R-46 | `algosdkTxnsToSafeTxnGroup` silently drops unrepresentable fields (asset clawback `assetSender`) | Integration/Client | Low | **3%** | Low | **Open** ([L-02 2026-10-14](./2026-10-14-audit-report-ai-claude-sonnet-5-5.md)) |
-| R-47 | ARC-56 "verified" app-call display rests on an unauthenticated registry, a 4-byte selector and a mutable `:latest` image | Integration/Client | Medium | **6%** | Medium | **Open** ([L-04 2026-10-14](./2026-10-14-audit-report-ai-claude-sonnet-5-5.md)) |
-| R-48 | ARC-56 decoder mishandles the ARC-4 15-argument packing boundary (wrong value under a "verified" banner) | Integration/Client | Low | **2%** | Low | **Open** ([L-03 2026-10-14](./2026-10-14-audit-report-ai-claude-sonnet-5-5.md)) |
+| R-44 | Any single group member can cancel any pending/READY proposal (minority veto; can block removal of a hostile signer) | Governance/Availability | Medium | **8%** | Medium | **Mitigated** (v3.3.0) ([M-01 2026-10-14](./2026-10-14-audit-report-ai-claude-sonnet-5-5.md)) |
+| R-45 | Admin-change input validation gaps (`ADM_SET_POLICY`/`ADM_SET_PRIVILEGES` bitmasks unbounded; unknown `changeType` acts as pause) | State Machine | Low | **2%** | Low | **Mitigated** (v3.3.0) ([L-01/I-01 2026-10-14](./2026-10-14-audit-report-ai-claude-sonnet-5-5.md)) |
+| R-46 | `algosdkTxnsToSafeTxnGroup` silently drops unrepresentable fields (asset clawback `assetSender`) | Integration/Client | Low | **3%** | Low | **Mitigated** (v3.3.0) ([L-02 2026-10-14](./2026-10-14-audit-report-ai-claude-sonnet-5-5.md)) |
+| R-47 | ARC-56 "verified" app-call display rests on an unauthenticated registry, a 4-byte selector and a mutable `:latest` image | Integration/Client | Medium | **6%** | Medium | **Partially Mitigated** (v3.3.0; image digest pin pending) ([L-04 2026-10-14](./2026-10-14-audit-report-ai-claude-sonnet-5-5.md)) |
+| R-48 | ARC-56 decoder mishandles the ARC-4 15-argument packing boundary (wrong value under a "verified" banner) | Integration/Client | Low | **2%** | Low | **Mitigated** (v3.3.0) ([L-03 2026-10-14](./2026-10-14-audit-report-ai-claude-sonnet-5-5.md)) |
 
 ---
 
@@ -590,7 +590,7 @@ The 2026-07-12 L-02 remediation added a zero-address guard to `_adminAddMember`,
 
 ### R-44 — Single-Member Proposal Cancellation (Minority Veto)
 
-**Category**: Governance/Availability · **Severity if realized**: Medium · **5-Yr Probability**: 8% · **Residual Risk**: Medium · **Status**: Open
+**Category**: Governance/Availability · **Severity if realized**: Medium · **5-Yr Probability**: 8% · **Residual Risk**: Medium · **Status**: **Mitigated** (v3.3.0)
 **Related Finding**: [M-01 (2026-10-14)](./2026-10-14-audit-report-ai-claude-sonnet-5-5.md)
 
 `cancelProposal` (`contract.algo.ts:731-744`) lets the proposer **or any current group member** move an `ACTIVE`/`READY` proposal to `CANCELLED`, with no threshold and no requirement that the caller approved it. A single malicious, coerced or compromised signer in an M-of-N group can therefore cancel every proposal the others complete, including the `ADM_REMOVE_MEMBER` proposal that would evict them if they sit in the only `PRIV_GROUP` group. Confirmed with a LocalNet PoC. No funds are at risk; the impact is denial of governance and a weakened incident-response story.
@@ -603,7 +603,7 @@ The 2026-07-12 L-02 remediation added a zero-address guard to `_adminAddMember`,
 
 ### R-45 — Admin-Change Input Validation Gaps
 
-**Category**: State Machine · **Severity if realized**: Low · **5-Yr Probability**: 2% · **Residual Risk**: Low · **Status**: Open
+**Category**: State Machine · **Severity if realized**: Low · **5-Yr Probability**: 2% · **Residual Risk**: Low · **Status**: **Mitigated** (v3.3.0)
 **Related Finding**: [L-01, I-01 (2026-10-14)](./2026-10-14-audit-report-ai-claude-sonnet-5-5.md)
 
 The v3.1.0 bound checks (`allowedActions <= ACT_ALL`, `adminPrivileges <= PRIV_ALL`) exist on group *creation* only. `ADM_SET_POLICY` and `ADM_SET_PRIVILEGES` store arbitrary bitmasks, and `_applyAdminChange`'s `else` branch treats every unrecognised `changeType` (0, ≥15) as `ADM_SET_PAUSED`. Both confirmed by PoC. Neither is exploitable by anyone who lacks `PRIV_GROUP`/`PRIV_POLICY`.
@@ -616,7 +616,7 @@ The v3.1.0 bound checks (`allowedActions <= ACT_ALL`, `adminPrivileges <= PRIV_A
 
 ### R-46 — Silent Field Loss in `algosdkTxnsToSafeTxnGroup`
 
-**Category**: Integration/Client · **Severity if realized**: Low · **5-Yr Probability**: 3% · **Residual Risk**: Low · **Status**: Open
+**Category**: Integration/Client · **Severity if realized**: Low · **5-Yr Probability**: 3% · **Residual Risk**: Low · **Status**: **Mitigated** (v3.3.0)
 **Related Finding**: [L-02 (2026-10-14)](./2026-10-14-audit-report-ai-claude-sonnet-5-5.md)
 
 An asset-transfer's `assetSender` (clawback target) has no `SafeTxn` representation and is ignored without an error, so a clawback request (which the WalletConnect inbound flow can deliver from any dApp) becomes a transfer from the safe's own holdings. This is the same class as the 2026-07-16 I-01 keyreg fix, which was applied to one field only.
@@ -629,7 +629,7 @@ An asset-transfer's `assetSender` (clawback target) has no `SafeTxn` representat
 
 ### R-47 — ARC-56 "Verified" Display Trust Anchor
 
-**Category**: Integration/Client · **Severity if realized**: Medium · **5-Yr Probability**: 6% · **Residual Risk**: Medium · **Status**: Open
+**Category**: Integration/Client · **Severity if realized**: Medium · **5-Yr Probability**: 6% · **Residual Risk**: Medium · **Status**: **Partially Mitigated** (v3.3.0; image digest pin pending)
 **Related Finding**: [L-04 (2026-10-14)](./2026-10-14-audit-report-ai-claude-sonnet-5-5.md)
 
 The new `arc56.ts` computes the real approval-program hash on chain, which is sound, but then trusts a registry (`scholtz2/arc56-registry:latest`, `imagePullPolicy: Always`) to map it to a spec. It accepts a method on a 4-byte selector match. A compromised registry image, or a collision-crafted spec, can mislabel a real call under a green banner. This sharpens R-22 rather than replacing it: the feature raises signer trust in the display, so a lie in it now costs more.
@@ -642,7 +642,7 @@ The new `arc56.ts` computes the real approval-program hash on chain, which is so
 
 ### R-48 — ARC-4 Argument-Packing Decode Error
 
-**Category**: Integration/Client · **Severity if realized**: Low · **5-Yr Probability**: 2% · **Residual Risk**: Low · **Status**: Open
+**Category**: Integration/Client · **Severity if realized**: Low · **5-Yr Probability**: 2% · **Residual Risk**: Low · **Status**: **Mitigated** (v3.3.0)
 **Related Finding**: [L-03 (2026-10-14)](./2026-10-14-audit-report-ai-claude-sonnet-5-5.md)
 
 `decodeAppCallArgs` treats argument 15 as direct (`MAX_DIRECT_APP_ARGS = 15`) although ARC-4 packs arguments 15 onward into one tuple when a method has more than 15 value arguments. The wrong value is shown inside a "verified" state.

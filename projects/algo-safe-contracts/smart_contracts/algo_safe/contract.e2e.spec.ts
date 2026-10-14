@@ -3901,4 +3901,78 @@ describe('AlgoSafe contract', () => {
       ).rejects.toThrow()
     }
   })
+
+  // -------------------------------------------------------------------------
+  // v3.3.0 — 2026-10-14 audit remediations
+  // -------------------------------------------------------------------------
+
+  test('cancelProposal: non-approving member cannot veto; proposer/approver/stale-proposal member can (v3.3.0, M-01)', async () => {
+    const { client } = await deployAndBootstrap()
+    const a = await localnet.context.generateAccount({ initialFunds: (1).algo() })
+    const b = await localnet.context.generateAccount({ initialFunds: (1).algo() })
+    const c = await localnet.context.generateAccount({ initialFunds: (1).algo() })
+    await governAdminChange(client, 1n, mkAdminChange({ changeType: ADM_CREATE_GROUP, groupName: 'T', threshold: 1n, memberAddr: a.toString(), allowedActions: ACT_PAY, adminPrivileges: 0n }))
+    await governAdminChange(client, 1n, mkAdminChange({ changeType: ADM_ADD_MEMBER, targetGroupId: 2n, memberAddr: b.toString() }))
+    await governAdminChange(client, 1n, mkAdminChange({ changeType: ADM_ADD_MEMBER, targetGroupId: 2n, memberAddr: c.toString() }))
+    await governAdminChange(client, 1n, mkAdminChange({ changeType: ADM_CHANGE_THRESHOLD, targetGroupId: 2n, threshold: 2n }))
+    const recipient = await localnet.context.generateAccount({ initialFunds: (0).algo() })
+    const propose = async () => {
+      const { return: pid } = await client.send.proposeTransactionGroup({
+        args: { groupId: 2n, payload: toSafeTxnGroup([safePayment(recipient.toString(), 100_000n)]), expiryRound: FAR_EXPIRY, execute: false, ensureBudgetValue: 10000n },
+        sender: a,
+        suppressLog: true,
+        staticFee: (0.2).algo(),
+      })
+      return pid!
+    }
+    const cancel = (pid: bigint, sender: Parameters<typeof client.send.cancelProposal>[0]['sender']) =>
+      client.send.cancelProposal({ args: { proposalId: pid, ensureBudgetValue: 0n }, sender, suppressLog: true })
+
+    // READY proposal (a + b approved): c, a non-approving member, cannot veto it.
+    const p1 = await propose()
+    await client.send.approveProposal({ args: { proposalId: p1, expectedPayloadVersion: 1n, ensureBudgetValue: 0n }, sender: b, suppressLog: true })
+    expect((await getProposal(client, p1)).return!.status).toBe(2n)
+    await expect(cancel(p1, c)).rejects.toThrow()
+    expect((await getProposal(client, p1)).return!.status).toBe(2n)
+    // An approver may withdraw the proposal they consented to.
+    await cancel(p1, b)
+    expect((await getProposal(client, p1)).return!.status).toBe(4n)
+
+    // Epoch-stranded proposal: once a member is removed, any remaining member may clean it up.
+    const p2 = await propose()
+    await expect(cancel(p2, b)).rejects.toThrow() // b is a member but not an approver, and p2 is not stale
+    await governAdminChange(client, 1n, mkAdminChange({ changeType: ADM_REMOVE_MEMBER, targetGroupId: 2n, memberAddr: c.toString() }))
+    await cancel(p2, b)
+    expect((await getProposal(client, p2)).return!.status).toBe(4n)
+  })
+
+  test('ADM_SET_POLICY / ADM_SET_PRIVILEGES reject out-of-range bitmasks (v3.3.0, L-01)', async () => {
+    const { client } = await deployAndBootstrap()
+    const a = await localnet.context.generateAccount({ initialFunds: (1).algo() })
+    await governAdminChange(client, 1n, mkAdminChange({ changeType: ADM_CREATE_GROUP, groupName: 'T', threshold: 1n, memberAddr: a.toString(), allowedActions: ACT_PAY, adminPrivileges: 0n }))
+    const tryChange = async (change: AdminChange) => {
+      const { return: pid } = await client.send.proposeAdminChange({
+        args: { groupId: 1n, change, expiryRound: FAR_EXPIRY, ensureBudgetValue: 0n },
+        suppressLog: true,
+        staticFee: (0.2).algo(),
+      })
+      return client.send.executeProposal({ args: { proposalId: pid!, ensureBudgetValue: 6000n }, ...execParams })
+    }
+    await expect(tryChange(mkAdminChange({ changeType: ADM_SET_POLICY, targetGroupId: 2n, allowedActions: ACT_ALL + 1n }))).rejects.toThrow()
+    await expect(tryChange(mkAdminChange({ changeType: ADM_SET_PRIVILEGES, targetGroupId: 2n, adminPrivileges: PRIV_ALL + 1n }))).rejects.toThrow()
+    // In-range values still apply.
+    await tryChange(mkAdminChange({ changeType: ADM_SET_POLICY, targetGroupId: 2n, allowedActions: ACT_ALL }))
+    expect((await getSignerGroup(client, 2n)).return!.allowedActions).toBe(ACT_ALL)
+  })
+
+  test('unknown admin changeType reverts instead of toggling pause (v3.3.0, I-01)', async () => {
+    const { client } = await deployAndBootstrap()
+    const { return: pid } = await client.send.proposeAdminChange({
+      args: { groupId: 1n, change: mkAdminChange({ changeType: 99n, activeFlag: 1n }), expiryRound: FAR_EXPIRY, ensureBudgetValue: 0n },
+      suppressLog: true,
+      staticFee: (0.2).algo(),
+    })
+    await expect(client.send.executeProposal({ args: { proposalId: pid!, ensureBudgetValue: 6000n }, ...execParams })).rejects.toThrow()
+    expect((await getConfig(client)).return[4]).toBe(0n)
+  })
 })

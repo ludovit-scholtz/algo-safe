@@ -218,6 +218,27 @@ describe('decodeAppCallArgs', () => {
   })
 })
 
+describe('decodeAppCallArgs ARC-4 packing boundary (v3.3.0, L-03)', () => {
+  const mk = (n: number): Arc56Method => ({
+    name: 'big',
+    args: Array.from({ length: n }, (_, i) => ({ type: 'uint64', name: `a${i}` })),
+    returns: { type: 'void' },
+  })
+  const argsFor = (n: number) => [new Uint8Array(4), ...Array.from({ length: Math.min(n, 15) }, (_, i) => ABIType.from('uint64').encode(BigInt(i + 1)))]
+
+  it('decodes all 15 arguments directly when the method has exactly 15', () => {
+    const decoded = decodeAppCallArgs(mk(15), { appId: 1n, appArgs: argsFor(15) })
+    expect(decoded.every((d) => d.kind === 'value')).toBe(true)
+  })
+
+  it('marks arguments from the 15th on as unsupported when the method has 16 (they are packed into a tuple)', () => {
+    const decoded = decodeAppCallArgs(mk(16), { appId: 1n, appArgs: argsFor(16) })
+    expect(decoded.slice(0, 14).every((d) => d.kind === 'value')).toBe(true)
+    expect(decoded[14].kind).toBe('unsupported')
+    expect(decoded[15].kind).toBe('unsupported')
+  })
+})
+
 describe('verifyAppCall', () => {
   function algodClientReturning(approvalProgram: Uint8Array) {
     return { getApplicationByID: () => ({ do: async () => ({ params: { 'approval-program': approvalProgram } }) }) }
@@ -301,5 +322,30 @@ describe('fetchCandidateMethod', () => {
     const fetchImpl = vi.fn().mockResolvedValue(jsonResponse({ methods: [DECOY_METHOD] }))
     const result = await fetchCandidateMethod('/registry', { approvalHash: 'aaaaaaaaaaaaaaaa' }, HELLO_SELECTOR, fetchImpl)
     expect(result).toBeUndefined()
+  })
+})
+
+describe('verifyAppCall embedded-bytecode binding (v3.3.0, L-04)', () => {
+  const algodClientReturning = (program: Uint8Array) => ({
+    getApplicationByID: () => ({ do: async () => ({ params: { 'approval-program': program } }) }),
+  })
+  const approvalProgram = new Uint8Array([1, 2, 3, 4, 5])
+  const ctx = { appId: 1n, appArgs: [HELLO_SELECTOR] }
+
+  it('returns no-spec when the spec embeds bytecode that does not hash to the on-chain program (v3.3.0, L-04)', async () => {
+    const wrong = Buffer.from([9, 9, 9]).toString('base64')
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse({ methods: [HELLO_METHOD], byteCode: { approval: wrong } }))
+      .mockResolvedValue(jsonResponse(null, 404))
+    const result = await verifyAppCall(algodClientReturning(approvalProgram), ctx, '/registry', fetchImpl)
+    expect(result.status).toBe('no-spec')
+  })
+
+  it('returns verified when the embedded bytecode matches the on-chain program (v3.3.0, L-04)', async () => {
+    const right = Buffer.from(approvalProgram).toString('base64')
+    const fetchImpl = vi.fn().mockResolvedValue(jsonResponse({ methods: [HELLO_METHOD], byteCode: { approval: right } }))
+    const result = await verifyAppCall(algodClientReturning(approvalProgram), ctx, '/registry', fetchImpl)
+    expect(result.status).toBe('verified')
   })
 })

@@ -322,7 +322,7 @@ function resolveReference(
   return { kind: 'reference', name, desc, refType, index, resolvedId }
 }
 
-const MAX_DIRECT_APP_ARGS = 15 // ARC-4: beyond this, trailing args are packed into a single tuple — not decoded here.
+const MAX_DIRECT_APP_ARGS = 15 // ARC-4: above this many value args, the 15th onward are packed into one tuple — not decoded here.
 
 export function decodeAppCallArgs(method: Arc56Method, ctx: AppCallContext): DecodedArg[] {
   let abiMethod: ABIMethod
@@ -341,6 +341,10 @@ export function decodeAppCallArgs(method: Arc56Method, ctx: AppCallContext): Dec
   const results: DecodedArg[] = []
   let cursor = 1 // appArgs[0] is the 4-byte method selector
   let valueArgCount = 0
+  // ARC-4: with more than 15 value arguments only the first 14 are direct; the
+  // rest are packed into one tuple in slot 15 (2026-10-14 audit, L-03).
+  const totalValueArgs = abiMethod.args.filter((arg) => !abiTypeIsTransaction(arg.type)).length
+  const maxDirect = totalValueArgs > MAX_DIRECT_APP_ARGS ? MAX_DIRECT_APP_ARGS - 1 : MAX_DIRECT_APP_ARGS
 
   for (const arg of abiMethod.args) {
     if (abiTypeIsTransaction(arg.type)) {
@@ -349,13 +353,13 @@ export function decodeAppCallArgs(method: Arc56Method, ctx: AppCallContext): Dec
     }
 
     valueArgCount += 1
-    if (valueArgCount > MAX_DIRECT_APP_ARGS) {
+    if (valueArgCount > maxDirect) {
       results.push({
         kind: 'unsupported',
         name: arg.name,
         desc: arg.description,
         type: String(arg.type),
-        reason: 'Argument packing beyond 15 direct arguments is not decoded in this version.',
+        reason: 'Methods with more than 15 arguments pack the 15th onward into one tuple; not decoded in this version.',
       })
       continue
     }
@@ -422,6 +426,21 @@ async function fetchApprovalProgramBytes(
 }
 
 /**
+ * ARC-56 specs may embed `byteCode.approval` (base64). When present it must hash
+ * to the on-chain approval program; absent means the spec makes no such claim.
+ */
+async function specBytecodeMatches(spec: Arc56Spec, approvalHash: string): Promise<boolean> {
+  const byteCode = spec.byteCode
+  if (!isRecord(byteCode) || byteCode.approval === undefined) return true
+  if (typeof byteCode.approval !== 'string') return false
+  try {
+    return (await hashApprovalProgram(byteCode.approval)) === approvalHash
+  } catch {
+    return false
+  }
+}
+
+/**
  * Verify and (if possible) decode an application-call transaction against the
  * ARC-56 registry. Resolves to a status in `AppCallVerification` — never
  * throws — so a caller (e.g. a React component) can always render *some*
@@ -455,6 +474,12 @@ export async function verifyAppCall(
     spec = await fetchArc56SpecByApprovalHash(registryBaseUrl, approvalHash, fetchImpl)
   } catch (err) {
     return { status: 'registry-unreachable', error: errMsg(err) }
+  }
+
+  // L-04 (2026-10-14): when the spec embeds its own approval bytecode, it must
+  // hash to the on-chain program — otherwise it is not a spec for this app.
+  if (spec && !(await specBytecodeMatches(spec, approvalHash))) {
+    return { status: 'no-spec', approvalHash, selectorHex }
   }
 
   if (spec) {
