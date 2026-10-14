@@ -3906,7 +3906,7 @@ describe('AlgoSafe contract', () => {
   // v3.3.0 — 2026-10-14 audit remediations
   // -------------------------------------------------------------------------
 
-  test('cancelProposal: non-approving member cannot veto; proposer/approver/stale-proposal member can (v3.3.0, M-01)', async () => {
+  test('cancelProposal: non-proposer cannot veto (even after approving); proposer / stale-proposal member can (v3.3.0, M-01)', async () => {
     const { client } = await deployAndBootstrap()
     const a = await localnet.context.generateAccount({ initialFunds: (1).algo() })
     const b = await localnet.context.generateAccount({ initialFunds: (1).algo() })
@@ -3934,13 +3934,17 @@ describe('AlgoSafe contract', () => {
     expect((await getProposal(client, p1)).return!.status).toBe(2n)
     await expect(cancel(p1, c)).rejects.toThrow()
     expect((await getProposal(client, p1)).return!.status).toBe(2n)
-    // An approver may withdraw the proposal they consented to.
-    await cancel(p1, b)
+    // c cannot become an approver first and then veto either (approve-then-cancel).
+    const p1b = await propose()
+    await client.send.approveProposal({ args: { proposalId: p1b, expectedPayloadVersion: 1n, ensureBudgetValue: 0n }, sender: c, suppressLog: true })
+    await expect(cancel(p1b, c)).rejects.toThrow()
+    // The proposer may withdraw their own proposal.
+    await cancel(p1, a)
     expect((await getProposal(client, p1)).return!.status).toBe(4n)
 
     // Epoch-stranded proposal: once a member is removed, any remaining member may clean it up.
     const p2 = await propose()
-    await expect(cancel(p2, b)).rejects.toThrow() // b is a member but not an approver, and p2 is not stale
+    await expect(cancel(p2, b)).rejects.toThrow() // b is a member but not the proposer, and p2 is not stale
     await governAdminChange(client, 1n, mkAdminChange({ changeType: ADM_REMOVE_MEMBER, targetGroupId: 2n, memberAddr: c.toString() }))
     await cancel(p2, b)
     expect((await getProposal(client, p2)).return!.status).toBe(4n)
@@ -3965,14 +3969,17 @@ describe('AlgoSafe contract', () => {
     expect((await getSignerGroup(client, 2n)).return!.allowedActions).toBe(ACT_ALL)
   })
 
-  test('unknown admin changeType reverts instead of toggling pause (v3.3.0, I-01)', async () => {
+  test('unknown admin changeType is rejected at proposal time instead of toggling pause (v3.3.0, I-01)', async () => {
     const { client } = await deployAndBootstrap()
-    const { return: pid } = await client.send.proposeAdminChange({
-      args: { groupId: 1n, change: mkAdminChange({ changeType: 99n, activeFlag: 1n }), expiryRound: FAR_EXPIRY, ensureBudgetValue: 0n },
-      suppressLog: true,
-      staticFee: (0.2).algo(),
-    })
-    await expect(client.send.executeProposal({ args: { proposalId: pid!, ensureBudgetValue: 6000n }, ...execParams })).rejects.toThrow()
+    for (const changeType of [0n, 15n, 99n]) {
+      await expect(
+        client.send.proposeAdminChange({
+          args: { groupId: 1n, change: mkAdminChange({ changeType, activeFlag: 1n }), expiryRound: FAR_EXPIRY, ensureBudgetValue: 0n },
+          suppressLog: true,
+          staticFee: (0.2).algo(),
+        }),
+      ).rejects.toThrow()
+    }
     expect((await getConfig(client)).return[4]).toBe(0n)
   })
 })

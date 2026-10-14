@@ -669,6 +669,8 @@ export class AlgoSafe extends Contract {
     this._assertMember(groupId)
     const group = clone(this.groups(groupId).value)
     assert(group.active !== Uint64(0), 'group disabled')
+    // 2026-10-14 audit: reject unknown change types up front (10 = ADM_SET_PAUSED).
+    assert(change.changeType >= ADM_CREATE_GROUP && change.changeType <= ADM_REMOVE_GUARD, 'unknown change type')
 
     // Validate cooldown at proposal time for both ADM_CREATE_GROUP and ADM_SET_POLICY.
     // Harmless for other change types but avoids the if-branch cost in binary size.
@@ -730,9 +732,10 @@ export class AlgoSafe extends Contract {
    *
    * 2026-10-14 audit M-01: a bare "any member" rule let one signer of an M-of-N
    * group veto every proposal (including their own removal). Cancellation is
-   * now limited to the proposer, a member who approved this proposal, or any
-   * current member once the proposal is stale (expired, or stranded by a
-   * membership-epoch bump — such proposals can only be cancelled and re-created).
+   * now limited to the proposer, or any current member once the proposal is
+   * stale (expired, or stranded by a membership-epoch bump — such proposals can
+   * only be cancelled and re-created). Approvers get no cancel right: any member
+   * can approve first, so it would not stop a hostile signer.
    */
   public cancelProposal(proposalId: uint64, ensureBudgetValue: uint64): void {
     if (ensureBudgetValue > Uint64(1)) {
@@ -742,12 +745,11 @@ export class AlgoSafe extends Contract {
     assert(proposal.status === STATUS_ACTIVE || proposal.status === STATUS_READY, 'not cancellable')
     const isProposer = Txn.sender === proposal.proposer
     const isMember = this.members({ groupId: proposal.groupId, account: Txn.sender }).exists
-    const isApprover = this.approvals({ proposalId, account: Txn.sender }).exists
     let isStale = Global.round > proposal.expiryRound
     if (!isStale && this.groups(proposal.groupId).exists) {
       isStale = this.groups(proposal.groupId).value.membershipEpoch !== proposal.epochAtCreation
     }
-    assert(isProposer || isApprover || (isMember && isStale), 'not authorised to cancel')
+    assert(isProposer || (isMember && isStale), 'not authorised to cancel')
 
     proposal.status = STATUS_CANCELLED
     this.proposals(proposalId).value = clone(proposal)

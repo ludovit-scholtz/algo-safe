@@ -432,6 +432,8 @@ async function fetchApprovalProgramBytes(
 async function specBytecodeMatches(spec: Arc56Spec, approvalHash: string): Promise<boolean> {
   const byteCode = spec.byteCode
   if (!isRecord(byteCode) || byteCode.approval === undefined) return true
+  // Template-variable specs embed unsubstituted bytecode that can never match a deployed program.
+  if (isRecord(spec.templateVariables) && Object.keys(spec.templateVariables).length > 0) return true
   if (typeof byteCode.approval !== 'string') return false
   try {
     return (await hashApprovalProgram(byteCode.approval)) === approvalHash
@@ -479,7 +481,7 @@ export async function verifyAppCall(
   // L-04 (2026-10-14): when the spec embeds its own approval bytecode, it must
   // hash to the on-chain program — otherwise it is not a spec for this app.
   if (spec && !(await specBytecodeMatches(spec, approvalHash))) {
-    return { status: 'no-spec', approvalHash, selectorHex }
+    spec = null // treated exactly like an unpublished spec (falls through to candidate lookup)
   }
 
   if (spec) {

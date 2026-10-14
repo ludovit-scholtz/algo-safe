@@ -348,4 +348,23 @@ describe('verifyAppCall embedded-bytecode binding (v3.3.0, L-04)', () => {
     const result = await verifyAppCall(algodClientReturning(approvalProgram), ctx, '/registry', fetchImpl)
     expect(result.status).toBe('verified')
   })
+
+  it('falls through to the ABI-signature candidate lookup when the embedded bytecode does not match (v3.3.0, L-04)', async () => {
+    const wrong = Buffer.from([9, 9, 9]).toString('base64')
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse({ methods: [HELLO_METHOD], byteCode: { approval: wrong } }))
+      .mockResolvedValueOnce(jsonResponse({ abi: 'hello(string)string', apps: ['aaaaaaaaaaaaaaaa'] }))
+    const result = await verifyAppCall(algodClientReturning(approvalProgram), ctx, '/registry', fetchImpl)
+    expect(result.status).toBe('unverified-candidates')
+  })
+
+  it('skips the embedded-bytecode check for template-variable specs (placeholders can never hash to the deployed program)', async () => {
+    const wrong = Buffer.from([9, 9, 9]).toString('base64')
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValue(jsonResponse({ methods: [HELLO_METHOD], byteCode: { approval: wrong }, templateVariables: { TMPL_X: { type: 'uint64' } } }))
+    const result = await verifyAppCall(algodClientReturning(approvalProgram), ctx, '/registry', fetchImpl)
+    expect(result.status).toBe('verified')
+  })
 })

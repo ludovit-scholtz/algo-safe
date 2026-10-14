@@ -57,9 +57,9 @@ Compiled approval program: **7,054 / 8,192 bytes** (1,138-byte margin, 13.9%).
 
 | Finding | Status | Fix |
 |---|---|---|
-| M-01 | **Fixed** | `cancelProposal` now allows only the proposer, a member who approved that proposal, or any member once the proposal is stale (past expiry or membership-epoch bump). Regression test covers non-approver rejection, approver withdrawal and epoch-stale cleanup. |
+| M-01 | **Fixed** | `cancelProposal` now allows only the proposer, or any member once the proposal is stale (past expiry or membership-epoch bump). An approver-withdraw path was rejected in review (any member can approve first, then cancel). Regression test covers non-proposer rejection (including approve-then-cancel) and epoch-stale cleanup; frontend hides Cancel for non-proposers. |
 | L-01 | **Fixed** | `allowedActions <= ACT_ALL` in `ADM_SET_POLICY`, `adminPrivileges <= PRIV_ALL` in `ADM_SET_PRIVILEGES`; regression test. |
-| I-01 | **Fixed** | Final admin branch asserts `changeType === 10`; regression test. |
+| I-01 | **Fixed** | Unknown `changeType` rejected at proposal time (1–14) and the final branch asserts `changeType === 10`; regression test. |
 | I-02 / I-03 | **Fixed (doc)** | Comment corrected; `CLAUDE.md` size figure and v3.3.0 bullet. (`AI-AUDIT-INSTRUCTIONS.md` getter references left for a separate pass.) |
 | L-02 | **Fixed** | `algosdkTxnsToSafeTxnGroup` throws on `assetSender`; unit test. |
 | L-03 | **Fixed** | `decodeAppCallArgs` treats arguments from the 15th as packed when the method has more than 15 value arguments; unit tests. |
