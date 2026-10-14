@@ -1296,7 +1296,7 @@ export class AlgoSafe extends Contract {
    * _applyAdminChange — execute a validated admin change.
    * Called from _executeProposalInternal after proposal-level checks pass.
    * Each branch implements one ADM_* change type. The else-branch handles
-   * ADM_SET_PAUSED (value 10) without an explicit constant to save binary space.
+   * ADM_SET_PAUSED (value 10), the only remaining type; unknown types are rejected.
    */
   private _applyAdminChange(change: AdminChange): void {
     if (change.changeType === ADM_CREATE_GROUP) {
@@ -1434,7 +1434,7 @@ export class AlgoSafe extends Contract {
       this.groups(gid).value = clone(target)
       emit<AssetGuardRemoved>({ custodianGroupId: gid, assetId })
     } else {
-      // ADM_SET_PAUSED (value 10) — not declared as a constant to save program space.
+      // ADM_SET_PAUSED (value 10) — the final branch; every other type was handled above.
       // I-01 (2026-10-14): unknown change types must revert, not toggle the pause flag.
       assert(change.changeType === ADM_SET_PAUSED, 'unknown change type')
       // activeFlag nonzero = pause; zero = unpause.

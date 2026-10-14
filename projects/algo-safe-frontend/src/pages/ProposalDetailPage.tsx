@@ -100,7 +100,7 @@ export const ProposalDetailPage = () => {
     )
   }
 
-  const isTerminal = proposal.status === 'executed' || proposal.status === 'cancelled' || proposal.status === 'expired'
+  const isTerminal = proposal.status === 'executed' || proposal.status === 'cancelled' || (proposal.status === 'expired' && !!activeAddress)
   const canExecute = proposal.status === 'ready' || (proposal.approvals >= proposal.threshold && !isTerminal)
   // v3.3.0 (2026-10-14 audit M-01): only the proposer may cancel a live proposal;
   // any member may clean up one that is already stale (expired).
