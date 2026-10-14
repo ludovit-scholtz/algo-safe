@@ -4,8 +4,8 @@
 
 **Maintained by**: every audit performed per `AI-AUDIT-INSTRUCTIONS.md` MUST review and update this file — see that document's "Risk Registry Maintenance" section for the required process.
 
-**Last updated**: 2026-07-16 (same-day remediation of the Fable-5 v3.1.0 audit findings, shipped as contract **v3.2.0**)
-**Reviewed against**: contract **v3.2.0** (working tree; approval hash `3f8d0cb07960bf2c8af42fb41b7d7fc2673dd831d987e80ee0e0c43fcefaa0ec`, 7,054/8,192 bytes, CI size gate green). 93/93 tests pass on LocalNet (89 prior + 4 new: split M-01 prune regression, L-01 opt-in-without-guard regression, 2 unit tests for I-01).
+**Last updated**: 2026-10-14 (Claude Sonnet 5.5 audit of commit `9859b30`; contract unchanged at **v3.2.0**)
+**Reviewed against**: commit `9859b30a2d621c92bcc287af60bf0857a24c2e8a`, contract **v3.2.0** (committed; approval hash `3f8d0cb07960bf2c8af42fb41b7d7fc2673dd831d987e80ee0e0c43fcefaa0ec`, 7,054/8,192 bytes, CI size gate green). 123/123 tests pass on LocalNet across 6 files (the 93 earlier contract tests plus the new `arc56`/`safe-tx` unit specs). See [2026-10-14 audit](./2026-10-14-audit-report-ai-claude-sonnet-5-5.md).
 
 ---
 
@@ -71,6 +71,11 @@ Probabilities are independent per-risk estimates (not mutually exclusive outcome
 | R-41 | Terminal proposals with far-future expiry can never be pruned (permanent MBR loss; `FAR_EXPIRY` is the documented default) | Availability | Medium | **<1%** | Low | Mitigated ([M-01 2026-07-16](./2026-07-16-audit-report-ai-claude-fable-5.md)) |
 | R-42 | Custodian 0-amount transfers bypass guard gating (ungoverned ASA opt-ins / MBR-lock griefing) | Governance/Economic | Low | **<1%** | Low | Mitigated ([L-01 2026-07-16](./2026-07-16-audit-report-ai-claude-fable-5.md)) |
 | R-43 | Box-enumeration helpers cap at 10,000 boxes; approval-box growth eventually breaks migration/UI enumeration | Integration/Client | Medium | **3%** | Low | Partially Mitigated ([L-02 2026-07-16](./2026-07-16-audit-report-ai-claude-fable-5.md)) |
+| R-44 | Any single group member can cancel any pending/READY proposal (minority veto; can block removal of a hostile signer) | Governance/Availability | Medium | **8%** | Medium | **Mitigated** (v3.3.0) ([M-01 2026-10-14](./2026-10-14-audit-report-ai-claude-sonnet-5-5.md)) |
+| R-45 | Admin-change input validation gaps (`ADM_SET_POLICY`/`ADM_SET_PRIVILEGES` bitmasks unbounded; unknown `changeType` acts as pause) | State Machine | Low | **2%** | Low | **Mitigated** (v3.3.0) ([L-01/I-01 2026-10-14](./2026-10-14-audit-report-ai-claude-sonnet-5-5.md)) |
+| R-46 | `algosdkTxnsToSafeTxnGroup` silently drops unrepresentable fields (asset clawback `assetSender`) | Integration/Client | Low | **3%** | Low | **Mitigated** (v3.3.0) ([L-02 2026-10-14](./2026-10-14-audit-report-ai-claude-sonnet-5-5.md)) |
+| R-47 | ARC-56 "verified" app-call display rests on an unauthenticated registry, a 4-byte selector and a mutable `:latest` image | Integration/Client | Medium | **6%** | Medium | **Partially Mitigated** (v3.3.0; image digest pin pending) ([L-04 2026-10-14](./2026-10-14-audit-report-ai-claude-sonnet-5-5.md)) |
+| R-48 | ARC-56 decoder mishandles the ARC-4 15-argument packing boundary (wrong value under a "verified" banner) | Integration/Client | Low | **2%** | Low | **Mitigated** (v3.3.0) ([L-03 2026-10-14](./2026-10-14-audit-report-ai-claude-sonnet-5-5.md)) |
 
 ---
 
@@ -583,6 +588,71 @@ The 2026-07-12 L-02 remediation added a zero-address guard to `_adminAddMember`,
 
 ---
 
+### R-44 — Single-Member Proposal Cancellation (Minority Veto)
+
+**Category**: Governance/Availability · **Severity if realized**: Medium · **5-Yr Probability**: 8% · **Residual Risk**: Medium · **Status**: **Mitigated** (v3.3.0)
+**Related Finding**: [M-01 (2026-10-14)](./2026-10-14-audit-report-ai-claude-sonnet-5-5.md)
+
+`cancelProposal` (`contract.algo.ts:731-744`) lets the proposer **or any current group member** move an `ACTIVE`/`READY` proposal to `CANCELLED`, with no threshold and no requirement that the caller approved it. A single malicious, coerced or compromised signer in an M-of-N group can therefore cancel every proposal the others complete, including the `ADM_REMOVE_MEMBER` proposal that would evict them if they sit in the only `PRIV_GROUP` group. Confirmed with a LocalNet PoC. No funds are at risk; the impact is denial of governance and a weakened incident-response story.
+
+**Why 8%**: it needs a hostile or compromised member inside a multi-member group (R-02 puts single-key compromise at 35% over 5 years, R-03 a malicious insider at 10%), and an attacker who cannot also steal funds has to prefer censorship or holding the safe hostage. Many attackers would not bother, so the conditional probability is modest. It would rise if the safe's only admin group has a threshold ≥ 2 with a signer who has a conflict of interest. The atomic propose + approve + execute group and a second admin group are real workarounds, but both need advance preparation.
+
+**Mitigation path**: restrict cancellation to the proposer, an approver of that proposal, or any member once the proposal is stale (expired or epoch-invalidated), per M-01. If the behaviour is intentional, document it and ship an incident runbook. Re-score to <1% once fixed and regression-tested.
+
+---
+
+### R-45 — Admin-Change Input Validation Gaps
+
+**Category**: State Machine · **Severity if realized**: Low · **5-Yr Probability**: 2% · **Residual Risk**: Low · **Status**: **Mitigated** (v3.3.0)
+**Related Finding**: [L-01, I-01 (2026-10-14)](./2026-10-14-audit-report-ai-claude-sonnet-5-5.md)
+
+The v3.1.0 bound checks (`allowedActions <= ACT_ALL`, `adminPrivileges <= PRIV_ALL`) exist on group *creation* only. `ADM_SET_POLICY` and `ADM_SET_PRIVILEGES` store arbitrary bitmasks, and `_applyAdminChange`'s `else` branch treats every unrecognised `changeType` (0, ≥15) as `ADM_SET_PAUSED`. Both confirmed by PoC. Neither is exploitable by anyone who lacks `PRIV_GROUP`/`PRIV_POLICY`.
+
+**Why 2%**: every precondition is an authorised admin action, so no new attacker capability. The realistic failure modes are a fuzzed or mistyped admin change that unexpectedly pauses the safe (recoverable by another admin proposal) and, much later, a reserved bit stored today becoming a live grant if a future version defines it. The latter would require a deliberate future ABI addition on a non-upgradable contract.
+
+**Mitigation path**: ~20 bytes per branch for the bound asserts, plus `assert(changeType === 10)` in the pause branch.
+
+---
+
+### R-46 — Silent Field Loss in `algosdkTxnsToSafeTxnGroup`
+
+**Category**: Integration/Client · **Severity if realized**: Low · **5-Yr Probability**: 3% · **Residual Risk**: Low · **Status**: **Mitigated** (v3.3.0)
+**Related Finding**: [L-02 (2026-10-14)](./2026-10-14-audit-report-ai-claude-sonnet-5-5.md)
+
+An asset-transfer's `assetSender` (clawback target) has no `SafeTxn` representation and is ignored without an error, so a clawback request (which the WalletConnect inbound flow can deliver from any dApp) becomes a transfer from the safe's own holdings. This is the same class as the 2026-07-16 I-01 keyreg fix, which was applied to one field only.
+
+**Why 3%**: it needs a safe that is itself an asset's clawback address, a dApp that sends a clawback through the safe's WalletConnect flow, and signers who approve the converted form without noticing. Clawback addresses held by a safe are rare, so the exposure is low, but the failure is silent when it occurs.
+
+**Mitigation path**: throw on `assetSender`; audit the remaining ignored fields (non-UTF-8 `note`, `lease`, `boxes`) for the same silent-conversion property.
+
+---
+
+### R-47 — ARC-56 "Verified" Display Trust Anchor
+
+**Category**: Integration/Client · **Severity if realized**: Medium · **5-Yr Probability**: 6% · **Residual Risk**: Medium · **Status**: **Partially Mitigated** (v3.3.0; image digest pin pending)
+**Related Finding**: [L-04 (2026-10-14)](./2026-10-14-audit-report-ai-claude-sonnet-5-5.md)
+
+The new `arc56.ts` computes the real approval-program hash on chain, which is sound, but then trusts a registry (`scholtz2/arc56-registry:latest`, `imagePullPolicy: Always`) to map it to a spec. It accepts a method on a 4-byte selector match. A compromised registry image, or a collision-crafted spec, can mislabel a real call under a green banner. This sharpens R-22 rather than replacing it: the feature raises signer trust in the display, so a lie in it now costs more.
+
+**Why 6%**: it needs compromise of an operator-controlled image or pipeline (supply-chain base rates, R-27/R-28) plus a signer set that relies on the label. A mutable tag removes the review step that would otherwise catch a bad push. The bounded blast radius (display only; threshold approvals are still required) keeps it well below R-22's 15%.
+
+**Mitigation path**: pin the image by digest; require an embedded `byteCode.approval` hash to match the on-chain hash before returning `verified`; soften the banner wording; keep the existing fail-closed states.
+
+---
+
+### R-48 — ARC-4 Argument-Packing Decode Error
+
+**Category**: Integration/Client · **Severity if realized**: Low · **5-Yr Probability**: 2% · **Residual Risk**: Low · **Status**: **Mitigated** (v3.3.0)
+**Related Finding**: [L-03 (2026-10-14)](./2026-10-14-audit-report-ai-claude-sonnet-5-5.md)
+
+`decodeAppCallArgs` treats argument 15 as direct (`MAX_DIRECT_APP_ARGS = 15`) although ARC-4 packs arguments 15 onward into one tuple when a method has more than 15 value arguments. The wrong value is shown inside a "verified" state.
+
+**Why 2%**: methods with more than 15 arguments are rare, and the signed bytes are unaffected; only the on-screen decode is wrong.
+
+**Mitigation path**: pre-count value arguments and mark those from the 15th as unsupported when the count exceeds 15 (or decode the packed tuple); add a 16-argument test.
+
+---
+
 ## Change Log
 
 | Date | Change | Audit Reference |
@@ -597,3 +667,4 @@ The 2026-07-12 L-02 remediation added a zero-address guard to `_adminAddMember`,
 | 2026-07-16 | Claude Fable 5 audit of commit `c0ef2e2` (**v3.1.0 now committed to `main`**). All v3.1.0 remediations independently re-verified at the committed code with their regression tests (89/89 tests pass on LocalNet; approval program 7,043/8,192 bytes; one new `clients/0ec5f000…/` folder; bytecode hashes match the registry). R-38 and R-40 entry headers normalized to **Mitigated/<1%** (matching their 2026-07-13 mitigation notes). R-39 updated: pin-rejection test committed; `VALIDATOR_DEPLOYMENTS` still placeholder-only → stays Partially Mitigated. R-33 confirmed Partially Mitigated at 12% — v3.1.0 docs are in sync (CLAUDE.md bullet + PRODUCT-DESCRIPTION validator section), CI doc-sync check still absent. Three new risks: **R-41** (terminal proposals with far-future `FAR_EXPIRY` can never be pruned — permanent MBR loss via the documented default pattern, Medium, [M-01]), **R-42** (custodian 0-amount transfers bypass guard gating — ungoverned ASA opt-ins/MBR griefing, Low, [L-01]), **R-43** (10,000-box enumeration cap vs. unbounded approval-box growth breaks migration/UI at scale, Low residual, [L-02]). All other entries re-reviewed: no further changes. | `2026-07-16-audit-report-ai-claude-fable-5.md` |
 | 2026-07-13 | Same-session remediation of the Fable-5 findings, shipping as contract **v3.1.0** (working tree, not yet committed; approval hash `0ec5f000…`, 7,043/8,192 bytes, CI size gate green). R-38/M-01 → **Mitigated** (custodian `allowedActions` restricted to pay/axfer via shared `_assertCustodianActions` at all three write paths). R-40/L-01/L-02 → **Mitigated** (zero-address asserts in `_createGroup` and `ADM_ADD_REKEYED_ADDR`; `buildMigrationRekeyPayload` throws on zero). R-33/M-02 → **Partially Mitigated** at 12% (`PRODUCT-DESCRIPTION.md` updated for the v3.0.0 read-surface + validator architecture; `CLAUDE.md` gained the v3.1.0 bullet; structural recurrence risk persists pending a CI doc-sync check). R-39 pin-rejection e2e test added (still Partially Mitigated pending `VALIDATOR_DEPLOYMENTS` population). I-01 bitmask bounds added to `_createGroup`. 89/89 contract tests pass on LocalNet (5 new Fable-5 regression tests). Frontend: asset-guard management, member removal, custodian creation, and a safe-wide pause control added; `getClient` return type narrowed to fix a TS2590 union-complexity break the new client version triggered; 3 new Playwright governance tests. | `2026-07-12-audit-report-ai-claude-fable-5.md` §Remediation |
 | 2026-07-16 | Same-day remediation of the 2026-07-16 Fable-5 findings, shipping as contract **v3.2.0** (working tree, not yet committed; approval hash `3f8d0cb0…`, 7,054/8,192 bytes, CI size gate green). R-41/M-01 → **Mitigated** (`pruneProposal` no longer requires past-expiry for `STATUS_EXECUTED` proposals; `STATUS_CANCELLED` retains the gate as a deliberate retention window; `FAR_EXPIRY` re-documented as test-only in README/`constants.ts`). R-42/L-01 → **Mitigated** (`_deductFromGuard` asserts guard existence before its zero-amount early return, closing the ungoverned-opt-in gap; `PRODUCT-DESCRIPTION.md` updated). R-43/L-02 → **Partially Mitigated** at 3% (box-enumeration helpers in `on-chain.ts`/`migration.ts` now throw a clear error on a request that exactly fills the non-paginated cap instead of risking silent truncation; `fetchSafeCloneConfig` cross-checks enumerated member count against on-chain `memberCount`; indexer pagination remains a follow-up). I-01: `algosdkTxnsToSafeTxnGroup` now throws on `nonParticipation: true` instead of silently downgrading to go-offline. I-02: `CLAUDE.md`/`PRODUCT-DESCRIPTION.md` epoch-invalidation wording corrected ("re-created", not "re-approved"). I-03: `fetchSafeCloneConfig` masks a cloned custodian group's `allowedActions` to `ACT_PAY|ACT_AXFER` with a logged warning, preventing the mid-migration `_seedGroup` revert on a pre-v3.1.0 custodian. 93/93 contract tests pass on LocalNet (4 new regressions); frontend `tsc --noEmit` and Jest suites pass unchanged (no frontend code changes required — `fetchSafeCloneConfig`/`algosdkTxnsToSafeTxnGroup` callers already handle thrown errors). | `2026-07-16-audit-report-ai-claude-fable-5.md` §Remediation |
+| 2026-10-14 | Claude Sonnet 5.5 audit of commit `9859b30` (contract unchanged at **v3.2.0**; `git diff 7a8e8ec HEAD` shows no change under `smart_contracts/`). Fresh `pnpm build` (7,054/8,192 bytes, gate green, approval hash `3f8d0cb0…` unchanged) and `pnpm test` (**123/123** pass across 6 files on LocalNet). All earlier entries re-reviewed against the live code: no regressions; R-05, R-09, R-11–R-13, R-35–R-42 re-verified Mitigated; R-25 margin now 1,138 bytes. Five new risks: **R-44** (any single group member can cancel any pending/READY proposal — minority veto, Medium, [M-01], PoC confirmed), **R-45** (unbounded bitmasks on `ADM_SET_POLICY`/`ADM_SET_PRIVILEGES` and unknown `changeType` acting as pause, Low, [L-01]/[I-01], PoC confirmed), **R-46** (`assetSender` clawback silently dropped by `algosdkTxnsToSafeTxnGroup`, Low, [L-02]), **R-47** (ARC-56 "verified" trust anchor: unauthenticated registry, 4-byte selector, mutable `:latest` image, Medium, [L-04]), **R-48** (ARC-4 15-argument packing decode error, Low, [L-03]). Notes on existing entries: R-02/R-03 mitigation assumptions ("a single compromised key cannot act alone above a threshold >1") hold for spending but not for blocking — see R-44. R-22 (frontend misrepresentation) is partly addressed by the new ARC-56 decoding but see R-47/R-48 for its new failure modes; kept at 15%/Open. R-33 unchanged at 12%: new minor staleness (`CLAUDE.md` ~6,970-byte figure, `AI-AUDIT-INSTRUCTIONS.md` getter references) noted in [I-03]. R-39 unchanged (`VALIDATOR_DEPLOYMENTS` still `0n` placeholders). R-43 unchanged. | `2026-10-14-audit-report-ai-claude-sonnet-5-5.md` |

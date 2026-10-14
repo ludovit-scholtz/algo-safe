@@ -39,7 +39,7 @@ export const ProposalDetailPage = () => {
 
   const { data: proposal, isLoading } = useProposal(id)
   const { data: safe } = useSafe(safeId)
-  const { algodClient } = useWallet()
+  const { algodClient, activeAddress } = useWallet()
   const approveProposal = useApproveProposal()
   const rejectProposal = useRejectProposal()
   const executeProposal = useExecuteProposal()
@@ -102,7 +102,12 @@ export const ProposalDetailPage = () => {
 
   const isTerminal = proposal.status === 'executed' || proposal.status === 'cancelled' || proposal.status === 'expired'
   const canExecute = proposal.status === 'ready' || (proposal.approvals >= proposal.threshold && !isTerminal)
-  const canCancel = proposal.status === 'pending' || proposal.status === 'ready'
+  // v3.3.0 (2026-10-14 audit M-01): only the proposer may cancel a live proposal;
+  // any connected member may clean up one that is already expired. Epoch-stranded proposals
+  // (member removed) show as pending here; the UI cannot detect them, so those are cancelled via the SDK.
+  const isProposer = !!activeAddress && proposal.proposer === activeAddress
+  const canCancel =
+    ((proposal.status === 'pending' || proposal.status === 'ready') && isProposer) || (proposal.status === 'expired' && !!activeAddress)
   const approveLabel = proposal.userHasApproved ? t('detail.approved') : t('detail.approve')
   const statusLabel = t(`status.${proposal.status}`, { defaultValue: proposal.status })
   const progressPct = Math.min(100, Math.round((proposal.approvals / proposal.threshold) * 100))

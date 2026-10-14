@@ -364,6 +364,12 @@ function algosdkTxnToSafeTxn(txn: algosdk.Transaction): SafeTxn {
 
   if (txn.type === algosdk.TransactionType.axfer) {
     const axfer = txn.assetTransfer
+    // AssetTxn has no clawback target, so an `assetSender` would be dropped and the
+    // request would silently become a transfer from the safe's own holdings
+    // (2026-10-14 audit, L-02) — fail loudly instead.
+    if (axfer?.assetSender && axfer.assetSender.toString() !== ZERO_ADDR) {
+      throw new Error('Unsupported transaction type: asset clawback (assetSender) has no SafeTxn representation')
+    }
     return createAssetSafeTxn({
       sender,
       xferAsset: axfer?.assetIndex ?? 0n,

@@ -161,7 +161,7 @@ createApplication:
     app_global_put
     // smart_contracts/algo_safe/contract.algo.ts:352
     // version = GlobalState<string>({ key: 'ver' })
-    pushbytess "ver" "BIATEC-ALGO-SAFE-v3.2.0" // "ver", "BIATEC-ALGO-SAFE-v3.2.0"
+    pushbytess "ver" "BIATEC-ALGO-SAFE-v3.3.0" // "ver", "BIATEC-ALGO-SAFE-v3.3.0"
     // smart_contracts/algo_safe/contract.algo.ts:413
     // this.version.value = CONTRACT_VERSION
     app_global_put
@@ -630,7 +630,7 @@ proposeTransactionGroup:
     intc_0 // 0
     bytec_1 // ""
     dupn 3
-    // smart_contracts/algo_safe/contract.algo.ts:562-568
+    // smart_contracts/algo_safe/contract.algo.ts:563-569
     // public proposeTransactionGroup(
     //   groupId: uint64,
     //   payload: SafeTxnGroup,
@@ -661,7 +661,7 @@ proposeTransactionGroup:
     intc_0 // 0
 
 proposeTransactionGroup_for_header@1:
-    // smart_contracts/algo_safe/contract.algo.ts:562-568
+    // smart_contracts/algo_safe/contract.algo.ts:563-569
     // public proposeTransactionGroup(
     //   groupId: uint64,
     //   payload: SafeTxnGroup,
@@ -712,7 +712,7 @@ proposeTransactionGroup_for_header@1:
     b proposeTransactionGroup_for_header@1
 
 proposeTransactionGroup_after_for@4:
-    // smart_contracts/algo_safe/contract.algo.ts:562-568
+    // smart_contracts/algo_safe/contract.algo.ts:563-569
     // public proposeTransactionGroup(
     //   groupId: uint64,
     //   payload: SafeTxnGroup,
@@ -752,46 +752,46 @@ proposeTransactionGroup_after_for@4:
     btoi
     dup
     bury 12
-    // smart_contracts/algo_safe/contract.algo.ts:569
+    // smart_contracts/algo_safe/contract.algo.ts:570
     // if (ensureBudgetValue > Uint64(1)) {
     intc_1 // 1
     >
     bz proposeTransactionGroup_after_if_else@7
-    // smart_contracts/algo_safe/contract.algo.ts:570
+    // smart_contracts/algo_safe/contract.algo.ts:571
     // ensureBudget(ensureBudgetValue)
     dig 10
     intc_0 // 0
     callsub ensure_budget
 
 proposeTransactionGroup_after_if_else@7:
-    // smart_contracts/algo_safe/contract.algo.ts:572
+    // smart_contracts/algo_safe/contract.algo.ts:573
     // assert(payload.length >= Uint64(1), 'empty tx group')
     dig 4
     dup
     assert // empty tx group
-    // smart_contracts/algo_safe/contract.algo.ts:573
+    // smart_contracts/algo_safe/contract.algo.ts:574
     // assert(payload.length <= MAX_GROUP_TXNS, 'too many txs')
     pushint 16 // 16
     <=
     assert // too many txs
-    // smart_contracts/algo_safe/contract.algo.ts:574
+    // smart_contracts/algo_safe/contract.algo.ts:575
     // assert(this.paused.value === Uint64(0), 'safe paused')
     intc_0 // 0
     // smart_contracts/algo_safe/contract.algo.ts:350
     // paused = GlobalState<uint64>({ key: 'paused' })
     bytec 9 // "paused"
-    // smart_contracts/algo_safe/contract.algo.ts:574
+    // smart_contracts/algo_safe/contract.algo.ts:575
     // assert(this.paused.value === Uint64(0), 'safe paused')
     app_global_get_ex
     assert // check GlobalState exists
     !
     assert // safe paused
-    // smart_contracts/algo_safe/contract.algo.ts:575
+    // smart_contracts/algo_safe/contract.algo.ts:576
     // this._assertMember(groupId)
     dig 6
     dup
     callsub _assertMember
-    // smart_contracts/algo_safe/contract.algo.ts:576
+    // smart_contracts/algo_safe/contract.algo.ts:577
     // const group = clone(this.groups(groupId).value)
     dup
     itob
@@ -800,30 +800,30 @@ proposeTransactionGroup_after_if_else@7:
     bytec_0 // "g"
     swap
     concat
-    // smart_contracts/algo_safe/contract.algo.ts:576-577
+    // smart_contracts/algo_safe/contract.algo.ts:577-578
     // const group = clone(this.groups(groupId).value)
     // assert(group.active !== Uint64(0), 'group disabled')
     pushint 114 // 114
     intc_2 // 8
     box_extract
-    // smart_contracts/algo_safe/contract.algo.ts:577
+    // smart_contracts/algo_safe/contract.algo.ts:578
     // assert(group.active !== Uint64(0), 'group disabled')
     btoi
     assert // group disabled
-    // smart_contracts/algo_safe/contract.algo.ts:578
+    // smart_contracts/algo_safe/contract.algo.ts:579
     // const pid = this._newProposal(groupId, PT_TRANSACTION_GROUP, expiryRound)
     intc_1 // 1
     dig 10
     callsub _newProposal
     dup
     bury 9
-    // smart_contracts/algo_safe/contract.algo.ts:579
+    // smart_contracts/algo_safe/contract.algo.ts:580
     // this._storePayloadGroup(pid, Uint64(1), payload)
     dup
     intc_1 // 1
     dig 8
     callsub _storePayloadGroup
-    // smart_contracts/algo_safe/contract.algo.ts:580
+    // smart_contracts/algo_safe/contract.algo.ts:581
     // const p = clone(this.proposals(pid).value)
     swap
     itob
@@ -834,37 +834,37 @@ proposeTransactionGroup_after_if_else@7:
     bytec 6 // "p"
     swap
     concat
-    // smart_contracts/algo_safe/contract.algo.ts:580
+    // smart_contracts/algo_safe/contract.algo.ts:581
     // const p = clone(this.proposals(pid).value)
     dup
     box_get
     assert // Box must have value
-    // smart_contracts/algo_safe/contract.algo.ts:581
+    // smart_contracts/algo_safe/contract.algo.ts:582
     // p.numPayloads = Uint64(1)
     intc_1 // 1
     itob
     replace2 80
-    // smart_contracts/algo_safe/contract.algo.ts:582
+    // smart_contracts/algo_safe/contract.algo.ts:583
     // p.totalTxns = payload.length
     uncover 2
     intc_0 // 0
     extract_uint16 // on error: invalid array length header
     itob
     replace2 104
-    // smart_contracts/algo_safe/contract.algo.ts:583
+    // smart_contracts/algo_safe/contract.algo.ts:584
     // this.proposals(pid).value = clone(p)
     box_put
-    // smart_contracts/algo_safe/contract.algo.ts:584
+    // smart_contracts/algo_safe/contract.algo.ts:585
     // if (execute) {
     dig 9
     bz proposeTransactionGroup_after_if_else@9
-    // smart_contracts/algo_safe/contract.algo.ts:585
+    // smart_contracts/algo_safe/contract.algo.ts:586
     // this._executeProposalInternal(pid)
     dig 7
     callsub _executeProposalInternal
 
 proposeTransactionGroup_after_if_else@9:
-    // smart_contracts/algo_safe/contract.algo.ts:562-568
+    // smart_contracts/algo_safe/contract.algo.ts:563-569
     // public proposeTransactionGroup(
     //   groupId: uint64,
     //   payload: SafeTxnGroup,
@@ -886,7 +886,7 @@ appendTransactionGroupPayload:
     dupn 2
     bytec_1 // ""
     dup
-    // smart_contracts/algo_safe/contract.algo.ts:600-605
+    // smart_contracts/algo_safe/contract.algo.ts:601-606
     // public appendTransactionGroupPayload(
     //   proposalId: uint64,
     //   payloadIndex: uint64,
@@ -923,7 +923,7 @@ appendTransactionGroupPayload:
     intc_0 // 0
 
 appendTransactionGroupPayload_for_header@1:
-    // smart_contracts/algo_safe/contract.algo.ts:600-605
+    // smart_contracts/algo_safe/contract.algo.ts:601-606
     // public appendTransactionGroupPayload(
     //   proposalId: uint64,
     //   payloadIndex: uint64,
@@ -973,7 +973,7 @@ appendTransactionGroupPayload_for_header@1:
     b appendTransactionGroupPayload_for_header@1
 
 appendTransactionGroupPayload_after_for@4:
-    // smart_contracts/algo_safe/contract.algo.ts:600-605
+    // smart_contracts/algo_safe/contract.algo.ts:601-606
     // public appendTransactionGroupPayload(
     //   proposalId: uint64,
     //   payloadIndex: uint64,
@@ -995,31 +995,31 @@ appendTransactionGroupPayload_after_for@4:
     btoi
     dup
     bury 12
-    // smart_contracts/algo_safe/contract.algo.ts:606
+    // smart_contracts/algo_safe/contract.algo.ts:607
     // if (ensureBudgetValue > Uint64(1)) {
     intc_1 // 1
     >
     bz appendTransactionGroupPayload_after_if_else@7
-    // smart_contracts/algo_safe/contract.algo.ts:607
+    // smart_contracts/algo_safe/contract.algo.ts:608
     // ensureBudget(ensureBudgetValue)
     dig 10
     intc_0 // 0
     callsub ensure_budget
 
 appendTransactionGroupPayload_after_if_else@7:
-    // smart_contracts/algo_safe/contract.algo.ts:609
+    // smart_contracts/algo_safe/contract.algo.ts:610
     // assert(this.paused.value === Uint64(0), 'safe paused')
     intc_0 // 0
     // smart_contracts/algo_safe/contract.algo.ts:350
     // paused = GlobalState<uint64>({ key: 'paused' })
     bytec 9 // "paused"
-    // smart_contracts/algo_safe/contract.algo.ts:609
+    // smart_contracts/algo_safe/contract.algo.ts:610
     // assert(this.paused.value === Uint64(0), 'safe paused')
     app_global_get_ex
     assert // check GlobalState exists
     !
     assert // safe paused
-    // smart_contracts/algo_safe/contract.algo.ts:610
+    // smart_contracts/algo_safe/contract.algo.ts:611
     // assert(payloadIndex >= Uint64(2) && payloadIndex <= Uint64(6), 'invalid slot')
     dig 6
     intc_3 // 2
@@ -1032,14 +1032,14 @@ appendTransactionGroupPayload_after_if_else@7:
     intc_1 // 1
 
 appendTransactionGroupPayload_bool_merge@11:
-    // smart_contracts/algo_safe/contract.algo.ts:610
+    // smart_contracts/algo_safe/contract.algo.ts:611
     // assert(payloadIndex >= Uint64(2) && payloadIndex <= Uint64(6), 'invalid slot')
     assert // invalid slot
-    // smart_contracts/algo_safe/contract.algo.ts:611
+    // smart_contracts/algo_safe/contract.algo.ts:612
     // assert(payload.length >= Uint64(1), 'empty payload')
     dig 4
     assert // empty payload
-    // smart_contracts/algo_safe/contract.algo.ts:612
+    // smart_contracts/algo_safe/contract.algo.ts:613
     // const proposal = clone(this.proposals(proposalId).value)
     dig 8
     itob
@@ -1050,7 +1050,7 @@ appendTransactionGroupPayload_bool_merge@11:
     concat
     dup
     bury 15
-    // smart_contracts/algo_safe/contract.algo.ts:612
+    // smart_contracts/algo_safe/contract.algo.ts:613
     // const proposal = clone(this.proposals(proposalId).value)
     box_get
     swap
@@ -1058,7 +1058,7 @@ appendTransactionGroupPayload_bool_merge@11:
     cover 2
     bury 14
     assert // Box must have value
-    // smart_contracts/algo_safe/contract.algo.ts:613
+    // smart_contracts/algo_safe/contract.algo.ts:614
     // assert(proposal.payloadType === PT_TRANSACTION_GROUP, 'not a tx group')
     dup
     pushint 16 // 16
@@ -1066,7 +1066,7 @@ appendTransactionGroupPayload_bool_merge@11:
     intc_1 // 1
     ==
     assert // not a tx group
-    // smart_contracts/algo_safe/contract.algo.ts:614
+    // smart_contracts/algo_safe/contract.algo.ts:615
     // assert(proposal.status === STATUS_ACTIVE || proposal.status === STATUS_READY, 'proposal not pending')
     intc_2 // 8
     extract_uint64
@@ -1084,10 +1084,10 @@ appendTransactionGroupPayload_bool_true@13:
     intc_1 // 1
 
 appendTransactionGroupPayload_bool_merge@15:
-    // smart_contracts/algo_safe/contract.algo.ts:614
+    // smart_contracts/algo_safe/contract.algo.ts:615
     // assert(proposal.status === STATUS_ACTIVE || proposal.status === STATUS_READY, 'proposal not pending')
     assert // proposal not pending
-    // smart_contracts/algo_safe/contract.algo.ts:615
+    // smart_contracts/algo_safe/contract.algo.ts:616
     // assert(Global.round <= proposal.expiryRound, 'proposal expired')
     global Round
     dig 12
@@ -1097,20 +1097,20 @@ appendTransactionGroupPayload_bool_merge@15:
     extract_uint64
     <=
     assert // proposal expired
-    // smart_contracts/algo_safe/contract.algo.ts:616
+    // smart_contracts/algo_safe/contract.algo.ts:617
     // this._assertMember(proposal.groupId)
     dup
     intc_0 // 0
     extract_uint64
     callsub _assertMember
-    // smart_contracts/algo_safe/contract.algo.ts:617
+    // smart_contracts/algo_safe/contract.algo.ts:618
     // assert(Txn.sender === proposal.proposer, 'only proposer can append')
     txn Sender
     dig 1
     extract 48 32
     ==
     assert // only proposer can append
-    // smart_contracts/algo_safe/contract.algo.ts:618
+    // smart_contracts/algo_safe/contract.algo.ts:619
     // assert(proposal.approvalsCount === Uint64(1), 'cannot modify payload after independent approval')
     dup
     pushint 24 // 24
@@ -1118,20 +1118,20 @@ appendTransactionGroupPayload_bool_merge@15:
     intc_1 // 1
     ==
     assert // cannot modify payload after independent approval
-    // smart_contracts/algo_safe/contract.algo.ts:621
+    // smart_contracts/algo_safe/contract.algo.ts:622
     // const key: uint64 = proposalId * TXG_KEY_MULT + payloadIndex
     dig 9
     pushint 7 // 7
     *
     dig 8
     +
-    // smart_contracts/algo_safe/contract.algo.ts:622
+    // smart_contracts/algo_safe/contract.algo.ts:623
     // let newTotal: uint64 = proposal.totalTxns
     swap
     pushint 104 // 104
     extract_uint64
     swap
-    // smart_contracts/algo_safe/contract.algo.ts:623
+    // smart_contracts/algo_safe/contract.algo.ts:624
     // if (this.transactionGroups(key).exists) {
     itob
     // smart_contracts/algo_safe/contract.algo.ts:374
@@ -1141,12 +1141,12 @@ appendTransactionGroupPayload_bool_merge@15:
     concat
     dup
     bury 15
-    // smart_contracts/algo_safe/contract.algo.ts:623
+    // smart_contracts/algo_safe/contract.algo.ts:624
     // if (this.transactionGroups(key).exists) {
     box_len
     bury 1
     bz appendTransactionGroupPayload_after_if_else@17
-    // smart_contracts/algo_safe/contract.algo.ts:624-625
+    // smart_contracts/algo_safe/contract.algo.ts:625-626
     // const existing = clone(this.transactionGroups(key).value)
     // newTotal = newTotal - existing.length
     dig 13
@@ -1154,22 +1154,22 @@ appendTransactionGroupPayload_bool_merge@15:
     intc_3 // 2
     box_extract
     btoi
-    // smart_contracts/algo_safe/contract.algo.ts:625
+    // smart_contracts/algo_safe/contract.algo.ts:626
     // newTotal = newTotal - existing.length
     -
 
 appendTransactionGroupPayload_after_if_else@17:
-    // smart_contracts/algo_safe/contract.algo.ts:627
+    // smart_contracts/algo_safe/contract.algo.ts:628
     // newTotal = newTotal + payload.length
     dig 5
     +
-    // smart_contracts/algo_safe/contract.algo.ts:628
+    // smart_contracts/algo_safe/contract.algo.ts:629
     // assert(newTotal <= MAX_GROUP_TXNS, 'too many txs across chunks')
     dup
     pushint 16 // 16
     <=
     assert // too many txs across chunks
-    // smart_contracts/algo_safe/contract.algo.ts:630
+    // smart_contracts/algo_safe/contract.algo.ts:631
     // this._storePayloadGroup(proposalId, payloadIndex, payload)
     dig 9
     dig 8
@@ -1178,14 +1178,14 @@ appendTransactionGroupPayload_after_if_else@17:
     dig 9
     callsub _storePayloadGroup
     pop
-    // smart_contracts/algo_safe/contract.algo.ts:633
+    // smart_contracts/algo_safe/contract.algo.ts:634
     // updated.totalTxns = newTotal
     itob
     dig 13
     dup
     uncover 2
     replace2 104
-    // smart_contracts/algo_safe/contract.algo.ts:634
+    // smart_contracts/algo_safe/contract.algo.ts:635
     // updated.payloadVersion = updated.payloadVersion + Uint64(1)
     dup
     pushint 96 // 96
@@ -1195,24 +1195,24 @@ appendTransactionGroupPayload_after_if_else@17:
     itob
     replace2 96
     cover 2
-    // smart_contracts/algo_safe/contract.algo.ts:635
+    // smart_contracts/algo_safe/contract.algo.ts:636
     // if (payloadIndex > proposal.numPayloads) {
     pushint 80 // 80
     extract_uint64
     >
     bz appendTransactionGroupPayload_after_if_else@19
-    // smart_contracts/algo_safe/contract.algo.ts:636
+    // smart_contracts/algo_safe/contract.algo.ts:637
     // updated.numPayloads = payloadIndex
     dig 8
     replace2 80
 
 appendTransactionGroupPayload_after_if_else@19:
-    // smart_contracts/algo_safe/contract.algo.ts:638
+    // smart_contracts/algo_safe/contract.algo.ts:639
     // this.proposals(proposalId).value = clone(updated)
     dig 14
     swap
     box_put
-    // smart_contracts/algo_safe/contract.algo.ts:600-605
+    // smart_contracts/algo_safe/contract.algo.ts:601-606
     // public appendTransactionGroupPayload(
     //   proposalId: uint64,
     //   payloadIndex: uint64,
@@ -1236,7 +1236,7 @@ proposeAdminChange:
     intc_0 // 0
     dup
     bytec_1 // ""
-    // smart_contracts/algo_safe/contract.algo.ts:659-664
+    // smart_contracts/algo_safe/contract.algo.ts:660-665
     // public proposeAdminChange(
     //   groupId: uint64,
     //   change: AdminChange,
@@ -1301,24 +1301,24 @@ proposeAdminChange:
     assert // invalid number of bytes for arc4.uint64
     btoi
     dup
-    // smart_contracts/algo_safe/contract.algo.ts:665
+    // smart_contracts/algo_safe/contract.algo.ts:666
     // if (ensureBudgetValue > Uint64(1)) {
     intc_1 // 1
     >
     bz proposeAdminChange_after_if_else@3
-    // smart_contracts/algo_safe/contract.algo.ts:666
+    // smart_contracts/algo_safe/contract.algo.ts:667
     // ensureBudget(ensureBudgetValue)
     dup
     intc_0 // 0
     callsub ensure_budget
 
 proposeAdminChange_after_if_else@3:
-    // smart_contracts/algo_safe/contract.algo.ts:668
+    // smart_contracts/algo_safe/contract.algo.ts:669
     // this._assertMember(groupId)
     dig 3
     dup
     callsub _assertMember
-    // smart_contracts/algo_safe/contract.algo.ts:669
+    // smart_contracts/algo_safe/contract.algo.ts:670
     // const group = clone(this.groups(groupId).value)
     itob
     // smart_contracts/algo_safe/contract.algo.ts:368
@@ -1328,42 +1328,56 @@ proposeAdminChange_after_if_else@3:
     concat
     dup
     bury 8
-    // smart_contracts/algo_safe/contract.algo.ts:669
+    // smart_contracts/algo_safe/contract.algo.ts:670
     // const group = clone(this.groups(groupId).value)
     dup
     box_get
     swap
     bury 8
     assert // Box must have value
-    // smart_contracts/algo_safe/contract.algo.ts:669-670
+    // smart_contracts/algo_safe/contract.algo.ts:670-671
     // const group = clone(this.groups(groupId).value)
     // assert(group.active !== Uint64(0), 'group disabled')
     pushint 114 // 114
     intc_2 // 8
     box_extract
-    // smart_contracts/algo_safe/contract.algo.ts:670
+    // smart_contracts/algo_safe/contract.algo.ts:671
     // assert(group.active !== Uint64(0), 'group disabled')
     btoi
     assert // group disabled
-    // smart_contracts/algo_safe/contract.algo.ts:674
+    // smart_contracts/algo_safe/contract.algo.ts:673
+    // assert(change.changeType >= ADM_CREATE_GROUP && change.changeType <= ADM_REMOVE_GUARD, 'unknown change type')
+    dig 2
+    intc_0 // 0
+    extract_uint64
+    dup
+    bury 6
+    bz proposeAdminChange_bool_false@6
+    dig 4
+    pushint 14 // 14
+    <=
+    bz proposeAdminChange_bool_false@6
+    intc_1 // 1
+
+proposeAdminChange_bool_merge@7:
+    // smart_contracts/algo_safe/contract.algo.ts:673
+    // assert(change.changeType >= ADM_CREATE_GROUP && change.changeType <= ADM_REMOVE_GUARD, 'unknown change type')
+    assert // unknown change type
+    // smart_contracts/algo_safe/contract.algo.ts:677
     // assert(change.cooldownRounds <= MAX_COOLDOWN_ROUNDS, 'cooldown cap')
     dig 2
-    dup
     pushint 108 // 108
     extract_uint64
     intc 5 // 10000000
     <=
     assert // cooldown cap
-    // smart_contracts/algo_safe/contract.algo.ts:675
+    // smart_contracts/algo_safe/contract.algo.ts:678
     // if (change.changeType === ADM_DISSOLVE_CUSTODIAN) {
-    intc_0 // 0
-    extract_uint64
-    dup
-    bury 6
+    dig 4
     pushint 12 // 12
     ==
-    bz proposeAdminChange_else_body@5
-    // smart_contracts/algo_safe/contract.algo.ts:676
+    bz proposeAdminChange_else_body@9
+    // smart_contracts/algo_safe/contract.algo.ts:679
     // assert(group.groupType === GT_CUSTODIAN, 'only custodian groups can propose self-dissolution')
     dig 6
     pushint 122 // 122
@@ -1373,7 +1387,7 @@ proposeAdminChange_after_if_else@3:
     intc_1 // 1
     ==
     assert // only custodian groups can propose self-dissolution
-    // smart_contracts/algo_safe/contract.algo.ts:677
+    // smart_contracts/algo_safe/contract.algo.ts:680
     // assert(change.targetGroupId === groupId, 'can only dissolve own custodian group')
     dig 2
     intc_2 // 8
@@ -1382,14 +1396,14 @@ proposeAdminChange_after_if_else@3:
     ==
     assert // can only dissolve own custodian group
 
-proposeAdminChange_after_if_else@6:
-    // smart_contracts/algo_safe/contract.algo.ts:682
+proposeAdminChange_after_if_else@10:
+    // smart_contracts/algo_safe/contract.algo.ts:685
     // const pid = this._newProposal(groupId, PT_ADMIN, expiryRound)
     dig 3
     pushint 5 // 5
     dig 3
     callsub _newProposal
-    // smart_contracts/algo_safe/contract.algo.ts:683
+    // smart_contracts/algo_safe/contract.algo.ts:686
     // this.adminPayloads(pid).value = clone(change)
     itob
     // smart_contracts/algo_safe/contract.algo.ts:377
@@ -1397,14 +1411,14 @@ proposeAdminChange_after_if_else@6:
     bytec 16 // "dp"
     dig 1
     concat
-    // smart_contracts/algo_safe/contract.algo.ts:683
+    // smart_contracts/algo_safe/contract.algo.ts:686
     // this.adminPayloads(pid).value = clone(change)
     dup
     box_del
     pop
     dig 4
     box_put
-    // smart_contracts/algo_safe/contract.algo.ts:659-664
+    // smart_contracts/algo_safe/contract.algo.ts:660-665
     // public proposeAdminChange(
     //   groupId: uint64,
     //   change: AdminChange,
@@ -1418,14 +1432,18 @@ proposeAdminChange_after_if_else@6:
     intc_1 // 1
     return
 
-proposeAdminChange_else_body@5:
-    // smart_contracts/algo_safe/contract.algo.ts:679
+proposeAdminChange_else_body@9:
+    // smart_contracts/algo_safe/contract.algo.ts:682
     // this._assertPrivilegeForChange(change.changeType, group)
     dig 4
     dig 6
     callsub _assertPrivilegeForChange
     pop
-    b proposeAdminChange_after_if_else@6
+    b proposeAdminChange_after_if_else@10
+
+proposeAdminChange_bool_false@6:
+    intc_0 // 0
+    b proposeAdminChange_bool_merge@7
 
 
 // smart_contracts/algo_safe/contract.algo.ts::AlgoSafe.approveProposal[routing]() -> void:
@@ -1433,7 +1451,7 @@ approveProposal:
     intc_0 // 0
     dup
     bytec_1 // ""
-    // smart_contracts/algo_safe/contract.algo.ts:702
+    // smart_contracts/algo_safe/contract.algo.ts:705
     // public approveProposal(proposalId: uint64, expectedPayloadVersion: uint64, ensureBudgetValue: uint64): void {
     txna ApplicationArgs 1
     dup
@@ -1457,19 +1475,19 @@ approveProposal:
     assert // invalid number of bytes for arc4.uint64
     btoi
     dup
-    // smart_contracts/algo_safe/contract.algo.ts:703
+    // smart_contracts/algo_safe/contract.algo.ts:706
     // if (ensureBudgetValue > Uint64(1)) {
     intc_1 // 1
     >
     bz approveProposal_after_if_else@3
-    // smart_contracts/algo_safe/contract.algo.ts:704
+    // smart_contracts/algo_safe/contract.algo.ts:707
     // ensureBudget(ensureBudgetValue)
     dup
     intc_0 // 0
     callsub ensure_budget
 
 approveProposal_after_if_else@3:
-    // smart_contracts/algo_safe/contract.algo.ts:706
+    // smart_contracts/algo_safe/contract.algo.ts:709
     // const proposal = clone(this.proposals(proposalId).value)
     dig 2
     itob
@@ -1480,7 +1498,7 @@ approveProposal_after_if_else@3:
     bytec 6 // "p"
     swap
     concat
-    // smart_contracts/algo_safe/contract.algo.ts:706
+    // smart_contracts/algo_safe/contract.algo.ts:709
     // const proposal = clone(this.proposals(proposalId).value)
     box_get
     swap
@@ -1488,7 +1506,7 @@ approveProposal_after_if_else@3:
     cover 2
     bury 7
     assert // Box must have value
-    // smart_contracts/algo_safe/contract.algo.ts:707
+    // smart_contracts/algo_safe/contract.algo.ts:710
     // assert(proposal.status === STATUS_ACTIVE || proposal.status === STATUS_READY, 'not approvable')
     intc_2 // 8
     extract_uint64
@@ -1506,10 +1524,10 @@ approveProposal_bool_true@5:
     intc_1 // 1
 
 approveProposal_bool_merge@7:
-    // smart_contracts/algo_safe/contract.algo.ts:707
+    // smart_contracts/algo_safe/contract.algo.ts:710
     // assert(proposal.status === STATUS_ACTIVE || proposal.status === STATUS_READY, 'not approvable')
     assert // not approvable
-    // smart_contracts/algo_safe/contract.algo.ts:708
+    // smart_contracts/algo_safe/contract.algo.ts:711
     // assert(Global.round <= proposal.expiryRound, 'proposal expired')
     global Round
     dig 5
@@ -1519,7 +1537,7 @@ approveProposal_bool_merge@7:
     extract_uint64
     <=
     assert // proposal expired
-    // smart_contracts/algo_safe/contract.algo.ts:709
+    // smart_contracts/algo_safe/contract.algo.ts:712
     // assert(proposal.payloadVersion === expectedPayloadVersion, 'payload changed since review')
     dup
     pushint 96 // 96
@@ -1527,7 +1545,7 @@ approveProposal_bool_merge@7:
     dig 3
     ==
     assert // payload changed since review
-    // smart_contracts/algo_safe/contract.algo.ts:710
+    // smart_contracts/algo_safe/contract.algo.ts:713
     // assert(this.members({ groupId: proposal.groupId, account: Txn.sender }).exists, 'not a group member')
     txn Sender
     dig 1
@@ -1540,12 +1558,12 @@ approveProposal_bool_merge@7:
     bytec 4 // "m"
     swap
     concat
-    // smart_contracts/algo_safe/contract.algo.ts:710
+    // smart_contracts/algo_safe/contract.algo.ts:713
     // assert(this.members({ groupId: proposal.groupId, account: Txn.sender }).exists, 'not a group member')
     box_len
     bury 1
     assert // not a group member
-    // smart_contracts/algo_safe/contract.algo.ts:711
+    // smart_contracts/algo_safe/contract.algo.ts:714
     // assert(!this.approvals({ proposalId, account: Txn.sender }).exists, 'already approved')
     dig 7
     txn Sender
@@ -1555,7 +1573,7 @@ approveProposal_bool_merge@7:
     pushbytes "a"
     swap
     concat
-    // smart_contracts/algo_safe/contract.algo.ts:711
+    // smart_contracts/algo_safe/contract.algo.ts:714
     // assert(!this.approvals({ proposalId, account: Txn.sender }).exists, 'already approved')
     box_len
     bury 1
@@ -1566,7 +1584,7 @@ approveProposal_bool_merge@7:
     bytec_0 // "g"
     swap
     concat
-    // smart_contracts/algo_safe/contract.algo.ts:713
+    // smart_contracts/algo_safe/contract.algo.ts:716
     // this.groups(proposal.groupId).value.membershipEpoch === proposal.epochAtCreation,
     pushint 106 // 106
     intc_2 // 8
@@ -1576,19 +1594,19 @@ approveProposal_bool_merge@7:
     pushint 88 // 88
     extract_uint64
     ==
-    // smart_contracts/algo_safe/contract.algo.ts:712-715
+    // smart_contracts/algo_safe/contract.algo.ts:715-718
     // assert(
     //   this.groups(proposal.groupId).value.membershipEpoch === proposal.epochAtCreation,
     //   'group membership changed since proposal creation',
     // )
     assert // group membership changed since proposal creation
-    // smart_contracts/algo_safe/contract.algo.ts:716
+    // smart_contracts/algo_safe/contract.algo.ts:719
     // this._recordApproval(proposalId, proposal)
     dig 3
     swap
     callsub _recordApproval
     pop
-    // smart_contracts/algo_safe/contract.algo.ts:702
+    // smart_contracts/algo_safe/contract.algo.ts:705
     // public approveProposal(proposalId: uint64, expectedPayloadVersion: uint64, ensureBudgetValue: uint64): void {
     intc_1 // 1
     return
@@ -1600,7 +1618,7 @@ approveProposal_bool_false@6:
 
 // smart_contracts/algo_safe/contract.algo.ts::AlgoSafe.executeProposal[routing]() -> void:
 executeProposal:
-    // smart_contracts/algo_safe/contract.algo.ts:720
+    // smart_contracts/algo_safe/contract.algo.ts:723
     // public executeProposal(proposalId: uint64, ensureBudgetValue: uint64): void {
     txna ApplicationArgs 1
     dup
@@ -1617,23 +1635,23 @@ executeProposal:
     assert // invalid number of bytes for arc4.uint64
     btoi
     dup
-    // smart_contracts/algo_safe/contract.algo.ts:721
+    // smart_contracts/algo_safe/contract.algo.ts:724
     // if (ensureBudgetValue > Uint64(1)) {
     intc_1 // 1
     >
     bz executeProposal_after_if_else@3
-    // smart_contracts/algo_safe/contract.algo.ts:722
+    // smart_contracts/algo_safe/contract.algo.ts:725
     // ensureBudget(ensureBudgetValue)
     dup
     intc_0 // 0
     callsub ensure_budget
 
 executeProposal_after_if_else@3:
-    // smart_contracts/algo_safe/contract.algo.ts:724
+    // smart_contracts/algo_safe/contract.algo.ts:727
     // this._executeProposalInternal(proposalId)
     dig 1
     callsub _executeProposalInternal
-    // smart_contracts/algo_safe/contract.algo.ts:720
+    // smart_contracts/algo_safe/contract.algo.ts:723
     // public executeProposal(proposalId: uint64, ensureBudgetValue: uint64): void {
     intc_1 // 1
     return
@@ -1642,9 +1660,10 @@ executeProposal_after_if_else@3:
 // smart_contracts/algo_safe/contract.algo.ts::AlgoSafe.cancelProposal[routing]() -> void:
 cancelProposal:
     intc_0 // 0
-    dupn 2
+    dupn 4
     bytec_1 // ""
-    // smart_contracts/algo_safe/contract.algo.ts:731
+    dupn 3
+    // smart_contracts/algo_safe/contract.algo.ts:740
     // public cancelProposal(proposalId: uint64, ensureBudgetValue: uint64): void {
     txna ApplicationArgs 1
     dup
@@ -1661,40 +1680,40 @@ cancelProposal:
     assert // invalid number of bytes for arc4.uint64
     btoi
     dup
-    // smart_contracts/algo_safe/contract.algo.ts:732
+    // smart_contracts/algo_safe/contract.algo.ts:741
     // if (ensureBudgetValue > Uint64(1)) {
     intc_1 // 1
     >
     bz cancelProposal_after_if_else@3
-    // smart_contracts/algo_safe/contract.algo.ts:733
+    // smart_contracts/algo_safe/contract.algo.ts:742
     // ensureBudget(ensureBudgetValue)
     dup
     intc_0 // 0
     callsub ensure_budget
 
 cancelProposal_after_if_else@3:
-    // smart_contracts/algo_safe/contract.algo.ts:735
+    // smart_contracts/algo_safe/contract.algo.ts:744
     // const proposal = clone(this.proposals(proposalId).value)
     dig 1
     itob
     dup
-    bury 6
+    bury 9
     // smart_contracts/algo_safe/contract.algo.ts:370
     // proposals = BoxMap<uint64, Proposal>({ keyPrefix: 'p' })
     bytec 6 // "p"
     swap
     concat
     dup
-    bury 7
-    // smart_contracts/algo_safe/contract.algo.ts:735
+    bury 11
+    // smart_contracts/algo_safe/contract.algo.ts:744
     // const proposal = clone(this.proposals(proposalId).value)
     box_get
     swap
     dup
     cover 2
-    bury 6
+    bury 9
     assert // Box must have value
-    // smart_contracts/algo_safe/contract.algo.ts:736
+    // smart_contracts/algo_safe/contract.algo.ts:745
     // assert(proposal.status === STATUS_ACTIVE || proposal.status === STATUS_READY, 'not cancellable')
     intc_2 // 8
     extract_uint64
@@ -1712,57 +1731,116 @@ cancelProposal_bool_true@5:
     intc_1 // 1
 
 cancelProposal_bool_merge@7:
-    // smart_contracts/algo_safe/contract.algo.ts:736
+    // smart_contracts/algo_safe/contract.algo.ts:745
     // assert(proposal.status === STATUS_ACTIVE || proposal.status === STATUS_READY, 'not cancellable')
     assert // not cancellable
-    // smart_contracts/algo_safe/contract.algo.ts:737
+    // smart_contracts/algo_safe/contract.algo.ts:746
     // const isProposer = Txn.sender === proposal.proposer
     txn Sender
-    dig 4
+    dig 7
     dup
     cover 2
     extract 48 32
     ==
-    // smart_contracts/algo_safe/contract.algo.ts:738
+    bury 6
+    // smart_contracts/algo_safe/contract.algo.ts:747
     // const isMember = this.members({ groupId: proposal.groupId, account: Txn.sender }).exists
-    swap
-    extract 0 8
     txn Sender
+    dig 1
+    extract 0 8
+    dup
+    bury 14
+    swap
     concat
     // smart_contracts/algo_safe/contract.algo.ts:369
     // members = BoxMap<{ groupId: uint64; account: Account }, Member>({ keyPrefix: 'm' })
     bytec 4 // "m"
     swap
     concat
-    // smart_contracts/algo_safe/contract.algo.ts:738
+    // smart_contracts/algo_safe/contract.algo.ts:747
     // const isMember = this.members({ groupId: proposal.groupId, account: Txn.sender }).exists
     box_len
+    bury 8
+    pop
+    // smart_contracts/algo_safe/contract.algo.ts:748
+    // let isStale = Global.round > proposal.expiryRound
+    global Round
+    swap
+    pushint 40 // 40
+    extract_uint64
+    >
+    dup
+    bury 5
+    // smart_contracts/algo_safe/contract.algo.ts:749
+    // if (!isStale && this.groups(proposal.groupId).exists) {
+    bnz cancelProposal_after_if_else@10
+    // smart_contracts/algo_safe/contract.algo.ts:368
+    // groups = BoxMap<uint64, SignerGroup>({ keyPrefix: 'g' })
+    bytec_0 // "g"
+    dig 11
+    concat
+    dup
+    bury 10
+    // smart_contracts/algo_safe/contract.algo.ts:749
+    // if (!isStale && this.groups(proposal.groupId).exists) {
+    box_len
     bury 1
-    // smart_contracts/algo_safe/contract.algo.ts:739
-    // assert(isProposer || isMember, 'not authorised to cancel')
-    ||
+    bz cancelProposal_after_if_else@10
+    // smart_contracts/algo_safe/contract.algo.ts:750
+    // isStale = this.groups(proposal.groupId).value.membershipEpoch !== proposal.epochAtCreation
+    dig 8
+    pushint 106 // 106
+    intc_2 // 8
+    box_extract
+    btoi
+    dig 7
+    pushint 88 // 88
+    extract_uint64
+    !=
+    bury 4
+
+cancelProposal_after_if_else@10:
+    // smart_contracts/algo_safe/contract.algo.ts:752
+    // assert(isProposer || (isMember && isStale), 'not authorised to cancel')
+    dig 4
+    bnz cancelProposal_bool_true@13
+    dig 5
+    bz cancelProposal_bool_false@14
+    dig 3
+    bz cancelProposal_bool_false@14
+
+cancelProposal_bool_true@13:
+    intc_1 // 1
+
+cancelProposal_bool_merge@15:
+    // smart_contracts/algo_safe/contract.algo.ts:752
+    // assert(isProposer || (isMember && isStale), 'not authorised to cancel')
     assert // not authorised to cancel
-    // smart_contracts/algo_safe/contract.algo.ts:741
+    // smart_contracts/algo_safe/contract.algo.ts:754
     // proposal.status = STATUS_CANCELLED
     pushint 4 // 4
     itob
-    // smart_contracts/algo_safe/contract.algo.ts:741-742
+    // smart_contracts/algo_safe/contract.algo.ts:754-755
     // proposal.status = STATUS_CANCELLED
     // this.proposals(proposalId).value = clone(proposal)
-    dig 6
+    dig 10
     intc_2 // 8
     uncover 2
     box_replace
-    // smart_contracts/algo_safe/contract.algo.ts:743
+    // smart_contracts/algo_safe/contract.algo.ts:756
     // emit<ProposalCancelled>({ proposalId })
     pushbytes 0xae2abc06 // method "ProposalCancelled(uint64)"
-    dig 5
+    dig 8
     concat
     log
-    // smart_contracts/algo_safe/contract.algo.ts:731
+    // smart_contracts/algo_safe/contract.algo.ts:740
     // public cancelProposal(proposalId: uint64, ensureBudgetValue: uint64): void {
     intc_1 // 1
     return
+
+cancelProposal_bool_false@14:
+    intc_0 // 0
+    b cancelProposal_bool_merge@15
 
 cancelProposal_bool_false@6:
     intc_0 // 0
@@ -1775,7 +1853,7 @@ pruneProposal:
     dupn 5
     bytec_1 // ""
     dup
-    // smart_contracts/algo_safe/contract.algo.ts:754
+    // smart_contracts/algo_safe/contract.algo.ts:767
     // public pruneProposal(proposalId: uint64, ensureBudgetValue: uint64): void {
     txna ApplicationArgs 1
     dup
@@ -1792,19 +1870,19 @@ pruneProposal:
     assert // invalid number of bytes for arc4.uint64
     btoi
     dup
-    // smart_contracts/algo_safe/contract.algo.ts:755
+    // smart_contracts/algo_safe/contract.algo.ts:768
     // if (ensureBudgetValue > Uint64(1)) {
     intc_1 // 1
     >
     bz pruneProposal_after_if_else@3
-    // smart_contracts/algo_safe/contract.algo.ts:756
+    // smart_contracts/algo_safe/contract.algo.ts:769
     // ensureBudget(ensureBudgetValue)
     dup
     intc_0 // 0
     callsub ensure_budget
 
 pruneProposal_after_if_else@3:
-    // smart_contracts/algo_safe/contract.algo.ts:758
+    // smart_contracts/algo_safe/contract.algo.ts:771
     // const proposal = clone(this.proposals(proposalId).value)
     dig 1
     itob
@@ -1817,7 +1895,7 @@ pruneProposal_after_if_else@3:
     concat
     dup
     bury 11
-    // smart_contracts/algo_safe/contract.algo.ts:758
+    // smart_contracts/algo_safe/contract.algo.ts:771
     // const proposal = clone(this.proposals(proposalId).value)
     box_get
     swap
@@ -1825,7 +1903,7 @@ pruneProposal_after_if_else@3:
     cover 2
     bury 7
     assert // Box must have value
-    // smart_contracts/algo_safe/contract.algo.ts:759
+    // smart_contracts/algo_safe/contract.algo.ts:772
     // assert(proposal.status === STATUS_EXECUTED || proposal.status === STATUS_CANCELLED, 'proposal not terminal')
     intc_2 // 8
     extract_uint64
@@ -1843,16 +1921,16 @@ pruneProposal_bool_true@5:
     intc_1 // 1
 
 pruneProposal_bool_merge@7:
-    // smart_contracts/algo_safe/contract.algo.ts:759
+    // smart_contracts/algo_safe/contract.algo.ts:772
     // assert(proposal.status === STATUS_EXECUTED || proposal.status === STATUS_CANCELLED, 'proposal not terminal')
     assert // proposal not terminal
-    // smart_contracts/algo_safe/contract.algo.ts:760
+    // smart_contracts/algo_safe/contract.algo.ts:773
     // if (proposal.status === STATUS_CANCELLED) {
     dig 2
     pushint 4 // 4
     ==
     bz pruneProposal_after_if_else@9
-    // smart_contracts/algo_safe/contract.algo.ts:761
+    // smart_contracts/algo_safe/contract.algo.ts:774
     // assert(Global.round > proposal.expiryRound, 'not yet expired')
     global Round
     dig 5
@@ -1862,7 +1940,7 @@ pruneProposal_bool_merge@7:
     assert // not yet expired
 
 pruneProposal_after_if_else@9:
-    // smart_contracts/algo_safe/contract.algo.ts:767
+    // smart_contracts/algo_safe/contract.algo.ts:780
     // if (this.groups(proposal.groupId).exists) {
     dig 4
     extract 0 8
@@ -1873,12 +1951,12 @@ pruneProposal_after_if_else@9:
     bytec_0 // "g"
     swap
     concat
-    // smart_contracts/algo_safe/contract.algo.ts:767
+    // smart_contracts/algo_safe/contract.algo.ts:780
     // if (this.groups(proposal.groupId).exists) {
     box_len
     bury 1
     bz pruneProposal_after_if_else@11
-    // smart_contracts/algo_safe/contract.algo.ts:768
+    // smart_contracts/algo_safe/contract.algo.ts:781
     // assert(this.members({ groupId: proposal.groupId, account: Txn.sender }).exists, 'not a group member')
     dig 5
     txn Sender
@@ -1888,14 +1966,14 @@ pruneProposal_after_if_else@9:
     bytec 4 // "m"
     swap
     concat
-    // smart_contracts/algo_safe/contract.algo.ts:768
+    // smart_contracts/algo_safe/contract.algo.ts:781
     // assert(this.members({ groupId: proposal.groupId, account: Txn.sender }).exists, 'not a group member')
     box_len
     bury 1
     assert // not a group member
 
 pruneProposal_after_if_else@11:
-    // smart_contracts/algo_safe/contract.algo.ts:771
+    // smart_contracts/algo_safe/contract.algo.ts:784
     // if (proposal.payloadType === PT_TRANSACTION_GROUP) {
     dig 4
     pushint 16 // 16
@@ -1903,13 +1981,13 @@ pruneProposal_after_if_else@11:
     intc_1 // 1
     ==
     bz pruneProposal_else_body@18
-    // smart_contracts/algo_safe/contract.algo.ts:772
+    // smart_contracts/algo_safe/contract.algo.ts:785
     // for (let p = Uint64(1); p <= proposal.numPayloads; p = p + Uint64(1)) {
     intc_1 // 1
     bury 4
 
 pruneProposal_while_top@13:
-    // smart_contracts/algo_safe/contract.algo.ts:772
+    // smart_contracts/algo_safe/contract.algo.ts:785
     // for (let p = Uint64(1); p <= proposal.numPayloads; p = p + Uint64(1)) {
     dig 4
     pushint 80 // 80
@@ -1917,14 +1995,14 @@ pruneProposal_while_top@13:
     dig 4
     >=
     bz pruneProposal_after_if_else@21
-    // smart_contracts/algo_safe/contract.algo.ts:773
+    // smart_contracts/algo_safe/contract.algo.ts:786
     // const key: uint64 = proposalId * TXG_KEY_MULT + p
     dig 1
     pushint 7 // 7
     *
     dig 4
     +
-    // smart_contracts/algo_safe/contract.algo.ts:774
+    // smart_contracts/algo_safe/contract.algo.ts:787
     // if (this.transactionGroups(key).exists) {
     itob
     // smart_contracts/algo_safe/contract.algo.ts:374
@@ -1934,19 +2012,19 @@ pruneProposal_while_top@13:
     concat
     dup
     bury 10
-    // smart_contracts/algo_safe/contract.algo.ts:774
+    // smart_contracts/algo_safe/contract.algo.ts:787
     // if (this.transactionGroups(key).exists) {
     box_len
     bury 1
     bz pruneProposal_after_if_else@16
-    // smart_contracts/algo_safe/contract.algo.ts:775
+    // smart_contracts/algo_safe/contract.algo.ts:788
     // this.transactionGroups(key).delete()
     dig 8
     box_del
     pop
 
 pruneProposal_after_if_else@16:
-    // smart_contracts/algo_safe/contract.algo.ts:772
+    // smart_contracts/algo_safe/contract.algo.ts:785
     // for (let p = Uint64(1); p <= proposal.numPayloads; p = p + Uint64(1)) {
     dig 3
     intc_1 // 1
@@ -1955,12 +2033,12 @@ pruneProposal_after_if_else@16:
     b pruneProposal_while_top@13
 
 pruneProposal_after_if_else@21:
-    // smart_contracts/algo_safe/contract.algo.ts:781
+    // smart_contracts/algo_safe/contract.algo.ts:794
     // this.proposals(proposalId).delete()
     dig 9
     box_del
     pop
-    // smart_contracts/algo_safe/contract.algo.ts:754
+    // smart_contracts/algo_safe/contract.algo.ts:767
     // public pruneProposal(proposalId: uint64, ensureBudgetValue: uint64): void {
     intc_1 // 1
     return
@@ -1973,12 +2051,12 @@ pruneProposal_else_body@18:
     concat
     dup
     bury 9
-    // smart_contracts/algo_safe/contract.algo.ts:778
+    // smart_contracts/algo_safe/contract.algo.ts:791
     // } else if (this.adminPayloads(proposalId).exists) {
     box_len
     bury 1
     bz pruneProposal_after_if_else@21
-    // smart_contracts/algo_safe/contract.algo.ts:779
+    // smart_contracts/algo_safe/contract.algo.ts:792
     // this.adminPayloads(proposalId).delete()
     dig 7
     box_del
@@ -2472,10 +2550,10 @@ _seedGroup_bool_false@3:
 
 // smart_contracts/algo_safe/contract.algo.ts::AlgoSafe._assertMember(groupId: uint64) -> void:
 _assertMember:
-    // smart_contracts/algo_safe/contract.algo.ts:797
+    // smart_contracts/algo_safe/contract.algo.ts:810
     // private _assertMember(groupId: uint64): void {
     proto 1 0
-    // smart_contracts/algo_safe/contract.algo.ts:798
+    // smart_contracts/algo_safe/contract.algo.ts:811
     // assert(this.groups(groupId).exists, 'group not found')
     frame_dig -1
     itob
@@ -2484,12 +2562,12 @@ _assertMember:
     bytec_0 // "g"
     dig 1
     concat
-    // smart_contracts/algo_safe/contract.algo.ts:798
+    // smart_contracts/algo_safe/contract.algo.ts:811
     // assert(this.groups(groupId).exists, 'group not found')
     box_len
     bury 1
     assert // group not found
-    // smart_contracts/algo_safe/contract.algo.ts:799
+    // smart_contracts/algo_safe/contract.algo.ts:812
     // assert(this.members({ groupId, account: Txn.sender }).exists, 'not a group member')
     txn Sender
     concat
@@ -2498,7 +2576,7 @@ _assertMember:
     bytec 4 // "m"
     swap
     concat
-    // smart_contracts/algo_safe/contract.algo.ts:799
+    // smart_contracts/algo_safe/contract.algo.ts:812
     // assert(this.members({ groupId, account: Txn.sender }).exists, 'not a group member')
     box_len
     bury 1
@@ -2508,14 +2586,14 @@ _assertMember:
 
 // smart_contracts/algo_safe/contract.algo.ts::AlgoSafe._executeProposalInternal(proposalId: uint64) -> void:
 _executeProposalInternal:
-    // smart_contracts/algo_safe/contract.algo.ts:815
+    // smart_contracts/algo_safe/contract.algo.ts:828
     // private _executeProposalInternal(proposalId: uint64): void {
     proto 1 0
     intc_0 // 0
     dupn 39
     bytec_1 // ""
     dupn 39
-    // smart_contracts/algo_safe/contract.algo.ts:816
+    // smart_contracts/algo_safe/contract.algo.ts:829
     // const proposal = clone(this.proposals(proposalId).value)
     frame_dig -1
     itob
@@ -2526,14 +2604,14 @@ _executeProposalInternal:
     swap
     concat
     dup
-    // smart_contracts/algo_safe/contract.algo.ts:816
+    // smart_contracts/algo_safe/contract.algo.ts:829
     // const proposal = clone(this.proposals(proposalId).value)
     box_get
     swap
     dup
     uncover 2
     assert // Box must have value
-    // smart_contracts/algo_safe/contract.algo.ts:817
+    // smart_contracts/algo_safe/contract.algo.ts:830
     // assert(proposal.status === STATUS_READY, 'not ready to execute')
     dup
     intc_2 // 8
@@ -2541,7 +2619,7 @@ _executeProposalInternal:
     intc_3 // 2
     ==
     assert // not ready to execute
-    // smart_contracts/algo_safe/contract.algo.ts:818
+    // smart_contracts/algo_safe/contract.algo.ts:831
     // assert(Global.round <= proposal.expiryRound, 'proposal expired')
     global Round
     dig 1
@@ -2549,7 +2627,7 @@ _executeProposalInternal:
     extract_uint64
     <=
     assert // proposal expired
-    // smart_contracts/algo_safe/contract.algo.ts:820
+    // smart_contracts/algo_safe/contract.algo.ts:833
     // const group = clone(this.groups(proposal.groupId).value)
     dup
     intc_0 // 0
@@ -2566,25 +2644,25 @@ _executeProposalInternal:
     concat
     dup
     cover 2
-    // smart_contracts/algo_safe/contract.algo.ts:820
+    // smart_contracts/algo_safe/contract.algo.ts:833
     // const group = clone(this.groups(proposal.groupId).value)
     dup
     box_get
     swap
     cover 3
     assert // Box must have value
-    // smart_contracts/algo_safe/contract.algo.ts:820-821
+    // smart_contracts/algo_safe/contract.algo.ts:833-834
     // const group = clone(this.groups(proposal.groupId).value)
     // assert(group.active !== Uint64(0), 'group disabled')
     dup
     pushint 114 // 114
     intc_2 // 8
     box_extract
-    // smart_contracts/algo_safe/contract.algo.ts:821
+    // smart_contracts/algo_safe/contract.algo.ts:834
     // assert(group.active !== Uint64(0), 'group disabled')
     btoi
     assert // group disabled
-    // smart_contracts/algo_safe/contract.algo.ts:822
+    // smart_contracts/algo_safe/contract.algo.ts:835
     // const requiredThreshold: uint64 = proposal.threshold >= group.threshold ? proposal.threshold : group.threshold
     swap
     pushint 32 // 32
@@ -2602,7 +2680,7 @@ _executeProposalInternal:
     frame_dig 87
 
 _executeProposalInternal_ternary_merge@3:
-    // smart_contracts/algo_safe/contract.algo.ts:823
+    // smart_contracts/algo_safe/contract.algo.ts:836
     // assert(proposal.approvalsCount >= requiredThreshold, 'threshold not met')
     frame_dig 82
     dup
@@ -2611,7 +2689,7 @@ _executeProposalInternal_ternary_merge@3:
     uncover 2
     >=
     assert // threshold not met
-    // smart_contracts/algo_safe/contract.algo.ts:824
+    // smart_contracts/algo_safe/contract.algo.ts:837
     // assert(group.membershipEpoch === proposal.epochAtCreation, 'group membership changed since proposal creation')
     frame_dig 85
     pushint 106 // 106
@@ -2623,26 +2701,26 @@ _executeProposalInternal_ternary_merge@3:
     extract_uint64
     ==
     assert // group membership changed since proposal creation
-    // smart_contracts/algo_safe/contract.algo.ts:826
+    // smart_contracts/algo_safe/contract.algo.ts:839
     // if (proposal.payloadType === PT_TRANSACTION_GROUP) {
     pushint 16 // 16
     extract_uint64
     intc_1 // 1
     ==
     bz _executeProposalInternal_else_body@8
-    // smart_contracts/algo_safe/contract.algo.ts:827
+    // smart_contracts/algo_safe/contract.algo.ts:840
     // assert(this.paused.value === Uint64(0), 'safe paused')
     intc_0 // 0
     // smart_contracts/algo_safe/contract.algo.ts:350
     // paused = GlobalState<uint64>({ key: 'paused' })
     bytec 9 // "paused"
-    // smart_contracts/algo_safe/contract.algo.ts:827
+    // smart_contracts/algo_safe/contract.algo.ts:840
     // assert(this.paused.value === Uint64(0), 'safe paused')
     app_global_get_ex
     assert // check GlobalState exists
     !
     assert // safe paused
-    // smart_contracts/algo_safe/contract.algo.ts:829
+    // smart_contracts/algo_safe/contract.algo.ts:842
     // if (group.cooldownRounds !== Uint64(0) && group.lastExecutionRound !== Uint64(0)) {
     frame_dig 85
     pushint 90 // 90
@@ -2660,7 +2738,7 @@ _executeProposalInternal_ternary_merge@3:
     dup
     frame_bury 74
     bz _executeProposalInternal_after_if_else@7
-    // smart_contracts/algo_safe/contract.algo.ts:830
+    // smart_contracts/algo_safe/contract.algo.ts:843
     // assert(Global.round >= group.lastExecutionRound + group.cooldownRounds, 'group cooldown not elapsed')
     global Round
     frame_dig 74
@@ -2670,13 +2748,13 @@ _executeProposalInternal_ternary_merge@3:
     assert // group cooldown not elapsed
 
 _executeProposalInternal_after_if_else@7:
-    // smart_contracts/algo_safe/contract.algo.ts:832
+    // smart_contracts/algo_safe/contract.algo.ts:845
     // this._executeTransactionGroup(proposalId, proposal.groupId, group, proposal.numPayloads)
     frame_dig 82
     pushint 80 // 80
     extract_uint64
     frame_bury 60
-    // smart_contracts/algo_safe/contract.algo.ts:930
+    // smart_contracts/algo_safe/contract.algo.ts:943
     // const isCustodian = groupIn.groupType === GT_CUSTODIAN
     frame_dig 85
     pushint 122 // 122
@@ -2686,7 +2764,7 @@ _executeProposalInternal_after_if_else@7:
     intc_1 // 1
     ==
     frame_bury 53
-    // smart_contracts/algo_safe/contract.algo.ts:945
+    // smart_contracts/algo_safe/contract.algo.ts:958
     // for (let p = Uint64(1); p <= numPayloads; p = p + Uint64(1)) {
     intc_1 // 1
     frame_bury 61
@@ -2696,20 +2774,20 @@ _executeProposalInternal_after_if_else@7:
     frame_bury 23
 
 _executeProposalInternal_while_top@94:
-    // smart_contracts/algo_safe/contract.algo.ts:945
+    // smart_contracts/algo_safe/contract.algo.ts:958
     // for (let p = Uint64(1); p <= numPayloads; p = p + Uint64(1)) {
     frame_dig 61
     frame_dig 60
     <=
     bz _executeProposalInternal_after_while@121
-    // smart_contracts/algo_safe/contract.algo.ts:946
+    // smart_contracts/algo_safe/contract.algo.ts:959
     // const key: uint64 = proposalId * TXG_KEY_MULT + p
     frame_dig -1
     pushint 7 // 7
     *
     frame_dig 61
     +
-    // smart_contracts/algo_safe/contract.algo.ts:947
+    // smart_contracts/algo_safe/contract.algo.ts:960
     // if (this.transactionGroups(key).exists) {
     itob
     // smart_contracts/algo_safe/contract.algo.ts:374
@@ -2719,7 +2797,7 @@ _executeProposalInternal_while_top@94:
     concat
     dup
     frame_bury 13
-    // smart_contracts/algo_safe/contract.algo.ts:947
+    // smart_contracts/algo_safe/contract.algo.ts:960
     // if (this.transactionGroups(key).exists) {
     box_len
     bury 1
@@ -2728,7 +2806,7 @@ _executeProposalInternal_while_top@94:
     frame_bury 24
 
 _executeProposalInternal_after_if_else@120:
-    // smart_contracts/algo_safe/contract.algo.ts:945
+    // smart_contracts/algo_safe/contract.algo.ts:958
     // for (let p = Uint64(1); p <= numPayloads; p = p + Uint64(1)) {
     frame_dig 61
     intc_1 // 1
@@ -2739,14 +2817,14 @@ _executeProposalInternal_after_if_else@120:
     b _executeProposalInternal_while_top@94
 
 _executeProposalInternal_if_body@96:
-    // smart_contracts/algo_safe/contract.algo.ts:948
+    // smart_contracts/algo_safe/contract.algo.ts:961
     // const payload = clone(this.transactionGroups(key).value)
     frame_dig 13
     box_get
     swap
     frame_bury 28
     assert // Box must have value
-    // smart_contracts/algo_safe/contract.algo.ts:949
+    // smart_contracts/algo_safe/contract.algo.ts:962
     // for (let i = Uint64(0); i < payload.length; i = i + Uint64(1)) {
     intc_0 // 0
     frame_bury 51
@@ -2754,7 +2832,7 @@ _executeProposalInternal_if_body@96:
     frame_bury 24
 
 _executeProposalInternal_while_top@97:
-    // smart_contracts/algo_safe/contract.algo.ts:948-949
+    // smart_contracts/algo_safe/contract.algo.ts:961-962
     // const payload = clone(this.transactionGroups(key).value)
     // for (let i = Uint64(0); i < payload.length; i = i + Uint64(1)) {
     frame_dig 13
@@ -2762,12 +2840,12 @@ _executeProposalInternal_while_top@97:
     intc_3 // 2
     box_extract
     btoi
-    // smart_contracts/algo_safe/contract.algo.ts:949
+    // smart_contracts/algo_safe/contract.algo.ts:962
     // for (let i = Uint64(0); i < payload.length; i = i + Uint64(1)) {
     frame_dig 51
     >
     bz _executeProposalInternal_after_if_else@120
-    // smart_contracts/algo_safe/contract.algo.ts:950-951
+    // smart_contracts/algo_safe/contract.algo.ts:963-964
     // const entry = clone(payload[i])
     // if (entry.txType === TX_APP) {
     intc_3 // 2
@@ -2787,13 +2865,13 @@ _executeProposalInternal_while_top@97:
     box_extract
     dup
     frame_bury 12
-    // smart_contracts/algo_safe/contract.algo.ts:951
+    // smart_contracts/algo_safe/contract.algo.ts:964
     // if (entry.txType === TX_APP) {
     btoi
     pushint 3 // 3
     ==
     bz _executeProposalInternal_else_body@102
-    // smart_contracts/algo_safe/contract.algo.ts:952
+    // smart_contracts/algo_safe/contract.algo.ts:965
     // this._validateApp(decodeArc4<AppTxn>(entry.data), groupIn)
     frame_dig 28
     dup
@@ -2833,7 +2911,7 @@ _executeProposalInternal_while_top@97:
     substring3
     dup
     extract 2 0
-    // smart_contracts/algo_safe/contract.algo.ts:1172
+    // smart_contracts/algo_safe/contract.algo.ts:1185
     // assert((group.allowedActions & ACT_APPL) !== Uint64(0), 'appl not allowed')
     frame_dig 23
     pushint 26 // 26
@@ -2841,19 +2919,19 @@ _executeProposalInternal_while_top@97:
     pushint 4 // 4
     &
     assert // appl not allowed
-    // smart_contracts/algo_safe/contract.algo.ts:1173
+    // smart_contracts/algo_safe/contract.algo.ts:1186
     // assert(tx.appId !== Uint64(0), 'appId required')
     dig 1
     intc_3 // 2
     extract_uint64
     dup
     assert // appId required
-    // smart_contracts/algo_safe/contract.algo.ts:1175
+    // smart_contracts/algo_safe/contract.algo.ts:1188
     // assert(tx.appId !== Global.currentApplicationId.id, 'self-call not allowed')
     global CurrentApplicationID
     !=
     assert // self-call not allowed
-    // smart_contracts/algo_safe/contract.algo.ts:1176
+    // smart_contracts/algo_safe/contract.algo.ts:1189
     // assert(tx.onCompletion <= Uint64(5), 'invalid onCompletion')
     swap
     pushint 10 // 10
@@ -2862,12 +2940,12 @@ _executeProposalInternal_while_top@97:
     pushint 5 // 5
     <=
     assert // invalid onCompletion
-    // smart_contracts/algo_safe/contract.algo.ts:1178
+    // smart_contracts/algo_safe/contract.algo.ts:1191
     // assert(tx.onCompletion !== Uint64(4), 'app update not supported')
     pushint 4 // 4
     !=
     assert // app update not supported
-    // smart_contracts/algo_safe/contract.algo.ts:1179
+    // smart_contracts/algo_safe/contract.algo.ts:1192
     // const numArgs = Uint64(tx.appArgs.length)
     dup
     pushint 16 // 16
@@ -2886,7 +2964,7 @@ _executeProposalInternal_while_top@97:
     dup
     cover 3
     frame_bury 59
-    // smart_contracts/algo_safe/contract.algo.ts:1180
+    // smart_contracts/algo_safe/contract.algo.ts:1193
     // const numAccounts = Uint64(tx.accounts.length)
     dig 1
     pushint 20 // 20
@@ -2897,7 +2975,7 @@ _executeProposalInternal_while_top@97:
     substring3
     intc_0 // 0
     extract_uint16 // on error: invalid array length header
-    // smart_contracts/algo_safe/contract.algo.ts:1181
+    // smart_contracts/algo_safe/contract.algo.ts:1194
     // const numApps = Uint64(tx.foreignApps.length)
     dig 2
     pushint 22 // 22
@@ -2908,7 +2986,7 @@ _executeProposalInternal_while_top@97:
     substring3
     intc_0 // 0
     extract_uint16 // on error: invalid array length header
-    // smart_contracts/algo_safe/contract.algo.ts:1182
+    // smart_contracts/algo_safe/contract.algo.ts:1195
     // const numAssets = Uint64(tx.foreignAssets.length)
     dig 3
     pushint 24 // 24
@@ -2919,31 +2997,31 @@ _executeProposalInternal_while_top@97:
     substring3
     intc_0 // 0
     extract_uint16 // on error: invalid array length header
-    // smart_contracts/algo_safe/contract.algo.ts:1183
+    // smart_contracts/algo_safe/contract.algo.ts:1196
     // assert(numArgs <= MAX_APP_ARGS, 'too many app args')
     uncover 3
     pushint 16 // 16
     <=
     assert // too many app args
-    // smart_contracts/algo_safe/contract.algo.ts:1184
+    // smart_contracts/algo_safe/contract.algo.ts:1197
     // assert(numAccounts <= MAX_APP_ACCOUNTS, 'too many accounts')
     dig 2
     pushint 4 // 4
     <=
     assert // too many accounts
-    // smart_contracts/algo_safe/contract.algo.ts:1185
+    // smart_contracts/algo_safe/contract.algo.ts:1198
     // assert(numApps <= MAX_APP_FOREIGN_APPS, 'too many foreign apps')
     dig 1
     intc_2 // 8
     <=
     assert // too many foreign apps
-    // smart_contracts/algo_safe/contract.algo.ts:1186
+    // smart_contracts/algo_safe/contract.algo.ts:1199
     // assert(numAssets <= MAX_APP_FOREIGN_ASSETS, 'too many foreign assets')
     dup
     intc_2 // 8
     <=
     assert // too many foreign assets
-    // smart_contracts/algo_safe/contract.algo.ts:1187
+    // smart_contracts/algo_safe/contract.algo.ts:1200
     // assert(numAccounts + numApps + numAssets <= MAX_APP_TOTAL_REFS, 'too many references')
     cover 2
     +
@@ -2951,17 +3029,17 @@ _executeProposalInternal_while_top@97:
     intc_2 // 8
     <=
     assert // too many references
-    // smart_contracts/algo_safe/contract.algo.ts:1188
+    // smart_contracts/algo_safe/contract.algo.ts:1201
     // let totalArgLen = Uint64(0)
     intc_0 // 0
     frame_bury 69
-    // smart_contracts/algo_safe/contract.algo.ts:1189
+    // smart_contracts/algo_safe/contract.algo.ts:1202
     // for (let i = Uint64(0); i < numArgs; i = i + Uint64(1)) {
     intc_0 // 0
     frame_bury 52
 
 _executeProposalInternal_while_top@221:
-    // smart_contracts/algo_safe/contract.algo.ts:1189
+    // smart_contracts/algo_safe/contract.algo.ts:1202
     // for (let i = Uint64(0); i < numArgs; i = i + Uint64(1)) {
     frame_dig 52
     frame_dig 59
@@ -2969,7 +3047,7 @@ _executeProposalInternal_while_top@221:
     dup
     frame_bury 64
     bz _executeProposalInternal_after_while@223
-    // smart_contracts/algo_safe/contract.algo.ts:1190
+    // smart_contracts/algo_safe/contract.algo.ts:1203
     // totalArgLen = totalArgLen + tx.appArgs[i].length
     frame_dig 5
     extract 2 0
@@ -2993,7 +3071,7 @@ _executeProposalInternal_while_top@221:
     frame_dig 69
     +
     frame_bury 69
-    // smart_contracts/algo_safe/contract.algo.ts:1189
+    // smart_contracts/algo_safe/contract.algo.ts:1202
     // for (let i = Uint64(0); i < numArgs; i = i + Uint64(1)) {
     intc_1 // 1
     +
@@ -3001,7 +3079,7 @@ _executeProposalInternal_while_top@221:
     b _executeProposalInternal_while_top@221
 
 _executeProposalInternal_after_while@223:
-    // smart_contracts/algo_safe/contract.algo.ts:1192
+    // smart_contracts/algo_safe/contract.algo.ts:1205
     // assert(totalArgLen <= MAX_APP_TOTAL_ARG_LEN, 'app args total length exceeded')
     frame_dig 69
     pushint 2048 // 2048
@@ -3011,7 +3089,7 @@ _executeProposalInternal_after_while@223:
     frame_bury 24
 
 _executeProposalInternal_after_if_else@118:
-    // smart_contracts/algo_safe/contract.algo.ts:949
+    // smart_contracts/algo_safe/contract.algo.ts:962
     // for (let i = Uint64(0); i < payload.length; i = i + Uint64(1)) {
     frame_dig 51
     intc_1 // 1
@@ -3020,7 +3098,7 @@ _executeProposalInternal_after_if_else@118:
     b _executeProposalInternal_while_top@97
 
 _executeProposalInternal_else_body@102:
-    // smart_contracts/algo_safe/contract.algo.ts:954-959
+    // smart_contracts/algo_safe/contract.algo.ts:967-972
     // const validated = abiCall({
     //   method: AlgoSafeTxnValidator.prototype.validateTxn,
     //   appId: this.validatorApp.value,
@@ -3028,17 +3106,17 @@ _executeProposalInternal_else_body@102:
     //   fee: 0,
     // }).returnValue
     itxn_begin
-    // smart_contracts/algo_safe/contract.algo.ts:956
+    // smart_contracts/algo_safe/contract.algo.ts:969
     // appId: this.validatorApp.value,
     intc_0 // 0
     // smart_contracts/algo_safe/contract.algo.ts:362
     // validatorApp = GlobalState<uint64>({ key: 'vapp' })
     bytec 22 // "vapp"
-    // smart_contracts/algo_safe/contract.algo.ts:956
+    // smart_contracts/algo_safe/contract.algo.ts:969
     // appId: this.validatorApp.value,
     app_global_get_ex
     assert // check GlobalState exists
-    // smart_contracts/algo_safe/contract.algo.ts:957
+    // smart_contracts/algo_safe/contract.algo.ts:970
     // args: [entry.txType, entry.data, groupIn.allowedActions, groupIn.adminPrivileges, groupIn.groupType],
     frame_dig 28
     dup
@@ -3083,7 +3161,7 @@ _executeProposalInternal_else_body@102:
     extract 18 8
     uncover 2
     extract 122 8
-    // smart_contracts/algo_safe/contract.algo.ts:954-959
+    // smart_contracts/algo_safe/contract.algo.ts:967-972
     // const validated = abiCall({
     //   method: AlgoSafeTxnValidator.prototype.validateTxn,
     //   appId: this.validatorApp.value,
@@ -3104,11 +3182,11 @@ _executeProposalInternal_else_body@102:
     itxn_field ApplicationID
     pushint 6 // appl
     itxn_field TypeEnum
-    // smart_contracts/algo_safe/contract.algo.ts:958
+    // smart_contracts/algo_safe/contract.algo.ts:971
     // fee: 0,
     intc_0 // 0
     itxn_field Fee
-    // smart_contracts/algo_safe/contract.algo.ts:954-959
+    // smart_contracts/algo_safe/contract.algo.ts:967-972
     // const validated = abiCall({
     //   method: AlgoSafeTxnValidator.prototype.validateTxn,
     //   appId: this.validatorApp.value,
@@ -3128,7 +3206,7 @@ _executeProposalInternal_else_body@102:
     pushint 56 // 56
     ==
     assert // invalid number of bytes for arc4.tuple<arc4.uint64,arc4.uint64,arc4.uint64,arc4.static_array<arc4.uint8, 32>>
-    // smart_contracts/algo_safe/contract.algo.ts:960
+    // smart_contracts/algo_safe/contract.algo.ts:973
     // const assetId = validated[0]
     dup
     pushint 4 // 4
@@ -3136,30 +3214,30 @@ _executeProposalInternal_else_body@102:
     dup
     cover 2
     frame_bury 48
-    // smart_contracts/algo_safe/contract.algo.ts:961
+    // smart_contracts/algo_safe/contract.algo.ts:974
     // let amount = validated[1]
     dup
     pushint 12 // 12
     extract_uint64
     frame_bury 47
-    // smart_contracts/algo_safe/contract.algo.ts:962
+    // smart_contracts/algo_safe/contract.algo.ts:975
     // const hasClose = validated[2]
     dup
     pushint 20 // 20
     extract_uint64
     frame_bury 50
-    // smart_contracts/algo_safe/contract.algo.ts:963
+    // smart_contracts/algo_safe/contract.algo.ts:976
     // const txSender = validated[3]
     extract 28 32
     frame_bury 32
-    // smart_contracts/algo_safe/contract.algo.ts:966
+    // smart_contracts/algo_safe/contract.algo.ts:979
     // const tracked = assetId === group.limitAssetId
     frame_dig 86
     pushint 34 // 34
     extract_uint64
     ==
     frame_bury 70
-    // smart_contracts/algo_safe/contract.algo.ts:967
+    // smart_contracts/algo_safe/contract.algo.ts:980
     // if (isCustodian || tracked) {
     frame_dig 53
     bnz _executeProposalInternal_if_body@105
@@ -3167,11 +3245,11 @@ _executeProposalInternal_else_body@102:
     bz _executeProposalInternal_after_if_else@118
 
 _executeProposalInternal_if_body@105:
-    // smart_contracts/algo_safe/contract.algo.ts:968
+    // smart_contracts/algo_safe/contract.algo.ts:981
     // if (hasClose !== Uint64(0)) {
     frame_dig 50
     bz _executeProposalInternal_after_if_else@113
-    // smart_contracts/algo_safe/contract.algo.ts:970
+    // smart_contracts/algo_safe/contract.algo.ts:983
     // const sender = txSender === Global.zeroAddress ? Global.currentApplicationAddress : txSender
     frame_dig 32
     global ZeroAddress
@@ -3181,22 +3259,22 @@ _executeProposalInternal_if_body@105:
     frame_bury 30
 
 _executeProposalInternal_ternary_merge@109:
-    // smart_contracts/algo_safe/contract.algo.ts:971
+    // smart_contracts/algo_safe/contract.algo.ts:984
     // if (assetId === Uint64(0)) {
     frame_dig 48
     bnz _executeProposalInternal_else_body@111
-    // smart_contracts/algo_safe/contract.algo.ts:972
+    // smart_contracts/algo_safe/contract.algo.ts:985
     // amount = op.balance(sender)
     frame_dig 30
     balance
     frame_bury 47
 
 _executeProposalInternal_after_if_else@113:
-    // smart_contracts/algo_safe/contract.algo.ts:978
+    // smart_contracts/algo_safe/contract.algo.ts:991
     // if (isCustodian) {
     frame_dig 53
     bz _executeProposalInternal_else_body@115
-    // smart_contracts/algo_safe/contract.algo.ts:1029
+    // smart_contracts/algo_safe/contract.algo.ts:1042
     // const guardKey = { custodianGroupId, assetId }
     frame_dig 48
     itob
@@ -3210,22 +3288,22 @@ _executeProposalInternal_after_if_else@113:
     concat
     dup
     frame_bury 14
-    // smart_contracts/algo_safe/contract.algo.ts:1030
+    // smart_contracts/algo_safe/contract.algo.ts:1043
     // assert(this.assetGuards(guardKey).exists, 'no guard for custodian+asset')
     box_len
     bury 1
     assert // no guard for custodian+asset
-    // smart_contracts/algo_safe/contract.algo.ts:1031
+    // smart_contracts/algo_safe/contract.algo.ts:1044
     // if (amount === Uint64(0)) return
     frame_dig 47
     bz _executeProposalInternal_after_if_else@118
-    // smart_contracts/algo_safe/contract.algo.ts:1032
+    // smart_contracts/algo_safe/contract.algo.ts:1045
     // const guard = clone(this.assetGuards(guardKey).value)
     frame_dig 14
     dup
     box_get
     assert // Box must have value
-    // smart_contracts/algo_safe/contract.algo.ts:1033
+    // smart_contracts/algo_safe/contract.algo.ts:1046
     // assert(guard.lockedAmount >= amount, 'exceeds guard allocation')
     intc_2 // 8
     extract_uint64
@@ -3235,37 +3313,37 @@ _executeProposalInternal_after_if_else@113:
     cover 3
     >=
     assert // exceeds guard allocation
-    // smart_contracts/algo_safe/contract.algo.ts:1034
+    // smart_contracts/algo_safe/contract.algo.ts:1047
     // guard.lockedAmount = guard.lockedAmount - amount
     swap
     -
     itob
-    // smart_contracts/algo_safe/contract.algo.ts:1034-1035
+    // smart_contracts/algo_safe/contract.algo.ts:1047-1048
     // guard.lockedAmount = guard.lockedAmount - amount
     // this.assetGuards(guardKey).value = clone(guard)
     intc_2 // 8
     swap
     box_replace
-    // smart_contracts/algo_safe/contract.algo.ts:979
+    // smart_contracts/algo_safe/contract.algo.ts:992
     // this._deductFromGuard(groupId, assetId, amount)
     b _executeProposalInternal_after_if_else@118
 
 _executeProposalInternal_else_body@115:
-    // smart_contracts/algo_safe/contract.algo.ts:1208
+    // smart_contracts/algo_safe/contract.algo.ts:1221
     // if (amount === Uint64(0)) return group
     frame_dig 47
     bz _executeProposalInternal_after_if_else@118
-    // smart_contracts/algo_safe/contract.algo.ts:1210
+    // smart_contracts/algo_safe/contract.algo.ts:1223
     // const now = Global.latestTimestamp
     global LatestTimestamp
     frame_bury 58
-    // smart_contracts/algo_safe/contract.algo.ts:1212
+    // smart_contracts/algo_safe/contract.algo.ts:1225
     // if (group.dailyLimit !== Uint64(0)) {
     frame_dig 86
     pushint 42 // 42
     extract_uint64
     bz _executeProposalInternal_after_if_else@210
-    // smart_contracts/algo_safe/contract.algo.ts:1213
+    // smart_contracts/algo_safe/contract.algo.ts:1226
     // if (now - group.dailyPeriodStart >= DAY_SECONDS) {
     frame_dig 86
     pushint 58 // 58
@@ -3276,14 +3354,14 @@ _executeProposalInternal_else_body@115:
     pushint 86400 // 86400
     >=
     bz _executeProposalInternal_after_if_else@209
-    // smart_contracts/algo_safe/contract.algo.ts:1214
+    // smart_contracts/algo_safe/contract.algo.ts:1227
     // group.dailyUsage = Uint64(0)
     intc_0 // 0
     itob
     frame_dig 86
     swap
     replace2 50
-    // smart_contracts/algo_safe/contract.algo.ts:1215
+    // smart_contracts/algo_safe/contract.algo.ts:1228
     // group.dailyPeriodStart = now
     frame_dig 58
     itob
@@ -3291,7 +3369,7 @@ _executeProposalInternal_else_body@115:
     frame_bury 86
 
 _executeProposalInternal_after_if_else@209:
-    // smart_contracts/algo_safe/contract.algo.ts:1217
+    // smart_contracts/algo_safe/contract.algo.ts:1230
     // assert(group.dailyUsage + amount <= group.dailyLimit, 'daily limit exceeded')
     frame_dig 86
     dup
@@ -3305,20 +3383,20 @@ _executeProposalInternal_after_if_else@209:
     dig 1
     >=
     assert // daily limit exceeded
-    // smart_contracts/algo_safe/contract.algo.ts:1218
+    // smart_contracts/algo_safe/contract.algo.ts:1231
     // group.dailyUsage = group.dailyUsage + amount
     itob
     replace2 50
     frame_bury 86
 
 _executeProposalInternal_after_if_else@210:
-    // smart_contracts/algo_safe/contract.algo.ts:1221
+    // smart_contracts/algo_safe/contract.algo.ts:1234
     // if (group.monthlyLimit !== Uint64(0)) {
     frame_dig 86
     pushint 66 // 66
     extract_uint64
     bz _executeProposalInternal_after_if_else@118
-    // smart_contracts/algo_safe/contract.algo.ts:1222
+    // smart_contracts/algo_safe/contract.algo.ts:1235
     // if (now - group.monthlyPeriodStart >= MONTH_SECONDS) {
     frame_dig 86
     pushint 82 // 82
@@ -3329,14 +3407,14 @@ _executeProposalInternal_after_if_else@210:
     pushint 2592000 // 2592000
     >=
     bz _executeProposalInternal_after_if_else@213
-    // smart_contracts/algo_safe/contract.algo.ts:1223
+    // smart_contracts/algo_safe/contract.algo.ts:1236
     // group.monthlyUsage = Uint64(0)
     intc_0 // 0
     itob
     frame_dig 86
     swap
     replace2 74
-    // smart_contracts/algo_safe/contract.algo.ts:1224
+    // smart_contracts/algo_safe/contract.algo.ts:1237
     // group.monthlyPeriodStart = now
     frame_dig 58
     itob
@@ -3344,7 +3422,7 @@ _executeProposalInternal_after_if_else@210:
     frame_bury 86
 
 _executeProposalInternal_after_if_else@213:
-    // smart_contracts/algo_safe/contract.algo.ts:1226
+    // smart_contracts/algo_safe/contract.algo.ts:1239
     // assert(group.monthlyUsage + amount <= group.monthlyLimit, 'monthly limit exceeded')
     frame_dig 86
     dup
@@ -3358,7 +3436,7 @@ _executeProposalInternal_after_if_else@213:
     dig 1
     >=
     assert // monthly limit exceeded
-    // smart_contracts/algo_safe/contract.algo.ts:1227
+    // smart_contracts/algo_safe/contract.algo.ts:1240
     // group.monthlyUsage = group.monthlyUsage + amount
     itob
     replace2 74
@@ -3366,7 +3444,7 @@ _executeProposalInternal_after_if_else@213:
     b _executeProposalInternal_after_if_else@118
 
 _executeProposalInternal_else_body@111:
-    // smart_contracts/algo_safe/contract.algo.ts:974
+    // smart_contracts/algo_safe/contract.algo.ts:987
     // const [bal] = op.AssetHolding.assetBalance(sender, assetId)
     frame_dig 30
     frame_dig 48
@@ -3381,14 +3459,14 @@ _executeProposalInternal_ternary_false@108:
     b _executeProposalInternal_ternary_merge@109
 
 _executeProposalInternal_after_while@121:
-    // smart_contracts/algo_safe/contract.algo.ts:989
+    // smart_contracts/algo_safe/contract.algo.ts:1002
     // group.lastExecutionRound = Global.round
     global Round
     itob
     frame_dig 86
     swap
     replace2 98
-    // smart_contracts/algo_safe/contract.algo.ts:990
+    // smart_contracts/algo_safe/contract.algo.ts:1003
     // this.groups(groupId).value = clone(group)
     frame_dig 85
     dup
@@ -3396,30 +3474,30 @@ _executeProposalInternal_after_while@121:
     pop
     swap
     box_put
-    // smart_contracts/algo_safe/contract.algo.ts:993
+    // smart_contracts/algo_safe/contract.algo.ts:1006
     // let txIndex = Uint64(0)
     intc_0 // 0
     frame_bury 71
-    // smart_contracts/algo_safe/contract.algo.ts:994
+    // smart_contracts/algo_safe/contract.algo.ts:1007
     // for (let p = Uint64(1); p <= numPayloads; p = p + Uint64(1)) {
     intc_1 // 1
     frame_bury 62
 
 _executeProposalInternal_while_top@122:
-    // smart_contracts/algo_safe/contract.algo.ts:994
+    // smart_contracts/algo_safe/contract.algo.ts:1007
     // for (let p = Uint64(1); p <= numPayloads; p = p + Uint64(1)) {
     frame_dig 62
     frame_dig 60
     <=
     bz _executeProposalInternal_after_while@146
-    // smart_contracts/algo_safe/contract.algo.ts:995
+    // smart_contracts/algo_safe/contract.algo.ts:1008
     // const key: uint64 = proposalId * TXG_KEY_MULT + p
     frame_dig -1
     pushint 7 // 7
     *
     frame_dig 62
     +
-    // smart_contracts/algo_safe/contract.algo.ts:996
+    // smart_contracts/algo_safe/contract.algo.ts:1009
     // if (this.transactionGroups(key).exists) {
     itob
     // smart_contracts/algo_safe/contract.algo.ts:374
@@ -3429,25 +3507,25 @@ _executeProposalInternal_while_top@122:
     concat
     dup
     frame_bury 17
-    // smart_contracts/algo_safe/contract.algo.ts:996
+    // smart_contracts/algo_safe/contract.algo.ts:1009
     // if (this.transactionGroups(key).exists) {
     box_len
     bury 1
     bz _executeProposalInternal_after_if_else@145
-    // smart_contracts/algo_safe/contract.algo.ts:997
+    // smart_contracts/algo_safe/contract.algo.ts:1010
     // const payload = clone(this.transactionGroups(key).value)
     frame_dig 17
     box_get
     swap
     frame_bury 29
     assert // Box must have value
-    // smart_contracts/algo_safe/contract.algo.ts:998
+    // smart_contracts/algo_safe/contract.algo.ts:1011
     // for (let i = Uint64(0); i < payload.length; i = i + Uint64(1)) {
     intc_0 // 0
     frame_bury 54
 
 _executeProposalInternal_while_top@125:
-    // smart_contracts/algo_safe/contract.algo.ts:997-998
+    // smart_contracts/algo_safe/contract.algo.ts:1010-1011
     // const payload = clone(this.transactionGroups(key).value)
     // for (let i = Uint64(0); i < payload.length; i = i + Uint64(1)) {
     frame_dig 17
@@ -3455,17 +3533,17 @@ _executeProposalInternal_while_top@125:
     intc_3 // 2
     box_extract
     btoi
-    // smart_contracts/algo_safe/contract.algo.ts:998
+    // smart_contracts/algo_safe/contract.algo.ts:1011
     // for (let i = Uint64(0); i < payload.length; i = i + Uint64(1)) {
     frame_dig 54
     >
     bz _executeProposalInternal_after_if_else@145
-    // smart_contracts/algo_safe/contract.algo.ts:1000
+    // smart_contracts/algo_safe/contract.algo.ts:1013
     // const first = txIndex === Uint64(0)
     frame_dig 71
     !
     frame_bury 49
-    // smart_contracts/algo_safe/contract.algo.ts:1001
+    // smart_contracts/algo_safe/contract.algo.ts:1014
     // if (entry.txType === TX_PAYMENT) {
     intc_3 // 2
     frame_dig 54
@@ -3488,7 +3566,7 @@ _executeProposalInternal_while_top@125:
     intc_1 // 1
     ==
     bz _executeProposalInternal_else_body@128
-    // smart_contracts/algo_safe/contract.algo.ts:1002
+    // smart_contracts/algo_safe/contract.algo.ts:1015
     // this._stagePayment(decodeArc4<PaymentTxn>(entry.data), first)
     frame_dig 29
     dup
@@ -3531,36 +3609,36 @@ _executeProposalInternal_while_top@125:
     dup
     extract 2 0
     frame_bury 31
-    // smart_contracts/algo_safe/contract.algo.ts:1054
+    // smart_contracts/algo_safe/contract.algo.ts:1067
     // this._beginOrNext(first)
     frame_dig 49
     callsub _beginOrNext
-    // smart_contracts/algo_safe/contract.algo.ts:1055
+    // smart_contracts/algo_safe/contract.algo.ts:1068
     // op.ITxnCreate.setTypeEnum(Uint64(TransactionType.Payment))
     intc_1 // 1
     itxn_field TypeEnum
-    // smart_contracts/algo_safe/contract.algo.ts:1056
+    // smart_contracts/algo_safe/contract.algo.ts:1069
     // op.ITxnCreate.setFee(Uint64(0))
     intc_0 // 0
     itxn_field Fee
-    // smart_contracts/algo_safe/contract.algo.ts:1057
+    // smart_contracts/algo_safe/contract.algo.ts:1070
     // this._setSenderIfSet(tx.sender)
     dup
     extract 2 32
     callsub _setSenderIfSet
-    // smart_contracts/algo_safe/contract.algo.ts:1058
+    // smart_contracts/algo_safe/contract.algo.ts:1071
     // op.ITxnCreate.setReceiver(tx.receiver)
     dup
     extract 34 32
     itxn_field Receiver
-    // smart_contracts/algo_safe/contract.algo.ts:1059
+    // smart_contracts/algo_safe/contract.algo.ts:1072
     // op.ITxnCreate.setAmount(tx.amount)
     dup
     pushint 66 // 66
     extract_uint64
     itxn_field Amount
     pushint 74 // 74
-    // smart_contracts/algo_safe/contract.algo.ts:1060
+    // smart_contracts/algo_safe/contract.algo.ts:1073
     // if (tx.hasClose !== Uint64(0)) op.ITxnCreate.setCloseRemainderTo(tx.closeRemainderTo)
     extract_uint64
     bz _executeProposalInternal_after_if_else@200
@@ -3569,7 +3647,7 @@ _executeProposalInternal_while_top@125:
     itxn_field CloseRemainderTo
 
 _executeProposalInternal_after_if_else@200:
-    // smart_contracts/algo_safe/contract.algo.ts:1061
+    // smart_contracts/algo_safe/contract.algo.ts:1074
     // if (tx.note !== '') op.ITxnCreate.setNote(Bytes(tx.note))
     frame_dig 31
     dup
@@ -3588,13 +3666,13 @@ _executeProposalInternal_after_if_else@200:
     itxn_field Note
 
 _executeProposalInternal_after_if_else@143:
-    // smart_contracts/algo_safe/contract.algo.ts:1014
+    // smart_contracts/algo_safe/contract.algo.ts:1027
     // txIndex = txIndex + Uint64(1)
     frame_dig 71
     intc_1 // 1
     +
     frame_bury 71
-    // smart_contracts/algo_safe/contract.algo.ts:998
+    // smart_contracts/algo_safe/contract.algo.ts:1011
     // for (let i = Uint64(0); i < payload.length; i = i + Uint64(1)) {
     frame_dig 54
     intc_1 // 1
@@ -3603,13 +3681,13 @@ _executeProposalInternal_after_if_else@143:
     b _executeProposalInternal_while_top@125
 
 _executeProposalInternal_else_body@128:
-    // smart_contracts/algo_safe/contract.algo.ts:1003
+    // smart_contracts/algo_safe/contract.algo.ts:1016
     // } else if (entry.txType === TX_ASSET) {
     frame_dig 74
     intc_3 // 2
     ==
     bz _executeProposalInternal_else_body@130
-    // smart_contracts/algo_safe/contract.algo.ts:1004
+    // smart_contracts/algo_safe/contract.algo.ts:1017
     // this._stageAsset(decodeArc4<AssetTxn>(entry.data), first)
     frame_dig 29
     dup
@@ -3652,42 +3730,42 @@ _executeProposalInternal_else_body@128:
     dup
     extract 2 0
     frame_bury 31
-    // smart_contracts/algo_safe/contract.algo.ts:1065
+    // smart_contracts/algo_safe/contract.algo.ts:1078
     // this._beginOrNext(first)
     frame_dig 49
     callsub _beginOrNext
-    // smart_contracts/algo_safe/contract.algo.ts:1066
+    // smart_contracts/algo_safe/contract.algo.ts:1079
     // op.ITxnCreate.setTypeEnum(Uint64(TransactionType.AssetTransfer))
     pushint 4 // 4
     itxn_field TypeEnum
-    // smart_contracts/algo_safe/contract.algo.ts:1067
+    // smart_contracts/algo_safe/contract.algo.ts:1080
     // op.ITxnCreate.setFee(Uint64(0))
     intc_0 // 0
     itxn_field Fee
-    // smart_contracts/algo_safe/contract.algo.ts:1068
+    // smart_contracts/algo_safe/contract.algo.ts:1081
     // this._setSenderIfSet(tx.sender)
     dup
     extract 2 32
     callsub _setSenderIfSet
-    // smart_contracts/algo_safe/contract.algo.ts:1069
+    // smart_contracts/algo_safe/contract.algo.ts:1082
     // op.ITxnCreate.setXferAsset(tx.xferAsset)
     dup
     pushint 34 // 34
     extract_uint64
     itxn_field XferAsset
-    // smart_contracts/algo_safe/contract.algo.ts:1070
+    // smart_contracts/algo_safe/contract.algo.ts:1083
     // op.ITxnCreate.setAssetReceiver(tx.assetReceiver)
     dup
     extract 42 32
     itxn_field AssetReceiver
-    // smart_contracts/algo_safe/contract.algo.ts:1071
+    // smart_contracts/algo_safe/contract.algo.ts:1084
     // op.ITxnCreate.setAssetAmount(tx.assetAmount)
     dup
     pushint 74 // 74
     extract_uint64
     itxn_field AssetAmount
     pushint 82 // 82
-    // smart_contracts/algo_safe/contract.algo.ts:1072
+    // smart_contracts/algo_safe/contract.algo.ts:1085
     // if (tx.hasAssetClose !== Uint64(0)) op.ITxnCreate.setAssetCloseTo(tx.assetCloseTo)
     extract_uint64
     bz _executeProposalInternal_after_if_else@194
@@ -3696,7 +3774,7 @@ _executeProposalInternal_else_body@128:
     itxn_field AssetCloseTo
 
 _executeProposalInternal_after_if_else@194:
-    // smart_contracts/algo_safe/contract.algo.ts:1073
+    // smart_contracts/algo_safe/contract.algo.ts:1086
     // if (tx.note !== '') op.ITxnCreate.setNote(Bytes(tx.note))
     frame_dig 31
     dup
@@ -3716,13 +3794,13 @@ _executeProposalInternal_after_if_else@194:
     b _executeProposalInternal_after_if_else@143
 
 _executeProposalInternal_else_body@130:
-    // smart_contracts/algo_safe/contract.algo.ts:1005
+    // smart_contracts/algo_safe/contract.algo.ts:1018
     // } else if (entry.txType === TX_APP) {
     frame_dig 74
     pushint 3 // 3
     ==
     bz _executeProposalInternal_else_body@132
-    // smart_contracts/algo_safe/contract.algo.ts:1006
+    // smart_contracts/algo_safe/contract.algo.ts:1019
     // this._stageAppCall(decodeArc4<AppTxn>(entry.data), first)
     frame_dig 29
     dup
@@ -3765,30 +3843,30 @@ _executeProposalInternal_else_body@130:
     dup
     cover 2
     frame_bury 31
-    // smart_contracts/algo_safe/contract.algo.ts:1100
+    // smart_contracts/algo_safe/contract.algo.ts:1113
     // this._beginOrNext(first)
     frame_dig 49
     callsub _beginOrNext
-    // smart_contracts/algo_safe/contract.algo.ts:1101
+    // smart_contracts/algo_safe/contract.algo.ts:1114
     // op.ITxnCreate.setTypeEnum(Uint64(TransactionType.ApplicationCall))
     pushint 6 // 6
     itxn_field TypeEnum
-    // smart_contracts/algo_safe/contract.algo.ts:1102
+    // smart_contracts/algo_safe/contract.algo.ts:1115
     // op.ITxnCreate.setFee(Uint64(0))
     intc_0 // 0
     itxn_field Fee
-    // smart_contracts/algo_safe/contract.algo.ts:1103
+    // smart_contracts/algo_safe/contract.algo.ts:1116
     // op.ITxnCreate.setApplicationId(tx.appId)
     dup
     intc_3 // 2
     extract_uint64
     itxn_field ApplicationID
     pushint 10 // 10
-    // smart_contracts/algo_safe/contract.algo.ts:1104
+    // smart_contracts/algo_safe/contract.algo.ts:1117
     // op.ITxnCreate.setOnCompletion(tx.onCompletion)
     extract_uint64
     itxn_field OnCompletion
-    // smart_contracts/algo_safe/contract.algo.ts:1105
+    // smart_contracts/algo_safe/contract.algo.ts:1118
     // if (tx.note !== '') op.ITxnCreate.setNote(Bytes(tx.note))
     dup
     pushint 24 // 24
@@ -3811,13 +3889,13 @@ _executeProposalInternal_else_body@130:
     itxn_field Note
 
 _executeProposalInternal_after_if_else@178:
-    // smart_contracts/algo_safe/contract.algo.ts:1106
+    // smart_contracts/algo_safe/contract.algo.ts:1119
     // for (let i = Uint64(0); i < Uint64(tx.appArgs.length); i = i + Uint64(1)) {
     intc_0 // 0
     frame_bury 51
 
 _executeProposalInternal_while_top@179:
-    // smart_contracts/algo_safe/contract.algo.ts:1106
+    // smart_contracts/algo_safe/contract.algo.ts:1119
     // for (let i = Uint64(0); i < Uint64(tx.appArgs.length); i = i + Uint64(1)) {
     frame_dig 31
     dup
@@ -3838,7 +3916,7 @@ _executeProposalInternal_while_top@179:
     dup
     frame_bury 65
     bz _executeProposalInternal_after_while@181
-    // smart_contracts/algo_safe/contract.algo.ts:1106-1107
+    // smart_contracts/algo_safe/contract.algo.ts:1119-1120
     // for (let i = Uint64(0); i < Uint64(tx.appArgs.length); i = i + Uint64(1)) {
     //   op.ITxnCreate.setApplicationArgs(tx.appArgs[i])
     frame_dig 4
@@ -3858,11 +3936,11 @@ _executeProposalInternal_while_top@179:
     intc_3 // 2
     +
     extract3
-    // smart_contracts/algo_safe/contract.algo.ts:1107
+    // smart_contracts/algo_safe/contract.algo.ts:1120
     // op.ITxnCreate.setApplicationArgs(tx.appArgs[i])
     extract 2 0
     itxn_field ApplicationArgs
-    // smart_contracts/algo_safe/contract.algo.ts:1106
+    // smart_contracts/algo_safe/contract.algo.ts:1119
     // for (let i = Uint64(0); i < Uint64(tx.appArgs.length); i = i + Uint64(1)) {
     intc_1 // 1
     +
@@ -3870,13 +3948,13 @@ _executeProposalInternal_while_top@179:
     b _executeProposalInternal_while_top@179
 
 _executeProposalInternal_after_while@181:
-    // smart_contracts/algo_safe/contract.algo.ts:1109
+    // smart_contracts/algo_safe/contract.algo.ts:1122
     // for (let i = Uint64(0); i < Uint64(tx.accounts.length); i = i + Uint64(1)) {
     intc_0 // 0
     frame_bury 55
 
 _executeProposalInternal_while_top@182:
-    // smart_contracts/algo_safe/contract.algo.ts:1109
+    // smart_contracts/algo_safe/contract.algo.ts:1122
     // for (let i = Uint64(0); i < Uint64(tx.accounts.length); i = i + Uint64(1)) {
     frame_dig 31
     dup
@@ -3894,7 +3972,7 @@ _executeProposalInternal_while_top@182:
     frame_dig 55
     >
     bz _executeProposalInternal_after_while@184
-    // smart_contracts/algo_safe/contract.algo.ts:1109-1110
+    // smart_contracts/algo_safe/contract.algo.ts:1122-1123
     // for (let i = Uint64(0); i < Uint64(tx.accounts.length); i = i + Uint64(1)) {
     //   op.ITxnCreate.setAccounts(tx.accounts[i])
     frame_dig 6
@@ -3906,10 +3984,10 @@ _executeProposalInternal_while_top@182:
     *
     pushint 32 // 32
     extract3 // on error: index access is out of bounds
-    // smart_contracts/algo_safe/contract.algo.ts:1110
+    // smart_contracts/algo_safe/contract.algo.ts:1123
     // op.ITxnCreate.setAccounts(tx.accounts[i])
     itxn_field Accounts
-    // smart_contracts/algo_safe/contract.algo.ts:1109
+    // smart_contracts/algo_safe/contract.algo.ts:1122
     // for (let i = Uint64(0); i < Uint64(tx.accounts.length); i = i + Uint64(1)) {
     intc_1 // 1
     +
@@ -3917,13 +3995,13 @@ _executeProposalInternal_while_top@182:
     b _executeProposalInternal_while_top@182
 
 _executeProposalInternal_after_while@184:
-    // smart_contracts/algo_safe/contract.algo.ts:1112
+    // smart_contracts/algo_safe/contract.algo.ts:1125
     // for (let i = Uint64(0); i < Uint64(tx.foreignAssets.length); i = i + Uint64(1)) {
     intc_0 // 0
     frame_bury 56
 
 _executeProposalInternal_while_top@185:
-    // smart_contracts/algo_safe/contract.algo.ts:1112
+    // smart_contracts/algo_safe/contract.algo.ts:1125
     // for (let i = Uint64(0); i < Uint64(tx.foreignAssets.length); i = i + Uint64(1)) {
     frame_dig 31
     dup
@@ -3940,7 +4018,7 @@ _executeProposalInternal_while_top@185:
     frame_dig 56
     >
     bz _executeProposalInternal_after_while@187
-    // smart_contracts/algo_safe/contract.algo.ts:1112-1113
+    // smart_contracts/algo_safe/contract.algo.ts:1125-1126
     // for (let i = Uint64(0); i < Uint64(tx.foreignAssets.length); i = i + Uint64(1)) {
     //   op.ITxnCreate.setAssets(tx.foreignAssets[i])
     frame_dig 7
@@ -3950,11 +4028,11 @@ _executeProposalInternal_while_top@185:
     cover 2
     intc_2 // 8
     *
-    // smart_contracts/algo_safe/contract.algo.ts:1113
+    // smart_contracts/algo_safe/contract.algo.ts:1126
     // op.ITxnCreate.setAssets(tx.foreignAssets[i])
     extract_uint64
     itxn_field Assets
-    // smart_contracts/algo_safe/contract.algo.ts:1112
+    // smart_contracts/algo_safe/contract.algo.ts:1125
     // for (let i = Uint64(0); i < Uint64(tx.foreignAssets.length); i = i + Uint64(1)) {
     intc_1 // 1
     +
@@ -3962,13 +4040,13 @@ _executeProposalInternal_while_top@185:
     b _executeProposalInternal_while_top@185
 
 _executeProposalInternal_after_while@187:
-    // smart_contracts/algo_safe/contract.algo.ts:1115
+    // smart_contracts/algo_safe/contract.algo.ts:1128
     // for (let i = Uint64(0); i < Uint64(tx.foreignApps.length); i = i + Uint64(1)) {
     intc_0 // 0
     frame_bury 57
 
 _executeProposalInternal_while_top@188:
-    // smart_contracts/algo_safe/contract.algo.ts:1115
+    // smart_contracts/algo_safe/contract.algo.ts:1128
     // for (let i = Uint64(0); i < Uint64(tx.foreignApps.length); i = i + Uint64(1)) {
     frame_dig 31
     frame_dig 42
@@ -3981,7 +4059,7 @@ _executeProposalInternal_while_top@188:
     frame_dig 57
     >
     bz _executeProposalInternal_after_if_else@143
-    // smart_contracts/algo_safe/contract.algo.ts:1115-1116
+    // smart_contracts/algo_safe/contract.algo.ts:1128-1129
     // for (let i = Uint64(0); i < Uint64(tx.foreignApps.length); i = i + Uint64(1)) {
     //   op.ITxnCreate.setApplications(tx.foreignApps[i])
     frame_dig 8
@@ -3991,11 +4069,11 @@ _executeProposalInternal_while_top@188:
     cover 2
     intc_2 // 8
     *
-    // smart_contracts/algo_safe/contract.algo.ts:1116
+    // smart_contracts/algo_safe/contract.algo.ts:1129
     // op.ITxnCreate.setApplications(tx.foreignApps[i])
     extract_uint64
     itxn_field Applications
-    // smart_contracts/algo_safe/contract.algo.ts:1115
+    // smart_contracts/algo_safe/contract.algo.ts:1128
     // for (let i = Uint64(0); i < Uint64(tx.foreignApps.length); i = i + Uint64(1)) {
     intc_1 // 1
     +
@@ -4003,13 +4081,13 @@ _executeProposalInternal_while_top@188:
     b _executeProposalInternal_while_top@188
 
 _executeProposalInternal_else_body@132:
-    // smart_contracts/algo_safe/contract.algo.ts:1007
+    // smart_contracts/algo_safe/contract.algo.ts:1020
     // } else if (entry.txType === TX_KEYREG) {
     frame_dig 74
     pushint 4 // 4
     ==
     bz _executeProposalInternal_else_body@134
-    // smart_contracts/algo_safe/contract.algo.ts:1008
+    // smart_contracts/algo_safe/contract.algo.ts:1021
     // this._stageKeyReg(decodeArc4<KeyRegTxn>(entry.data), first)
     frame_dig 29
     dup
@@ -4052,24 +4130,24 @@ _executeProposalInternal_else_body@132:
     dup
     extract 2 0
     frame_bury 31
-    // smart_contracts/algo_safe/contract.algo.ts:1121
+    // smart_contracts/algo_safe/contract.algo.ts:1134
     // this._beginOrNext(first)
     frame_dig 49
     callsub _beginOrNext
-    // smart_contracts/algo_safe/contract.algo.ts:1122
+    // smart_contracts/algo_safe/contract.algo.ts:1135
     // op.ITxnCreate.setTypeEnum(Uint64(TransactionType.KeyRegistration))
     intc_3 // 2
     itxn_field TypeEnum
-    // smart_contracts/algo_safe/contract.algo.ts:1123
+    // smart_contracts/algo_safe/contract.algo.ts:1136
     // op.ITxnCreate.setFee(Uint64(0))
     intc_0 // 0
     itxn_field Fee
     intc_3 // 2
-    // smart_contracts/algo_safe/contract.algo.ts:1124
+    // smart_contracts/algo_safe/contract.algo.ts:1137
     // if (tx.online !== Uint64(0)) {
     extract_uint64
     bz _executeProposalInternal_after_if_else@143
-    // smart_contracts/algo_safe/contract.algo.ts:1125
+    // smart_contracts/algo_safe/contract.algo.ts:1138
     // op.ITxnCreate.setVotePk(tx.voteKey)
     frame_dig 31
     dup
@@ -4084,7 +4162,7 @@ _executeProposalInternal_else_body@132:
     substring3
     extract 2 0
     itxn_field VotePK
-    // smart_contracts/algo_safe/contract.algo.ts:1126
+    // smart_contracts/algo_safe/contract.algo.ts:1139
     // op.ITxnCreate.setSelectionPk(tx.selectionKey)
     dig 1
     pushint 12 // 12
@@ -4095,41 +4173,41 @@ _executeProposalInternal_else_body@132:
     substring3
     extract 2 0
     itxn_field SelectionPK
-    // smart_contracts/algo_safe/contract.algo.ts:1127
+    // smart_contracts/algo_safe/contract.algo.ts:1140
     // op.ITxnCreate.setStateProofPk(tx.stateProofKey)
     dig 1
     len
     substring3
     extract 2 0
     itxn_field StateProofPK
-    // smart_contracts/algo_safe/contract.algo.ts:1128
+    // smart_contracts/algo_safe/contract.algo.ts:1141
     // op.ITxnCreate.setVoteFirst(tx.voteFirst)
     frame_dig 9
     dup
     pushint 16 // 16
     extract_uint64
     itxn_field VoteFirst
-    // smart_contracts/algo_safe/contract.algo.ts:1129
+    // smart_contracts/algo_safe/contract.algo.ts:1142
     // op.ITxnCreate.setVoteLast(tx.voteLast)
     dup
     pushint 24 // 24
     extract_uint64
     itxn_field VoteLast
     pushint 32 // 32
-    // smart_contracts/algo_safe/contract.algo.ts:1130
+    // smart_contracts/algo_safe/contract.algo.ts:1143
     // op.ITxnCreate.setVoteKeyDilution(tx.voteKeyDilution)
     extract_uint64
     itxn_field VoteKeyDilution
     b _executeProposalInternal_after_if_else@143
 
 _executeProposalInternal_else_body@134:
-    // smart_contracts/algo_safe/contract.algo.ts:1009
+    // smart_contracts/algo_safe/contract.algo.ts:1022
     // } else if (entry.txType === TX_ACFG) {
     frame_dig 74
     pushint 5 // 5
     ==
     bz _executeProposalInternal_else_body@136
-    // smart_contracts/algo_safe/contract.algo.ts:1010
+    // smart_contracts/algo_safe/contract.algo.ts:1023
     // this._stageAssetConfig(decodeArc4<AssetConfigTxn>(entry.data), first)
     frame_dig 29
     dup
@@ -4172,46 +4250,46 @@ _executeProposalInternal_else_body@134:
     dup
     extract 2 0
     frame_bury 31
-    // smart_contracts/algo_safe/contract.algo.ts:1140
+    // smart_contracts/algo_safe/contract.algo.ts:1153
     // this._beginOrNext(first)
     frame_dig 49
     callsub _beginOrNext
-    // smart_contracts/algo_safe/contract.algo.ts:1141
+    // smart_contracts/algo_safe/contract.algo.ts:1154
     // op.ITxnCreate.setTypeEnum(Uint64(TransactionType.AssetConfig))
     pushint 3 // 3
     itxn_field TypeEnum
-    // smart_contracts/algo_safe/contract.algo.ts:1142
+    // smart_contracts/algo_safe/contract.algo.ts:1155
     // op.ITxnCreate.setFee(Uint64(0))
     intc_0 // 0
     itxn_field Fee
     intc_3 // 2
-    // smart_contracts/algo_safe/contract.algo.ts:1143
+    // smart_contracts/algo_safe/contract.algo.ts:1156
     // if (tx.configAsset === Uint64(0)) {
     extract_uint64
     dup
     frame_bury 72
     bnz _executeProposalInternal_else_body@167
-    // smart_contracts/algo_safe/contract.algo.ts:1144
+    // smart_contracts/algo_safe/contract.algo.ts:1157
     // op.ITxnCreate.setConfigAssetTotal(tx.total)
     frame_dig 10
     dup
     pushint 10 // 10
     extract_uint64
     itxn_field ConfigAssetTotal
-    // smart_contracts/algo_safe/contract.algo.ts:1145
+    // smart_contracts/algo_safe/contract.algo.ts:1158
     // op.ITxnCreate.setConfigAssetDecimals(tx.decimals)
     dup
     pushint 18 // 18
     extract_uint64
     itxn_field ConfigAssetDecimals
     pushint 26 // 26
-    // smart_contracts/algo_safe/contract.algo.ts:1146
+    // smart_contracts/algo_safe/contract.algo.ts:1159
     // op.ITxnCreate.setConfigAssetDefaultFrozen(tx.defaultFrozen !== Uint64(0))
     extract_uint64
     intc_0 // 0
     !=
     itxn_field ConfigAssetDefaultFrozen
-    // smart_contracts/algo_safe/contract.algo.ts:1147
+    // smart_contracts/algo_safe/contract.algo.ts:1160
     // if (tx.unitName !== '') op.ITxnCreate.setConfigAssetUnitName(Bytes(tx.unitName))
     frame_dig 31
     dup
@@ -4233,7 +4311,7 @@ _executeProposalInternal_else_body@134:
     itxn_field ConfigAssetUnitName
 
 _executeProposalInternal_after_if_else@161:
-    // smart_contracts/algo_safe/contract.algo.ts:1148
+    // smart_contracts/algo_safe/contract.algo.ts:1161
     // if (tx.assetName !== '') op.ITxnCreate.setConfigAssetName(Bytes(tx.assetName))
     frame_dig 31
     dup
@@ -4254,7 +4332,7 @@ _executeProposalInternal_after_if_else@161:
     itxn_field ConfigAssetName
 
 _executeProposalInternal_after_if_else@163:
-    // smart_contracts/algo_safe/contract.algo.ts:1149
+    // smart_contracts/algo_safe/contract.algo.ts:1162
     // if (tx.url !== '') op.ITxnCreate.setConfigAssetUrl(Bytes(tx.url))
     frame_dig 31
     dup
@@ -4275,7 +4353,7 @@ _executeProposalInternal_after_if_else@163:
     itxn_field ConfigAssetURL
 
 _executeProposalInternal_after_if_else@165:
-    // smart_contracts/algo_safe/contract.algo.ts:1150
+    // smart_contracts/algo_safe/contract.algo.ts:1163
     // if (tx.metadataHash.length === Uint64(32)) op.ITxnCreate.setConfigAssetMetadataHash(tx.metadataHash)
     frame_dig 31
     dup
@@ -4295,27 +4373,27 @@ _executeProposalInternal_after_if_else@165:
     itxn_field ConfigAssetMetadataHash
 
 _executeProposalInternal_after_if_else@168:
-    // smart_contracts/algo_safe/contract.algo.ts:1154
+    // smart_contracts/algo_safe/contract.algo.ts:1167
     // op.ITxnCreate.setConfigAssetManager(tx.manager)
     frame_dig 10
     dup
     extract 42 32
     itxn_field ConfigAssetManager
-    // smart_contracts/algo_safe/contract.algo.ts:1155
+    // smart_contracts/algo_safe/contract.algo.ts:1168
     // op.ITxnCreate.setConfigAssetReserve(tx.reserve)
     dup
     extract 74 32
     itxn_field ConfigAssetReserve
-    // smart_contracts/algo_safe/contract.algo.ts:1156
+    // smart_contracts/algo_safe/contract.algo.ts:1169
     // op.ITxnCreate.setConfigAssetFreeze(tx.freeze)
     dup
     extract 106 32
     itxn_field ConfigAssetFreeze
-    // smart_contracts/algo_safe/contract.algo.ts:1157
+    // smart_contracts/algo_safe/contract.algo.ts:1170
     // op.ITxnCreate.setConfigAssetClawback(tx.clawback)
     extract 138 32
     itxn_field ConfigAssetClawback
-    // smart_contracts/algo_safe/contract.algo.ts:1158
+    // smart_contracts/algo_safe/contract.algo.ts:1171
     // if (tx.note !== '') op.ITxnCreate.setNote(Bytes(tx.note))
     frame_dig 31
     dup
@@ -4335,20 +4413,20 @@ _executeProposalInternal_after_if_else@168:
     b _executeProposalInternal_after_if_else@143
 
 _executeProposalInternal_else_body@167:
-    // smart_contracts/algo_safe/contract.algo.ts:1152
+    // smart_contracts/algo_safe/contract.algo.ts:1165
     // op.ITxnCreate.setConfigAsset(tx.configAsset)
     frame_dig 72
     itxn_field ConfigAsset
     b _executeProposalInternal_after_if_else@168
 
 _executeProposalInternal_else_body@136:
-    // smart_contracts/algo_safe/contract.algo.ts:1011
+    // smart_contracts/algo_safe/contract.algo.ts:1024
     // } else if (entry.txType === TX_REKEY) {
     frame_dig 74
     pushint 6 // 6
     ==
     bz _executeProposalInternal_after_if_else@143
-    // smart_contracts/algo_safe/contract.algo.ts:1012
+    // smart_contracts/algo_safe/contract.algo.ts:1025
     // this._stageRekey(decodeArc4<RekeyTxn>(entry.data), first)
     frame_dig 29
     dup
@@ -4391,26 +4469,26 @@ _executeProposalInternal_else_body@136:
     dup
     extract 2 0
     frame_bury 31
-    // smart_contracts/algo_safe/contract.algo.ts:1082
+    // smart_contracts/algo_safe/contract.algo.ts:1095
     // this._beginOrNext(first)
     frame_dig 49
     callsub _beginOrNext
-    // smart_contracts/algo_safe/contract.algo.ts:1083
+    // smart_contracts/algo_safe/contract.algo.ts:1096
     // op.ITxnCreate.setTypeEnum(Uint64(TransactionType.Payment))
     intc_1 // 1
     itxn_field TypeEnum
-    // smart_contracts/algo_safe/contract.algo.ts:1084
+    // smart_contracts/algo_safe/contract.algo.ts:1097
     // op.ITxnCreate.setFee(Uint64(0))
     intc_0 // 0
     itxn_field Fee
-    // smart_contracts/algo_safe/contract.algo.ts:1085
+    // smart_contracts/algo_safe/contract.algo.ts:1098
     // this._setSenderIfSet(tx.sender)
     extract 2 32
     dup
     frame_bury 0
     dup
     callsub _setSenderIfSet
-    // smart_contracts/algo_safe/contract.algo.ts:1086
+    // smart_contracts/algo_safe/contract.algo.ts:1099
     // const selfAddr = tx.sender === Global.zeroAddress ? Global.currentApplicationAddress : tx.sender
     global ZeroAddress
     ==
@@ -4418,19 +4496,19 @@ _executeProposalInternal_else_body@136:
     global CurrentApplicationAddress
 
 _executeProposalInternal_ternary_merge@154:
-    // smart_contracts/algo_safe/contract.algo.ts:1087
+    // smart_contracts/algo_safe/contract.algo.ts:1100
     // op.ITxnCreate.setReceiver(selfAddr)
     itxn_field Receiver
-    // smart_contracts/algo_safe/contract.algo.ts:1088
+    // smart_contracts/algo_safe/contract.algo.ts:1101
     // op.ITxnCreate.setAmount(Uint64(0))
     intc_0 // 0
     itxn_field Amount
-    // smart_contracts/algo_safe/contract.algo.ts:1089
+    // smart_contracts/algo_safe/contract.algo.ts:1102
     // op.ITxnCreate.setRekeyTo(tx.rekeyTo)
     frame_dig 11
     extract 34 32
     itxn_field RekeyTo
-    // smart_contracts/algo_safe/contract.algo.ts:1090
+    // smart_contracts/algo_safe/contract.algo.ts:1103
     // if (tx.note !== '') op.ITxnCreate.setNote(Bytes(tx.note))
     frame_dig 31
     dup
@@ -4454,7 +4532,7 @@ _executeProposalInternal_ternary_false@153:
     b _executeProposalInternal_ternary_merge@154
 
 _executeProposalInternal_after_if_else@145:
-    // smart_contracts/algo_safe/contract.algo.ts:994
+    // smart_contracts/algo_safe/contract.algo.ts:1007
     // for (let p = Uint64(1); p <= numPayloads; p = p + Uint64(1)) {
     frame_dig 62
     intc_1 // 1
@@ -4463,23 +4541,23 @@ _executeProposalInternal_after_if_else@145:
     b _executeProposalInternal_while_top@122
 
 _executeProposalInternal_after_while@146:
-    // smart_contracts/algo_safe/contract.algo.ts:1019
+    // smart_contracts/algo_safe/contract.algo.ts:1032
     // op.ITxnCreate.submit()
     itxn_submit
 
 _executeProposalInternal_after_if_else@12:
-    // smart_contracts/algo_safe/contract.algo.ts:846
+    // smart_contracts/algo_safe/contract.algo.ts:859
     // proposal.status = STATUS_EXECUTED
     pushint 3 // 3
     itob
-    // smart_contracts/algo_safe/contract.algo.ts:846-847
+    // smart_contracts/algo_safe/contract.algo.ts:859-860
     // proposal.status = STATUS_EXECUTED
     // this.proposals(proposalId).value = clone(proposal)
     frame_dig 81
     intc_2 // 8
     uncover 2
     box_replace
-    // smart_contracts/algo_safe/contract.algo.ts:848
+    // smart_contracts/algo_safe/contract.algo.ts:861
     // emit<ProposalExecuted>({ proposalId })
     pushbytes 0x35c67efd // method "ProposalExecuted(uint64)"
     frame_dig 80
@@ -4495,14 +4573,14 @@ _executeProposalInternal_else_body@8:
     concat
     dup
     frame_bury 16
-    // smart_contracts/algo_safe/contract.algo.ts:834
+    // smart_contracts/algo_safe/contract.algo.ts:847
     // const change = clone(this.adminPayloads(proposalId).value)
     dup
     box_get
     swap
     frame_bury 19
     assert // Box must have value
-    // smart_contracts/algo_safe/contract.algo.ts:837
+    // smart_contracts/algo_safe/contract.algo.ts:850
     // if (change.changeType === ADM_DISSOLVE_CUSTODIAN) {
     intc_0 // 0
     intc_2 // 8
@@ -4515,7 +4593,7 @@ _executeProposalInternal_else_body@8:
     dup
     frame_bury 63
     bz _executeProposalInternal_else_body@10
-    // smart_contracts/algo_safe/contract.algo.ts:838
+    // smart_contracts/algo_safe/contract.algo.ts:851
     // assert(group.groupType === GT_CUSTODIAN, 'proposing group must be custodian')
     frame_dig 85
     pushint 122 // 122
@@ -4525,7 +4603,7 @@ _executeProposalInternal_else_body@8:
     intc_1 // 1
     ==
     assert // proposing group must be custodian
-    // smart_contracts/algo_safe/contract.algo.ts:839
+    // smart_contracts/algo_safe/contract.algo.ts:852
     // assert(change.targetGroupId === proposal.groupId, 'can only dissolve own group')
     frame_dig 16
     intc_2 // 8
@@ -4537,13 +4615,13 @@ _executeProposalInternal_else_body@8:
     assert // can only dissolve own group
 
 _executeProposalInternal_after_if_else@11:
-    // smart_contracts/algo_safe/contract.algo.ts:1289
+    // smart_contracts/algo_safe/contract.algo.ts:1302
     // if (change.changeType === ADM_CREATE_GROUP) {
     frame_dig 75
     intc_1 // 1
     ==
     bz _executeProposalInternal_else_body@17
-    // smart_contracts/algo_safe/contract.algo.ts:1290
+    // smart_contracts/algo_safe/contract.algo.ts:1303
     // this._createGroup(change, GT_STANDARD)
     frame_dig 19
     intc_0 // 0
@@ -4552,13 +4630,13 @@ _executeProposalInternal_after_if_else@11:
     b _executeProposalInternal_after_if_else@12
 
 _executeProposalInternal_else_body@17:
-    // smart_contracts/algo_safe/contract.algo.ts:1291
+    // smart_contracts/algo_safe/contract.algo.ts:1304
     // } else if (change.changeType === ADM_ADD_MEMBER) {
     frame_dig 75
     intc_3 // 2
     ==
     bz _executeProposalInternal_else_body@21
-    // smart_contracts/algo_safe/contract.algo.ts:1489
+    // smart_contracts/algo_safe/contract.algo.ts:1508
     // const gid = change.targetGroupId
     frame_dig 16
     dup
@@ -4566,7 +4644,7 @@ _executeProposalInternal_else_body@17:
     dup
     box_extract
     btoi
-    // smart_contracts/algo_safe/contract.algo.ts:1492
+    // smart_contracts/algo_safe/contract.algo.ts:1511
     // assert(change.memberAddr !== Global.zeroAddress, 'member required')
     dig 1
     pushints 18 32 // 18, 32
@@ -4575,7 +4653,7 @@ _executeProposalInternal_else_body@17:
     global ZeroAddress
     !=
     assert // member required
-    // smart_contracts/algo_safe/contract.algo.ts:1493
+    // smart_contracts/algo_safe/contract.algo.ts:1512
     // assert(!this.members({ groupId: gid, account: change.memberAddr }).exists, 'already a member')
     swap
     itob
@@ -4587,14 +4665,14 @@ _executeProposalInternal_else_body@17:
     bytec 4 // "m"
     dig 1
     concat
-    // smart_contracts/algo_safe/contract.algo.ts:1493
+    // smart_contracts/algo_safe/contract.algo.ts:1512
     // assert(!this.members({ groupId: gid, account: change.memberAddr }).exists, 'already a member')
     dup
     box_len
     bury 1
     !
     assert // already a member
-    // smart_contracts/algo_safe/contract.algo.ts:1495
+    // smart_contracts/algo_safe/contract.algo.ts:1514
     // const m: Member = { accountType: change.memberType, label: change.memberLabel, addr: change.memberAddr }
     uncover 4
     pushint 50 // 50
@@ -4624,7 +4702,7 @@ _executeProposalInternal_else_body@17:
     concat
     swap
     concat
-    // smart_contracts/algo_safe/contract.algo.ts:1496
+    // smart_contracts/algo_safe/contract.algo.ts:1515
     // this.members({ groupId: gid, account: change.memberAddr }).value = clone(m)
     dig 2
     box_del
@@ -4637,27 +4715,27 @@ _executeProposalInternal_else_body@17:
     bytec_0 // "g"
     uncover 3
     concat
-    // smart_contracts/algo_safe/contract.algo.ts:1498-1499
+    // smart_contracts/algo_safe/contract.algo.ts:1517-1518
     // const group = clone(this.groups(gid).value)
     // group.memberCount = group.memberCount + Uint64(1)
     dup
     pushint 10 // 10
     intc_2 // 8
     box_extract
-    // smart_contracts/algo_safe/contract.algo.ts:1499
+    // smart_contracts/algo_safe/contract.algo.ts:1518
     // group.memberCount = group.memberCount + Uint64(1)
     btoi
     intc_1 // 1
     +
     itob
-    // smart_contracts/algo_safe/contract.algo.ts:1498-1500
+    // smart_contracts/algo_safe/contract.algo.ts:1517-1519
     // const group = clone(this.groups(gid).value)
     // group.memberCount = group.memberCount + Uint64(1)
     // this.groups(gid).value = clone(group)
     pushint 10 // 10
     swap
     box_replace
-    // smart_contracts/algo_safe/contract.algo.ts:1502
+    // smart_contracts/algo_safe/contract.algo.ts:1521
     // emit<MemberAdded>({ groupId: gid, member: change.memberAddr, accountType: change.memberType })
     concat
     bytec 18 // method "MemberAdded(uint64,address,uint64)"
@@ -4667,13 +4745,13 @@ _executeProposalInternal_else_body@17:
     b _executeProposalInternal_after_if_else@12
 
 _executeProposalInternal_else_body@21:
-    // smart_contracts/algo_safe/contract.algo.ts:1293
+    // smart_contracts/algo_safe/contract.algo.ts:1306
     // } else if (change.changeType === ADM_REMOVE_MEMBER) {
     frame_dig 75
     pushint 3 // 3
     ==
     bz _executeProposalInternal_else_body@25
-    // smart_contracts/algo_safe/contract.algo.ts:1512
+    // smart_contracts/algo_safe/contract.algo.ts:1531
     // const gid = change.targetGroupId
     frame_dig 16
     dup
@@ -4681,7 +4759,7 @@ _executeProposalInternal_else_body@21:
     dup
     box_extract
     btoi
-    // smart_contracts/algo_safe/contract.algo.ts:1513
+    // smart_contracts/algo_safe/contract.algo.ts:1532
     // assert(this.members({ groupId: gid, account: change.memberAddr }).exists, 'not a member')
     swap
     pushints 18 32 // 18, 32
@@ -4696,7 +4774,7 @@ _executeProposalInternal_else_body@21:
     bytec 4 // "m"
     dig 1
     concat
-    // smart_contracts/algo_safe/contract.algo.ts:1513
+    // smart_contracts/algo_safe/contract.algo.ts:1532
     // assert(this.members({ groupId: gid, account: change.memberAddr }).exists, 'not a member')
     dup
     box_len
@@ -4707,46 +4785,46 @@ _executeProposalInternal_else_body@21:
     bytec_0 // "g"
     uncover 3
     concat
-    // smart_contracts/algo_safe/contract.algo.ts:1515
+    // smart_contracts/algo_safe/contract.algo.ts:1534
     // const group = clone(this.groups(gid).value)
     dup
     box_get
     assert // Box must have value
-    // smart_contracts/algo_safe/contract.algo.ts:1515-1516
+    // smart_contracts/algo_safe/contract.algo.ts:1534-1535
     // const group = clone(this.groups(gid).value)
     // assert(group.memberCount - Uint64(1) >= group.threshold, 'would drop below threshold')
     dig 1
     pushint 10 // 10
     intc_2 // 8
     box_extract
-    // smart_contracts/algo_safe/contract.algo.ts:1516
+    // smart_contracts/algo_safe/contract.algo.ts:1535
     // assert(group.memberCount - Uint64(1) >= group.threshold, 'would drop below threshold')
     btoi
     intc_1 // 1
     -
-    // smart_contracts/algo_safe/contract.algo.ts:1515-1516
+    // smart_contracts/algo_safe/contract.algo.ts:1534-1535
     // const group = clone(this.groups(gid).value)
     // assert(group.memberCount - Uint64(1) >= group.threshold, 'would drop below threshold')
     dig 2
     intc_3 // 2
     intc_2 // 8
     box_extract
-    // smart_contracts/algo_safe/contract.algo.ts:1516
+    // smart_contracts/algo_safe/contract.algo.ts:1535
     // assert(group.memberCount - Uint64(1) >= group.threshold, 'would drop below threshold')
     btoi
     dig 1
     <=
     assert // would drop below threshold
-    // smart_contracts/algo_safe/contract.algo.ts:1518
+    // smart_contracts/algo_safe/contract.algo.ts:1537
     // this.members({ groupId: gid, account: change.memberAddr }).delete()
     uncover 3
     box_del
     pop
-    // smart_contracts/algo_safe/contract.algo.ts:1519
+    // smart_contracts/algo_safe/contract.algo.ts:1538
     // group.memberCount = group.memberCount - Uint64(1)
     itob
     replace2 10
-    // smart_contracts/algo_safe/contract.algo.ts:1520
+    // smart_contracts/algo_safe/contract.algo.ts:1539
     // group.membershipEpoch = group.membershipEpoch + Uint64(1)
     dup
     pushint 106 // 106
@@ -4755,13 +4833,13 @@ _executeProposalInternal_else_body@21:
     +
     itob
     replace2 106
-    // smart_contracts/algo_safe/contract.algo.ts:1521
+    // smart_contracts/algo_safe/contract.algo.ts:1540
     // this.groups(gid).value = clone(group)
     dig 1
     box_del
     pop
     box_put
-    // smart_contracts/algo_safe/contract.algo.ts:1523
+    // smart_contracts/algo_safe/contract.algo.ts:1542
     // emit<MemberRemoved>({ groupId: gid, member: change.memberAddr })
     pushbytes 0x2b14c2c1 // method "MemberRemoved(uint64,address)"
     swap
@@ -4770,13 +4848,13 @@ _executeProposalInternal_else_body@21:
     b _executeProposalInternal_after_if_else@12
 
 _executeProposalInternal_else_body@25:
-    // smart_contracts/algo_safe/contract.algo.ts:1295
+    // smart_contracts/algo_safe/contract.algo.ts:1308
     // } else if (change.changeType === ADM_ADD_REKEYED_ADDR) {
     frame_dig 75
     intc_2 // 8
     ==
     bz _executeProposalInternal_else_body@27
-    // smart_contracts/algo_safe/contract.algo.ts:1298
+    // smart_contracts/algo_safe/contract.algo.ts:1311
     // assert(change.memberAddr !== Global.zeroAddress, 'address required')
     frame_dig 16
     pushints 18 32 // 18, 32
@@ -4790,14 +4868,14 @@ _executeProposalInternal_else_body@25:
     bytec 15 // "r"
     dig 1
     concat
-    // smart_contracts/algo_safe/contract.algo.ts:1299
+    // smart_contracts/algo_safe/contract.algo.ts:1312
     // assert(!this.rekeyedAddresses(change.memberAddr).exists, 'already registered')
     dup
     box_len
     bury 1
     !
     assert // already registered
-    // smart_contracts/algo_safe/contract.algo.ts:1300
+    // smart_contracts/algo_safe/contract.algo.ts:1313
     // const entry: RekeyedAddress = { label: change.memberLabel, addedRound: Global.round }
     frame_dig 19
     dup
@@ -4821,7 +4899,7 @@ _executeProposalInternal_else_body@25:
     concat
     dig 1
     concat
-    // smart_contracts/algo_safe/contract.algo.ts:1301
+    // smart_contracts/algo_safe/contract.algo.ts:1314
     // this.rekeyedAddresses(change.memberAddr).value = clone(entry)
     dig 2
     box_del
@@ -4829,7 +4907,7 @@ _executeProposalInternal_else_body@25:
     uncover 2
     swap
     box_put
-    // smart_contracts/algo_safe/contract.algo.ts:1302
+    // smart_contracts/algo_safe/contract.algo.ts:1315
     // emit<RekeyedAddressAdded>({ addr: change.memberAddr, label: change.memberLabel })
     swap
     bytec 14 // 0x0022
@@ -4843,13 +4921,13 @@ _executeProposalInternal_else_body@25:
     b _executeProposalInternal_after_if_else@12
 
 _executeProposalInternal_else_body@27:
-    // smart_contracts/algo_safe/contract.algo.ts:1303
+    // smart_contracts/algo_safe/contract.algo.ts:1316
     // } else if (change.changeType === ADM_REMOVE_REKEYED_ADDR) {
     frame_dig 75
     pushint 9 // 9
     ==
     bz _executeProposalInternal_else_body@29
-    // smart_contracts/algo_safe/contract.algo.ts:1304
+    // smart_contracts/algo_safe/contract.algo.ts:1317
     // assert(this.rekeyedAddresses(change.memberAddr).exists, 'not registered')
     frame_dig 16
     pushints 18 32 // 18, 32
@@ -4859,17 +4937,17 @@ _executeProposalInternal_else_body@27:
     bytec 15 // "r"
     dig 1
     concat
-    // smart_contracts/algo_safe/contract.algo.ts:1304
+    // smart_contracts/algo_safe/contract.algo.ts:1317
     // assert(this.rekeyedAddresses(change.memberAddr).exists, 'not registered')
     dup
     box_len
     bury 1
     assert // not registered
-    // smart_contracts/algo_safe/contract.algo.ts:1305
+    // smart_contracts/algo_safe/contract.algo.ts:1318
     // this.rekeyedAddresses(change.memberAddr).delete()
     box_del
     pop
-    // smart_contracts/algo_safe/contract.algo.ts:1306
+    // smart_contracts/algo_safe/contract.algo.ts:1319
     // emit<RekeyedAddressRemoved>({ addr: change.memberAddr })
     pushbytes 0xdb4ca52a // method "RekeyedAddressRemoved(address)"
     swap
@@ -4878,13 +4956,13 @@ _executeProposalInternal_else_body@27:
     b _executeProposalInternal_after_if_else@12
 
 _executeProposalInternal_else_body@29:
-    // smart_contracts/algo_safe/contract.algo.ts:1307
+    // smart_contracts/algo_safe/contract.algo.ts:1320
     // } else if (change.changeType === ADM_CHANGE_THRESHOLD) {
     frame_dig 75
     pushint 4 // 4
     ==
     bz _executeProposalInternal_else_body@31
-    // smart_contracts/algo_safe/contract.algo.ts:1308
+    // smart_contracts/algo_safe/contract.algo.ts:1321
     // const group = clone(this.groups(change.targetGroupId).value)
     frame_dig 16
     dup
@@ -4898,7 +4976,7 @@ _executeProposalInternal_else_body@29:
     bytec_0 // "g"
     dig 1
     concat
-    // smart_contracts/algo_safe/contract.algo.ts:1311
+    // smart_contracts/algo_safe/contract.algo.ts:1324
     // assert(change.threshold >= Uint64(1), 'threshold must be at least 1')
     uncover 2
     pushint 60 // 60
@@ -4908,7 +4986,7 @@ _executeProposalInternal_else_body@29:
     btoi
     dup
     assert // threshold must be at least 1
-    // smart_contracts/algo_safe/contract.algo.ts:1312
+    // smart_contracts/algo_safe/contract.algo.ts:1325
     // assert(change.threshold <= group.memberCount, 'threshold exceeds members')
     dig 2
     pushint 10 // 10
@@ -4917,13 +4995,13 @@ _executeProposalInternal_else_body@29:
     btoi
     <=
     assert // threshold exceeds members
-    // smart_contracts/algo_safe/contract.algo.ts:1313-1314
+    // smart_contracts/algo_safe/contract.algo.ts:1326-1327
     // group.threshold = change.threshold
     // this.groups(change.targetGroupId).value = clone(group)
     intc_3 // 2
     swap
     box_replace
-    // smart_contracts/algo_safe/contract.algo.ts:1315
+    // smart_contracts/algo_safe/contract.algo.ts:1328
     // emit<GroupUpdated>({ groupId: change.targetGroupId })
     bytec 12 // method "GroupUpdated(uint64)"
     swap
@@ -4932,13 +5010,13 @@ _executeProposalInternal_else_body@29:
     b _executeProposalInternal_after_if_else@12
 
 _executeProposalInternal_else_body@31:
-    // smart_contracts/algo_safe/contract.algo.ts:1316
+    // smart_contracts/algo_safe/contract.algo.ts:1329
     // } else if (change.changeType === ADM_SET_POLICY) {
     frame_dig 75
     pushint 5 // 5
     ==
     bz _executeProposalInternal_else_body@35
-    // smart_contracts/algo_safe/contract.algo.ts:1317
+    // smart_contracts/algo_safe/contract.algo.ts:1330
     // const group = clone(this.groups(change.targetGroupId).value)
     frame_dig 16
     dup
@@ -4956,12 +5034,12 @@ _executeProposalInternal_else_body@31:
     concat
     dup
     frame_bury 18
-    // smart_contracts/algo_safe/contract.algo.ts:1317
+    // smart_contracts/algo_safe/contract.algo.ts:1330
     // const group = clone(this.groups(change.targetGroupId).value)
     dup
     box_get
     assert // Box must have value
-    // smart_contracts/algo_safe/contract.algo.ts:1320
+    // smart_contracts/algo_safe/contract.algo.ts:1333
     // this._assertCustodianActions(group.groupType, change.allowedActions)
     dig 1
     pushint 122 // 122
@@ -4975,9 +5053,14 @@ _executeProposalInternal_else_body@31:
     dup
     btoi
     uncover 2
-    swap
+    dig 1
     callsub _assertCustodianActions
-    // smart_contracts/algo_safe/contract.algo.ts:1321
+    // smart_contracts/algo_safe/contract.algo.ts:1335
+    // assert(change.allowedActions <= ACT_ALL, 'invalid actions')
+    pushint 63 // 63
+    <=
+    assert // invalid actions
+    // smart_contracts/algo_safe/contract.algo.ts:1336
     // const assetChanged = group.limitAssetId !== change.limitAssetId
     uncover 2
     pushint 34 // 34
@@ -4992,30 +5075,30 @@ _executeProposalInternal_else_body@31:
     btoi
     uncover 2
     !=
-    // smart_contracts/algo_safe/contract.algo.ts:1322
+    // smart_contracts/algo_safe/contract.algo.ts:1337
     // group.allowedActions = change.allowedActions
     uncover 3
     uncover 3
     replace2 26
-    // smart_contracts/algo_safe/contract.algo.ts:1323
+    // smart_contracts/algo_safe/contract.algo.ts:1338
     // group.limitAssetId = change.limitAssetId
     uncover 2
     replace2 34
-    // smart_contracts/algo_safe/contract.algo.ts:1324
+    // smart_contracts/algo_safe/contract.algo.ts:1339
     // group.dailyLimit = change.dailyLimit
     dig 2
     pushint 92 // 92
     intc_2 // 8
     box_extract
     replace2 42
-    // smart_contracts/algo_safe/contract.algo.ts:1325
+    // smart_contracts/algo_safe/contract.algo.ts:1340
     // group.monthlyLimit = change.monthlyLimit
     dig 2
     pushint 100 // 100
     intc_2 // 8
     box_extract
     replace2 66
-    // smart_contracts/algo_safe/contract.algo.ts:1326
+    // smart_contracts/algo_safe/contract.algo.ts:1341
     // group.cooldownRounds = change.cooldownRounds
     uncover 2
     pushint 108 // 108
@@ -5023,37 +5106,37 @@ _executeProposalInternal_else_body@31:
     box_extract
     replace2 90
     swap
-    // smart_contracts/algo_safe/contract.algo.ts:1327
+    // smart_contracts/algo_safe/contract.algo.ts:1342
     // if (assetChanged) {
     bz _executeProposalInternal_after_if_else@34
-    // smart_contracts/algo_safe/contract.algo.ts:1329
+    // smart_contracts/algo_safe/contract.algo.ts:1344
     // const now = Global.latestTimestamp
     global LatestTimestamp
-    // smart_contracts/algo_safe/contract.algo.ts:1330
+    // smart_contracts/algo_safe/contract.algo.ts:1345
     // group.dailyUsage = Uint64(0)
     intc_0 // 0
     itob
     uncover 2
     dig 1
     replace2 50
-    // smart_contracts/algo_safe/contract.algo.ts:1331
+    // smart_contracts/algo_safe/contract.algo.ts:1346
     // group.dailyPeriodStart = now
     uncover 2
     itob
     swap
     dig 1
     replace2 58
-    // smart_contracts/algo_safe/contract.algo.ts:1332
+    // smart_contracts/algo_safe/contract.algo.ts:1347
     // group.monthlyUsage = Uint64(0)
     uncover 2
     replace2 74
-    // smart_contracts/algo_safe/contract.algo.ts:1333
+    // smart_contracts/algo_safe/contract.algo.ts:1348
     // group.monthlyPeriodStart = now
     swap
     replace2 82
 
 _executeProposalInternal_after_if_else@34:
-    // smart_contracts/algo_safe/contract.algo.ts:1335
+    // smart_contracts/algo_safe/contract.algo.ts:1350
     // this.groups(change.targetGroupId).value = clone(group)
     frame_dig 18
     dup
@@ -5061,7 +5144,7 @@ _executeProposalInternal_after_if_else@34:
     pop
     swap
     box_put
-    // smart_contracts/algo_safe/contract.algo.ts:1336
+    // smart_contracts/algo_safe/contract.algo.ts:1351
     // emit<GroupUpdated>({ groupId: change.targetGroupId })
     bytec 12 // method "GroupUpdated(uint64)"
     frame_dig 21
@@ -5070,15 +5153,16 @@ _executeProposalInternal_after_if_else@34:
     b _executeProposalInternal_after_if_else@12
 
 _executeProposalInternal_else_body@35:
-    // smart_contracts/algo_safe/contract.algo.ts:1337
+    // smart_contracts/algo_safe/contract.algo.ts:1352
     // } else if (change.changeType === ADM_SET_PRIVILEGES) {
     frame_dig 75
     pushint 6 // 6
     ==
     bz _executeProposalInternal_else_body@48
-    // smart_contracts/algo_safe/contract.algo.ts:1338
+    // smart_contracts/algo_safe/contract.algo.ts:1353
     // const group = clone(this.groups(change.targetGroupId).value)
     frame_dig 16
+    dup
     intc_2 // 8
     dup
     box_extract
@@ -5089,12 +5173,12 @@ _executeProposalInternal_else_body@35:
     bytec_0 // "g"
     swap
     concat
-    // smart_contracts/algo_safe/contract.algo.ts:1338
+    // smart_contracts/algo_safe/contract.algo.ts:1353
     // const group = clone(this.groups(change.targetGroupId).value)
     dup
     box_get
     assert // Box must have value
-    // smart_contracts/algo_safe/contract.algo.ts:1340
+    // smart_contracts/algo_safe/contract.algo.ts:1355
     // assert(group.groupType === GT_STANDARD, 'cannot set privileges on custodian groups')
     swap
     pushint 122 // 122
@@ -5103,7 +5187,17 @@ _executeProposalInternal_else_body@35:
     btoi
     !
     assert // cannot set privileges on custodian groups
-    // smart_contracts/algo_safe/contract.algo.ts:1341
+    // smart_contracts/algo_safe/contract.algo.ts:1357
+    // assert(change.adminPrivileges <= PRIV_ALL, 'invalid privileges')
+    swap
+    pushint 68 // 68
+    intc_2 // 8
+    box_extract
+    btoi
+    pushint 7 // 7
+    <=
+    assert // invalid privileges
+    // smart_contracts/algo_safe/contract.algo.ts:1358
     // assert(!this._wouldRemoveLastGroupAdmin(change, group), 'must keep at least one active group admin')
     frame_dig 19
     swap
@@ -5116,7 +5210,7 @@ _executeProposalInternal_else_body@35:
     frame_bury 19
     !
     assert // must keep at least one active group admin
-    // smart_contracts/algo_safe/contract.algo.ts:1342
+    // smart_contracts/algo_safe/contract.algo.ts:1359
     // const hadGroupPriv = (group.adminPrivileges & PRIV_GROUP) !== Uint64(0)
     dup
     pushint 18 // 18
@@ -5124,7 +5218,7 @@ _executeProposalInternal_else_body@35:
     intc_1 // 1
     &
     frame_bury 66
-    // smart_contracts/algo_safe/contract.algo.ts:1343
+    // smart_contracts/algo_safe/contract.algo.ts:1360
     // const willHaveGroupPriv = (change.adminPrivileges & PRIV_GROUP) !== Uint64(0)
     dig 1
     extract 68 8
@@ -5135,7 +5229,7 @@ _executeProposalInternal_else_body@35:
     intc_1 // 1
     &
     frame_bury 67
-    // smart_contracts/algo_safe/contract.algo.ts:1344
+    // smart_contracts/algo_safe/contract.algo.ts:1361
     // if (group.active !== Uint64(0) && hadGroupPriv && !willHaveGroupPriv) {
     pushint 114 // 114
     extract_uint64
@@ -5146,13 +5240,13 @@ _executeProposalInternal_else_body@35:
     bz _executeProposalInternal_else_body@42
     frame_dig 67
     bnz _executeProposalInternal_else_body@42
-    // smart_contracts/algo_safe/contract.algo.ts:1345
+    // smart_contracts/algo_safe/contract.algo.ts:1362
     // this.activePrivGroupCount.value = this.activePrivGroupCount.value - Uint64(1)
     intc_0 // 0
     // smart_contracts/algo_safe/contract.algo.ts:356
     // activePrivGroupCount = GlobalState<uint64>({ key: 'apgc' })
     bytec_2 // "apgc"
-    // smart_contracts/algo_safe/contract.algo.ts:1345
+    // smart_contracts/algo_safe/contract.algo.ts:1362
     // this.activePrivGroupCount.value = this.activePrivGroupCount.value - Uint64(1)
     app_global_get_ex
     assert // check GlobalState exists
@@ -5161,18 +5255,18 @@ _executeProposalInternal_else_body@35:
     // smart_contracts/algo_safe/contract.algo.ts:356
     // activePrivGroupCount = GlobalState<uint64>({ key: 'apgc' })
     bytec_2 // "apgc"
-    // smart_contracts/algo_safe/contract.algo.ts:1345
+    // smart_contracts/algo_safe/contract.algo.ts:1362
     // this.activePrivGroupCount.value = this.activePrivGroupCount.value - Uint64(1)
     swap
     app_global_put
 
 _executeProposalInternal_after_if_else@47:
-    // smart_contracts/algo_safe/contract.algo.ts:1349
+    // smart_contracts/algo_safe/contract.algo.ts:1366
     // group.adminPrivileges = change.adminPrivileges
     frame_dig 25
     frame_dig 1
     replace2 18
-    // smart_contracts/algo_safe/contract.algo.ts:1350
+    // smart_contracts/algo_safe/contract.algo.ts:1367
     // this.groups(change.targetGroupId).value = clone(group)
     frame_dig 19
     extract 8 8
@@ -5181,14 +5275,14 @@ _executeProposalInternal_after_if_else@47:
     bytec_0 // "g"
     dig 1
     concat
-    // smart_contracts/algo_safe/contract.algo.ts:1350
+    // smart_contracts/algo_safe/contract.algo.ts:1367
     // this.groups(change.targetGroupId).value = clone(group)
     dup
     box_del
     pop
     uncover 2
     box_put
-    // smart_contracts/algo_safe/contract.algo.ts:1351
+    // smart_contracts/algo_safe/contract.algo.ts:1368
     // emit<GroupUpdated>({ groupId: change.targetGroupId })
     bytec 12 // method "GroupUpdated(uint64)"
     swap
@@ -5197,7 +5291,7 @@ _executeProposalInternal_after_if_else@47:
     b _executeProposalInternal_after_if_else@12
 
 _executeProposalInternal_else_body@42:
-    // smart_contracts/algo_safe/contract.algo.ts:1346
+    // smart_contracts/algo_safe/contract.algo.ts:1363
     // } else if (group.active !== Uint64(0) && !hadGroupPriv && willHaveGroupPriv) {
     frame_dig 76
     bz _executeProposalInternal_after_if_else@47
@@ -5205,13 +5299,13 @@ _executeProposalInternal_else_body@42:
     bnz _executeProposalInternal_after_if_else@47
     frame_dig 67
     bz _executeProposalInternal_after_if_else@47
-    // smart_contracts/algo_safe/contract.algo.ts:1347
+    // smart_contracts/algo_safe/contract.algo.ts:1364
     // this.activePrivGroupCount.value = this.activePrivGroupCount.value + Uint64(1)
     intc_0 // 0
     // smart_contracts/algo_safe/contract.algo.ts:356
     // activePrivGroupCount = GlobalState<uint64>({ key: 'apgc' })
     bytec_2 // "apgc"
-    // smart_contracts/algo_safe/contract.algo.ts:1347
+    // smart_contracts/algo_safe/contract.algo.ts:1364
     // this.activePrivGroupCount.value = this.activePrivGroupCount.value + Uint64(1)
     app_global_get_ex
     assert // check GlobalState exists
@@ -5220,20 +5314,20 @@ _executeProposalInternal_else_body@42:
     // smart_contracts/algo_safe/contract.algo.ts:356
     // activePrivGroupCount = GlobalState<uint64>({ key: 'apgc' })
     bytec_2 // "apgc"
-    // smart_contracts/algo_safe/contract.algo.ts:1347
+    // smart_contracts/algo_safe/contract.algo.ts:1364
     // this.activePrivGroupCount.value = this.activePrivGroupCount.value + Uint64(1)
     swap
     app_global_put
     b _executeProposalInternal_after_if_else@47
 
 _executeProposalInternal_else_body@48:
-    // smart_contracts/algo_safe/contract.algo.ts:1352
+    // smart_contracts/algo_safe/contract.algo.ts:1369
     // } else if (change.changeType === ADM_SET_ACTIVE) {
     frame_dig 75
     pushint 7 // 7
     ==
     bz _executeProposalInternal_else_body@63
-    // smart_contracts/algo_safe/contract.algo.ts:1353
+    // smart_contracts/algo_safe/contract.algo.ts:1370
     // const group = clone(this.groups(change.targetGroupId).value)
     frame_dig 16
     dup
@@ -5247,25 +5341,25 @@ _executeProposalInternal_else_body@48:
     bytec_0 // "g"
     swap
     concat
-    // smart_contracts/algo_safe/contract.algo.ts:1353
+    // smart_contracts/algo_safe/contract.algo.ts:1370
     // const group = clone(this.groups(change.targetGroupId).value)
     dup
     box_get
     swap
     frame_bury 26
     assert // Box must have value
-    // smart_contracts/algo_safe/contract.algo.ts:1353-1354
+    // smart_contracts/algo_safe/contract.algo.ts:1370-1371
     // const group = clone(this.groups(change.targetGroupId).value)
     // const wasActive = group.active !== Uint64(0)
     dup
     pushint 114 // 114
     intc_2 // 8
     box_extract
-    // smart_contracts/algo_safe/contract.algo.ts:1354
+    // smart_contracts/algo_safe/contract.algo.ts:1371
     // const wasActive = group.active !== Uint64(0)
     btoi
     frame_bury 77
-    // smart_contracts/algo_safe/contract.algo.ts:1355
+    // smart_contracts/algo_safe/contract.algo.ts:1372
     // const willBeActive = change.activeFlag !== Uint64(0)
     swap
     pushint 116 // 116
@@ -5277,7 +5371,7 @@ _executeProposalInternal_else_body@48:
     intc_0 // 0
     !=
     frame_bury 79
-    // smart_contracts/algo_safe/contract.algo.ts:1356
+    // smart_contracts/algo_safe/contract.algo.ts:1373
     // if (group.groupType !== GT_CUSTODIAN) {
     pushint 122 // 122
     intc_2 // 8
@@ -5286,7 +5380,7 @@ _executeProposalInternal_else_body@48:
     intc_1 // 1
     !=
     bz _executeProposalInternal_after_if_else@62
-    // smart_contracts/algo_safe/contract.algo.ts:1357
+    // smart_contracts/algo_safe/contract.algo.ts:1374
     // assert(!this._wouldRemoveLastGroupAdmin(change, group), 'must keep at least one active group admin')
     frame_dig 19
     frame_dig 26
@@ -5297,7 +5391,7 @@ _executeProposalInternal_else_body@48:
     frame_bury 19
     !
     assert // must keep at least one active group admin
-    // smart_contracts/algo_safe/contract.algo.ts:1358
+    // smart_contracts/algo_safe/contract.algo.ts:1375
     // const hasGroupPriv = (group.adminPrivileges & PRIV_GROUP) !== Uint64(0)
     pushint 18 // 18
     extract_uint64
@@ -5305,20 +5399,20 @@ _executeProposalInternal_else_body@48:
     &
     dup
     frame_bury 68
-    // smart_contracts/algo_safe/contract.algo.ts:1359
+    // smart_contracts/algo_safe/contract.algo.ts:1376
     // if (hasGroupPriv && wasActive && !willBeActive) {
     bz _executeProposalInternal_else_body@56
     frame_dig 77
     bz _executeProposalInternal_else_body@56
     frame_dig 78
     bnz _executeProposalInternal_else_body@56
-    // smart_contracts/algo_safe/contract.algo.ts:1360
+    // smart_contracts/algo_safe/contract.algo.ts:1377
     // this.activePrivGroupCount.value = this.activePrivGroupCount.value - Uint64(1)
     intc_0 // 0
     // smart_contracts/algo_safe/contract.algo.ts:356
     // activePrivGroupCount = GlobalState<uint64>({ key: 'apgc' })
     bytec_2 // "apgc"
-    // smart_contracts/algo_safe/contract.algo.ts:1360
+    // smart_contracts/algo_safe/contract.algo.ts:1377
     // this.activePrivGroupCount.value = this.activePrivGroupCount.value - Uint64(1)
     app_global_get_ex
     assert // check GlobalState exists
@@ -5327,20 +5421,20 @@ _executeProposalInternal_else_body@48:
     // smart_contracts/algo_safe/contract.algo.ts:356
     // activePrivGroupCount = GlobalState<uint64>({ key: 'apgc' })
     bytec_2 // "apgc"
-    // smart_contracts/algo_safe/contract.algo.ts:1360
+    // smart_contracts/algo_safe/contract.algo.ts:1377
     // this.activePrivGroupCount.value = this.activePrivGroupCount.value - Uint64(1)
     swap
     app_global_put
 
 _executeProposalInternal_after_if_else@62:
-    // smart_contracts/algo_safe/contract.algo.ts:1365
+    // smart_contracts/algo_safe/contract.algo.ts:1382
     // group.active = willBeActive ? Uint64(1) : Uint64(0)
     frame_dig 79
     itob
     frame_dig 26
     swap
     replace2 114
-    // smart_contracts/algo_safe/contract.algo.ts:1366
+    // smart_contracts/algo_safe/contract.algo.ts:1383
     // this.groups(change.targetGroupId).value = clone(group)
     frame_dig 19
     extract 8 8
@@ -5349,14 +5443,14 @@ _executeProposalInternal_after_if_else@62:
     bytec_0 // "g"
     dig 1
     concat
-    // smart_contracts/algo_safe/contract.algo.ts:1366
+    // smart_contracts/algo_safe/contract.algo.ts:1383
     // this.groups(change.targetGroupId).value = clone(group)
     dup
     box_del
     pop
     uncover 2
     box_put
-    // smart_contracts/algo_safe/contract.algo.ts:1367
+    // smart_contracts/algo_safe/contract.algo.ts:1384
     // emit<GroupUpdated>({ groupId: change.targetGroupId })
     bytec 12 // method "GroupUpdated(uint64)"
     swap
@@ -5365,7 +5459,7 @@ _executeProposalInternal_after_if_else@62:
     b _executeProposalInternal_after_if_else@12
 
 _executeProposalInternal_else_body@56:
-    // smart_contracts/algo_safe/contract.algo.ts:1361
+    // smart_contracts/algo_safe/contract.algo.ts:1378
     // } else if (hasGroupPriv && !wasActive && willBeActive) {
     frame_dig 68
     bz _executeProposalInternal_after_if_else@62
@@ -5373,13 +5467,13 @@ _executeProposalInternal_else_body@56:
     bnz _executeProposalInternal_after_if_else@62
     frame_dig 78
     bz _executeProposalInternal_after_if_else@62
-    // smart_contracts/algo_safe/contract.algo.ts:1362
+    // smart_contracts/algo_safe/contract.algo.ts:1379
     // this.activePrivGroupCount.value = this.activePrivGroupCount.value + Uint64(1)
     intc_0 // 0
     // smart_contracts/algo_safe/contract.algo.ts:356
     // activePrivGroupCount = GlobalState<uint64>({ key: 'apgc' })
     bytec_2 // "apgc"
-    // smart_contracts/algo_safe/contract.algo.ts:1362
+    // smart_contracts/algo_safe/contract.algo.ts:1379
     // this.activePrivGroupCount.value = this.activePrivGroupCount.value + Uint64(1)
     app_global_get_ex
     assert // check GlobalState exists
@@ -5388,20 +5482,20 @@ _executeProposalInternal_else_body@56:
     // smart_contracts/algo_safe/contract.algo.ts:356
     // activePrivGroupCount = GlobalState<uint64>({ key: 'apgc' })
     bytec_2 // "apgc"
-    // smart_contracts/algo_safe/contract.algo.ts:1362
+    // smart_contracts/algo_safe/contract.algo.ts:1379
     // this.activePrivGroupCount.value = this.activePrivGroupCount.value + Uint64(1)
     swap
     app_global_put
     b _executeProposalInternal_after_if_else@62
 
 _executeProposalInternal_else_body@63:
-    // smart_contracts/algo_safe/contract.algo.ts:1368
+    // smart_contracts/algo_safe/contract.algo.ts:1385
     // } else if (change.changeType === ADM_CREATE_CUSTODIAN) {
     frame_dig 75
     pushint 11 // 11
     ==
     bz _executeProposalInternal_else_body@67
-    // smart_contracts/algo_safe/contract.algo.ts:1369
+    // smart_contracts/algo_safe/contract.algo.ts:1386
     // this._createGroup(change, GT_CUSTODIAN)
     frame_dig 19
     intc_1 // 1
@@ -5410,11 +5504,11 @@ _executeProposalInternal_else_body@63:
     b _executeProposalInternal_after_if_else@12
 
 _executeProposalInternal_else_body@67:
-    // smart_contracts/algo_safe/contract.algo.ts:1370
+    // smart_contracts/algo_safe/contract.algo.ts:1387
     // } else if (change.changeType === ADM_DISSOLVE_CUSTODIAN) {
     frame_dig 63
     bz _executeProposalInternal_else_body@71
-    // smart_contracts/algo_safe/contract.algo.ts:1374
+    // smart_contracts/algo_safe/contract.algo.ts:1391
     // const gid = change.targetGroupId
     frame_dig 16
     dup
@@ -5422,7 +5516,7 @@ _executeProposalInternal_else_body@67:
     dup
     box_extract
     btoi
-    // smart_contracts/algo_safe/contract.algo.ts:1375
+    // smart_contracts/algo_safe/contract.algo.ts:1392
     // const group = clone(this.groups(gid).value)
     itob
     dup
@@ -5432,19 +5526,19 @@ _executeProposalInternal_else_body@67:
     bytec_0 // "g"
     dig 1
     concat
-    // smart_contracts/algo_safe/contract.algo.ts:1375-1376
+    // smart_contracts/algo_safe/contract.algo.ts:1392-1393
     // const group = clone(this.groups(gid).value)
     // assert(group.guardCount === Uint64(0), 'remove all guards before dissolving')
     dup
     intc 4 // 130
     intc_2 // 8
     box_extract
-    // smart_contracts/algo_safe/contract.algo.ts:1376
+    // smart_contracts/algo_safe/contract.algo.ts:1393
     // assert(group.guardCount === Uint64(0), 'remove all guards before dissolving')
     btoi
     !
     assert // remove all guards before dissolving
-    // smart_contracts/algo_safe/contract.algo.ts:1381
+    // smart_contracts/algo_safe/contract.algo.ts:1398
     // assert(group.memberCount === Uint64(1), 'remove other members before dissolving')
     dup
     pushint 10 // 10
@@ -5454,7 +5548,7 @@ _executeProposalInternal_else_body@67:
     intc_1 // 1
     ==
     assert // remove other members before dissolving
-    // smart_contracts/algo_safe/contract.algo.ts:1382
+    // smart_contracts/algo_safe/contract.algo.ts:1399
     // assert(this.members({ groupId: gid, account: change.memberAddr }).exists, 'memberAddr must be the last member')
     uncover 2
     pushints 18 32 // 18, 32
@@ -5467,38 +5561,38 @@ _executeProposalInternal_else_body@67:
     bytec 4 // "m"
     swap
     concat
-    // smart_contracts/algo_safe/contract.algo.ts:1382
+    // smart_contracts/algo_safe/contract.algo.ts:1399
     // assert(this.members({ groupId: gid, account: change.memberAddr }).exists, 'memberAddr must be the last member')
     dup
     box_len
     bury 1
     assert // memberAddr must be the last member
-    // smart_contracts/algo_safe/contract.algo.ts:1383
+    // smart_contracts/algo_safe/contract.algo.ts:1400
     // this.members({ groupId: gid, account: change.memberAddr }).delete()
     box_del
     pop
-    // smart_contracts/algo_safe/contract.algo.ts:1384
+    // smart_contracts/algo_safe/contract.algo.ts:1401
     // this.groups(gid).delete()
     box_del
     pop
-    // smart_contracts/algo_safe/contract.algo.ts:1385
+    // smart_contracts/algo_safe/contract.algo.ts:1402
     // if (this.groupCount.value > Uint64(0)) {
     intc_0 // 0
     // smart_contracts/algo_safe/contract.algo.ts:346
     // groupCount = GlobalState<uint64>({ key: 'gcnt' })
     bytec_3 // "gcnt"
-    // smart_contracts/algo_safe/contract.algo.ts:1385
+    // smart_contracts/algo_safe/contract.algo.ts:1402
     // if (this.groupCount.value > Uint64(0)) {
     app_global_get_ex
     assert // check GlobalState exists
     bz _executeProposalInternal_after_if_else@70
-    // smart_contracts/algo_safe/contract.algo.ts:1386
+    // smart_contracts/algo_safe/contract.algo.ts:1403
     // this.groupCount.value = this.groupCount.value - Uint64(1)
     intc_0 // 0
     // smart_contracts/algo_safe/contract.algo.ts:346
     // groupCount = GlobalState<uint64>({ key: 'gcnt' })
     bytec_3 // "gcnt"
-    // smart_contracts/algo_safe/contract.algo.ts:1386
+    // smart_contracts/algo_safe/contract.algo.ts:1403
     // this.groupCount.value = this.groupCount.value - Uint64(1)
     app_global_get_ex
     assert // check GlobalState exists
@@ -5507,13 +5601,13 @@ _executeProposalInternal_else_body@67:
     // smart_contracts/algo_safe/contract.algo.ts:346
     // groupCount = GlobalState<uint64>({ key: 'gcnt' })
     bytec_3 // "gcnt"
-    // smart_contracts/algo_safe/contract.algo.ts:1386
+    // smart_contracts/algo_safe/contract.algo.ts:1403
     // this.groupCount.value = this.groupCount.value - Uint64(1)
     swap
     app_global_put
 
 _executeProposalInternal_after_if_else@70:
-    // smart_contracts/algo_safe/contract.algo.ts:1388
+    // smart_contracts/algo_safe/contract.algo.ts:1405
     // emit<CustodianGroupDissolved>({ groupId: gid })
     pushbytes 0xcc6cba96 // method "CustodianGroupDissolved(uint64)"
     frame_dig 20
@@ -5522,13 +5616,13 @@ _executeProposalInternal_after_if_else@70:
     b _executeProposalInternal_after_if_else@12
 
 _executeProposalInternal_else_body@71:
-    // smart_contracts/algo_safe/contract.algo.ts:1389
+    // smart_contracts/algo_safe/contract.algo.ts:1406
     // } else if (change.changeType === ADM_SET_GUARD) {
     frame_dig 75
     pushint 13 // 13
     ==
     bz _executeProposalInternal_else_body@76
-    // smart_contracts/algo_safe/contract.algo.ts:1390
+    // smart_contracts/algo_safe/contract.algo.ts:1407
     // const gid = change.targetGroupId
     frame_dig 16
     dup
@@ -5536,14 +5630,14 @@ _executeProposalInternal_else_body@71:
     dup
     box_extract
     btoi
-    // smart_contracts/algo_safe/contract.algo.ts:1391
+    // smart_contracts/algo_safe/contract.algo.ts:1408
     // const assetId = change.limitAssetId  // limitAssetId doubles as guard assetId
     swap
     pushint 84 // 84
     intc_2 // 8
     box_extract
     btoi
-    // smart_contracts/algo_safe/contract.algo.ts:1392
+    // smart_contracts/algo_safe/contract.algo.ts:1409
     // const target = clone(this.groups(gid).value)
     swap
     itob
@@ -5554,19 +5648,19 @@ _executeProposalInternal_else_body@71:
     concat
     dup
     frame_bury 15
-    // smart_contracts/algo_safe/contract.algo.ts:1392-1393
+    // smart_contracts/algo_safe/contract.algo.ts:1409-1410
     // const target = clone(this.groups(gid).value)
     // assert(target.groupType === GT_CUSTODIAN, 'target must be a custodian group')
     pushint 122 // 122
     intc_2 // 8
     box_extract
-    // smart_contracts/algo_safe/contract.algo.ts:1393
+    // smart_contracts/algo_safe/contract.algo.ts:1410
     // assert(target.groupType === GT_CUSTODIAN, 'target must be a custodian group')
     btoi
     intc_1 // 1
     ==
     assert // target must be a custodian group
-    // smart_contracts/algo_safe/contract.algo.ts:1394
+    // smart_contracts/algo_safe/contract.algo.ts:1411
     // const guardKey = { custodianGroupId: gid, assetId }
     swap
     itob
@@ -5579,18 +5673,18 @@ _executeProposalInternal_else_body@71:
     swap
     concat
     dup
-    // smart_contracts/algo_safe/contract.algo.ts:1395
+    // smart_contracts/algo_safe/contract.algo.ts:1412
     // if (this.assetGuards(guardKey).exists) {
     box_len
     bury 1
     bz _executeProposalInternal_else_body@74
-    // smart_contracts/algo_safe/contract.algo.ts:1398
+    // smart_contracts/algo_safe/contract.algo.ts:1415
     // guard.lockedAmount = change.guardAmount
     frame_dig 16
     pushint 124 // 124
     intc_2 // 8
     box_extract
-    // smart_contracts/algo_safe/contract.algo.ts:1397-1399
+    // smart_contracts/algo_safe/contract.algo.ts:1414-1416
     // const guard = clone(this.assetGuards(guardKey).value)
     // guard.lockedAmount = change.guardAmount
     // this.assetGuards(guardKey).value = clone(guard)
@@ -5599,7 +5693,7 @@ _executeProposalInternal_else_body@71:
     box_replace
 
 _executeProposalInternal_after_if_else@75:
-    // smart_contracts/algo_safe/contract.algo.ts:1407
+    // smart_contracts/algo_safe/contract.algo.ts:1424
     // emit<AssetGuardSet>({ custodianGroupId: gid, assetId, lockedAmount: change.guardAmount })
     frame_dig 16
     pushint 124 // 124
@@ -5617,7 +5711,7 @@ _executeProposalInternal_after_if_else@75:
     b _executeProposalInternal_after_if_else@12
 
 _executeProposalInternal_else_body@74:
-    // smart_contracts/algo_safe/contract.algo.ts:1402
+    // smart_contracts/algo_safe/contract.algo.ts:1419
     // const guard: AssetGuard = { createdRound: Global.round, lockedAmount: change.guardAmount }
     global Round
     frame_dig 16
@@ -5630,10 +5724,10 @@ _executeProposalInternal_else_body@74:
     swap
     itob
     concat
-    // smart_contracts/algo_safe/contract.algo.ts:1403
+    // smart_contracts/algo_safe/contract.algo.ts:1420
     // this.assetGuards(guardKey).value = clone(guard)
     box_put
-    // smart_contracts/algo_safe/contract.algo.ts:1404
+    // smart_contracts/algo_safe/contract.algo.ts:1421
     // target.guardCount = target.guardCount + Uint64(1)
     frame_dig 15
     dup
@@ -5644,7 +5738,7 @@ _executeProposalInternal_else_body@74:
     intc_1 // 1
     +
     itob
-    // smart_contracts/algo_safe/contract.algo.ts:1404-1405
+    // smart_contracts/algo_safe/contract.algo.ts:1421-1422
     // target.guardCount = target.guardCount + Uint64(1)
     // this.groups(gid).value = clone(target)
     intc 4 // 130
@@ -5653,13 +5747,13 @@ _executeProposalInternal_else_body@74:
     b _executeProposalInternal_after_if_else@75
 
 _executeProposalInternal_else_body@76:
-    // smart_contracts/algo_safe/contract.algo.ts:1408
+    // smart_contracts/algo_safe/contract.algo.ts:1425
     // } else if (change.changeType === ADM_REMOVE_GUARD) {
     frame_dig 75
     pushint 14 // 14
     ==
     bz _executeProposalInternal_else_body@78
-    // smart_contracts/algo_safe/contract.algo.ts:1409
+    // smart_contracts/algo_safe/contract.algo.ts:1426
     // const gid = change.targetGroupId
     frame_dig 16
     dup
@@ -5667,14 +5761,14 @@ _executeProposalInternal_else_body@76:
     dup
     box_extract
     btoi
-    // smart_contracts/algo_safe/contract.algo.ts:1410
+    // smart_contracts/algo_safe/contract.algo.ts:1427
     // const assetId = change.limitAssetId
     swap
     pushint 84 // 84
     intc_2 // 8
     box_extract
     btoi
-    // smart_contracts/algo_safe/contract.algo.ts:1411
+    // smart_contracts/algo_safe/contract.algo.ts:1428
     // const target = clone(this.groups(gid).value)
     swap
     itob
@@ -5683,20 +5777,20 @@ _executeProposalInternal_else_body@76:
     bytec_0 // "g"
     dig 1
     concat
-    // smart_contracts/algo_safe/contract.algo.ts:1411-1412
+    // smart_contracts/algo_safe/contract.algo.ts:1428-1429
     // const target = clone(this.groups(gid).value)
     // assert(target.groupType === GT_CUSTODIAN, 'target must be a custodian group')
     dup
     pushint 122 // 122
     intc_2 // 8
     box_extract
-    // smart_contracts/algo_safe/contract.algo.ts:1412
+    // smart_contracts/algo_safe/contract.algo.ts:1429
     // assert(target.groupType === GT_CUSTODIAN, 'target must be a custodian group')
     btoi
     intc_1 // 1
     ==
     assert // target must be a custodian group
-    // smart_contracts/algo_safe/contract.algo.ts:1413
+    // smart_contracts/algo_safe/contract.algo.ts:1430
     // const guardKey = { custodianGroupId: gid, assetId }
     uncover 2
     itob
@@ -5708,17 +5802,17 @@ _executeProposalInternal_else_body@76:
     bytec 20 // "ag"
     dig 1
     concat
-    // smart_contracts/algo_safe/contract.algo.ts:1414
+    // smart_contracts/algo_safe/contract.algo.ts:1431
     // assert(this.assetGuards(guardKey).exists, 'guard not found')
     dup
     box_len
     bury 1
     assert // guard not found
-    // smart_contracts/algo_safe/contract.algo.ts:1415
+    // smart_contracts/algo_safe/contract.algo.ts:1432
     // this.assetGuards(guardKey).delete()
     box_del
     pop
-    // smart_contracts/algo_safe/contract.algo.ts:1416
+    // smart_contracts/algo_safe/contract.algo.ts:1433
     // target.guardCount = target.guardCount - Uint64(1)
     dig 1
     intc 4 // 130
@@ -5728,14 +5822,14 @@ _executeProposalInternal_else_body@76:
     intc_1 // 1
     -
     itob
-    // smart_contracts/algo_safe/contract.algo.ts:1416-1417
+    // smart_contracts/algo_safe/contract.algo.ts:1433-1434
     // target.guardCount = target.guardCount - Uint64(1)
     // this.groups(gid).value = clone(target)
     uncover 2
     intc 4 // 130
     uncover 2
     box_replace
-    // smart_contracts/algo_safe/contract.algo.ts:1418
+    // smart_contracts/algo_safe/contract.algo.ts:1435
     // emit<AssetGuardRemoved>({ custodianGroupId: gid, assetId })
     pushbytes 0xcab71988 // method "AssetGuardRemoved(uint64,uint64)"
     swap
@@ -5744,7 +5838,13 @@ _executeProposalInternal_else_body@76:
     b _executeProposalInternal_after_if_else@12
 
 _executeProposalInternal_else_body@78:
-    // smart_contracts/algo_safe/contract.algo.ts:1422
+    // smart_contracts/algo_safe/contract.algo.ts:1439
+    // assert(change.changeType === ADM_SET_PAUSED, 'unknown change type')
+    frame_dig 75
+    pushint 10 // 10
+    ==
+    assert // unknown change type
+    // smart_contracts/algo_safe/contract.algo.ts:1441
     // this.paused.value = change.activeFlag !== Uint64(0) ? Uint64(1) : Uint64(0)
     frame_dig 16
     pushint 116 // 116
@@ -5756,11 +5856,11 @@ _executeProposalInternal_else_body@78:
     // smart_contracts/algo_safe/contract.algo.ts:350
     // paused = GlobalState<uint64>({ key: 'paused' })
     bytec 9 // "paused"
-    // smart_contracts/algo_safe/contract.algo.ts:1422
+    // smart_contracts/algo_safe/contract.algo.ts:1441
     // this.paused.value = change.activeFlag !== Uint64(0) ? Uint64(1) : Uint64(0)
     dig 1
     app_global_put
-    // smart_contracts/algo_safe/contract.algo.ts:1423
+    // smart_contracts/algo_safe/contract.algo.ts:1442
     // emit<SafePaused>({ paused: this.paused.value })
     itob
     pushbytes 0xc4a79263 // method "SafePaused(uint64)"
@@ -5770,7 +5870,7 @@ _executeProposalInternal_else_body@78:
     b _executeProposalInternal_after_if_else@12
 
 _executeProposalInternal_else_body@10:
-    // smart_contracts/algo_safe/contract.algo.ts:841
+    // smart_contracts/algo_safe/contract.algo.ts:854
     // this._assertPrivilegeForChange(change.changeType, group)
     frame_dig 75
     frame_dig 86
@@ -5785,29 +5885,29 @@ _executeProposalInternal_ternary_false@2:
 
 // smart_contracts/algo_safe/contract.algo.ts::AlgoSafe._newProposal(groupId: uint64, payloadType: uint64, expiryRound: uint64) -> uint64:
 _newProposal:
-    // smart_contracts/algo_safe/contract.algo.ts:856
+    // smart_contracts/algo_safe/contract.algo.ts:869
     // private _newProposal(groupId: uint64, payloadType: uint64, expiryRound: uint64): uint64 {
     proto 3 1
-    // smart_contracts/algo_safe/contract.algo.ts:857
+    // smart_contracts/algo_safe/contract.algo.ts:870
     // assert(this.bootstrapped.value === Uint64(1), 'not bootstrapped')
     intc_0 // 0
     // smart_contracts/algo_safe/contract.algo.ts:341
     // bootstrapped = GlobalState<uint64>({ key: 'boot' })
     bytec 5 // "boot"
-    // smart_contracts/algo_safe/contract.algo.ts:857
+    // smart_contracts/algo_safe/contract.algo.ts:870
     // assert(this.bootstrapped.value === Uint64(1), 'not bootstrapped')
     app_global_get_ex
     assert // check GlobalState exists
     intc_1 // 1
     ==
     assert // not bootstrapped
-    // smart_contracts/algo_safe/contract.algo.ts:858
+    // smart_contracts/algo_safe/contract.algo.ts:871
     // assert(expiryRound > Global.round, 'expiry must be in the future')
     frame_dig -1
     global Round
     >
     assert // expiry must be in the future
-    // smart_contracts/algo_safe/contract.algo.ts:859
+    // smart_contracts/algo_safe/contract.algo.ts:872
     // const group = clone(this.groups(groupId).value)
     frame_dig -3
     itob
@@ -5816,37 +5916,37 @@ _newProposal:
     bytec_0 // "g"
     dig 1
     concat
-    // smart_contracts/algo_safe/contract.algo.ts:860
+    // smart_contracts/algo_safe/contract.algo.ts:873
     // const pid: uint64 = this.nextProposalId.value
     intc_0 // 0
     // smart_contracts/algo_safe/contract.algo.ts:345
     // nextProposalId = GlobalState<uint64>({ key: 'npid' })
     bytec 13 // "npid"
-    // smart_contracts/algo_safe/contract.algo.ts:860
+    // smart_contracts/algo_safe/contract.algo.ts:873
     // const pid: uint64 = this.nextProposalId.value
     app_global_get_ex
     assert // check GlobalState exists
-    // smart_contracts/algo_safe/contract.algo.ts:867
+    // smart_contracts/algo_safe/contract.algo.ts:880
     // threshold: group.threshold,
     dig 1
     intc_3 // 2
     intc_2 // 8
     box_extract
     btoi
-    // smart_contracts/algo_safe/contract.algo.ts:869
+    // smart_contracts/algo_safe/contract.algo.ts:882
     // proposer: Txn.sender,
     txn Sender
-    // smart_contracts/algo_safe/contract.algo.ts:871
+    // smart_contracts/algo_safe/contract.algo.ts:884
     // epochAtCreation: group.membershipEpoch,
     uncover 3
     pushint 106 // 106
     intc_2 // 8
     box_extract
     btoi
-    // smart_contracts/algo_safe/contract.algo.ts:864
+    // smart_contracts/algo_safe/contract.algo.ts:877
     // status: STATUS_ACTIVE,
     intc_1 // 1
-    // smart_contracts/algo_safe/contract.algo.ts:862-874
+    // smart_contracts/algo_safe/contract.algo.ts:875-887
     // const proposal: Proposal = {
     //   groupId,
     //   status: STATUS_ACTIVE,
@@ -5869,10 +5969,10 @@ _newProposal:
     swap
     dig 1
     concat
-    // smart_contracts/algo_safe/contract.algo.ts:866
+    // smart_contracts/algo_safe/contract.algo.ts:879
     // approvalsCount: Uint64(0),
     intc_0 // 0
-    // smart_contracts/algo_safe/contract.algo.ts:862-874
+    // smart_contracts/algo_safe/contract.algo.ts:875-887
     // const proposal: Proposal = {
     //   groupId,
     //   status: STATUS_ACTIVE,
@@ -5907,7 +6007,7 @@ _newProposal:
     concat
     swap
     concat
-    // smart_contracts/algo_safe/contract.algo.ts:875
+    // smart_contracts/algo_safe/contract.algo.ts:888
     // this.proposals(pid).value = clone(proposal)
     dig 2
     itob
@@ -5916,11 +6016,11 @@ _newProposal:
     bytec 6 // "p"
     dig 1
     concat
-    // smart_contracts/algo_safe/contract.algo.ts:875
+    // smart_contracts/algo_safe/contract.algo.ts:888
     // this.proposals(pid).value = clone(proposal)
     dig 2
     box_put
-    // smart_contracts/algo_safe/contract.algo.ts:876
+    // smart_contracts/algo_safe/contract.algo.ts:889
     // this.nextProposalId.value = pid + Uint64(1)
     dig 3
     intc_1 // 1
@@ -5928,11 +6028,11 @@ _newProposal:
     // smart_contracts/algo_safe/contract.algo.ts:345
     // nextProposalId = GlobalState<uint64>({ key: 'npid' })
     bytec 13 // "npid"
-    // smart_contracts/algo_safe/contract.algo.ts:876
+    // smart_contracts/algo_safe/contract.algo.ts:889
     // this.nextProposalId.value = pid + Uint64(1)
     swap
     app_global_put
-    // smart_contracts/algo_safe/contract.algo.ts:878
+    // smart_contracts/algo_safe/contract.algo.ts:891
     // emit<ProposalCreated>({ proposalId: pid, groupId, payloadType, proposer: Txn.sender })
     txn Sender
     swap
@@ -5946,29 +6046,29 @@ _newProposal:
     swap
     concat
     log
-    // smart_contracts/algo_safe/contract.algo.ts:882
+    // smart_contracts/algo_safe/contract.algo.ts:895
     // this._recordApproval(pid, stored)
     dig 1
     swap
     callsub _recordApproval
     pop
-    // smart_contracts/algo_safe/contract.algo.ts:883
+    // smart_contracts/algo_safe/contract.algo.ts:896
     // return pid
     retsub
 
 
 // smart_contracts/algo_safe/contract.algo.ts::AlgoSafe._recordApproval(proposalId: uint64, proposal: bytes) -> bytes:
 _recordApproval:
-    // smart_contracts/algo_safe/contract.algo.ts:886
+    // smart_contracts/algo_safe/contract.algo.ts:899
     // private _recordApproval(proposalId: uint64, proposal: Proposal): void {
     proto 2 1
-    // smart_contracts/algo_safe/contract.algo.ts:887
+    // smart_contracts/algo_safe/contract.algo.ts:900
     // const record: Approval = { signer: Txn.sender, round: Global.round }
     txn Sender
     global Round
     itob
     concat
-    // smart_contracts/algo_safe/contract.algo.ts:888
+    // smart_contracts/algo_safe/contract.algo.ts:901
     // this.approvals({ proposalId, account: Txn.sender }).value = clone(record)
     txn Sender
     frame_dig -2
@@ -5982,11 +6082,11 @@ _recordApproval:
     pushbytes "a"
     swap
     concat
-    // smart_contracts/algo_safe/contract.algo.ts:888
+    // smart_contracts/algo_safe/contract.algo.ts:901
     // this.approvals({ proposalId, account: Txn.sender }).value = clone(record)
     swap
     box_put
-    // smart_contracts/algo_safe/contract.algo.ts:891
+    // smart_contracts/algo_safe/contract.algo.ts:904
     // updated.approvalsCount = updated.approvalsCount + Uint64(1)
     frame_dig -1
     pushint 24 // 24
@@ -5998,7 +6098,7 @@ _recordApproval:
     swap
     replace2 24
     dupn 2
-    // smart_contracts/algo_safe/contract.algo.ts:892
+    // smart_contracts/algo_safe/contract.algo.ts:905
     // if (updated.approvalsCount >= updated.threshold) {
     pushint 24 // 24
     extract_uint64
@@ -6007,7 +6107,7 @@ _recordApproval:
     extract_uint64
     >=
     bz _recordApproval_after_if_else@2
-    // smart_contracts/algo_safe/contract.algo.ts:893
+    // smart_contracts/algo_safe/contract.algo.ts:906
     // updated.status = STATUS_READY
     intc_3 // 2
     itob
@@ -6021,13 +6121,13 @@ _recordApproval_after_if_else@2:
     dup
     cover 2
     concat
-    // smart_contracts/algo_safe/contract.algo.ts:895
+    // smart_contracts/algo_safe/contract.algo.ts:908
     // this.proposals(proposalId).value = clone(updated)
     uncover 2
     dup
     cover 2
     box_put
-    // smart_contracts/algo_safe/contract.algo.ts:897
+    // smart_contracts/algo_safe/contract.algo.ts:910
     // emit<ProposalApproved>({ proposalId, signer: Txn.sender, approvalsCount: updated.approvalsCount })
     txn Sender
     swap
@@ -6047,10 +6147,10 @@ _recordApproval_after_if_else@2:
 
 // smart_contracts/algo_safe/contract.algo.ts::AlgoSafe._beginOrNext(first: uint64) -> void:
 _beginOrNext:
-    // smart_contracts/algo_safe/contract.algo.ts:1043
+    // smart_contracts/algo_safe/contract.algo.ts:1056
     // private _beginOrNext(first: boolean): void {
     proto 1 0
-    // smart_contracts/algo_safe/contract.algo.ts:1044
+    // smart_contracts/algo_safe/contract.algo.ts:1057
     // if (first) op.ITxnCreate.begin()
     frame_dig -1
     bz _beginOrNext_else_body@2
@@ -6058,7 +6158,7 @@ _beginOrNext:
     retsub
 
 _beginOrNext_else_body@2:
-    // smart_contracts/algo_safe/contract.algo.ts:1045
+    // smart_contracts/algo_safe/contract.algo.ts:1058
     // else op.ITxnCreate.next()
     itxn_next
     retsub
@@ -6066,10 +6166,10 @@ _beginOrNext_else_body@2:
 
 // smart_contracts/algo_safe/contract.algo.ts::AlgoSafe._setSenderIfSet(sender: bytes) -> void:
 _setSenderIfSet:
-    // smart_contracts/algo_safe/contract.algo.ts:1049
+    // smart_contracts/algo_safe/contract.algo.ts:1062
     // private _setSenderIfSet(sender: Account): void {
     proto 1 0
-    // smart_contracts/algo_safe/contract.algo.ts:1050
+    // smart_contracts/algo_safe/contract.algo.ts:1063
     // if (sender !== Global.zeroAddress) op.ITxnCreate.setSender(sender)
     frame_dig -1
     global ZeroAddress
@@ -6084,16 +6184,16 @@ _setSenderIfSet_after_if_else@2:
 
 // smart_contracts/algo_safe/contract.algo.ts::AlgoSafe._storePayloadGroup(proposalId: uint64, payloadIndex: uint64, payload: bytes) -> bytes:
 _storePayloadGroup:
-    // smart_contracts/algo_safe/contract.algo.ts:1195
+    // smart_contracts/algo_safe/contract.algo.ts:1208
     // private _storePayloadGroup(proposalId: uint64, payloadIndex: uint64, payload: SafeTxnGroup): void {
     proto 3 1
-    // smart_contracts/algo_safe/contract.algo.ts:1196
+    // smart_contracts/algo_safe/contract.algo.ts:1209
     // if (payload.length > Uint64(0)) {
     frame_dig -1
     intc_0 // 0
     extract_uint16 // on error: invalid array length header
     bz _storePayloadGroup_after_if_else@2
-    // smart_contracts/algo_safe/contract.algo.ts:1197
+    // smart_contracts/algo_safe/contract.algo.ts:1210
     // this.transactionGroups(proposalId * TXG_KEY_MULT + payloadIndex).value = clone(payload)
     frame_dig -3
     pushint 7 // 7
@@ -6106,7 +6206,7 @@ _storePayloadGroup:
     bytec 10 // "txg"
     swap
     concat
-    // smart_contracts/algo_safe/contract.algo.ts:1197
+    // smart_contracts/algo_safe/contract.algo.ts:1210
     // this.transactionGroups(proposalId * TXG_KEY_MULT + payloadIndex).value = clone(payload)
     dup
     box_del
@@ -6121,16 +6221,16 @@ _storePayloadGroup_after_if_else@2:
 
 // smart_contracts/algo_safe/contract.algo.ts::AlgoSafe._assertCustodianActions(groupType: uint64, allowedActions: uint64) -> void:
 _assertCustodianActions:
-    // smart_contracts/algo_safe/contract.algo.ts:1244
+    // smart_contracts/algo_safe/contract.algo.ts:1257
     // private _assertCustodianActions(groupType: uint64, allowedActions: uint64): void {
     proto 2 0
-    // smart_contracts/algo_safe/contract.algo.ts:1245
+    // smart_contracts/algo_safe/contract.algo.ts:1258
     // if (groupType === GT_CUSTODIAN) {
     frame_dig -2
     intc_1 // 1
     ==
     bz _assertCustodianActions_after_if_else@2
-    // smart_contracts/algo_safe/contract.algo.ts:1247
+    // smart_contracts/algo_safe/contract.algo.ts:1260
     // assert(allowedActions <= (ACT_PAY | ACT_AXFER), 'custodian actions limited to pay/axfer')
     frame_dig -1
     pushint 3 // 3
@@ -6143,16 +6243,16 @@ _assertCustodianActions_after_if_else@2:
 
 // smart_contracts/algo_safe/contract.algo.ts::AlgoSafe._assertPrivilegeForChange(changeType: uint64, group: bytes) -> bytes:
 _assertPrivilegeForChange:
-    // smart_contracts/algo_safe/contract.algo.ts:1252
+    // smart_contracts/algo_safe/contract.algo.ts:1265
     // private _assertPrivilegeForChange(changeType: uint64, group: SignerGroup): void {
     proto 2 1
-    // smart_contracts/algo_safe/contract.algo.ts:1253
+    // smart_contracts/algo_safe/contract.algo.ts:1266
     // if (changeType === ADM_SET_POLICY) {
     frame_dig -2
     pushint 5 // 5
     ==
     bz _assertPrivilegeForChange_else_body@2
-    // smart_contracts/algo_safe/contract.algo.ts:1254
+    // smart_contracts/algo_safe/contract.algo.ts:1267
     // assert((group.adminPrivileges & PRIV_POLICY) !== Uint64(0), 'policy admin required')
     frame_dig -1
     pushint 18 // 18
@@ -6166,7 +6266,7 @@ _assertPrivilegeForChange_after_if_else@3:
     retsub
 
 _assertPrivilegeForChange_else_body@2:
-    // smart_contracts/algo_safe/contract.algo.ts:1256
+    // smart_contracts/algo_safe/contract.algo.ts:1269
     // assert((group.adminPrivileges & PRIV_GROUP) !== Uint64(0), 'group admin required')
     frame_dig -1
     pushint 18 // 18
@@ -6179,18 +6279,18 @@ _assertPrivilegeForChange_else_body@2:
 
 // smart_contracts/algo_safe/contract.algo.ts::AlgoSafe._wouldRemoveLastGroupAdmin(change: bytes, group: bytes) -> uint64, bytes, bytes:
 _wouldRemoveLastGroupAdmin:
-    // smart_contracts/algo_safe/contract.algo.ts:1266
+    // smart_contracts/algo_safe/contract.algo.ts:1279
     // private _wouldRemoveLastGroupAdmin(change: AdminChange, group: SignerGroup): boolean {
     proto 2 3
     bytec_1 // ""
-    // smart_contracts/algo_safe/contract.algo.ts:1267
+    // smart_contracts/algo_safe/contract.algo.ts:1280
     // const hasGroupPriv = (group.adminPrivileges & PRIV_GROUP) !== Uint64(0)
     frame_dig -1
     pushint 18 // 18
     extract_uint64
     intc_1 // 1
     &
-    // smart_contracts/algo_safe/contract.algo.ts:1268
+    // smart_contracts/algo_safe/contract.algo.ts:1281
     // if (!hasGroupPriv || group.active === Uint64(0)) {
     bz _wouldRemoveLastGroupAdmin_if_body@2
     frame_dig -1
@@ -6199,7 +6299,7 @@ _wouldRemoveLastGroupAdmin:
     bnz _wouldRemoveLastGroupAdmin_after_if_else@3
 
 _wouldRemoveLastGroupAdmin_if_body@2:
-    // smart_contracts/algo_safe/contract.algo.ts:1269
+    // smart_contracts/algo_safe/contract.algo.ts:1282
     // return false
     intc_0 // 0
     frame_dig -2
@@ -6208,7 +6308,7 @@ _wouldRemoveLastGroupAdmin_if_body@2:
     retsub
 
 _wouldRemoveLastGroupAdmin_after_if_else@3:
-    // smart_contracts/algo_safe/contract.algo.ts:1271
+    // smart_contracts/algo_safe/contract.algo.ts:1284
     // if (change.changeType === ADM_SET_PRIVILEGES) {
     frame_dig -2
     intc_0 // 0
@@ -6218,21 +6318,21 @@ _wouldRemoveLastGroupAdmin_after_if_else@3:
     pushint 6 // 6
     ==
     bz _wouldRemoveLastGroupAdmin_after_if_else@9
-    // smart_contracts/algo_safe/contract.algo.ts:1272
+    // smart_contracts/algo_safe/contract.algo.ts:1285
     // const willHaveGroupPriv = (change.adminPrivileges & PRIV_GROUP) !== Uint64(0)
     frame_dig -2
     pushint 68 // 68
     extract_uint64
     intc_1 // 1
     &
-    // smart_contracts/algo_safe/contract.algo.ts:1273
+    // smart_contracts/algo_safe/contract.algo.ts:1286
     // return !willHaveGroupPriv && this.activePrivGroupCount.value <= Uint64(1)
     bnz _wouldRemoveLastGroupAdmin_bool_false@7
     intc_0 // 0
     // smart_contracts/algo_safe/contract.algo.ts:356
     // activePrivGroupCount = GlobalState<uint64>({ key: 'apgc' })
     bytec_2 // "apgc"
-    // smart_contracts/algo_safe/contract.algo.ts:1273
+    // smart_contracts/algo_safe/contract.algo.ts:1286
     // return !willHaveGroupPriv && this.activePrivGroupCount.value <= Uint64(1)
     app_global_get_ex
     assert // check GlobalState exists
@@ -6242,7 +6342,7 @@ _wouldRemoveLastGroupAdmin_after_if_else@3:
     intc_1 // 1
 
 _wouldRemoveLastGroupAdmin_bool_merge@8:
-    // smart_contracts/algo_safe/contract.algo.ts:1273
+    // smart_contracts/algo_safe/contract.algo.ts:1286
     // return !willHaveGroupPriv && this.activePrivGroupCount.value <= Uint64(1)
     frame_dig -2
     frame_dig -1
@@ -6254,25 +6354,25 @@ _wouldRemoveLastGroupAdmin_bool_false@7:
     b _wouldRemoveLastGroupAdmin_bool_merge@8
 
 _wouldRemoveLastGroupAdmin_after_if_else@9:
-    // smart_contracts/algo_safe/contract.algo.ts:1275
+    // smart_contracts/algo_safe/contract.algo.ts:1288
     // if (change.changeType === ADM_SET_ACTIVE) {
     frame_dig 0
     pushint 7 // 7
     ==
     bz _wouldRemoveLastGroupAdmin_after_if_else@15
-    // smart_contracts/algo_safe/contract.algo.ts:1276
+    // smart_contracts/algo_safe/contract.algo.ts:1289
     // const willBeActive = change.activeFlag !== Uint64(0)
     frame_dig -2
     pushint 116 // 116
     extract_uint64
-    // smart_contracts/algo_safe/contract.algo.ts:1277
+    // smart_contracts/algo_safe/contract.algo.ts:1290
     // return !willBeActive && this.activePrivGroupCount.value <= Uint64(1)
     bnz _wouldRemoveLastGroupAdmin_bool_false@13
     intc_0 // 0
     // smart_contracts/algo_safe/contract.algo.ts:356
     // activePrivGroupCount = GlobalState<uint64>({ key: 'apgc' })
     bytec_2 // "apgc"
-    // smart_contracts/algo_safe/contract.algo.ts:1277
+    // smart_contracts/algo_safe/contract.algo.ts:1290
     // return !willBeActive && this.activePrivGroupCount.value <= Uint64(1)
     app_global_get_ex
     assert // check GlobalState exists
@@ -6282,7 +6382,7 @@ _wouldRemoveLastGroupAdmin_after_if_else@9:
     intc_1 // 1
 
 _wouldRemoveLastGroupAdmin_bool_merge@14:
-    // smart_contracts/algo_safe/contract.algo.ts:1277
+    // smart_contracts/algo_safe/contract.algo.ts:1290
     // return !willBeActive && this.activePrivGroupCount.value <= Uint64(1)
     frame_dig -2
     frame_dig -1
@@ -6294,7 +6394,7 @@ _wouldRemoveLastGroupAdmin_bool_false@13:
     b _wouldRemoveLastGroupAdmin_bool_merge@14
 
 _wouldRemoveLastGroupAdmin_after_if_else@15:
-    // smart_contracts/algo_safe/contract.algo.ts:1279
+    // smart_contracts/algo_safe/contract.algo.ts:1292
     // return false
     intc_0 // 0
     frame_dig -2
@@ -6305,25 +6405,25 @@ _wouldRemoveLastGroupAdmin_after_if_else@15:
 
 // smart_contracts/algo_safe/contract.algo.ts::AlgoSafe._createGroup(change: bytes, groupType: uint64) -> bytes:
 _createGroup:
-    // smart_contracts/algo_safe/contract.algo.ts:1433
+    // smart_contracts/algo_safe/contract.algo.ts:1452
     // private _createGroup(change: AdminChange, groupType: uint64): void {
     proto 2 1
     intc_0 // 0
     dupn 4
-    // smart_contracts/algo_safe/contract.algo.ts:1434
+    // smart_contracts/algo_safe/contract.algo.ts:1453
     // const now = Global.latestTimestamp
     global LatestTimestamp
-    // smart_contracts/algo_safe/contract.algo.ts:1435
+    // smart_contracts/algo_safe/contract.algo.ts:1454
     // const gid: uint64 = this.nextGroupId.value
     intc_0 // 0
     // smart_contracts/algo_safe/contract.algo.ts:344
     // nextGroupId = GlobalState<uint64>({ key: 'ngid' })
     bytec 8 // "ngid"
-    // smart_contracts/algo_safe/contract.algo.ts:1435
+    // smart_contracts/algo_safe/contract.algo.ts:1454
     // const gid: uint64 = this.nextGroupId.value
     app_global_get_ex
     assert // check GlobalState exists
-    // smart_contracts/algo_safe/contract.algo.ts:1438
+    // smart_contracts/algo_safe/contract.algo.ts:1457
     // assert(change.threshold === Uint64(1), 'new group starts with one member')
     frame_dig -2
     pushint 60 // 60
@@ -6332,7 +6432,7 @@ _createGroup:
     intc_1 // 1
     ==
     assert // new group starts with one member
-    // smart_contracts/algo_safe/contract.algo.ts:1441
+    // smart_contracts/algo_safe/contract.algo.ts:1460
     // assert(change.memberAddr !== Global.zeroAddress, 'member required')
     frame_dig -2
     extract 18 32
@@ -6340,7 +6440,7 @@ _createGroup:
     global ZeroAddress
     !=
     assert // member required
-    // smart_contracts/algo_safe/contract.algo.ts:1442
+    // smart_contracts/algo_safe/contract.algo.ts:1461
     // assert(change.allowedActions <= ACT_ALL, 'invalid actions')
     frame_dig -2
     pushint 76 // 76
@@ -6349,7 +6449,7 @@ _createGroup:
     pushint 63 // 63
     <=
     assert // invalid actions
-    // smart_contracts/algo_safe/contract.algo.ts:1443
+    // smart_contracts/algo_safe/contract.algo.ts:1462
     // assert(change.adminPrivileges <= PRIV_ALL, 'invalid privileges')
     frame_dig -2
     pushint 68 // 68
@@ -6359,12 +6459,12 @@ _createGroup:
     pushint 7 // 7
     <=
     assert // invalid privileges
-    // smart_contracts/algo_safe/contract.algo.ts:1446
+    // smart_contracts/algo_safe/contract.algo.ts:1465
     // this._assertCustodianActions(groupType, change.allowedActions)
     frame_dig -1
     swap
     callsub _assertCustodianActions
-    // smart_contracts/algo_safe/contract.algo.ts:1449
+    // smart_contracts/algo_safe/contract.algo.ts:1468
     // name: change.groupName,
     frame_dig -2
     pushint 16 // 16
@@ -6378,7 +6478,7 @@ _createGroup:
     cover 2
     substring3
     extract 2 0
-    // smart_contracts/algo_safe/contract.algo.ts:1453
+    // smart_contracts/algo_safe/contract.algo.ts:1472
     // adminPrivileges: groupType === GT_CUSTODIAN ? Uint64(0) : change.adminPrivileges,
     frame_dig -1
     intc_1 // 1
@@ -6388,23 +6488,23 @@ _createGroup:
     intc_0 // 0
 
 _createGroup_ternary_merge@3:
-    // smart_contracts/algo_safe/contract.algo.ts:1455
+    // smart_contracts/algo_safe/contract.algo.ts:1474
     // limitAssetId: change.limitAssetId,
     frame_dig -2
     extract 84 8
-    // smart_contracts/algo_safe/contract.algo.ts:1456
+    // smart_contracts/algo_safe/contract.algo.ts:1475
     // dailyLimit: change.dailyLimit,
     frame_dig -2
     extract 92 8
-    // smart_contracts/algo_safe/contract.algo.ts:1459
+    // smart_contracts/algo_safe/contract.algo.ts:1478
     // monthlyLimit: change.monthlyLimit,
     frame_dig -2
     extract 100 8
-    // smart_contracts/algo_safe/contract.algo.ts:1462
+    // smart_contracts/algo_safe/contract.algo.ts:1481
     // cooldownRounds: change.cooldownRounds,
     frame_dig -2
     extract 108 8
-    // smart_contracts/algo_safe/contract.algo.ts:1448-1468
+    // smart_contracts/algo_safe/contract.algo.ts:1467-1487
     // const grp: SignerGroup = {
     //   name: change.groupName,
     //   threshold: change.threshold,
@@ -6443,10 +6543,10 @@ _createGroup_ternary_merge@3:
     bytec 25 // 0x008a
     swap
     concat
-    // smart_contracts/algo_safe/contract.algo.ts:1451
+    // smart_contracts/algo_safe/contract.algo.ts:1470
     // memberCount: Uint64(1),
     intc_1 // 1
-    // smart_contracts/algo_safe/contract.algo.ts:1448-1468
+    // smart_contracts/algo_safe/contract.algo.ts:1467-1487
     // const grp: SignerGroup = {
     //   name: change.groupName,
     //   threshold: change.threshold,
@@ -6482,10 +6582,10 @@ _createGroup_ternary_merge@3:
     concat
     uncover 4
     concat
-    // smart_contracts/algo_safe/contract.algo.ts:1457
+    // smart_contracts/algo_safe/contract.algo.ts:1476
     // dailyUsage: Uint64(0),
     intc_0 // 0
-    // smart_contracts/algo_safe/contract.algo.ts:1448-1468
+    // smart_contracts/algo_safe/contract.algo.ts:1467-1487
     // const grp: SignerGroup = {
     //   name: change.groupName,
     //   threshold: change.threshold,
@@ -6537,7 +6637,7 @@ _createGroup_ternary_merge@3:
     concat
     swap
     concat
-    // smart_contracts/algo_safe/contract.algo.ts:1469
+    // smart_contracts/algo_safe/contract.algo.ts:1488
     // this.groups(gid).value = clone(grp)
     frame_dig 6
     dup
@@ -6550,14 +6650,14 @@ _createGroup_ternary_merge@3:
     bytec_0 // "g"
     dig 1
     concat
-    // smart_contracts/algo_safe/contract.algo.ts:1469
+    // smart_contracts/algo_safe/contract.algo.ts:1488
     // this.groups(gid).value = clone(grp)
     dup
     box_del
     pop
     uncover 2
     box_put
-    // smart_contracts/algo_safe/contract.algo.ts:1471
+    // smart_contracts/algo_safe/contract.algo.ts:1490
     // const m: Member = { accountType: change.memberType, label: change.memberLabel, addr: change.memberAddr }
     frame_dig -2
     len
@@ -6586,7 +6686,7 @@ _createGroup_ternary_merge@3:
     concat
     uncover 2
     concat
-    // smart_contracts/algo_safe/contract.algo.ts:1472
+    // smart_contracts/algo_safe/contract.algo.ts:1491
     // this.members({ groupId: gid, account: change.memberAddr }).value = clone(m)
     cover 2
     concat
@@ -6597,31 +6697,31 @@ _createGroup_ternary_merge@3:
     bytec 4 // "m"
     swap
     concat
-    // smart_contracts/algo_safe/contract.algo.ts:1472
+    // smart_contracts/algo_safe/contract.algo.ts:1491
     // this.members({ groupId: gid, account: change.memberAddr }).value = clone(m)
     dup
     box_del
     pop
     swap
     box_put
-    // smart_contracts/algo_safe/contract.algo.ts:1474
+    // smart_contracts/algo_safe/contract.algo.ts:1493
     // this.nextGroupId.value = gid + Uint64(1)
     intc_1 // 1
     +
     // smart_contracts/algo_safe/contract.algo.ts:344
     // nextGroupId = GlobalState<uint64>({ key: 'ngid' })
     bytec 8 // "ngid"
-    // smart_contracts/algo_safe/contract.algo.ts:1474
+    // smart_contracts/algo_safe/contract.algo.ts:1493
     // this.nextGroupId.value = gid + Uint64(1)
     swap
     app_global_put
-    // smart_contracts/algo_safe/contract.algo.ts:1475
+    // smart_contracts/algo_safe/contract.algo.ts:1494
     // this.groupCount.value = this.groupCount.value + Uint64(1)
     intc_0 // 0
     // smart_contracts/algo_safe/contract.algo.ts:346
     // groupCount = GlobalState<uint64>({ key: 'gcnt' })
     bytec_3 // "gcnt"
-    // smart_contracts/algo_safe/contract.algo.ts:1475
+    // smart_contracts/algo_safe/contract.algo.ts:1494
     // this.groupCount.value = this.groupCount.value + Uint64(1)
     app_global_get_ex
     assert // check GlobalState exists
@@ -6630,15 +6730,15 @@ _createGroup_ternary_merge@3:
     // smart_contracts/algo_safe/contract.algo.ts:346
     // groupCount = GlobalState<uint64>({ key: 'gcnt' })
     bytec_3 // "gcnt"
-    // smart_contracts/algo_safe/contract.algo.ts:1475
+    // smart_contracts/algo_safe/contract.algo.ts:1494
     // this.groupCount.value = this.groupCount.value + Uint64(1)
     swap
     app_global_put
-    // smart_contracts/algo_safe/contract.algo.ts:1477
+    // smart_contracts/algo_safe/contract.algo.ts:1496
     // if (groupType === GT_CUSTODIAN) {
     frame_dig 13
     bz _createGroup_else_body@5
-    // smart_contracts/algo_safe/contract.algo.ts:1478
+    // smart_contracts/algo_safe/contract.algo.ts:1497
     // emit<CustodianGroupCreated>({ groupId: gid, name: change.groupName, threshold: change.threshold })
     frame_dig 4
     bytec 19 // 0x0012
@@ -6653,7 +6753,7 @@ _createGroup_ternary_merge@3:
     log
 
 _createGroup_after_if_else@8:
-    // smart_contracts/algo_safe/contract.algo.ts:1485
+    // smart_contracts/algo_safe/contract.algo.ts:1504
     // emit<MemberAdded>({ groupId: gid, member: change.memberAddr, accountType: change.memberType })
     frame_dig 1
     frame_dig 3
@@ -6667,19 +6767,19 @@ _createGroup_after_if_else@8:
     retsub
 
 _createGroup_else_body@5:
-    // smart_contracts/algo_safe/contract.algo.ts:1480
+    // smart_contracts/algo_safe/contract.algo.ts:1499
     // if ((change.adminPrivileges & PRIV_GROUP) !== Uint64(0)) {
     frame_dig 10
     intc_1 // 1
     &
     bz _createGroup_after_if_else@7
-    // smart_contracts/algo_safe/contract.algo.ts:1481
+    // smart_contracts/algo_safe/contract.algo.ts:1500
     // this.activePrivGroupCount.value = this.activePrivGroupCount.value + Uint64(1)
     intc_0 // 0
     // smart_contracts/algo_safe/contract.algo.ts:356
     // activePrivGroupCount = GlobalState<uint64>({ key: 'apgc' })
     bytec_2 // "apgc"
-    // smart_contracts/algo_safe/contract.algo.ts:1481
+    // smart_contracts/algo_safe/contract.algo.ts:1500
     // this.activePrivGroupCount.value = this.activePrivGroupCount.value + Uint64(1)
     app_global_get_ex
     assert // check GlobalState exists
@@ -6688,13 +6788,13 @@ _createGroup_else_body@5:
     // smart_contracts/algo_safe/contract.algo.ts:356
     // activePrivGroupCount = GlobalState<uint64>({ key: 'apgc' })
     bytec_2 // "apgc"
-    // smart_contracts/algo_safe/contract.algo.ts:1481
+    // smart_contracts/algo_safe/contract.algo.ts:1500
     // this.activePrivGroupCount.value = this.activePrivGroupCount.value + Uint64(1)
     swap
     app_global_put
 
 _createGroup_after_if_else@7:
-    // smart_contracts/algo_safe/contract.algo.ts:1483
+    // smart_contracts/algo_safe/contract.algo.ts:1502
     // emit<GroupCreated>({ groupId: gid, name: change.groupName, threshold: change.threshold })
     frame_dig 4
     bytec 19 // 0x0012

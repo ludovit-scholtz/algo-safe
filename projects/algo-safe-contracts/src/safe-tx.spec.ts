@@ -32,4 +32,25 @@ describe('algosdkTxnsToSafeTxnGroup', () => {
 
     expect(() => algosdkTxnsToSafeTxnGroup([goOfflineTxn])).not.toThrow()
   })
+
+  it('throws on an asset transfer carrying a clawback target (assetSender) instead of dropping it (v3.3.0, L-02)', () => {
+    const clawback = algosdk.makeAssetTransferTxnWithSuggestedParamsFromObject({
+      sender,
+      receiver: sender,
+      assetIndex: 5,
+      amount: 1n,
+      assetSender: algosdk.generateAccount().addr,
+      suggestedParams,
+    })
+    expect(() => algosdkTxnsToSafeTxnGroup([clawback])).toThrow(/clawback/)
+
+    const plain = algosdk.makeAssetTransferTxnWithSuggestedParamsFromObject({
+      sender,
+      receiver: sender,
+      assetIndex: 5,
+      amount: 1n,
+      suggestedParams,
+    })
+    expect(() => algosdkTxnsToSafeTxnGroup([plain])).not.toThrow()
+  })
 })

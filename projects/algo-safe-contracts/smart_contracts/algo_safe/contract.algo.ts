@@ -130,7 +130,7 @@ const ADM_ADD_REKEYED_ADDR: uint64 = Uint64(8)
 const ADM_REMOVE_REKEYED_ADDR: uint64 = Uint64(9)
 
 // 10 = ADM_SET_PAUSED — handled as the else-branch in _applyAdminChange.
-// Kept in src/constants.ts for external callers but not declared here to save space.
+const ADM_SET_PAUSED: uint64 = Uint64(10)
 
 // Custodian group lifecycle (all require PRIV_GROUP except ADM_DISSOLVE_CUSTODIAN).
 const ADM_CREATE_CUSTODIAN: uint64 = Uint64(11)   // admin creates a new custodian group
@@ -147,7 +147,7 @@ const ADM_REMOVE_GUARD: uint64 = Uint64(14) // delete guard; decrements group.gu
 
 const DAY_SECONDS: uint64 = Uint64(86400)
 const MONTH_SECONDS: uint64 = Uint64(2592000)
-const CONTRACT_VERSION = 'BIATEC-ALGO-SAFE-v3.2.0'
+const CONTRACT_VERSION = 'BIATEC-ALGO-SAFE-v3.3.0'
 
 // ---------------------------------------------------------------------------
 // Stored record types
@@ -553,8 +553,9 @@ export class AlgoSafe extends Contract {
    * proposeTransactionGroup — create and optionally immediately execute a transaction
    * proposal. The caller must be a member of groupId.
    *
-   * execute=true skips the approval phase (valid only when threshold=1 and the
-   * proposer is the sole member, i.e. the proposal is instantly READY).
+   * execute=true skips the approval phase (valid only when the group's threshold
+   * is 1, so the proposer's auto-approval alone makes the proposal READY; the
+   * group may have any number of members).
    *
    * The payload is stored in chunk slot 1; further chunks can be appended via
    * appendTransactionGroupPayload before the first independent approval.
@@ -668,6 +669,8 @@ export class AlgoSafe extends Contract {
     this._assertMember(groupId)
     const group = clone(this.groups(groupId).value)
     assert(group.active !== Uint64(0), 'group disabled')
+    // 2026-10-14 audit: reject unknown change types up front (10 = ADM_SET_PAUSED).
+    assert(change.changeType >= ADM_CREATE_GROUP && change.changeType <= ADM_REMOVE_GUARD, 'unknown change type')
 
     // Validate cooldown at proposal time for both ADM_CREATE_GROUP and ADM_SET_POLICY.
     // Harmless for other change types but avoids the if-branch cost in binary size.
@@ -725,8 +728,14 @@ export class AlgoSafe extends Contract {
   }
 
   /**
-   * cancelProposal — cancel an open proposal. Either the original proposer
-   * or any current group member may cancel.
+   * cancelProposal — cancel an open proposal.
+   *
+   * 2026-10-14 audit M-01: a bare "any member" rule let one signer of an M-of-N
+   * group veto every proposal (including their own removal). Cancellation is
+   * now limited to the proposer, or any current member once the proposal is
+   * stale (expired, or stranded by a membership-epoch bump — such proposals can
+   * only be cancelled and re-created). Approvers get no cancel right: any member
+   * can approve first, so it would not stop a hostile signer.
    */
   public cancelProposal(proposalId: uint64, ensureBudgetValue: uint64): void {
     if (ensureBudgetValue > Uint64(1)) {
@@ -736,7 +745,11 @@ export class AlgoSafe extends Contract {
     assert(proposal.status === STATUS_ACTIVE || proposal.status === STATUS_READY, 'not cancellable')
     const isProposer = Txn.sender === proposal.proposer
     const isMember = this.members({ groupId: proposal.groupId, account: Txn.sender }).exists
-    assert(isProposer || isMember, 'not authorised to cancel')
+    let isStale = Global.round > proposal.expiryRound
+    if (!isStale && this.groups(proposal.groupId).exists) {
+      isStale = this.groups(proposal.groupId).value.membershipEpoch !== proposal.epochAtCreation
+    }
+    assert(isProposer || (isMember && isStale), 'not authorised to cancel')
 
     proposal.status = STATUS_CANCELLED
     this.proposals(proposalId).value = clone(proposal)
@@ -1283,7 +1296,7 @@ export class AlgoSafe extends Contract {
    * _applyAdminChange — execute a validated admin change.
    * Called from _executeProposalInternal after proposal-level checks pass.
    * Each branch implements one ADM_* change type. The else-branch handles
-   * ADM_SET_PAUSED (value 10) without an explicit constant to save binary space.
+   * ADM_SET_PAUSED (value 10), the only remaining type; unknown types are rejected.
    */
   private _applyAdminChange(change: AdminChange): void {
     if (change.changeType === ADM_CREATE_GROUP) {
@@ -1318,6 +1331,8 @@ export class AlgoSafe extends Contract {
       // M-01 (Fable-5): a policy change must not widen a custodian's actions
       // beyond the guard-metered pay/axfer bits.
       this._assertCustodianActions(group.groupType, change.allowedActions)
+      // L-01 (2026-10-14): same bound as group creation.
+      assert(change.allowedActions <= ACT_ALL, 'invalid actions')
       const assetChanged = group.limitAssetId !== change.limitAssetId
       group.allowedActions = change.allowedActions
       group.limitAssetId = change.limitAssetId
@@ -1338,6 +1353,8 @@ export class AlgoSafe extends Contract {
       const group = clone(this.groups(change.targetGroupId).value)
       // Custodian groups can never hold admin privileges.
       assert(group.groupType === GT_STANDARD, 'cannot set privileges on custodian groups')
+      // L-01 (2026-10-14): same bound as group creation.
+      assert(change.adminPrivileges <= PRIV_ALL, 'invalid privileges')
       assert(!this._wouldRemoveLastGroupAdmin(change, group), 'must keep at least one active group admin')
       const hadGroupPriv = (group.adminPrivileges & PRIV_GROUP) !== Uint64(0)
       const willHaveGroupPriv = (change.adminPrivileges & PRIV_GROUP) !== Uint64(0)
@@ -1417,7 +1434,9 @@ export class AlgoSafe extends Contract {
       this.groups(gid).value = clone(target)
       emit<AssetGuardRemoved>({ custodianGroupId: gid, assetId })
     } else {
-      // ADM_SET_PAUSED (value 10) — not declared as a constant to save program space.
+      // ADM_SET_PAUSED (value 10) — the final branch; every other type was handled above.
+      // I-01 (2026-10-14): unknown change types must revert, not toggle the pause flag.
+      assert(change.changeType === ADM_SET_PAUSED, 'unknown change type')
       // activeFlag nonzero = pause; zero = unpause.
       this.paused.value = change.activeFlag !== Uint64(0) ? Uint64(1) : Uint64(0)
       emit<SafePaused>({ paused: this.paused.value })
