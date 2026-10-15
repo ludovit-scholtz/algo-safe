@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { MAX_PROPOSAL_LIFETIME_ROUNDS } from './constants'
 import { algoSafeArc56 } from './artifacts'
@@ -42,7 +43,7 @@ describe('getAlgoSafeContractVersion', () => {
   })
 
   it('keeps the library expiry cap in sync with the contract constant', () => {
-    const source = readFileSync(new URL('../smart_contracts/algo_safe/contract.algo.ts', import.meta.url), 'utf-8')
+    const source = readFileSync(join(process.cwd(), 'smart_contracts/algo_safe/contract.algo.ts'), 'utf-8')
     const match = /MAX_PROPOSAL_LIFETIME_ROUNDS: uint64 = Uint64\(([\d_]+)\)/.exec(source)
     expect(match).not.toBeNull()
     expect(BigInt(match![1].replace(/_/g, ''))).toBe(MAX_PROPOSAL_LIFETIME_ROUNDS)
