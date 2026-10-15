@@ -838,7 +838,7 @@ export async function proposeLiveTransactionGroup(
 ): Promise<ProposeTransactionGroupResult> {
   assertWalletContext(context)
   if (params.expiryRounds <= 0n || params.expiryRounds > MAX_PROPOSAL_LIFETIME_ROUNDS) {
-    throw new Error(`Expiry must be between 1 and ${MAX_PROPOSAL_LIFETIME_ROUNDS} rounds.`)
+    throw new Error(tr('service.errors.expiryOutOfRange', { max: MAX_PROPOSAL_LIFETIME_ROUNDS.toString() }))
   }
   const { client, isLatest } = await buildAppClient(context)
   const executeNow = Boolean(params.executeNow)

@@ -185,6 +185,7 @@
       "proposalNotFound": "在保险库中未找到提案 {{id}}（可能已被清理）。",
       "connectWallet": "签署提案操作前请先连接钱包。",
       "proposeExecuteRequiresLatest": "一次调用完成提议并执行需要最新版本的保险库合约。",
+      "expiryOutOfRange": "有效期必须介于 1 和 {{max}} 轮之间。",
       "txIdUnknown": "无法确定已提交的执行交易 ID。"
     },
     "none": "无",

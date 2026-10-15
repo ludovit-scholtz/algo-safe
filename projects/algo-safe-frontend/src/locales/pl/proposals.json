@@ -194,6 +194,7 @@
       "proposalNotFound": "Nie znaleziono wniosku {{id}} w sejfie (mógł zostać usunięty).",
       "connectWallet": "Przed podpisaniem akcji wniosku połącz portfel.",
       "proposeExecuteRequiresLatest": "Złożenie i wykonanie wniosku jednym wywołaniem wymaga najnowszej wersji kontraktu sejfu.",
+      "expiryOutOfRange": "Ważność musi wynosić od 1 do {{max}} rund.",
       "txIdUnknown": "Nie udało się ustalić ID wysłanej transakcji wykonującej."
     },
     "none": "brak",

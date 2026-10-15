@@ -188,6 +188,7 @@
       "proposalNotFound": "Proposal {{id}} was not found on the safe (it may have been pruned).",
       "connectWallet": "Connect a wallet before signing proposal actions.",
       "proposeExecuteRequiresLatest": "Propose-and-execute in one call requires the latest safe contract version.",
+      "expiryOutOfRange": "Expiry must be between 1 and {{max}} rounds.",
       "txIdUnknown": "Unable to determine the submitted execution transaction ID."
     },
     "none": "none",

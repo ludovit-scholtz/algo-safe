@@ -188,6 +188,7 @@
       "proposalNotFound": "A(z) {{id}} javaslat nem található a széfben (lehet, hogy törölték).",
       "connectWallet": "A javaslatműveletek aláírása előtt csatlakoztasson egy tárcát.",
       "proposeExecuteRequiresLatest": "A javaslat beküldése és végrehajtása egyetlen hívásban a széf szerződésének legújabb verzióját igényli.",
+      "expiryOutOfRange": "A lejárat 1 és {{max}} kör között lehet.",
       "txIdUnknown": "Nem állapítható meg a beküldött végrehajtási tranzakció azonosítója."
     },
     "none": "nincs",

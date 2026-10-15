@@ -191,6 +191,7 @@
       "proposalNotFound": "La proposta {{id}} non è stata trovata nella cassaforte (potrebbe essere stata eliminata).",
       "connectWallet": "Collega un wallet prima di firmare le azioni sulla proposta.",
       "proposeExecuteRequiresLatest": "Proporre ed eseguire in una sola chiamata richiede l'ultima versione del contratto della cassaforte.",
+      "expiryOutOfRange": "La scadenza deve essere tra 1 e {{max}} round.",
       "txIdUnknown": "Impossibile determinare l'ID della transazione di esecuzione inviata."
     },
     "none": "nessuna",

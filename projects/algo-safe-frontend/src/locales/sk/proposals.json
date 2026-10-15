@@ -194,6 +194,7 @@
       "proposalNotFound": "Návrh {{id}} sa v sejfe nenašiel (možno bol odstránený).",
       "connectWallet": "Pred podpisovaním akcií návrhu pripojte peňaženku.",
       "proposeExecuteRequiresLatest": "Navrhnutie a vykonanie jedným volaním vyžaduje najnovšiu verziu kontraktu sejfu.",
+      "expiryOutOfRange": "Platnosť musí byť od 1 do {{max}} kôl.",
       "txIdUnknown": "Nepodarilo sa zistiť ID odoslanej transakcie vykonania."
     },
     "none": "žiadne",

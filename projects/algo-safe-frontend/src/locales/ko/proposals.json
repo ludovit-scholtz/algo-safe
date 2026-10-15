@@ -185,6 +185,7 @@
       "proposalNotFound": "세이프에서 제안 {{id}}을(를) 찾을 수 없습니다(정리되었을 수 있습니다).",
       "connectWallet": "제안 작업에 서명하기 전에 지갑을 연결하세요.",
       "proposeExecuteRequiresLatest": "한 번의 호출로 제안과 실행을 함께 하려면 최신 버전의 세이프 컨트랙트가 필요합니다.",
+      "expiryOutOfRange": "만료는 1에서 {{max}} 라운드 사이여야 합니다.",
       "txIdUnknown": "제출된 실행 트랜잭션 ID를 확인할 수 없습니다."
     },
     "none": "없음",

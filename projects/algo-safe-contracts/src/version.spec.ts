@@ -1,4 +1,6 @@
+import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
+import { MAX_PROPOSAL_LIFETIME_ROUNDS } from './constants'
 import { algoSafeArc56 } from './artifacts'
 import { getAlgoSafeContractVersion, MODERN_ABI_CONTRACT_HASHES } from './version'
 import { CONTRACT_HASHES, LATEST_CONTRACT_HASH } from './versioned-clients.generated'
@@ -37,5 +39,12 @@ describe('getAlgoSafeContractVersion', () => {
     expect(MODERN_ABI_CONTRACT_HASHES).toContain(LATEST_CONTRACT_HASH)
     expect(MODERN_ABI_CONTRACT_HASHES).toContain('b096f50b39dff57a9df61e36a9a74a35e9f892854495f4c5efc42e5d8822bf35')
     for (const hash of MODERN_ABI_CONTRACT_HASHES) expect(CONTRACT_HASHES).toContain(hash)
+  })
+
+  it('keeps the library expiry cap in sync with the contract constant', () => {
+    const source = readFileSync(new URL('../smart_contracts/algo_safe/contract.algo.ts', import.meta.url), 'utf-8')
+    const match = /MAX_PROPOSAL_LIFETIME_ROUNDS: uint64 = Uint64\(([\d_]+)\)/.exec(source)
+    expect(match).not.toBeNull()
+    expect(BigInt(match![1].replace(/_/g, ''))).toBe(MAX_PROPOSAL_LIFETIME_ROUNDS)
   })
 })

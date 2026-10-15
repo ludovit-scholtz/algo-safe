@@ -188,6 +188,7 @@
       "proposalNotFound": "Vorschlag {{id}} wurde im Safe nicht gefunden (möglicherweise wurde er bereinigt).",
       "connectWallet": "Verbinden Sie eine Wallet, bevor Sie Vorschlagsaktionen signieren.",
       "proposeExecuteRequiresLatest": "Vorschlagen und Ausführen in einem Aufruf erfordert die neueste Version des Safe-Vertrags.",
+      "expiryOutOfRange": "Die Ablaufzeit muss zwischen 1 und {{max}} Runden liegen.",
       "txIdUnknown": "Die ID der gesendeten Ausführungstransaktion konnte nicht ermittelt werden."
     },
     "none": "keine",

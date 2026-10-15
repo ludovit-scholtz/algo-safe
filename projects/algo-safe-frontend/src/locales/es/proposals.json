@@ -191,6 +191,7 @@
       "proposalNotFound": "No se encontró la propuesta {{id}} en la caja fuerte (puede haber sido eliminada).",
       "connectWallet": "Conecte una cartera antes de firmar acciones de la propuesta.",
       "proposeExecuteRequiresLatest": "Proponer y ejecutar en una sola llamada requiere la última versión del contrato de la caja fuerte.",
+      "expiryOutOfRange": "El vencimiento debe estar entre 1 y {{max}} rondas.",
       "txIdUnknown": "No se pudo determinar el ID de la transacción de ejecución enviada."
     },
     "none": "ninguna",
