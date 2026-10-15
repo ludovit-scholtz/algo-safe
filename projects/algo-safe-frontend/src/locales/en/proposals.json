@@ -96,6 +96,7 @@
       "connectWallet": "Connect a wallet before creating a proposal.",
       "invalidReceiver": "Enter a valid Algorand receiver address.",
       "nonPositive": "Group ID and expiry rounds must both be positive values.",
+      "expiryTooFar": "Expiry rounds must be at most {{max}}.",
       "invalidAlgoAmount": "Enter a valid ALGO amount for the payment proposal.",
       "optInAssetId": "Enter a valid asset ID to create an opt-in proposal.",
       "selectOptedInAsset": "Select an opted-in asset for the asset transfer proposal.",
@@ -187,6 +188,7 @@
       "proposalNotFound": "Proposal {{id}} was not found on the safe (it may have been pruned).",
       "connectWallet": "Connect a wallet before signing proposal actions.",
       "proposeExecuteRequiresLatest": "Propose-and-execute in one call requires the latest safe contract version.",
+      "expiryOutOfRange": "Expiry must be between 1 and {{max}} rounds.",
       "txIdUnknown": "Unable to determine the submitted execution transaction ID."
     },
     "none": "none",
@@ -231,6 +233,7 @@
       "arguments_other": "{{count}} argument(s)",
       "createAsset": "Create asset {{label}}",
       "reconfigureAsset": "Reconfigure asset {{id}}",
+      "destroyAsset": "Destroy asset {{id}} (all role addresses are empty)",
       "takeOffline": "Take account offline",
       "registerKeys": "Register participation keys",
       "rounds": "Rounds {{first}}-{{last}}",

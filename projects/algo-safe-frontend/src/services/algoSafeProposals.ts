@@ -22,6 +22,7 @@ import {
   TX_KEYREG,
   TX_PAYMENT,
   TX_REKEY,
+  MAX_PROPOSAL_LIFETIME_ROUNDS,
   ZERO_ADDR,
   decodeAppTxn,
   decodeAssetConfigTxn,
@@ -339,13 +340,21 @@ async function mapEnvelopeTxLine(
   }
 
   if (txType === TX_ACFG) {
-    const { configAsset, assetName, unitName, note } = decodeAssetConfigTxn(data)
+    const { configAsset, assetName, unitName, note, manager, reserve, freeze, clawback } = decodeAssetConfigTxn(data)
     const label =
       assetName || unitName || (configAsset === 0n ? tr('service.newAsset') : tr('service.assetNumber', { id: configAsset.toString() }))
+    // Protocol rule: an asset-config on an existing asset whose four role addresses are all empty is a
+    // DESTROY, not a reconfigure (2026-10-15 audit L-02) - never present it as a harmless role change.
+    const isDestroy = configAsset !== 0n && [manager, reserve, freeze, clawback].every((role) => role === ZERO_ADDR)
+    const summary =
+      configAsset === 0n
+        ? tr('service.tx.createAsset', { label })
+        : isDestroy
+          ? tr('service.tx.destroyAsset', { id: configAsset.toString() })
+          : tr('service.tx.reconfigureAsset', { id: configAsset.toString() })
     return {
       type: 'acfg',
-      summary:
-        configAsset === 0n ? tr('service.tx.createAsset', { label }) : tr('service.tx.reconfigureAsset', { id: configAsset.toString() }),
+      summary,
       detail: note ? tr('service.withNote', { value: label, note }) : label,
     }
   }
@@ -817,6 +826,13 @@ export type ProposeTransactionGroupResult = {
   executed: boolean
 }
 
+/** Contract v3.4.0 rejects expiries beyond MAX_PROPOSAL_LIFETIME_ROUNDS; keep the UI inside that range for every safe. */
+function assertExpiryRounds(expiryRounds: bigint) {
+  if (expiryRounds <= 0n || expiryRounds > MAX_PROPOSAL_LIFETIME_ROUNDS) {
+    throw new Error(tr('service.errors.expiryOutOfRange', { max: MAX_PROPOSAL_LIFETIME_ROUNDS.toString() }))
+  }
+}
+
 /**
  * Submits a transaction-group proposal. With `executeNow` the contract executes
  * it in the same call (proposer auto-approval must satisfy the group threshold).
@@ -828,6 +844,7 @@ export async function proposeLiveTransactionGroup(
   params: { groupId: bigint; payload: readonly unknown[]; expiryRounds: bigint; executeNow?: boolean },
 ): Promise<ProposeTransactionGroupResult> {
   assertWalletContext(context)
+  assertExpiryRounds(params.expiryRounds)
   const { client, isLatest } = await buildAppClient(context)
   const executeNow = Boolean(params.executeNow)
 
@@ -872,6 +889,7 @@ export async function prepareTransactionGroupSignature(
   params: { groupId: bigint; payload: readonly unknown[]; expiryRounds: bigint },
 ): Promise<PrepareTransactionGroupSignatureResult> {
   assertWalletContext(context)
+  assertExpiryRounds(params.expiryRounds)
   const { client } = await buildAppClient(context)
 
   const status = (await context.algodClient.status().do()) as unknown as Record<string, unknown>

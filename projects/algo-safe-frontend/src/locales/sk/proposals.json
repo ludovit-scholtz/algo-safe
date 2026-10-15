@@ -96,6 +96,7 @@
       "connectWallet": "Pred vytvorením návrhu pripojte peňaženku.",
       "invalidReceiver": "Zadajte platnú adresu príjemcu Algorand.",
       "nonPositive": "ID skupiny aj počet kôl platnosti musia byť kladné hodnoty.",
+      "expiryTooFar": "Počet kôl platnosti môže byť najviac {{max}}.",
       "invalidAlgoAmount": "Zadajte platnú sumu v ALGO pre návrh platby.",
       "optInAssetId": "Na vytvorenie návrhu opt-in zadajte platné ID aktíva.",
       "selectOptedInAsset": "Vyberte aktívum s vykonaným opt-in pre návrh prevodu aktíva.",
@@ -193,6 +194,7 @@
       "proposalNotFound": "Návrh {{id}} sa v sejfe nenašiel (možno bol odstránený).",
       "connectWallet": "Pred podpisovaním akcií návrhu pripojte peňaženku.",
       "proposeExecuteRequiresLatest": "Navrhnutie a vykonanie jedným volaním vyžaduje najnovšiu verziu kontraktu sejfu.",
+      "expiryOutOfRange": "Platnosť musí byť od 1 do {{max}} kôl.",
       "txIdUnknown": "Nepodarilo sa zistiť ID odoslanej transakcie vykonania."
     },
     "none": "žiadne",
@@ -241,6 +243,7 @@
       "arguments_other": "{{count}} argumentov",
       "createAsset": "Vytvoriť aktívum {{label}}",
       "reconfigureAsset": "Prekonfigurovať aktívum {{id}}",
+      "destroyAsset": "Zničiť aktívum {{id}} (všetky adresy rolí sú prázdne)",
       "takeOffline": "Prepnúť účet do režimu offline",
       "registerKeys": "Registrovať účastnícke kľúče",
       "rounds": "Kolá {{first}}-{{last}}",

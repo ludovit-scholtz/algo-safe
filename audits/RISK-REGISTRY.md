@@ -4,8 +4,8 @@
 
 **Maintained by**: every audit performed per `AI-AUDIT-INSTRUCTIONS.md` MUST review and update this file — see that document's "Risk Registry Maintenance" section for the required process.
 
-**Last updated**: 2026-10-14 (Claude Sonnet 5.5 audit of commit `9859b30`; contract unchanged at **v3.2.0**)
-**Reviewed against**: commit `9859b30a2d621c92bcc287af60bf0857a24c2e8a`, contract **v3.2.0** (committed; approval hash `3f8d0cb07960bf2c8af42fb41b7d7fc2673dd831d987e80ee0e0c43fcefaa0ec`, 7,054/8,192 bytes, CI size gate green). 123/123 tests pass on LocalNet across 6 files (the 93 earlier contract tests plus the new `arc56`/`safe-tx` unit specs). See [2026-10-14 audit](./2026-10-14-audit-report-ai-claude-sonnet-5-5.md).
+**Last updated**: 2026-10-15 (Claude Fable 5.1 audit of commit `a651740`; remediated same day as contract **v3.4.0**, pending merge)
+**Reviewed against**: commit `a6517400676778bc6a760986e96cc2bf9015ee8c`, contract **v3.3.0** (committed; approval hash `b096f50b39dff57a9df61e36a9a74a35e9f892854495f4c5efc42e5d8822bf35`, 7,166/8,192 bytes, CI size gate green, one new `clients/b096f50b…/` folder). 133/133 tests pass on LocalNet across 6 files. See [2026-10-15 audit](./2026-10-15-audit-report-ai-claude-fable-5-1.md).
 
 ---
 
@@ -52,7 +52,7 @@ Probabilities are independent per-risk estimates (not mutually exclusive outcome
 | R-22 | Frontend misrepresents proposal content before signing | Integration/Client | High | **15%** | High | Open (frontend, out of contract scope) |
 | R-23 | Client fails to detect deployed contract version, uses wrong ABI | Integration/Client | Medium | **5%** | Low | Mitigated |
 | R-24 | Box MBR under-funding causes inconsistent partial state | Availability | Medium | **6%** | Low | Mitigated (atomic failure) |
-| R-25 | Approval-program size exceeds 8,192-byte ceiling in a future change | Availability | Medium | **15%** | Low | **Mitigated** — v3.0.0 size-reduction pass (6,968/8,192 bytes, 15% free) + CI size gate at 7,800 bytes ([C-01]) |
+| R-25 | Approval-program size exceeds 8,192-byte ceiling in a future change | Availability | Medium | **15%** | Low | **Mitigated** — v3.0.0 size-reduction pass + CI size gate at 7,800 bytes ([C-01]); v3.3.0 at 7,166/8,192 (1,026 bytes free) |
 | R-26 | Algorand consensus parameter changes invalidate hard-coded resource limits | Protocol/AVM | Medium | **15%** | Medium | Monitoring |
 | R-27 | PuyaTs/compiler miscompilation producing incorrect bytecode | Supply Chain | Critical | **2%** | Medium | Accepted (industry-wide) |
 | R-28 | `algosdk`/`algokit-utils` dependency vulnerability | Supply Chain | Medium | **10%** | Low | Monitoring |
@@ -68,14 +68,20 @@ Probabilities are independent per-risk estimates (not mutually exclusive outcome
 | R-38 | Custodian guard containment excludes `ACT_APPL`/`ACT_ACFG` value movement | Governance/Economic | High | **<1%** | Low | **Mitigated** — v3.1.0 restricts custodian actions to pay/axfer; re-verified at the committed code 2026-07-16 ([M-01 Fable-5](./2026-07-12-audit-report-ai-claude-fable-5.md)) |
 | R-39 | Validator library pinning/deployment surface (wrong or unregistered validator at safe creation) | Upgrade/Migration | Medium | **2%** | Low | Partially Mitigated (hash pin on-chain + pin-rejection e2e test committed in v3.1.0; `VALIDATOR_DEPLOYMENTS` registry still unpopulated) |
 | R-40 | Residual zero-address input gaps in governed admin paths (`_createGroup`, `ADM_ADD_REKEYED_ADDR`) | State Machine | Low | **<1%** | Low | **Mitigated** — v3.1.0 zero-address asserts + migration-builder throw; re-verified at the committed code 2026-07-16 ([L-01/L-02 Fable-5](./2026-07-12-audit-report-ai-claude-fable-5.md)) |
-| R-41 | Terminal proposals with far-future expiry can never be pruned (permanent MBR loss; `FAR_EXPIRY` is the documented default) | Availability | Medium | **<1%** | Low | Mitigated ([M-01 2026-07-16](./2026-07-16-audit-report-ai-claude-fable-5.md)) |
+| R-41 | Terminal proposals with far-future expiry can never be pruned (permanent MBR loss; `FAR_EXPIRY` is the documented default) | Availability | Medium | **<1%** | Low | **Mitigated** — executed and cancelled proposals prunable immediately (v3.4.0) ([M-01 2026-07-16](./2026-07-16-audit-report-ai-claude-fable-5.md), [H-01 2026-10-15](./2026-10-15-audit-report-ai-claude-fable-5-1.md)) |
 | R-42 | Custodian 0-amount transfers bypass guard gating (ungoverned ASA opt-ins / MBR-lock griefing) | Governance/Economic | Low | **<1%** | Low | Mitigated ([L-01 2026-07-16](./2026-07-16-audit-report-ai-claude-fable-5.md)) |
 | R-43 | Box-enumeration helpers cap at 10,000 boxes; approval-box growth eventually breaks migration/UI enumeration | Integration/Client | Medium | **3%** | Low | Partially Mitigated ([L-02 2026-07-16](./2026-07-16-audit-report-ai-claude-fable-5.md)) |
-| R-44 | Any single group member can cancel any pending/READY proposal (minority veto; can block removal of a hostile signer) | Governance/Availability | Medium | **8%** | Medium | **Mitigated** (v3.3.0) ([M-01 2026-10-14](./2026-10-14-audit-report-ai-claude-sonnet-5-5.md)) |
-| R-45 | Admin-change input validation gaps (`ADM_SET_POLICY`/`ADM_SET_PRIVILEGES` bitmasks unbounded; unknown `changeType` acts as pause) | State Machine | Low | **2%** | Low | **Mitigated** (v3.3.0) ([L-01/I-01 2026-10-14](./2026-10-14-audit-report-ai-claude-sonnet-5-5.md)) |
-| R-46 | `algosdkTxnsToSafeTxnGroup` silently drops unrepresentable fields (asset clawback `assetSender`) | Integration/Client | Low | **3%** | Low | **Mitigated** (v3.3.0) ([L-02 2026-10-14](./2026-10-14-audit-report-ai-claude-sonnet-5-5.md)) |
-| R-47 | ARC-56 "verified" app-call display rests on an unauthenticated registry, a 4-byte selector and a mutable `:latest` image | Integration/Client | Medium | **6%** | Medium | **Partially Mitigated** (v3.3.0; image digest pin pending) ([L-04 2026-10-14](./2026-10-14-audit-report-ai-claude-sonnet-5-5.md)) |
-| R-48 | ARC-56 decoder mishandles the ARC-4 15-argument packing boundary (wrong value under a "verified" banner) | Integration/Client | Low | **2%** | Low | **Mitigated** (v3.3.0) ([L-03 2026-10-14](./2026-10-14-audit-report-ai-claude-sonnet-5-5.md)) |
+| R-44 | Any single group member can cancel any pending/READY proposal (minority veto; can block removal of a hostile signer) | Governance/Availability | Medium | **<1%** | Low | **Mitigated** (v3.3.0, re-verified at the committed code 2026-10-15) ([M-01 2026-10-14](./2026-10-14-audit-report-ai-claude-sonnet-5-5.md)) |
+| R-45 | Admin-change input validation gaps (`ADM_SET_POLICY`/`ADM_SET_PRIVILEGES` bitmasks unbounded; unknown `changeType` acts as pause) | State Machine | Low | **<1%** | Low | **Mitigated** (v3.3.0, re-verified 2026-10-15) ([L-01/I-01 2026-10-14](./2026-10-14-audit-report-ai-claude-sonnet-5-5.md)) |
+| R-46 | `algosdkTxnsToSafeTxnGroup` silently drops unrepresentable fields (asset clawback `assetSender`) | Integration/Client | Low | **<1%** | Low | **Mitigated** (v3.3.0, re-verified 2026-10-15) ([L-02 2026-10-14](./2026-10-14-audit-report-ai-claude-sonnet-5-5.md)) |
+| R-47 | ARC-56 "verified" app-call display rests on an unauthenticated registry, a 4-byte selector and a mutable `:latest` image | Integration/Client | Medium | **6%** | Medium | **Partially Mitigated** (v3.3.0 spec-bytecode binding committed; image digest pin pending) ([L-04 2026-10-14](./2026-10-14-audit-report-ai-claude-sonnet-5-5.md)) |
+| R-48 | ARC-56 decoder mishandles the ARC-4 15-argument packing boundary (wrong value under a "verified" banner) | Integration/Client | Low | **<1%** | Low | **Mitigated** (v3.3.0, re-verified 2026-10-15) ([L-03 2026-10-14](./2026-10-14-audit-report-ai-claude-sonnet-5-5.md)) |
+| R-49 | Any single member (even zero-privilege/zero-action) permanently locks the safe's spendable ALGO in unprunable box MBR (never-expiring proposal + cancelled-prune gate + proposer-only cancel) | Economic/Availability | High | **<1%** | Low | **Mitigated** (v3.4.0; approval boxes and proposer-funded MBR remain follow-ups) ([H-01 2026-10-15](./2026-10-15-audit-report-ai-claude-fable-5-1.md), PoC confirmed) |
+| R-50 | Live proposals of a dissolved custodian group can never be cancelled by anyone but the proposer (never terminal → never prunable) | Availability | Low | **<1%** | Low | **Mitigated** (v3.4.0) ([M-01 2026-10-15](./2026-10-15-audit-report-ai-claude-fable-5-1.md)) |
+| R-51 | `bootstrapGroup` accepts an undefined `groupType`, creating a group whose privileges can never be changed and that migration tooling replicates | State Machine | Low | **<1%** | Low | **Mitigated** (v3.4.0) ([L-01 2026-10-15](./2026-10-15-audit-report-ai-claude-fable-5-1.md), PoC confirmed) |
+| R-52 | Frontend renders an asset *destroy* (reconfigure with all-zero roles) as "Reconfigure asset" | Integration/Client | Medium | **2%** | Low | **Mitigated** (frontend, v3.4.0 branch) ([L-02 2026-10-15](./2026-10-15-audit-report-ai-claude-fable-5-1.md)) |
+| R-53 | Staged keyreg inner transactions always carry fee 0, so a safe can never become incentive-eligible for staking payouts | Economic | Low | **15%** | Low | Open — product gap ([I-01 2026-10-15](./2026-10-15-audit-report-ai-claude-fable-5-1.md)) |
+| R-54 | Generated artifacts (`arc32`/`arc56`/client) depend on checkout line endings; rebuilds dirty the tree and break "artifacts up to date" checks | Supply Chain | Low | **<1%** | Low | **Closed** — withdrawn: `.gitattributes` already forces LF; the diff came from CRLF text in previously committed descriptions ([I-02 2026-10-15](./2026-10-15-audit-report-ai-claude-fable-5-1.md)) |
 
 ---
 
@@ -106,6 +112,8 @@ Phishing, malware, malicious browser extensions, or device theft compromising an
 
 **Mitigation path**: this is inherently a defense-in-depth, not a code, problem. Recommend: strongly discourage 1-of-1/1-of-N groups for anything beyond bootstrap (see R-04); document hardware-wallet/multisig-signer best practices; consider `accountType` 2 (multisig) and future 4/5 (agent/quantum) signer types as tools operators can use to raise the bar per-signer.
 
+**2026-10-15 note**: the "cannot act alone above a threshold > 1" mitigation holds for spending and, since v3.3.0, for blocking (R-44 closed), but **not** for storage griefing: a single compromised key in *any* group, including a zero-privilege agent group, can irreversibly lock the safe's spendable ALGO (R-49). Probability unchanged at 35%; the consequence set of a single-key compromise has widened.
+
 ---
 
 ### R-03 — Malicious or Coerced Insider Signer
@@ -117,6 +125,8 @@ A legitimate signer, acting maliciously (insider threat) or under coercion, prop
 **Why 10%**: bounded by the M-of-N threshold requiring collusion or coercion of multiple independent signers for anything above a 1-of-N group; single-signer insider risk is fully contained by threshold design for properly-configured groups. Probability reflects the residual case of either low-threshold groups (see R-04) or successful multi-signer collusion/coercion, both less common than single-key compromise (R-02) but not negligible over 5 years for higher-value safes that become attractive coercion targets.
 
 **Mitigation path**: operational (background checks, threshold selection, geographic/organizational diversity of signers), not a contract fix.
+
+**2026-10-15 note**: a malicious insider no longer needs collusion to cause irreversible economic harm — see R-49 (one member, ~7 transactions, permanent lock of the safe's free ALGO). Probability unchanged at 10% here; the single-actor path is scored under R-49.
 
 ---
 
@@ -329,6 +339,8 @@ A compromised, buggy, or malicious frontend (or wallet-connect intermediary) cou
 
 **Mitigation path**: out of this contract-focused audit's scope; recommend a dedicated frontend security review, subresource integrity for hosted assets, and encouraging signers to independently verify proposal content via a second, trusted channel (e.g. directly querying `getTransactionGroup` via a CLI) for high-value approvals.
 
+**2026-10-15 note**: a concrete, non-malicious instance was found — an asset-config payload with all-zero role addresses is an asset *destroy* under protocol rules but renders as "Reconfigure asset" (R-52). Kept at 15%/Open; R-52 tracks the specific defect.
+
 ---
 
 ### R-23 — Client Fails to Detect Deployed Contract Version
@@ -357,6 +369,8 @@ An under-funded safe attempting an operation that needs a new box. Algorand's bo
 **Why "Open — critical blocker"**: this was previously "Monitoring" as an extrapolation-of-trend risk. It is now an active, immediate constraint: no further code can be added to the contract without first finding more than 5 bytes of savings.
 
 **Mitigation (2026-07-12, same-day remediation, v3.0.0)**: a size-reduction pass shipped as contract v3.0.0: all 12 read-only ABI getters removed (replaced by off-chain box/state readers in `src/on-chain.ts`), the two bootstrap paths consolidated into a shared `_seedGroup`, and payload validation for pay/axfer/keyreg/acfg/rekey externalised to the hash-pinned, immutable `AlgoSafeTxnValidator` library contract called via inner app call. The approval program is now **6,968/8,192 bytes (15% free)**. A CI gate (`scripts/check-program-size.ts`, wired into `pnpm build`) fails any build over **7,800 bytes**, so size creep is caught in the PR that introduces it. Residual probability reflects long-horizon feature growth, now bounded by the gate.
+
+**2026-10-15 update**: v3.3.0 measures 7,166/8,192 bytes (1,026 bytes to the ceiling, 634 to the gate) — ~200 bytes consumed by v3.1.0–v3.3.0 hardening. The R-49 fix set (drop the cancelled-prune gate, add an expiry cap, prune approval boxes) is net-neutral to slightly negative in size. Unchanged at 15%/Mitigated.
 
 ---
 
@@ -450,6 +464,8 @@ Operators deploying Algo Safe instances to custody third-party funds (as opposed
 **2026-07-16 update — confirmed Partially Mitigated at 12% at the committed v3.1.0**: `CLAUDE.md` carries the v3.1.0 breaking-changes bullet and `PRODUCT-DESCRIPTION.md` documents the validator architecture and the v3 read-surface. Two minor wording inaccuracies remain (epoch invalidation described as "re-approved" instead of "re-created" — [I-02 2026-07-16](./2026-07-16-audit-report-ai-claude-fable-5.md) — and no disclosure of the custodian opt-in guard gap / `FAR_EXPIRY` MBR consequence, tracked under R-41/R-42). The structural CI doc-sync check is still absent, so status and probability are unchanged.
 
 **2026-07-16 same-day remediation**: both wording gaps closed — `CLAUDE.md`/`PRODUCT-DESCRIPTION.md` now say "re-created" (I-02); the custodian opt-in guard precondition (R-42/L-01 fix) and the `FAR_EXPIRY` test-only guidance (R-41/M-01 fix) are documented in `PRODUCT-DESCRIPTION.md` and `README.md` respectively, plus a new v3.2.0 `CLAUDE.md` breaking-changes bullet. The structural CI doc-sync check is still absent (unchanged, kept at 12%/Partially Mitigated) — this remains the one open recommendation from R-33 across every audit to date.
+
+**2026-10-15 update — kept at 12%/Partially Mitigated**: v3.3.0 is documented (`CLAUDE.md` bullet, README cancel note). Residual drift found: `CLAUDE.md` still tells readers to use the removed `isRekeyedAddress`/`getRekeyedAddress`/`getActivePrivGroupCount` getters and says `getAlgoSafeContractVersion` returns `undefined` when the code returns `'latest'`; `PRODUCT-DESCRIPTION.md` still describes `pruneProposal` as "terminal, expired" and its state diagram predates the v3.3.0 cancel rule; `AI-AUDIT-INSTRUCTIONS.md` still lists the removed getters. See [I-03 2026-10-15](./2026-10-15-audit-report-ai-claude-fable-5-1.md).
 
 ---
 
@@ -557,12 +573,14 @@ The 2026-07-12 L-02 remediation added a zero-address guard to `_adminAddMember`,
 
 ### R-41 — Terminal Proposals With Far-Future Expiry Can Never Be Pruned (Permanent MBR Loss)
 
-**Category**: Availability · **Severity if realized**: Medium · **5-Yr Probability**: <1% · **Residual Risk**: Low · **Status**: Mitigated
-**Related Finding**: [M-01 (2026-07-16)](./2026-07-16-audit-report-ai-claude-fable-5.md)
+**Category**: Availability · **Severity if realized**: Medium · **5-Yr Probability**: <1% · **Residual Risk**: Low · **Status**: **Mitigated** (re-opened 2026-10-15, closed by v3.4.0)
+**Related Finding**: [M-01 (2026-07-16)](./2026-07-16-audit-report-ai-claude-fable-5.md); [H-01 (2026-10-15)](./2026-10-15-audit-report-ai-claude-fable-5-1.md)
 
 `pruneProposal` required `Global.round > proposal.expiryRound` even for `STATUS_EXECUTED`/`STATUS_CANCELLED` proposals (`contract.algo.ts:757`) — a requirement that added no safety for terminal, immutable states. The exported `FAR_EXPIRY` constant (4,000,000,000 rounds, ~3 centuries ahead of MainNet) is used in every README proposal example, so the *documented default* integration pattern permanently forfeited the MBR (~10,000–40,000 µALGO per proposal) of every terminal proposal.
 
 **Mitigation (2026-07-16, v3.2.0)**: `pruneProposal` no longer requires past-expiry for `STATUS_EXECUTED` proposals — they are prunable immediately after execution, regardless of `expiryRound`. `STATUS_CANCELLED` still requires past-expiry (a deliberate review-retention window for a cancelled-but-contested proposal), so a `FAR_EXPIRY` proposal that is cancelled rather than executed still forfeits MBR until the round catches up — README/`constants.ts` now document `FAR_EXPIRY` as test/convenience-only for that reason. Regression-tested (`contract.e2e.spec.ts`: "prunes box storage for an EXECUTED proposal immediately, regardless of expiry (v3.2.0, M-01)", "keeps the past-expiry gate for a CANCELLED proposal (v3.2.0, M-01)"). Re-scored 20% → <1%, Status → Mitigated.
+
+**2026-10-15 update — re-opened as Partially Mitigated, 2%**: the retained `STATUS_CANCELLED` past-expiry gate is exactly the mechanism that makes R-49 *permanent*: a proposal created with `expiryRound = 2^64-1` by a hostile member can (after eviction) be cancelled but never pruned. The honest-usage probability stays low (every frontend flow uses current round + 2,000; `FAR_EXPIRY` is documented as test-only), hence 2% rather than higher; the adversarial path is scored under R-49. Closes to Mitigated when the cancelled-proposal gate is removed and/or `expiryRound` is bounded at creation.
 
 ---
 
@@ -586,11 +604,13 @@ The 2026-07-12 L-02 remediation added a zero-address guard to `_adminAddMember`,
 
 **Mitigation (2026-07-16, client library)**: the box-enumeration helpers now throw a clear, actionable error (naming the indexer as the pagination-capable alternative) whenever algod's non-paginated response exactly fills the request cap, instead of risking a silent truncated read. `fetchSafeCloneConfig` additionally cross-checks each group's enumerated member-box count against its on-chain `memberCount` and aborts loudly on any mismatch — converting the one previously-silent failure mode (a node build that truncates rather than errors) into a hard failure. Indexer-backed pagination itself (the root fix for the underlying growth) remains a follow-up, so this stays Partially Mitigated; re-scored 5% → 3% to reflect the closed silent-corruption path.
 
+**2026-10-15 note**: the never-deleted approval boxes also contribute ~34,900 µALGO of permanent MBR per approval. The R-49 remediation proposes letting `pruneProposal` delete caller-named approval boxes, which would address both the growth and the leak at the root. Unchanged at 3%.
+
 ---
 
 ### R-44 — Single-Member Proposal Cancellation (Minority Veto)
 
-**Category**: Governance/Availability · **Severity if realized**: Medium · **5-Yr Probability**: 8% · **Residual Risk**: Medium · **Status**: **Mitigated** (v3.3.0)
+**Category**: Governance/Availability · **Severity if realized**: Medium · **5-Yr Probability**: <1% (was 8%) · **Residual Risk**: Low (was Medium) · **Status**: **Mitigated** (v3.3.0, re-verified at the committed code 2026-10-15)
 **Related Finding**: [M-01 (2026-10-14)](./2026-10-14-audit-report-ai-claude-sonnet-5-5.md)
 
 `cancelProposal` (`contract.algo.ts:731-744`) lets the proposer **or any current group member** move an `ACTIVE`/`READY` proposal to `CANCELLED`, with no threshold and no requirement that the caller approved it. A single malicious, coerced or compromised signer in an M-of-N group can therefore cancel every proposal the others complete, including the `ADM_REMOVE_MEMBER` proposal that would evict them if they sit in the only `PRIV_GROUP` group. Confirmed with a LocalNet PoC. No funds are at risk; the impact is denial of governance and a weakened incident-response story.
@@ -599,11 +619,13 @@ The 2026-07-12 L-02 remediation added a zero-address guard to `_adminAddMember`,
 
 **Mitigation path**: restrict cancellation to the proposer, an approver of that proposal, or any member once the proposal is stale (expired or epoch-invalidated), per M-01. If the behaviour is intentional, document it and ship an incident runbook. Re-score to <1% once fixed and regression-tested.
 
+**Mitigation (2026-10-14, v3.3.0; re-verified 2026-10-15 at commit `a651740`)**: `cancelProposal` (`contract.algo.ts:740-757`) now allows the proposer, or any current member once the proposal is stale (`Global.round > expiryRound` or `membershipEpoch` ≠ `epochAtCreation`). The approver-withdraw option was deliberately rejected (any member can approve first). Regression test "cancelProposal: non-proposer cannot veto (even after approving); proposer / stale-proposal member can (v3.3.0, M-01)" passes; the frontend hides Cancel from non-proposers. Re-scored 8% → <1%. **Trade-off realised**: removing any-member cancellation also removed the only timely containment of storage griefing by a member, which is now R-49 — the two risks should be fixed together rather than by reverting this one.
+
 ---
 
 ### R-45 — Admin-Change Input Validation Gaps
 
-**Category**: State Machine · **Severity if realized**: Low · **5-Yr Probability**: 2% · **Residual Risk**: Low · **Status**: **Mitigated** (v3.3.0)
+**Category**: State Machine · **Severity if realized**: Low · **5-Yr Probability**: <1% (was 2%) · **Residual Risk**: Low · **Status**: **Mitigated** (v3.3.0, re-verified 2026-10-15)
 **Related Finding**: [L-01, I-01 (2026-10-14)](./2026-10-14-audit-report-ai-claude-sonnet-5-5.md)
 
 The v3.1.0 bound checks (`allowedActions <= ACT_ALL`, `adminPrivileges <= PRIV_ALL`) exist on group *creation* only. `ADM_SET_POLICY` and `ADM_SET_PRIVILEGES` store arbitrary bitmasks, and `_applyAdminChange`'s `else` branch treats every unrecognised `changeType` (0, ≥15) as `ADM_SET_PAUSED`. Both confirmed by PoC. Neither is exploitable by anyone who lacks `PRIV_GROUP`/`PRIV_POLICY`.
@@ -612,11 +634,13 @@ The v3.1.0 bound checks (`allowedActions <= ACT_ALL`, `adminPrivileges <= PRIV_A
 
 **Mitigation path**: ~20 bytes per branch for the bound asserts, plus `assert(changeType === 10)` in the pause branch.
 
+**Mitigation (v3.3.0; re-verified 2026-10-15)**: `ADM_SET_POLICY` asserts `allowedActions <= ACT_ALL` (`:1335`), `ADM_SET_PRIVILEGES` asserts `adminPrivileges <= PRIV_ALL` (`:1357`), `proposeAdminChange` asserts `1 <= changeType <= 14` (`:673`) and the pause branch asserts `changeType === ADM_SET_PAUSED` (`:1439`). Two regression tests pass. Re-scored 2% → <1%. A sibling input gap, the unvalidated `groupType` in `bootstrapGroup`, is tracked separately as R-51.
+
 ---
 
 ### R-46 — Silent Field Loss in `algosdkTxnsToSafeTxnGroup`
 
-**Category**: Integration/Client · **Severity if realized**: Low · **5-Yr Probability**: 3% · **Residual Risk**: Low · **Status**: **Mitigated** (v3.3.0)
+**Category**: Integration/Client · **Severity if realized**: Low · **5-Yr Probability**: <1% (was 3%) · **Residual Risk**: Low · **Status**: **Mitigated** (v3.3.0, re-verified 2026-10-15)
 **Related Finding**: [L-02 (2026-10-14)](./2026-10-14-audit-report-ai-claude-sonnet-5-5.md)
 
 An asset-transfer's `assetSender` (clawback target) has no `SafeTxn` representation and is ignored without an error, so a clawback request (which the WalletConnect inbound flow can deliver from any dApp) becomes a transfer from the safe's own holdings. This is the same class as the 2026-07-16 I-01 keyreg fix, which was applied to one field only.
@@ -624,6 +648,8 @@ An asset-transfer's `assetSender` (clawback target) has no `SafeTxn` representat
 **Why 3%**: it needs a safe that is itself an asset's clawback address, a dApp that sends a clawback through the safe's WalletConnect flow, and signers who approve the converted form without noticing. Clawback addresses held by a safe are rare, so the exposure is low, but the failure is silent when it occurs.
 
 **Mitigation path**: throw on `assetSender`; audit the remaining ignored fields (non-UTF-8 `note`, `lease`, `boxes`) for the same silent-conversion property.
+
+**Mitigation (v3.3.0; re-verified 2026-10-15)**: `algosdkTxnToSafeTxn` throws `Unsupported transaction type: asset clawback (assetSender) …` (`safe-tx.ts:370-372`), unit-tested in `safe-tx.spec.ts`. The remaining ignored fields (`lease`, `boxes`, non-UTF-8 `note`) are loud at execution or benign and were not changed. Re-scored 3% → <1%.
 
 ---
 
@@ -638,11 +664,13 @@ The new `arc56.ts` computes the real approval-program hash on chain, which is so
 
 **Mitigation path**: pin the image by digest; require an embedded `byteCode.approval` hash to match the on-chain hash before returning `verified`; soften the banner wording; keep the existing fail-closed states.
 
+**2026-10-15 update — Partially Mitigated, kept at 6%**: `verifyAppCall` now discards a spec whose embedded `byteCode.approval` does not hash to the on-chain program (`arc56.ts` `specBytecodeMatches`; template-variable specs exempt). This only catches stale or mismatched specs — a malicious registry can omit `byteCode` entirely — and the image is still `:latest` with `imagePullPolicy: Always`, so the trust anchor is unchanged. Closes further when the image is pinned by digest and the banner wording is softened.
+
 ---
 
 ### R-48 — ARC-4 Argument-Packing Decode Error
 
-**Category**: Integration/Client · **Severity if realized**: Low · **5-Yr Probability**: 2% · **Residual Risk**: Low · **Status**: **Mitigated** (v3.3.0)
+**Category**: Integration/Client · **Severity if realized**: Low · **5-Yr Probability**: <1% (was 2%) · **Residual Risk**: Low · **Status**: **Mitigated** (v3.3.0, re-verified 2026-10-15)
 **Related Finding**: [L-03 (2026-10-14)](./2026-10-14-audit-report-ai-claude-sonnet-5-5.md)
 
 `decodeAppCallArgs` treats argument 15 as direct (`MAX_DIRECT_APP_ARGS = 15`) although ARC-4 packs arguments 15 onward into one tuple when a method has more than 15 value arguments. The wrong value is shown inside a "verified" state.
@@ -650,6 +678,88 @@ The new `arc56.ts` computes the real approval-program hash on chain, which is so
 **Why 2%**: methods with more than 15 arguments are rare, and the signed bytes are unaffected; only the on-screen decode is wrong.
 
 **Mitigation path**: pre-count value arguments and mark those from the 15th as unsupported when the count exceeds 15 (or decode the packed tuple); add a 16-argument test.
+
+**Mitigation (v3.3.0; re-verified 2026-10-15)**: `decodeAppCallArgs` pre-counts value arguments and, when there are more than 15, treats the 15th onward as a packed tuple (`unsupported` with an explanatory reason) instead of decoding slot 15 as a direct value. Unit-tested with 15- and 16-argument fixtures in `arc56.spec.ts`. Re-scored 2% → <1%.
+
+---
+
+### R-49 — Single-Member Permanent MBR Lock of the Safe's Spendable ALGO (Storage Griefing)
+
+**Category**: Economic/Availability · **Severity if realized**: High · **5-Yr Probability**: <1% (was 8%) · **Residual Risk**: Low (was High) · **Status**: **Mitigated** (v3.4.0)
+**Related Finding**: [H-01 (2026-10-15)](./2026-10-15-audit-report-ai-claude-fable-5-1.md) — PoC confirmed on LocalNet
+
+Any member of any active group — including a group with `allowedActions = 0` and `adminPrivileges = 0`, the configuration the product recommends for automation/agent keys — can call `proposeTransactionGroup` and `appendTransactionGroupPayload` with `expiryRound = 2^64-1` and six ~1.8 KB chunks. The safe's app account pays the box MBR (**4,764,000 µALGO measured for one proposal**, ≈7 min-fee transactions for the attacker). Since v3.3.0 nobody else can cancel the live proposal; after the member is evicted (impossible if they are their group's sole member) it can be cancelled, but `pruneProposal` keeps the `Global.round > expiryRound` gate for `STATUS_CANCELLED` (R-41), so the boxes are never reclaimable, and approval boxes are never deleted at all (R-43). Repeating until the safe's balance equals its minimum balance leaves it unable to send ALGO; the admin-proposal variant is not blocked by `ADM_SET_PAUSED`.
+
+**Why 8%**: the precondition is one hostile or compromised key anywhere in the safe. R-02 puts single-key compromise at 35% over five years and R-03 a malicious insider at 10%; agent keys, which this feature explicitly targets, typically have weaker custody than human signer keys. Against that, an attacker who gains a low-privilege key cannot steal, so the payoff is sabotage or extortion rather than theft, which fewer attackers pursue; and the defenders' pause/evict response bounds the *number* of proposals if they are watching. The attack is cheap (≈680× leverage), irreversible and needs no second signer, which keeps the estimate well above the sub-1% code-logic class. Severity High because the outcome is a permanent loss of custodied ALGO equal to the safe's free balance.
+
+**Mitigation (2026-10-15, v3.4.0)**: items 1 and 2 below shipped — `expiryRound` is capped at `Global.round + 20,000,000` and cancelled proposals are prunable immediately; regression-tested. Re-scored 8% → <1% (a hostile member can still waste a bounded amount of MBR for at most ~1.8 years or until cancelled, and approval boxes still leak). Items 3–5 remain follow-ups.
+
+**Original mitigation path**: (1) remove the past-expiry prune gate for `STATUS_CANCELLED` (cancellation is terminal and ledger-recorded); (2) cap `expiryRound - Global.round` at creation (reuse `MAX_COOLDOWN_ROUNDS`); (3) let `pruneProposal` delete caller-named approval boxes; (4) longer term, proposer-funded box MBR refunded on prune; (5) defence-in-depth: reject proposals from `allowedActions = 0` groups and bound `groupName`/`memberLabel` lengths. Items 1–3 shrink the program. Re-score to <1% once 1 and 2 ship with regression tests; proposer-funded MBR closes the entry.
+
+---
+
+### R-50 — Live Proposals of a Dissolved Custodian Group Are Uncancellable by Non-Proposers
+
+**Category**: Availability · **Severity if realized**: Low · **5-Yr Probability**: <1% · **Residual Risk**: Low · **Status**: **Mitigated** (v3.4.0)
+**Related Finding**: [M-01 (2026-10-15)](./2026-10-15-audit-report-ai-claude-fable-5-1.md)
+
+`ADM_DISSOLVE_CUSTODIAN` deletes the group and last-member boxes but leaves `ACTIVE`/`READY` proposals. `cancelProposal`'s stale path requires `isMember`, which can never be true again, and the 2026-07-12 M-02 group-gone waiver exists only in `pruneProposal`, which needs a terminal status. Only `proposal.proposer` (usually a protocol contract) can ever cancel, so those boxes are locked for good.
+
+**Why <1%**: needs a custodian dissolution with live proposals outstanding; the custodian's own last member can cancel them before dissolving, and custodian groups are still rare. Bounded per proposal as R-49.
+
+**Mitigation path**: treat a missing group box as stale in `cancelProposal` and waive the membership requirement in that case, mirroring `pruneProposal`; document "cancel outstanding proposals before dissolving".
+
+---
+
+### R-51 — Unvalidated `groupType` in `bootstrapGroup`
+
+**Category**: State Machine · **Severity if realized**: Low · **5-Yr Probability**: <1% · **Residual Risk**: Low · **Status**: **Mitigated** (v3.4.0)
+**Related Finding**: [L-01 (2026-10-15)](./2026-10-15-audit-report-ai-claude-fable-5-1.md) — PoC confirmed
+
+`_seedGroup` never asserts `groupType <= GT_CUSTODIAN`. A seed with `groupType = 2` executes as a standard group, counts toward `activePrivGroupCount`, escapes `_assertCustodianActions`, is replicated by `fetchSafeCloneConfig`/`deployClonedSafe`, yet `ADM_SET_PRIVILEGES` on it reverts forever (`groupType === GT_STANDARD` assert).
+
+**Why <1%**: only the creator during bootstrap can set it, and no shipped tooling emits a value other than 0 or 1. Impact is a latent, migration-propagating state oddity rather than a loss.
+
+**Mitigation path**: one assert in `_seedGroup`; reject unknown types in `fetchSafeCloneConfig`.
+
+---
+
+### R-52 — Asset Destroy Rendered as "Reconfigure Asset"
+
+**Category**: Integration/Client · **Severity if realized**: Medium · **5-Yr Probability**: 2% · **Residual Risk**: Low · **Status**: **Mitigated** (v3.4.0)
+**Related Finding**: [L-02 (2026-10-15)](./2026-10-15-audit-report-ai-claude-fable-5-1.md)
+
+Under go-algorand's apply rule an asset-config transaction with `ConfigAsset` set and zero-valued params is an asset **destroy**. `_stageAssetConfig` stages exactly the four role addresses for a reconfigure, so a payload with all four zero destroys the asset, while `algoSafeProposals.ts` labels every non-create acfg "Reconfigure asset" and does not show the roles.
+
+**Why 2%**: needs a safe that manages an asset it created and still holds in full, plus a payload with all-zero roles (either a hostile proposer or an operator trying to "clear roles"). Rare, but the outcome is irreversible and the display is the only thing between the signer and it (R-22 class).
+
+**Mitigation path**: detect all-zero roles and label "Destroy asset" with a warning; always render role addresses; document the protocol rule.
+
+---
+
+### R-53 — Keyreg Inner Transactions Cannot Carry the Incentive-Eligibility Fee
+
+**Category**: Economic · **Severity if realized**: Low · **5-Yr Probability**: 15% · **Residual Risk**: Low · **Status**: Open (product gap)
+**Related Finding**: [I-01 (2026-10-15)](./2026-10-15-audit-report-ai-claude-fable-5-1.md)
+
+`_stageKeyReg` sets `fee = 0` and `KeyRegTxn` has no fee field. Staking payouts require the online key registration to carry at least the protocol go-online fee, so a safe can participate in consensus but never earn block rewards.
+
+**Why 15%**: this is the probability that an operator tries to stake a safe's treasury over five years and finds the rewards missing — a lost-yield incident, not a loss of principal. Treasury staking is a natural use of a custody contract, so the attempt is likely; the harm is bounded.
+
+**Mitigation path**: add an optional fee field to `KeyRegTxn` passed to `setFee` (paid from the safe), or document the limitation.
+
+---
+
+### R-54 — Build Artifacts Depend on Checkout Line Endings
+
+**Category**: Supply Chain · **Severity if realized**: Low · **5-Yr Probability**: 30% · **Residual Risk**: Low · **Status**: **Closed** (withdrawn: `.gitattributes` already forces LF)
+**Related Finding**: [I-02 (2026-10-15)](./2026-10-15-audit-report-ai-claude-fable-5-1.md)
+
+The compiler copies JSDoc into `"desc"` fields of the ARC-32/ARC-56 JSON and the generated client, so a rebuild on a checkout with different line endings produces a textual diff in six generated files. Bytecode and hashes are unaffected, but the "artifacts are up to date" expectation, the one-client-folder-per-commit rule and audit reproducibility become OS-dependent.
+
+**Why 30%**: it already happened once; it will recur whenever a contributor or CI runner uses a different `core.autocrlf` setting. Severity Low because no bytecode or behaviour changes — the realistic cost is confusion and spurious diffs in review.
+
+**Mitigation path**: `.gitattributes` with `*.ts text eol=lf` / `*.json text eol=lf`, or normalise line endings in `sync-versioned-client`.
 
 ---
 
@@ -668,3 +778,5 @@ The new `arc56.ts` computes the real approval-program hash on chain, which is so
 | 2026-07-13 | Same-session remediation of the Fable-5 findings, shipping as contract **v3.1.0** (working tree, not yet committed; approval hash `0ec5f000…`, 7,043/8,192 bytes, CI size gate green). R-38/M-01 → **Mitigated** (custodian `allowedActions` restricted to pay/axfer via shared `_assertCustodianActions` at all three write paths). R-40/L-01/L-02 → **Mitigated** (zero-address asserts in `_createGroup` and `ADM_ADD_REKEYED_ADDR`; `buildMigrationRekeyPayload` throws on zero). R-33/M-02 → **Partially Mitigated** at 12% (`PRODUCT-DESCRIPTION.md` updated for the v3.0.0 read-surface + validator architecture; `CLAUDE.md` gained the v3.1.0 bullet; structural recurrence risk persists pending a CI doc-sync check). R-39 pin-rejection e2e test added (still Partially Mitigated pending `VALIDATOR_DEPLOYMENTS` population). I-01 bitmask bounds added to `_createGroup`. 89/89 contract tests pass on LocalNet (5 new Fable-5 regression tests). Frontend: asset-guard management, member removal, custodian creation, and a safe-wide pause control added; `getClient` return type narrowed to fix a TS2590 union-complexity break the new client version triggered; 3 new Playwright governance tests. | `2026-07-12-audit-report-ai-claude-fable-5.md` §Remediation |
 | 2026-07-16 | Same-day remediation of the 2026-07-16 Fable-5 findings, shipping as contract **v3.2.0** (working tree, not yet committed; approval hash `3f8d0cb0…`, 7,054/8,192 bytes, CI size gate green). R-41/M-01 → **Mitigated** (`pruneProposal` no longer requires past-expiry for `STATUS_EXECUTED` proposals; `STATUS_CANCELLED` retains the gate as a deliberate retention window; `FAR_EXPIRY` re-documented as test-only in README/`constants.ts`). R-42/L-01 → **Mitigated** (`_deductFromGuard` asserts guard existence before its zero-amount early return, closing the ungoverned-opt-in gap; `PRODUCT-DESCRIPTION.md` updated). R-43/L-02 → **Partially Mitigated** at 3% (box-enumeration helpers in `on-chain.ts`/`migration.ts` now throw a clear error on a request that exactly fills the non-paginated cap instead of risking silent truncation; `fetchSafeCloneConfig` cross-checks enumerated member count against on-chain `memberCount`; indexer pagination remains a follow-up). I-01: `algosdkTxnsToSafeTxnGroup` now throws on `nonParticipation: true` instead of silently downgrading to go-offline. I-02: `CLAUDE.md`/`PRODUCT-DESCRIPTION.md` epoch-invalidation wording corrected ("re-created", not "re-approved"). I-03: `fetchSafeCloneConfig` masks a cloned custodian group's `allowedActions` to `ACT_PAY|ACT_AXFER` with a logged warning, preventing the mid-migration `_seedGroup` revert on a pre-v3.1.0 custodian. 93/93 contract tests pass on LocalNet (4 new regressions); frontend `tsc --noEmit` and Jest suites pass unchanged (no frontend code changes required — `fetchSafeCloneConfig`/`algosdkTxnsToSafeTxnGroup` callers already handle thrown errors). | `2026-07-16-audit-report-ai-claude-fable-5.md` §Remediation |
 | 2026-10-14 | Claude Sonnet 5.5 audit of commit `9859b30` (contract unchanged at **v3.2.0**; `git diff 7a8e8ec HEAD` shows no change under `smart_contracts/`). Fresh `pnpm build` (7,054/8,192 bytes, gate green, approval hash `3f8d0cb0…` unchanged) and `pnpm test` (**123/123** pass across 6 files on LocalNet). All earlier entries re-reviewed against the live code: no regressions; R-05, R-09, R-11–R-13, R-35–R-42 re-verified Mitigated; R-25 margin now 1,138 bytes. Five new risks: **R-44** (any single group member can cancel any pending/READY proposal — minority veto, Medium, [M-01], PoC confirmed), **R-45** (unbounded bitmasks on `ADM_SET_POLICY`/`ADM_SET_PRIVILEGES` and unknown `changeType` acting as pause, Low, [L-01]/[I-01], PoC confirmed), **R-46** (`assetSender` clawback silently dropped by `algosdkTxnsToSafeTxnGroup`, Low, [L-02]), **R-47** (ARC-56 "verified" trust anchor: unauthenticated registry, 4-byte selector, mutable `:latest` image, Medium, [L-04]), **R-48** (ARC-4 15-argument packing decode error, Low, [L-03]). Notes on existing entries: R-02/R-03 mitigation assumptions ("a single compromised key cannot act alone above a threshold >1") hold for spending but not for blocking — see R-44. R-22 (frontend misrepresentation) is partly addressed by the new ARC-56 decoding but see R-47/R-48 for its new failure modes; kept at 15%/Open. R-33 unchanged at 12%: new minor staleness (`CLAUDE.md` ~6,970-byte figure, `AI-AUDIT-INSTRUCTIONS.md` getter references) noted in [I-03]. R-39 unchanged (`VALIDATOR_DEPLOYMENTS` still `0n` placeholders). R-43 unchanged. | `2026-10-14-audit-report-ai-claude-sonnet-5-5.md` |
+| 2026-10-15 | Claude Fable 5.1 audit of commit `a651740` (**v3.3.0 committed**; approval hash `b096f50b…`, 7,166/8,192 bytes, gate green, one new client folder). Fresh `pnpm build` + `pnpm test`: **133/133** pass across 6 files on LocalNet. All v3.3.0 remediations re-verified at the committed code with their regression tests: R-44, R-45, R-46, R-48 → **Mitigated/<1%**; R-47 stays Partially Mitigated/6% (spec-bytecode binding landed, image digest pin pending). **R-41 re-opened to Partially Mitigated/2%**: the retained `STATUS_CANCELLED` prune gate is the permanence mechanism of the new High finding. Six new risks: **R-49** (any single member, even in a zero-privilege agent group, permanently locks the safe's spendable ALGO in unprunable box MBR via a never-expiring proposal — High, 8%, [H-01], PoC: 4,764,000 µALGO locked per proposal, cancel blocked for non-proposers, prune rejected after eviction), **R-50** (dissolved-group live proposals uncancellable, Low, [M-01]), **R-51** (unvalidated seed `groupType`, Low, [L-01], PoC), **R-52** (asset destroy rendered as reconfigure, Medium severity/2%, [L-02]), **R-53** (keyreg fee 0 blocks incentive eligibility, Low/15%, [I-01]), **R-54** (line-ending-dependent artifacts, Low/30%, [I-02]). Notes added to R-02/R-03 (single-key consequence set widened by R-49), R-22 (R-52 instance), R-25 (7,166 bytes), R-33 (stale getter references in `CLAUDE.md`, `version.ts` return value misdocumented, `PRODUCT-DESCRIPTION.md` prune/cancel wording; kept 12%), R-43 (approval-box leak tied into the R-49 fix). R-39 unchanged. | `2026-10-15-audit-report-ai-claude-fable-5-1.md` |
+| 2026-10-15 | Same-day remediation of the Fable 5.1 findings, shipping as contract **v3.4.0** (approval hash `5b99b749…`, 7,171/8,192 bytes, gate green). R-49/H-01 → **Mitigated/<1%** (`expiryRound` capped at 20,000,000 rounds; cancelled proposals prunable immediately), R-41 → **Mitigated/<1%**, R-50/M-01 → **Mitigated** (missing group = stale for cancel), R-51/L-01 → **Mitigated** (`groupType` bound), R-52/L-02 → **Mitigated** (frontend labels asset destroy). R-54 → **Closed** (withdrawn: `.gitattributes` already forces LF). R-53 stays Open (product gap). Follow-ups: prune of approval boxes, proposer-funded MBR. | `2026-10-15-audit-report-ai-claude-fable-5-1.md` §Remediation |

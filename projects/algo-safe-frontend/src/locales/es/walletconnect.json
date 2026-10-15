@@ -23,6 +23,7 @@
     "unrecognizedShape": "Formato de solicitud no reconocido.",
     "rejectedByOperator": "Rechazada por el operador de la caja fuerte.",
     "rejectFailed": "No se pudo rechazar la solicitud.",
+    "expiryInvalid": "Las rondas de vencimiento deben estar entre 1 y {{max}}.",
     "proposalCreated": "La propuesta n.º {{proposalId}} se creó en la cadena (tx {{txId}}). Apruébela desde la página Propuestas cuando el grupo alcance el umbral.",
     "convertedReject": "Convertida en la propuesta n.º {{proposalId}} de la caja fuerte; haga su seguimiento y apruébela desde la consola de la caja fuerte.",
     "submitFailed": "No se pudo enviar la propuesta.",

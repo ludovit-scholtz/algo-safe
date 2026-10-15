@@ -1,3 +1,4 @@
+import { MAX_PROPOSAL_LIFETIME_ROUNDS } from 'algo-safe'
 import type algosdk from 'algosdk'
 import { useEffect, useMemo, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
@@ -139,14 +140,27 @@ export function WalletConnectRequestPanel({ request, safe, algodClient, activeAd
     }
   }
 
+  /** Validated expiry rounds, or null (after surfacing a localized error) when out of range. */
+  function parseExpiryRounds(): bigint | null {
+    const trimmed = expiryRounds.trim()
+    const rounds = /^\d+$/.test(trimmed) ? BigInt(trimmed) : 0n
+    if (rounds <= 0n || rounds > MAX_PROPOSAL_LIFETIME_ROUNDS) {
+      setError(t('panel.expiryInvalid', { max: MAX_PROPOSAL_LIFETIME_ROUNDS.toString() }))
+      return null
+    }
+    return rounds
+  }
+
   async function handleSubmitToChain() {
     if (result === 'loading' || !result.ok || !activeAddress || !transactionSigner) return
+    const rounds = parseExpiryRounds()
+    if (rounds === null) return
     setBusy('submit')
     setError(null)
     try {
       const { proposalId, txId } = await proposeLiveTransactionGroup(
         { algodClient, safe, activeAddress, transactionSigner },
-        { groupId: BigInt(groupId), payload: result.payload, expiryRounds: BigInt(expiryRounds) },
+        { groupId: BigInt(groupId), payload: result.payload, expiryRounds: rounds },
       )
       setOutcome(t('panel.proposalCreated', { proposalId, txId }))
       await onReject(request.topic, request.id, t('panel.convertedReject', { proposalId, lng: 'en' }))
@@ -159,12 +173,14 @@ export function WalletConnectRequestPanel({ request, safe, algodClient, activeAd
 
   async function handleSignAndReturn() {
     if (result === 'loading' || !result.ok || !activeAddress || !transactionSigner) return
+    const rounds = parseExpiryRounds()
+    if (rounds === null) return
     setBusy('sign-return')
     setError(null)
     try {
       const { signedTxns, txId } = await prepareTransactionGroupSignature(
         { algodClient, safe, activeAddress, transactionSigner },
-        { groupId: BigInt(groupId), payload: result.payload, expiryRounds: BigInt(expiryRounds) },
+        { groupId: BigInt(groupId), payload: result.payload, expiryRounds: rounds },
       )
       const encoded = signedTxns.map((bytes) => Buffer.from(bytes).toString('base64'))
       await onRespond(request.topic, request.id, encoded)

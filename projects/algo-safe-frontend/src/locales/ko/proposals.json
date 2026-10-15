@@ -96,6 +96,7 @@
       "connectWallet": "제안을 만들기 전에 지갑을 연결하세요.",
       "invalidReceiver": "유효한 Algorand 수신자 주소를 입력하세요.",
       "nonPositive": "그룹 ID와 만료 라운드는 모두 양수여야 합니다.",
+      "expiryTooFar": "만료 라운드는 최대 {{max}}이어야 합니다.",
       "invalidAlgoAmount": "결제 제안에 유효한 ALGO 금액을 입력하세요.",
       "optInAssetId": "opt-in 제안을 만들려면 유효한 자산 ID를 입력하세요.",
       "selectOptedInAsset": "자산 전송 제안에 사용할 opt-in된 자산을 선택하세요.",
@@ -184,6 +185,7 @@
       "proposalNotFound": "세이프에서 제안 {{id}}을(를) 찾을 수 없습니다(정리되었을 수 있습니다).",
       "connectWallet": "제안 작업에 서명하기 전에 지갑을 연결하세요.",
       "proposeExecuteRequiresLatest": "한 번의 호출로 제안과 실행을 함께 하려면 최신 버전의 세이프 컨트랙트가 필요합니다.",
+      "expiryOutOfRange": "만료는 1에서 {{max}} 라운드 사이여야 합니다.",
       "txIdUnknown": "제출된 실행 트랜잭션 ID를 확인할 수 없습니다."
     },
     "none": "없음",
@@ -226,6 +228,7 @@
       "arguments_other": "인자 {{count}}개",
       "createAsset": "자산 {{label}} 생성",
       "reconfigureAsset": "자산 {{id}} 재구성",
+      "destroyAsset": "자산 {{id}} 파기 (모든 역할 주소가 비어 있음)",
       "takeOffline": "계정을 오프라인으로 전환",
       "registerKeys": "참여 키 등록",
       "rounds": "라운드 {{first}}-{{last}}",

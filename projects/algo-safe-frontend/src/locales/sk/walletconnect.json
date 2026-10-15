@@ -23,6 +23,7 @@
     "unrecognizedShape": "Nerozpoznaný tvar požiadavky.",
     "rejectedByOperator": "Zamietnuté operátorom trezora.",
     "rejectFailed": "Požiadavku sa nepodarilo zamietnuť.",
+    "expiryInvalid": "Počet kôl platnosti musí byť od 1 do {{max}}.",
     "proposalCreated": "Návrh #{{proposalId}} bol vytvorený on-chain (tx {{txId}}). Keď skupina dosiahne prah, schváľte ho na stránke Návrhy.",
     "convertedReject": "Prevedené na návrh trezora #{{proposalId}} — sledujte a schváľte ho v konzole trezora.",
     "submitFailed": "Návrh sa nepodarilo odoslať.",

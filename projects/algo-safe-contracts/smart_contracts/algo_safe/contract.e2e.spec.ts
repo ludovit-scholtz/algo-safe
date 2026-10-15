@@ -1768,13 +1768,10 @@ describe('AlgoSafe contract', () => {
     expect((await getTransactionGroup(client, pid!, 1n)).return).toBeUndefined()
   })
 
-  test('keeps the past-expiry gate for a CANCELLED proposal (v3.2.0, M-01)', async () => {
-    const { client, deployer } = await deployAndBootstrap()
+  test('a CANCELLED proposal is prunable immediately, before its expiry (v3.4.0, H-01)', async () => {
+    const { client } = await deployAndBootstrap()
     const recipient = await localnet.context.generateAccount({ initialFunds: (0).algo() })
-
-    const round = await currentRound()
-    const expiryRound = round + 20n
-
+    const expiryRound = (await currentRound()) + 100_000n
     const { return: pid } = await client.send.proposeTransactionGroup({
       args: {
         groupId: 1n,
@@ -1786,23 +1783,69 @@ describe('AlgoSafe contract', () => {
       suppressLog: true,
       staticFee: (0.2).algo(),
     })
-
     await client.send.cancelProposal({ args: { proposalId: pid!, ensureBudgetValue: 0n }, suppressLog: true })
-
-    // Terminal (CANCELLED) but not yet past expiry — still rejected.
-    await expect(
-      client.send.pruneProposal({ args: { proposalId: pid!, ensureBudgetValue: 0n }, suppressLog: true }),
-    ).rejects.toThrow()
-
-    // Advance rounds past expiry with a few unrelated payments.
-    for (let i = 0; i < 25; i += 1) {
-      await localnet.algorand.send.payment({ amount: (0).algo(), sender: deployer, receiver: deployer, suppressLog: true })
-    }
-
     await client.send.pruneProposal({ args: { proposalId: pid!, ensureBudgetValue: 0n }, suppressLog: true })
-
     expect((await getProposal(client, pid!)).return).toBeUndefined()
     expect((await getTransactionGroup(client, pid!, 1n)).return).toBeUndefined()
+  })
+
+  test('expiryRound beyond the lifetime cap is rejected; the cap boundary is accepted (v3.4.0, H-01)', async () => {
+    const { client } = await deployAndBootstrap()
+    const recipient = await localnet.context.generateAccount({ initialFunds: (0).algo() })
+    const payload = toSafeTxnGroup([safePayment(recipient.toString(), 1000n)])
+    const propose = (expiryRound: bigint) =>
+      client.send.proposeTransactionGroup({
+        args: { groupId: 1n, payload, expiryRound, execute: false, ensureBudgetValue: 10000n },
+        suppressLog: true,
+        staticFee: (0.2).algo(),
+      })
+    const round = await currentRound()
+    await expect(propose(2n ** 64n - 1n)).rejects.toThrow(/expiry too far/)
+    await expect(propose(round + 20_001_000n)).rejects.toThrow(/expiry too far/)
+    await propose(round + 19_000_000n)
+    await propose(round + 19_999_000n) // just inside the cap, with margin for rounds advancing between read and call
+    await expect(
+      client.send.proposeAdminChange({
+        args: { groupId: 1n, change: mkAdminChange({ changeType: ADM_SET_PAUSED, activeFlag: 0n }), expiryRound: 2n ** 64n - 1n, ensureBudgetValue: 0n },
+        suppressLog: true,
+        staticFee: (0.2).algo(),
+      }),
+    ).rejects.toThrow(/expiry too far/)
+  })
+
+  test('live proposals of a dissolved custodian group can be cancelled and pruned by anyone (v3.4.0, M-01)', async () => {
+    const { client } = await deployAndBootstrap()
+    const protocol = await localnet.context.generateAccount({ initialFunds: (2).algo() })
+    const stranger = await localnet.context.generateAccount({ initialFunds: (1).algo() })
+    await governAdminChange(client, 1n, mkAdminChange({
+      changeType: ADM_CREATE_CUSTODIAN, groupName: 'Proto', threshold: 1n, allowedActions: ACT_PAY,
+      memberAddr: protocol.toString(), memberType: 4n,
+    }))
+    // Threshold 1 + execute:false leaves the proposal READY (live, unexecuted).
+    const { return: pid } = await client.send.proposeTransactionGroup({
+      args: { groupId: 2n, payload: toSafeTxnGroup([safePayment(stranger.toString(), 1000n)]), expiryRound: FAR_EXPIRY, execute: false, ensureBudgetValue: 10000n },
+      sender: protocol, suppressLog: true, staticFee: (0.2).algo(),
+    })
+    const { return: dpid } = await client.send.proposeAdminChange({
+      args: { groupId: 2n, change: mkAdminChange({ changeType: ADM_DISSOLVE_CUSTODIAN, targetGroupId: 2n, memberAddr: protocol.toString() }), expiryRound: FAR_EXPIRY, ensureBudgetValue: 0n },
+      sender: protocol, suppressLog: true, staticFee: (0.2).algo(),
+    })
+    await client.send.executeProposal({ args: { proposalId: dpid!, ensureBudgetValue: 6000n }, sender: protocol, ...execParams })
+    expect(await readSignerGroup(client, 2n)).toBeUndefined()
+    await client.send.cancelProposal({ args: { proposalId: pid!, ensureBudgetValue: 0n }, sender: stranger, suppressLog: true })
+    await client.send.pruneProposal({ args: { proposalId: pid!, ensureBudgetValue: 0n }, sender: stranger, suppressLog: true })
+    expect((await getProposal(client, pid!)).return).toBeUndefined()
+  })
+
+  test('bootstrapGroup rejects an undefined groupType (v3.4.0, L-01)', async () => {
+    const { client, deployer } = await deploy()
+    const seed = {
+      name: 'Odd', threshold: 1n, adminPrivileges: PRIV_ALL, allowedActions: ACT_ALL,
+      limitAssetId: 0n, dailyLimit: 0n, monthlyLimit: 0n, cooldownRounds: 0n, groupType: 2n,
+    }
+    await expect(
+      client.send.bootstrapGroup({ args: { seed, members: [[deployer.toString(), 1n, 'admin']], ensureBudgetValue: 0n }, suppressLog: true }),
+    ).rejects.toThrow(/invalid group type/)
   })
 
   test('rejects an ALGO close-remainder-to payment that would sweep more than the daily limit (H-01 regression)', async () => {

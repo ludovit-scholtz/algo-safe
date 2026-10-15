@@ -96,6 +96,7 @@
       "connectWallet": "Javaslat létrehozása előtt csatlakoztasson egy tárcát.",
       "invalidReceiver": "Adjon meg érvényes Algorand-címzettcímet.",
       "nonPositive": "A csoportazonosítónak és a lejárati köröknek is pozitív értéknek kell lennie.",
+      "expiryTooFar": "A lejárati körök száma legfeljebb {{max}} lehet.",
       "invalidAlgoAmount": "Adjon meg érvényes ALGO-összeget a fizetési javaslathoz.",
       "optInAssetId": "Opt-in javaslat létrehozásához adjon meg érvényes eszközazonosítót.",
       "selectOptedInAsset": "Válasszon egy opt-in eszközt az eszközátutalási javaslathoz.",
@@ -187,6 +188,7 @@
       "proposalNotFound": "A(z) {{id}} javaslat nem található a széfben (lehet, hogy törölték).",
       "connectWallet": "A javaslatműveletek aláírása előtt csatlakoztasson egy tárcát.",
       "proposeExecuteRequiresLatest": "A javaslat beküldése és végrehajtása egyetlen hívásban a széf szerződésének legújabb verzióját igényli.",
+      "expiryOutOfRange": "A lejárat 1 és {{max}} kör között lehet.",
       "txIdUnknown": "Nem állapítható meg a beküldött végrehajtási tranzakció azonosítója."
     },
     "none": "nincs",
@@ -231,6 +233,7 @@
       "arguments_other": "{{count}} argumentum",
       "createAsset": "{{label}} eszköz létrehozása",
       "reconfigureAsset": "{{id}} azonosítójú eszköz újrakonfigurálása",
+      "destroyAsset": "{{id}} azonosítójú eszköz megsemmisítése (minden szerepkör-cím üres)",
       "takeOffline": "Számla offline módba állítása",
       "registerKeys": "Részvételi kulcsok regisztrálása",
       "rounds": "Körök: {{first}}–{{last}}",

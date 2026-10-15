@@ -110,6 +110,7 @@ Policies determine what a signer group can approve. The deployed contract enforc
 - **Close-out sweep accounting**: a payment or asset transfer with a close-to address sweeps the sending account's *entire* remaining ALGO/ASA balance, not just the declared amount — the contract counts the live balance against the limit in that case, so a close-out cannot bypass a group's spending limit.
 - **Execution cooldown**: a group with nonzero `cooldownRounds` must wait that many rounds between successive transaction-group executions (the group's first-ever execution is exempt). Cooldowns are capped at 10,000,000 rounds so a misconfigured value can never freeze a group permanently.
 - **Membership-epoch invalidation**: removing a member from a group increments its `membershipEpoch`; every pending proposal snapshots the epoch at creation, and both approval and execution require the epochs to still match — so removing a (possibly compromised) signer instantly invalidates every pending proposal of that group. Because both checks compare against the group's *live* epoch, an invalidated proposal can never be approved or executed again (it isn't a "re-approve" case) — it must be cancelled and re-created (2026-07-16 audit I-02).
+- **Cancellation and storage economics (v3.3.0/v3.4.0)**: only the proposer may cancel a live proposal; any current member may cancel once it is stale (past `expiryRound` or stranded by a member removal), and anyone may cancel a proposal whose group has been dissolved. Proposal, payload and approval boxes are funded by the *safe's* app account, so any member can cost the safe storage minimum balance (up to roughly 4.8 ALGO per maximum-size proposal). To bound this, `expiryRound` may be at most 20,000,000 rounds (about 1.8 years) ahead of the current round, and executed *or* cancelled proposals can be pruned immediately to reclaim their boxes. Approval boxes are still never deleted, and a low-privilege group still lets its members create proposals, so keep automation groups few and monitor the app account's minimum balance.
 - **Threshold hardening at execution**: a proposal snapshots the group threshold at creation, but execution requires the *higher* of the snapshot and the group's live threshold, so raising a threshold in response to an incident immediately applies to already-pending proposals.
 
 Daily and monthly limits store their current usage directly in the signer group record, alongside the tracked `limitAssetId`. The contract updates the group's current daily and monthly usage whenever a proposal executes movement of the configured tracked asset: `limitAssetId = 0` counts ALGO payments, while any nonzero `limitAssetId` counts ASA transfers for that specific asset. Period windows (24 h daily, 30-day monthly) reset lazily on the first spend after they elapse. Limit usage is not stored in a separate box.
@@ -679,7 +680,7 @@ flowchart TB
         P2["approveProposal(proposalId, expectedPayloadVersion, budget) — approval binds to the reviewed payload version"]
         P3["executeProposal(proposalId, budget) → inner txn group"]
         P4["cancelProposal(proposalId, budget)"]
-        P5["pruneProposal(proposalId, budget) — reclaim box MBR of terminal, expired proposals"]
+        P5["pruneProposal(proposalId, budget) — reclaim box MBR of any terminal (executed or cancelled) proposal"]
     end
 
     subgraph AdminChanges["AdminChange payload types (applied by executeProposal)"]
@@ -736,8 +737,9 @@ stateDiagram-v2
     ReadyToExecute --> FailedOnChain : inner group fails (atomic rollback)
     WaitingForApprovals --> Expired : past expiryRound
     ReadyForApprovals --> Expired : past expiryRound
-    WaitingForApprovals --> Cancelled : cancelProposal()
-    Draft --> Cancelled : cancelProposal()
+    WaitingForApprovals --> Cancelled : cancelProposal() by the proposer (any member once stale)
+    ReadyForApprovals --> Cancelled : cancelProposal() by the proposer (any member once stale)
+    Draft --> Cancelled : cancelProposal() by the proposer
     Executed --> [*]
     Expired --> [*]
     Cancelled --> [*]

@@ -96,6 +96,7 @@
       "connectWallet": "Collega un wallet prima di creare una proposta.",
       "invalidReceiver": "Inserisci un indirizzo Algorand valido per il destinatario.",
       "nonPositive": "L'ID del gruppo e i round di scadenza devono essere entrambi valori positivi.",
+      "expiryTooFar": "I round di scadenza devono essere al massimo {{max}}.",
       "invalidAlgoAmount": "Inserisci un importo in ALGO valido per la proposta di pagamento.",
       "optInAssetId": "Inserisci un ID asset valido per creare una proposta di opt-in.",
       "selectOptedInAsset": "Seleziona un asset con opt-in già eseguito per la proposta di trasferimento.",
@@ -190,6 +191,7 @@
       "proposalNotFound": "La proposta {{id}} non è stata trovata nella cassaforte (potrebbe essere stata eliminata).",
       "connectWallet": "Collega un wallet prima di firmare le azioni sulla proposta.",
       "proposeExecuteRequiresLatest": "Proporre ed eseguire in una sola chiamata richiede l'ultima versione del contratto della cassaforte.",
+      "expiryOutOfRange": "La scadenza deve essere tra 1 e {{max}} round.",
       "txIdUnknown": "Impossibile determinare l'ID della transazione di esecuzione inviata."
     },
     "none": "nessuna",
@@ -236,6 +238,7 @@
       "arguments_other": "{{count}} argomenti",
       "createAsset": "Crea l'asset {{label}}",
       "reconfigureAsset": "Riconfigura l'asset {{id}}",
+      "destroyAsset": "Distruggi l'asset {{id}} (tutti gli indirizzi di ruolo sono vuoti)",
       "takeOffline": "Porta l'account offline",
       "registerKeys": "Registra le chiavi di partecipazione",
       "rounds": "Round {{first}}-{{last}}",

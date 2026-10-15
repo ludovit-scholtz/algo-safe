@@ -96,6 +96,7 @@
       "connectWallet": "Conecte una cartera antes de crear una propuesta.",
       "invalidReceiver": "Introduzca una dirección de destinatario de Algorand válida.",
       "nonPositive": "El ID del grupo y las rondas de caducidad deben ser valores positivos.",
+      "expiryTooFar": "Las rondas de vencimiento deben ser como máximo {{max}}.",
       "invalidAlgoAmount": "Introduzca un importe en ALGO válido para la propuesta de pago.",
       "optInAssetId": "Introduzca un ID de activo válido para crear una propuesta de opt-in.",
       "selectOptedInAsset": "Seleccione un activo con opt-in realizado para la propuesta de transferencia de activos.",
@@ -190,6 +191,7 @@
       "proposalNotFound": "No se encontró la propuesta {{id}} en la caja fuerte (puede haber sido eliminada).",
       "connectWallet": "Conecte una cartera antes de firmar acciones de la propuesta.",
       "proposeExecuteRequiresLatest": "Proponer y ejecutar en una sola llamada requiere la última versión del contrato de la caja fuerte.",
+      "expiryOutOfRange": "El vencimiento debe estar entre 1 y {{max}} rondas.",
       "txIdUnknown": "No se pudo determinar el ID de la transacción de ejecución enviada."
     },
     "none": "ninguna",
@@ -236,6 +238,7 @@
       "arguments_other": "{{count}} argumentos",
       "createAsset": "Crear el activo {{label}}",
       "reconfigureAsset": "Reconfigurar el activo {{id}}",
+      "destroyAsset": "Destruir el activo {{id}} (todas las direcciones de rol están vacías)",
       "takeOffline": "Poner la cuenta fuera de línea",
       "registerKeys": "Registrar claves de participación",
       "rounds": "Rondas {{first}}-{{last}}",

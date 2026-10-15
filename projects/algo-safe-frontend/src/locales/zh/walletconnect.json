@@ -23,6 +23,7 @@
     "unrecognizedShape": "无法识别的请求格式。",
     "rejectedByOperator": "已被保险库操作员拒绝。",
     "rejectFailed": "拒绝请求失败。",
+    "expiryInvalid": "有效期轮数必须介于 1 和 {{max}} 之间。",
     "proposalCreated": "提案 #{{proposalId}} 已在链上创建（tx {{txId}}）。待签名者组达到阈值后，请在“提案”页面批准。",
     "convertedReject": "已转换为保险库提案 #{{proposalId}} — 请在保险库控制台中跟踪并批准。",
     "submitFailed": "提交提案失败。",

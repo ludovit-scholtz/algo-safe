@@ -23,6 +23,7 @@
     "unrecognizedShape": "Ismeretlen kérésformátum.",
     "rejectedByOperator": "A széf üzemeltetője elutasította.",
     "rejectFailed": "A kérés elutasítása sikertelen.",
+    "expiryInvalid": "A lejárati körök száma 1 és {{max}} között lehet.",
     "proposalCreated": "A(z) #{{proposalId}} javaslat létrejött a láncon (tx {{txId}}). Amint a csoport eléri a küszöböt, hagyja jóvá a Javaslatok oldalon.",
     "convertedReject": "Átalakítva a(z) #{{proposalId}} széfjavaslattá — kövesse és hagyja jóvá a széf konzoljában.",
     "submitFailed": "A javaslat beküldése sikertelen.",

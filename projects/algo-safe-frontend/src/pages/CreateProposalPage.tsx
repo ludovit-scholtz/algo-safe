@@ -1,6 +1,15 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useWallet } from '@txnlab/use-wallet-react'
-import { ACT_AXFER, ACT_PAY, ACT_REKEY, createAssetSafeTxn, createPaymentSafeTxn, createRekeySafeTxn, toSafeTxnGroup } from 'algo-safe'
+import {
+  ACT_AXFER,
+  ACT_PAY,
+  ACT_REKEY,
+  MAX_PROPOSAL_LIFETIME_ROUNDS,
+  createAssetSafeTxn,
+  createPaymentSafeTxn,
+  createRekeySafeTxn,
+  toSafeTxnGroup,
+} from 'algo-safe'
 import algosdk from 'algosdk'
 import { useMemo, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
@@ -99,6 +108,10 @@ export function CreateProposalPage() {
     const parsedExpiryRounds = Number(expiryRounds)
     if (parsedGroupId <= 0n || !Number.isInteger(parsedExpiryRounds) || parsedExpiryRounds <= 0) {
       setErrorMessage(t('create.errors.nonPositive'))
+      return
+    }
+    if (BigInt(parsedExpiryRounds) > MAX_PROPOSAL_LIFETIME_ROUNDS) {
+      setErrorMessage(t('create.errors.expiryTooFar', { max: MAX_PROPOSAL_LIFETIME_ROUNDS.toString() }))
       return
     }
 
