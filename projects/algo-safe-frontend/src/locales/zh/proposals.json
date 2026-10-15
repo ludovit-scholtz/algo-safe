@@ -226,6 +226,7 @@
       "arguments_other": "{{count}} 个参数",
       "createAsset": "创建资产 {{label}}",
       "reconfigureAsset": "重新配置资产 {{id}}",
+      "destroyAsset": "Destroy asset {{id}} (all role addresses are empty)",
       "takeOffline": "将账户下线",
       "registerKeys": "注册参与密钥",
       "rounds": "轮次 {{first}}-{{last}}",

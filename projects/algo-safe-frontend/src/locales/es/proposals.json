@@ -236,6 +236,7 @@
       "arguments_other": "{{count}} argumentos",
       "createAsset": "Crear el activo {{label}}",
       "reconfigureAsset": "Reconfigurar el activo {{id}}",
+      "destroyAsset": "Destruir el activo {{id}} (todas las direcciones de rol están vacías)",
       "takeOffline": "Poner la cuenta fuera de línea",
       "registerKeys": "Registrar claves de participación",
       "rounds": "Rondas {{first}}-{{last}}",

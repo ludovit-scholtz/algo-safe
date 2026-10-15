@@ -241,6 +241,7 @@
       "arguments_other": "{{count}} аргумента",
       "createAsset": "Создать актив {{label}}",
       "reconfigureAsset": "Перенастроить актив {{id}}",
+      "destroyAsset": "Destroy asset {{id}} (all role addresses are empty)",
       "takeOffline": "Перевести аккаунт в офлайн",
       "registerKeys": "Зарегистрировать ключи участия",
       "rounds": "Раунды {{first}}–{{last}}",

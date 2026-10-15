@@ -339,13 +339,21 @@ async function mapEnvelopeTxLine(
   }
 
   if (txType === TX_ACFG) {
-    const { configAsset, assetName, unitName, note } = decodeAssetConfigTxn(data)
+    const { configAsset, assetName, unitName, note, manager, reserve, freeze, clawback } = decodeAssetConfigTxn(data)
     const label =
       assetName || unitName || (configAsset === 0n ? tr('service.newAsset') : tr('service.assetNumber', { id: configAsset.toString() }))
+    // Protocol rule: an asset-config on an existing asset whose four role addresses are all empty is a
+    // DESTROY, not a reconfigure (2026-10-15 audit L-02) - never present it as a harmless role change.
+    const isDestroy = configAsset !== 0n && [manager, reserve, freeze, clawback].every((role) => role === ZERO_ADDR)
+    const summary =
+      configAsset === 0n
+        ? tr('service.tx.createAsset', { label })
+        : isDestroy
+          ? tr('service.tx.destroyAsset', { id: configAsset.toString() })
+          : tr('service.tx.reconfigureAsset', { id: configAsset.toString() })
     return {
       type: 'acfg',
-      summary:
-        configAsset === 0n ? tr('service.tx.createAsset', { label }) : tr('service.tx.reconfigureAsset', { id: configAsset.toString() }),
+      summary,
       detail: note ? tr('service.withNote', { value: label, note }) : label,
     }
   }

@@ -231,6 +231,7 @@
       "arguments_other": "{{count}} argument(s)",
       "createAsset": "Create asset {{label}}",
       "reconfigureAsset": "Reconfigure asset {{id}}",
+      "destroyAsset": "Destroy asset {{id}} (all role addresses are empty)",
       "takeOffline": "Take account offline",
       "registerKeys": "Register participation keys",
       "rounds": "Rounds {{first}}-{{last}}",

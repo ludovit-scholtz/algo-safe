@@ -54,6 +54,23 @@ Compiled approval program: **7,166 / 8,192 bytes** (1,026-byte margin, 12.5%). T
 
 ---
 
+## Remediation Update (2026-10-15, contract v3.4.0)
+
+| Finding | Status | Fix |
+|---|---|---|
+| H-01 | **Fixed** | `expiryRound` capped at `Global.round + 20,000,000` (`expiry too far`); `pruneProposal` no longer gates cancelled proposals on expiry. Regression tests cover immediate prune after cancel and the cap boundary for both proposal types. Not done: pruning approval boxes, proposer-funded MBR and rejecting zero-action groups (all ABI or behaviour changes, left as follow-ups; R-43/R-49 note the residual). |
+| M-01 | **Fixed** | `cancelProposal` treats a missing group as stale for everyone; regression test dissolves a custodian with a live proposal, then cancels and prunes it as a stranger. |
+| L-01 | **Fixed** | `bootstrapGroup` asserts `groupType <= GT_CUSTODIAN`; regression test. |
+| L-02 | **Fixed** | Asset-config preview shows "Destroy asset" when an existing asset's four roles are empty (all ten locales; four use the English text). |
+| I-01 | Not changed | Product gap; documented in `CLAUDE.md`. |
+| I-02 | **Withdrawn** | `.gitattributes` already forces LF; the churn came from CRLF text embedded in previously committed descriptions. The v3.4.0 build regenerates them with LF. |
+| I-03 | **Fixed (doc)** | Stale getter references, `getAlgoSafeContractVersion` return value, prune/cancel wording, audit-instructions test count. A unit test now asserts `MODERN_ABI_CONTRACT_HASHES` lists the latest and v3.3.0 hashes and only known hashes. |
+| I-04 | Not changed | Frontend cannot see membership/epoch for the stale-cancel path; low value. |
+
+`FAR_EXPIRY` became `10_000_000n` (LocalNet-only), as the old 4e9 value exceeds the new cap.
+
+---
+
 ## 3. Scope and Methodology
 
 **In scope**

@@ -226,6 +226,7 @@
       "arguments_other": "인자 {{count}}개",
       "createAsset": "자산 {{label}} 생성",
       "reconfigureAsset": "자산 {{id}} 재구성",
+      "destroyAsset": "자산 {{id}} 파기 (모든 역할 주소가 비어 있음)",
       "takeOffline": "계정을 오프라인으로 전환",
       "registerKeys": "참여 키 등록",
       "rounds": "라운드 {{first}}-{{last}}",

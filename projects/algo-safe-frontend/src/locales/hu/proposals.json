@@ -231,6 +231,7 @@
       "arguments_other": "{{count}} argumentum",
       "createAsset": "{{label}} eszköz létrehozása",
       "reconfigureAsset": "{{id}} azonosítójú eszköz újrakonfigurálása",
+      "destroyAsset": "{{id}} azonosítójú eszköz megsemmisítése (minden szerepkör-cím üres)",
       "takeOffline": "Számla offline módba állítása",
       "registerKeys": "Részvételi kulcsok regisztrálása",
       "rounds": "Körök: {{first}}–{{last}}",

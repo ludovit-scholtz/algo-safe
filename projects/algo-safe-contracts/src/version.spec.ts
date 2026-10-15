@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { algoSafeArc56 } from './artifacts'
-import { getAlgoSafeContractVersion } from './version'
-import { CONTRACT_HASHES } from './versioned-clients.generated'
+import { getAlgoSafeContractVersion, MODERN_ABI_CONTRACT_HASHES } from './version'
+import { CONTRACT_HASHES, LATEST_CONTRACT_HASH } from './versioned-clients.generated'
 
 function toBase64Url(base64: string) {
   return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '')
@@ -31,5 +31,11 @@ describe('getAlgoSafeContractVersion', () => {
     const version = await getAlgoSafeContractVersion(algodClient, 1)
 
     expect(CONTRACT_HASHES).toContain(version)
+  })
+
+  it('lists the latest and the previous (v3.3.0) hash as modern-ABI compatible', () => {
+    expect(MODERN_ABI_CONTRACT_HASHES).toContain(LATEST_CONTRACT_HASH)
+    expect(MODERN_ABI_CONTRACT_HASHES).toContain('b096f50b39dff57a9df61e36a9a74a35e9f892854495f4c5efc42e5d8822bf35')
+    for (const hash of MODERN_ABI_CONTRACT_HASHES) expect(CONTRACT_HASHES).toContain(hash)
   })
 })

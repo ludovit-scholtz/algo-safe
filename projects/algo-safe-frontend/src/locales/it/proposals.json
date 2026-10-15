@@ -236,6 +236,7 @@
       "arguments_other": "{{count}} argomenti",
       "createAsset": "Crea l'asset {{label}}",
       "reconfigureAsset": "Riconfigura l'asset {{id}}",
+      "destroyAsset": "Distruggi l'asset {{id}} (tutti gli indirizzi di ruolo sono vuoti)",
       "takeOffline": "Porta l'account offline",
       "registerKeys": "Registra le chiavi di partecipazione",
       "rounds": "Round {{first}}-{{last}}",

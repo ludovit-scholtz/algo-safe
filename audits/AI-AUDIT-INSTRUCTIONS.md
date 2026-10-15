@@ -128,7 +128,7 @@ There is a single contract, `AlgoSafe`. Review it as these logical sections (all
 1. **Lifecycle** — `createApplication`, `bootstrap` (genesis 1-of-1 admin group creation, one-time)
 2. **Proposal creation** — `proposeTransactionGroup`, `appendTransactionGroupPayload` (multi-chunk payloads, slots 1–6), `proposeAdminChange`
 3. **Approval / execution / cancellation** — `approveProposal`, `executeProposal`, `cancelProposal`, and the shared `_executeProposalInternal`
-4. **Read-only getters** — `getConfig`, `getSignerGroup`, `getProposal`, `getTransactionGroup`, `getMember`, `isMember`, `hasApproved`
+4. **State readers (off-chain)** — the read-only ABI getters were removed in v3.0.0; review the `read*` helpers in `src/on-chain.ts` instead, plus the stateless `AlgoSafeTxnValidator` library contract (`smart_contracts/algo_safe_validator/`) and `shared/types.ts`
 5. **Internal: typed-payload execution** — `_executeTransactionGroup`, the per-type `_stage*`/`_validate*` functions (payment, asset transfer, app call, key registration, asset config), and `_accountSpend` (daily/monthly limit accounting)
 6. **Internal: admin change application** — `_assertPrivilegeForChange`, `_validateAdminChange`, `_applyAdminChange`, `_adminCreateGroup`, `_adminAddMember`, `_adminRemoveMember`
 
@@ -204,7 +204,7 @@ pnpm test:e2e
 pnpm test -- --coverage
 ```
 
-`contract.e2e.spec.ts` currently has ~26 test cases (check the current count — grep `test(` in the file, don't trust this document's number as the suite evolves). Map each test to the checklist items above and identify what is **not** covered, e.g.:
+`contract.e2e.spec.ts` currently has ~90 test cases (check the current count — grep `test(` in the file, don't trust this document's number as the suite evolves). Map each test to the checklist items above and identify what is **not** covered, e.g.:
 
 - [ ] Proposal expiry exactly at the boundary round (`Global.round === expiryRound`)
 - [ ] Concurrent/interleaved approvals from multiple members racing the threshold

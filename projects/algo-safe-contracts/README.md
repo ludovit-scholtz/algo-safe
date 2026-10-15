@@ -476,12 +476,12 @@ await client.send.executeProposal({
 })
 
 // Or cancel while pending (v3.3.0+: the proposer only; any member once the proposal is
-// expired or stranded by a member removal). Use finite expiry rounds so an unwanted
-// proposal can age out, or deactivate the group via ADM_SET_ACTIVE.
+// expired or stranded by a member removal; anyone if its group was dissolved). A cancelled or
+// executed proposal can then be reclaimed with pruneProposal.
 await client.send.cancelProposal({ args: { proposalId: proposalId!, ensureBudgetValue: 0n } })
 ```
 
-Proposals carry an `expiryRound`. **`FAR_EXPIRY` is test/convenience-only — do not use it for real proposals.** Prefer a bounded expiry (e.g. current round + a few days of rounds): a `STATUS_CANCELLED` proposal can only be pruned to reclaim its box MBR once `Global.round > expiryRound`, so a far-future expiry on a proposal that ends up cancelled forfeits that MBR until the round number catches up (v3.2.0 removed this restriction for `STATUS_EXECUTED` proposals, which are now prunable immediately — 2026-07-16 audit M-01). Once expired, a proposal cannot be approved, executed, or have payload chunks appended.
+Proposals carry an `expiryRound`, which must be in the future and at most 20,000,000 rounds (about 1.8 years) ahead of the current round (v3.4.0; a larger value reverts with `expiry too far`). **`FAR_EXPIRY` (10,000,000) is a LocalNet-only test convenience: on TestNet/MainNet use the current round plus a bounded number of rounds.** Executed and cancelled proposals can both be pruned immediately with `pruneProposal` to reclaim their box minimum balance. Once expired, a proposal cannot be approved, executed, or have payload chunks appended.
 
 ### Propose-and-execute in one call
 

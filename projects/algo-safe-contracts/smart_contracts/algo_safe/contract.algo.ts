@@ -102,6 +102,10 @@ const MAX_GROUP_TXNS: uint64 = Uint64(16)   // Algorand atomic group cap
 // a unit-mix mistake (seconds instead of rounds) overflows the uint64 addition
 // in _executeProposalInternal and permanently bricks the group.
 const MAX_COOLDOWN_ROUNDS: uint64 = Uint64(10_000_000)
+// MAX_PROPOSAL_LIFETIME_ROUNDS caps expiryRound - Global.round at proposal creation
+// (~1.8 years). Without an upper bound a member could create a never-expiring proposal
+// whose box MBR (paid by the safe) stays locked until it is cancelled (2026-10-15 H-01).
+const MAX_PROPOSAL_LIFETIME_ROUNDS: uint64 = Uint64(20_000_000)
 
 // App-call resource limits enforced by _validateApp (AVM consensus params).
 const MAX_APP_ARGS: uint64 = Uint64(16)
@@ -147,7 +151,7 @@ const ADM_REMOVE_GUARD: uint64 = Uint64(14) // delete guard; decrements group.gu
 
 const DAY_SECONDS: uint64 = Uint64(86400)
 const MONTH_SECONDS: uint64 = Uint64(2592000)
-const CONTRACT_VERSION = 'BIATEC-ALGO-SAFE-v3.3.0'
+const CONTRACT_VERSION = 'BIATEC-ALGO-SAFE-v3.4.0'
 
 // ---------------------------------------------------------------------------
 // Stored record types
@@ -468,6 +472,7 @@ export class AlgoSafe extends Contract {
     assert(seed.allowedActions <= ACT_ALL, 'invalid actions')
     assert(seed.adminPrivileges <= PRIV_ALL, 'invalid privileges')
     assert(seed.cooldownRounds <= MAX_COOLDOWN_ROUNDS, 'cooldown too large')
+    assert(seed.groupType <= GT_CUSTODIAN, 'invalid group type')
     if (seed.groupType === GT_CUSTODIAN) {
       // Custodian groups never hold admin privileges regardless of what the caller passes.
       assert(seed.adminPrivileges === Uint64(0), 'custodian groups cannot have admin privileges')
@@ -745,11 +750,14 @@ export class AlgoSafe extends Contract {
     assert(proposal.status === STATUS_ACTIVE || proposal.status === STATUS_READY, 'not cancellable')
     const isProposer = Txn.sender === proposal.proposer
     const isMember = this.members({ groupId: proposal.groupId, account: Txn.sender }).exists
+    const groupExists = this.groups(proposal.groupId).exists
     let isStale = Global.round > proposal.expiryRound
-    if (!isStale && this.groups(proposal.groupId).exists) {
+    if (!isStale && groupExists) {
       isStale = this.groups(proposal.groupId).value.membershipEpoch !== proposal.epochAtCreation
     }
-    assert(isProposer || (isMember && isStale), 'not authorised to cancel')
+    // 2026-10-15 M-01: once the group is dissolved nobody is a member, so the proposal is
+    // stale for everyone (mirrors the pruneProposal waiver) and anyone may clean it up.
+    assert(isProposer || (isMember && isStale) || !groupExists, 'not authorised to cancel')
 
     proposal.status = STATUS_CANCELLED
     this.proposals(proposalId).value = clone(proposal)
@@ -758,10 +766,9 @@ export class AlgoSafe extends Contract {
 
   /**
    * pruneProposal — delete terminal proposal boxes to reclaim MBR.
-   * Callable on EXECUTED proposals immediately (the ledger already retains the
-   * execution record; a past-expiry gate adds no safety, only delays MBR
-   * reclamation — M-01). CANCELLED proposals still require past-expiry, kept
-   * as a review-retention window for a cancelled-but-contested proposal.
+   * Callable on EXECUTED and CANCELLED proposals immediately (the ledger already
+   * retains the execution/cancellation record; a past-expiry gate adds no safety,
+   * only delays or forfeits MBR reclamation - 2026-07-16 M-01, 2026-10-15 H-01).
    * Removes the proposal box, all payload chunk boxes, and the admin-change box.
    */
   public pruneProposal(proposalId: uint64, ensureBudgetValue: uint64): void {
@@ -770,9 +777,8 @@ export class AlgoSafe extends Contract {
     }
     const proposal = clone(this.proposals(proposalId).value)
     assert(proposal.status === STATUS_EXECUTED || proposal.status === STATUS_CANCELLED, 'proposal not terminal')
-    if (proposal.status === STATUS_CANCELLED) {
-      assert(Global.round > proposal.expiryRound, 'not yet expired')
-    }
+    // 2026-10-15 H-01: no past-expiry gate for CANCELLED either - cancellation is terminal
+    // and ledger-recorded, and the gate made a far-future proposal's MBR unrecoverable.
     // M-02: proposals of a dissolved group must remain prunable. While the
     // group exists only its members may prune; once it is gone the check has
     // nothing left to protect (pruning a terminal, expired proposal only
@@ -869,6 +875,7 @@ export class AlgoSafe extends Contract {
   private _newProposal(groupId: uint64, payloadType: uint64, expiryRound: uint64): uint64 {
     assert(this.bootstrapped.value === Uint64(1), 'not bootstrapped')
     assert(expiryRound > Global.round, 'expiry must be in the future')
+    assert(expiryRound <= Global.round + MAX_PROPOSAL_LIFETIME_ROUNDS, 'expiry too far')
     const group = clone(this.groups(groupId).value)
     const pid: uint64 = this.nextProposalId.value
 

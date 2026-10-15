@@ -241,6 +241,7 @@
       "arguments_other": "{{count}} argumentu",
       "createAsset": "Utwórz aktywo {{label}}",
       "reconfigureAsset": "Zmień konfigurację aktywa {{id}}",
+      "destroyAsset": "Destroy asset {{id}} (all role addresses are empty)",
       "takeOffline": "Przełącz konto w tryb offline",
       "registerKeys": "Zarejestruj klucze uczestnictwa",
       "rounds": "Rundy {{first}}-{{last}}",

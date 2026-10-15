@@ -231,6 +231,7 @@
       "arguments_other": "{{count}} Argumente",
       "createAsset": "Asset {{label}} erstellen",
       "reconfigureAsset": "Asset {{id}} neu konfigurieren",
+      "destroyAsset": "Asset {{id}} zerstören (alle Rolladressen sind leer)",
       "takeOffline": "Konto offline schalten",
       "registerKeys": "Teilnahmeschlüssel registrieren",
       "rounds": "Runden {{first}}–{{last}}",

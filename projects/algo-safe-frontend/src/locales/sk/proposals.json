@@ -241,6 +241,7 @@
       "arguments_other": "{{count}} argumentov",
       "createAsset": "Vytvoriť aktívum {{label}}",
       "reconfigureAsset": "Prekonfigurovať aktívum {{id}}",
+      "destroyAsset": "Destroy asset {{id}} (all role addresses are empty)",
       "takeOffline": "Prepnúť účet do režimu offline",
       "registerKeys": "Registrovať účastnícke kľúče",
       "rounds": "Kolá {{first}}-{{last}}",
