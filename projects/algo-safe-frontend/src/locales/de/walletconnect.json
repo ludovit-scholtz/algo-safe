@@ -23,6 +23,7 @@
     "unrecognizedShape": "Unbekanntes Anfrageformat.",
     "rejectedByOperator": "Vom Safe-Betreiber abgelehnt.",
     "rejectFailed": "Die Anfrage konnte nicht abgelehnt werden.",
+    "expiryInvalid": "Die Ablaufrunden müssen zwischen 1 und {{max}} liegen.",
     "proposalCreated": "Vorschlag #{{proposalId}} wurde on-chain erstellt (tx {{txId}}). Genehmigen Sie ihn auf der Seite „Vorschläge“, sobald die Gruppe den Schwellenwert erreicht.",
     "convertedReject": "In Safe-Vorschlag #{{proposalId}} umgewandelt — verfolgen und genehmigen Sie ihn in der Safe-Konsole.",
     "submitFailed": "Der Vorschlag konnte nicht übermittelt werden.",

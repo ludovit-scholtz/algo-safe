@@ -750,14 +750,14 @@ export class AlgoSafe extends Contract {
     assert(proposal.status === STATUS_ACTIVE || proposal.status === STATUS_READY, 'not cancellable')
     const isProposer = Txn.sender === proposal.proposer
     const isMember = this.members({ groupId: proposal.groupId, account: Txn.sender }).exists
+    // 2026-10-15 M-01: once the group is dissolved nobody is a member, so the proposal is
+    // stale for everyone (mirrors the pruneProposal waiver) and anyone may clean it up.
     const groupExists = this.groups(proposal.groupId).exists
     let isStale = Global.round > proposal.expiryRound
     if (!isStale && groupExists) {
       isStale = this.groups(proposal.groupId).value.membershipEpoch !== proposal.epochAtCreation
     }
-    // 2026-10-15 M-01: once the group is dissolved nobody is a member, so the proposal is
-    // stale for everyone (mirrors the pruneProposal waiver) and anyone may clean it up.
-    assert(isProposer || (isMember && isStale) || !groupExists, 'not authorised to cancel')
+    assert(isProposer || !groupExists || (isMember && isStale), 'not authorised to cancel')
 
     proposal.status = STATUS_CANCELLED
     this.proposals(proposalId).value = clone(proposal)
@@ -781,7 +781,7 @@ export class AlgoSafe extends Contract {
     // and ledger-recorded, and the gate made a far-future proposal's MBR unrecoverable.
     // M-02: proposals of a dissolved group must remain prunable. While the
     // group exists only its members may prune; once it is gone the check has
-    // nothing left to protect (pruning a terminal, expired proposal only
+    // nothing left to protect (pruning a terminal proposal only
     // reclaims MBR to the app account), so anyone may reclaim.
     if (this.groups(proposal.groupId).exists) {
       assert(this.members({ groupId: proposal.groupId, account: Txn.sender }).exists, 'not a group member')

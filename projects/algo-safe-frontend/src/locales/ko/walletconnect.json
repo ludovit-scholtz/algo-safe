@@ -23,6 +23,7 @@
     "unrecognizedShape": "인식할 수 없는 요청 형식입니다.",
     "rejectedByOperator": "금고 운영자가 거부했습니다.",
     "rejectFailed": "요청을 거부하지 못했습니다.",
+    "expiryInvalid": "만료 라운드는 1에서 {{max}} 사이여야 합니다.",
     "proposalCreated": "제안 #{{proposalId}}이(가) 온체인에서 생성되었습니다(tx {{txId}}). 그룹이 임계값에 도달하면 제안 페이지에서 승인하세요.",
     "convertedReject": "금고 제안 #{{proposalId}}(으)로 변환되었습니다. 금고 콘솔에서 추적하고 승인하세요.",
     "submitFailed": "제안을 제출하지 못했습니다.",

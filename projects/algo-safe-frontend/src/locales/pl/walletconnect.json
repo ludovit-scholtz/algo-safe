@@ -23,6 +23,7 @@
     "unrecognizedShape": "Nierozpoznany format żądania.",
     "rejectedByOperator": "Odrzucone przez operatora sejfu.",
     "rejectFailed": "Nie udało się odrzucić żądania.",
+    "expiryInvalid": "Liczba rund ważności musi mieścić się w zakresie od 1 do {{max}}.",
     "proposalCreated": "Propozycja nr {{proposalId}} została utworzona on-chain (tx {{txId}}). Zatwierdź ją na stronie Propozycje, gdy grupa osiągnie próg.",
     "convertedReject": "Zamieniono na propozycję sejfu nr {{proposalId}} — śledź ją i zatwierdź w konsoli sejfu.",
     "submitFailed": "Nie udało się przesłać propozycji.",

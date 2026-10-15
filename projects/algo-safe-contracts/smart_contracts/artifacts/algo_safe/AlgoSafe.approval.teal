@@ -1768,12 +1768,12 @@ cancelProposal_bool_merge@7:
     concat
     dup
     bury 12
-    // smart_contracts/algo_safe/contract.algo.ts:753
+    // smart_contracts/algo_safe/contract.algo.ts:755
     // const groupExists = this.groups(proposal.groupId).exists
     box_len
     bury 9
     pop
-    // smart_contracts/algo_safe/contract.algo.ts:754
+    // smart_contracts/algo_safe/contract.algo.ts:756
     // let isStale = Global.round > proposal.expiryRound
     global Round
     swap
@@ -1782,12 +1782,12 @@ cancelProposal_bool_merge@7:
     >
     dup
     bury 5
-    // smart_contracts/algo_safe/contract.algo.ts:755
+    // smart_contracts/algo_safe/contract.algo.ts:757
     // if (!isStale && groupExists) {
     bnz cancelProposal_after_if_else@10
     dig 6
     bz cancelProposal_after_if_else@10
-    // smart_contracts/algo_safe/contract.algo.ts:756
+    // smart_contracts/algo_safe/contract.algo.ts:758
     // isStale = this.groups(proposal.groupId).value.membershipEpoch !== proposal.epochAtCreation
     dig 9
     pushint 106 // 106
@@ -1802,26 +1802,22 @@ cancelProposal_bool_merge@7:
 
 cancelProposal_after_if_else@10:
     // smart_contracts/algo_safe/contract.algo.ts:760
-    // assert(isProposer || (isMember && isStale) || !groupExists, 'not authorised to cancel')
+    // assert(isProposer || !groupExists || (isMember && isStale), 'not authorised to cancel')
     dig 4
     bnz cancelProposal_bool_true@14
-    dig 5
-    bz cancelProposal_or_contd@13
-    dig 3
-    bnz cancelProposal_bool_true@14
-
-cancelProposal_or_contd@13:
-    // smart_contracts/algo_safe/contract.algo.ts:760
-    // assert(isProposer || (isMember && isStale) || !groupExists, 'not authorised to cancel')
     dig 6
-    bnz cancelProposal_bool_false@15
+    bz cancelProposal_bool_true@14
+    dig 5
+    bz cancelProposal_bool_false@15
+    dig 3
+    bz cancelProposal_bool_false@15
 
 cancelProposal_bool_true@14:
     intc_1 // 1
 
 cancelProposal_bool_merge@16:
     // smart_contracts/algo_safe/contract.algo.ts:760
-    // assert(isProposer || (isMember && isStale) || !groupExists, 'not authorised to cancel')
+    // assert(isProposer || !groupExists || (isMember && isStale), 'not authorised to cancel')
     assert // not authorised to cancel
     // smart_contracts/algo_safe/contract.algo.ts:762
     // proposal.status = STATUS_CANCELLED

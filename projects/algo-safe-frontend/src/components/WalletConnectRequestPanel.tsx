@@ -1,3 +1,4 @@
+import { MAX_PROPOSAL_LIFETIME_ROUNDS } from 'algo-safe'
 import type algosdk from 'algosdk'
 import { useEffect, useMemo, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
@@ -141,6 +142,11 @@ export function WalletConnectRequestPanel({ request, safe, algodClient, activeAd
 
   async function handleSubmitToChain() {
     if (result === 'loading' || !result.ok || !activeAddress || !transactionSigner) return
+    const rounds = /^\d+$/.test(expiryRounds) ? BigInt(expiryRounds) : 0n
+    if (rounds <= 0n || rounds > MAX_PROPOSAL_LIFETIME_ROUNDS) {
+      setError(t('panel.expiryInvalid', { max: MAX_PROPOSAL_LIFETIME_ROUNDS.toString() }))
+      return
+    }
     setBusy('submit')
     setError(null)
     try {

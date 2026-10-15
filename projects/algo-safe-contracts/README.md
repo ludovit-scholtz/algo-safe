@@ -73,7 +73,7 @@ import {
   ACT_PAY, ACT_AXFER, ACT_APPL, ACT_KEYREG, ACT_ACFG, ACT_ALL,
   PRIV_GROUP, PRIV_POLICY, PRIV_ALL,
   ADM_CREATE_GROUP, ADM_ADD_MEMBER, ADM_CHANGE_THRESHOLD,
-  FAR_EXPIRY, ZERO_ADDR,
+  ZERO_ADDR,
 } from 'algo-safe'
 ```
 
@@ -107,7 +107,6 @@ import {
   deployValidator,
   resolveValidatorAppId,
   toSafeTxnGroup,
-  FAR_EXPIRY,
   ZERO_ADDR,
 } from 'algo-safe'
 
@@ -146,7 +145,7 @@ const { return: proposalId } = await appClient.send.proposeTransactionGroup({
         note: 'first payout',
       }),
     ]),
-    expiryRound: FAR_EXPIRY,
+    expiryRound: currentRound + 2000n,
     execute: false,     // set true to execute in this same call once threshold + limits allow it
     ensureBudgetValue: 0n,
   },
@@ -226,7 +225,7 @@ await client.send.proposeTransactionGroup({
   args: {
     groupId,
     payload: toSafeTxnGroup([ /* …safe txns… */ ]),
-    expiryRound: FAR_EXPIRY,
+    expiryRound: currentRound + 2000n,
     execute: false,
     ensureBudgetValue: 0n,
   },
@@ -435,7 +434,7 @@ import { algosdkTxnsToSafeTxnGroup } from 'algo-safe'
 const payload = algosdkTxnsToSafeTxnGroup([payTxn, appCallTxn]) // SafeTxnTuple[]
 
 await client.send.proposeTransactionGroup({
-  args: { groupId: 1n, payload, expiryRound: FAR_EXPIRY, execute: false, ensureBudgetValue: 0n },
+  args: { groupId: 1n, payload, expiryRound: currentRound + 2000n, execute: false, ensureBudgetValue: 0n },
   staticFee: (0.2).algo(),
 })
 ```
@@ -481,7 +480,7 @@ await client.send.executeProposal({
 await client.send.cancelProposal({ args: { proposalId: proposalId!, ensureBudgetValue: 0n } })
 ```
 
-Proposals carry an `expiryRound`, which must be in the future and at most 20,000,000 rounds (about 1.8 years) ahead of the current round (v3.4.0; a larger value reverts with `expiry too far`). **`FAR_EXPIRY` (10,000,000) is a LocalNet-only test convenience: on TestNet/MainNet use the current round plus a bounded number of rounds.** Executed and cancelled proposals can both be pruned immediately with `pruneProposal` to reclaim their box minimum balance. Once expired, a proposal cannot be approved, executed, or have payload chunks appended.
+Proposals carry an `expiryRound`, which must be in the future and at most 20,000,000 rounds (about 1.8 years) ahead of the current round (v3.4.0; a larger value reverts with `expiry too far`). The examples in this README use `currentRound + 2000n`, where `currentRound` is `(await algod.status().do()).lastRound`. **`FAR_EXPIRY` (10,000,000) is a fixed absolute round that is only valid on a fresh LocalNet (used by the test suite); never use it on TestNet/MainNet.** The cap only exists from v3.4.0: safes still on an older contract hash keep the old behaviour until they are migrated to a v3.4.0 safe. Executed and cancelled proposals can both be pruned immediately with `pruneProposal` to reclaim their box minimum balance. Once expired, a proposal cannot be approved, executed, or have payload chunks appended.
 
 ### Propose-and-execute in one call
 
@@ -492,7 +491,7 @@ const { return: proposalId } = await client.send.proposeTransactionGroup({
   args: {
     groupId: 1n, // 1-of-1 group
     payload: toSafeTxnGroup([ /* …safe txns… */ ]),
-    expiryRound: FAR_EXPIRY,
+    expiryRound: currentRound + 2000n,
     execute: true,
     ensureBudgetValue: 6000n, // sized like executeProposal — see "Opcode budget" below
   },
@@ -550,7 +549,7 @@ A single ABI argument is limited to ~2 KB, so very large transaction groups are 
 
 ```ts
 const { return: pid } = await client.send.proposeTransactionGroup({
-  args: { groupId: 1n, payload: toSafeTxnGroup(firstChunk), expiryRound: FAR_EXPIRY, execute: false, ensureBudgetValue: 0n },
+  args: { groupId: 1n, payload: toSafeTxnGroup(firstChunk), expiryRound: currentRound + 2000n, execute: false, ensureBudgetValue: 0n },
   staticFee: (0.2).algo(),
 })
 
@@ -575,11 +574,11 @@ A few more rules for appends:
 Group/policy changes are themselves governed proposals. Build the change with `createAdminChange` (it fills sensible defaults), propose it from an admin-capable group, and execute it once approved.
 
 ```ts
-import { createAdminChange, ADM_CREATE_GROUP, ADM_ADD_MEMBER, ADM_CHANGE_THRESHOLD, ACT_PAY, PRIV_GROUP, FAR_EXPIRY } from 'algo-safe'
+import { createAdminChange, ADM_CREATE_GROUP, ADM_ADD_MEMBER, ADM_CHANGE_THRESHOLD, ACT_PAY, PRIV_GROUP } from 'algo-safe'
 
 async function govern(change) {
   const { return: pid } = await client.send.proposeAdminChange({
-    args: { groupId: 1n, change, expiryRound: FAR_EXPIRY, ensureBudgetValue: 0n },
+    args: { groupId: 1n, change, expiryRound: currentRound + 2000n, ensureBudgetValue: 0n },
     staticFee: (0.2).algo(),
   })
   await client.send.executeProposal({
@@ -727,7 +726,7 @@ Always import these from `algo-safe` — never redefine them locally; they must 
 
 **App-call limits** (Algorand consensus parameters, enforced at execution): `MAX_APP_ARGS` (16), `MAX_APP_TOTAL_ARG_LEN` (2048), `MAX_APP_ACCOUNTS` (4), `MAX_APP_FOREIGN_APPS` (8), `MAX_APP_FOREIGN_ASSETS` (8), `MAX_APP_TOTAL_REFS` (8 — accounts + apps + assets combined).
 
-**Misc:** `ZERO_ADDR` (the all-zero Algorand address), `EMPTY_BYTES`, `FAR_EXPIRY` (a far-future round for proposal expiry — **test/convenience only**; see "Approve, execute, cancel" for the MBR-reclamation tradeoff of using it on a real proposal).
+**Misc:** `ZERO_ADDR` (the all-zero Algorand address), `EMPTY_BYTES`, `FAR_EXPIRY` (a far-future round for proposal expiry — **fresh-LocalNet test convenience only**; see "Approve, execute, cancel"), `MAX_PROPOSAL_LIFETIME_ROUNDS` (the contract's expiry cap).
 
 ---
 

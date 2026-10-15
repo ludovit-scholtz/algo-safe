@@ -23,6 +23,7 @@
     "unrecognizedShape": "Unrecognized request shape.",
     "rejectedByOperator": "Rejected by the Safe operator.",
     "rejectFailed": "Failed to reject the request.",
+    "expiryInvalid": "Expiry rounds must be between 1 and {{max}}.",
     "proposalCreated": "Proposal #{{proposalId}} created on-chain (tx {{txId}}). Approve it from the Proposals page once the group reaches threshold.",
     "convertedReject": "Converted into Safe proposal #{{proposalId}} — track and approve it from the Safe console.",
     "submitFailed": "Failed to submit the proposal.",

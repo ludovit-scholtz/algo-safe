@@ -23,6 +23,7 @@
     "unrecognizedShape": "Formato della richiesta non riconosciuto.",
     "rejectedByOperator": "Rifiutata dall'operatore della cassaforte.",
     "rejectFailed": "Impossibile rifiutare la richiesta.",
+    "expiryInvalid": "I round di scadenza devono essere tra 1 e {{max}}.",
     "proposalCreated": "Proposta n. {{proposalId}} creata on-chain (tx {{txId}}). Approvala dalla pagina Proposte non appena il gruppo raggiunge la soglia.",
     "convertedReject": "Convertita nella proposta n. {{proposalId}} della cassaforte — seguila e approvala dalla console della cassaforte.",
     "submitFailed": "Impossibile inviare la proposta.",
