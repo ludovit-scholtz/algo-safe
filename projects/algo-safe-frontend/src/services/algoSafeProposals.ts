@@ -826,12 +826,6 @@ export type ProposeTransactionGroupResult = {
   executed: boolean
 }
 
-/**
- * Submits a transaction-group proposal. With `executeNow` the contract executes
- * it in the same call (proposer auto-approval must satisfy the group threshold).
- * Fees are derived from simulation so the caller covers exactly the inner
- * transactions the call produces; the prepare path needs no extra opcode budget.
- */
 /** Contract v3.4.0 rejects expiries beyond MAX_PROPOSAL_LIFETIME_ROUNDS; keep the UI inside that range for every safe. */
 function assertExpiryRounds(expiryRounds: bigint) {
   if (expiryRounds <= 0n || expiryRounds > MAX_PROPOSAL_LIFETIME_ROUNDS) {
@@ -839,6 +833,12 @@ function assertExpiryRounds(expiryRounds: bigint) {
   }
 }
 
+/**
+ * Submits a transaction-group proposal. With `executeNow` the contract executes
+ * it in the same call (proposer auto-approval must satisfy the group threshold).
+ * Fees are derived from simulation so the caller covers exactly the inner
+ * transactions the call produces; the prepare path needs no extra opcode budget.
+ */
 export async function proposeLiveTransactionGroup(
   context: ProposalContext,
   params: { groupId: bigint; payload: readonly unknown[]; expiryRounds: bigint; executeNow?: boolean },

@@ -63,5 +63,4 @@ export const FAR_EXPIRY = 10_000_000n
 // Contract limit (v3.4.0): expiryRound may be at most this many rounds ahead of the current round.
 export const MAX_PROPOSAL_LIFETIME_ROUNDS = 20_000_000n
 
-
 export const EMPTY_BYTES = new Uint8Array()
