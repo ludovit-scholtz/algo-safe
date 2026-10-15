@@ -832,14 +832,19 @@ export type ProposeTransactionGroupResult = {
  * Fees are derived from simulation so the caller covers exactly the inner
  * transactions the call produces; the prepare path needs no extra opcode budget.
  */
+/** Contract v3.4.0 rejects expiries beyond MAX_PROPOSAL_LIFETIME_ROUNDS; keep the UI inside that range for every safe. */
+function assertExpiryRounds(expiryRounds: bigint) {
+  if (expiryRounds <= 0n || expiryRounds > MAX_PROPOSAL_LIFETIME_ROUNDS) {
+    throw new Error(tr('service.errors.expiryOutOfRange', { max: MAX_PROPOSAL_LIFETIME_ROUNDS.toString() }))
+  }
+}
+
 export async function proposeLiveTransactionGroup(
   context: ProposalContext,
   params: { groupId: bigint; payload: readonly unknown[]; expiryRounds: bigint; executeNow?: boolean },
 ): Promise<ProposeTransactionGroupResult> {
   assertWalletContext(context)
-  if (params.expiryRounds <= 0n || params.expiryRounds > MAX_PROPOSAL_LIFETIME_ROUNDS) {
-    throw new Error(tr('service.errors.expiryOutOfRange', { max: MAX_PROPOSAL_LIFETIME_ROUNDS.toString() }))
-  }
+  assertExpiryRounds(params.expiryRounds)
   const { client, isLatest } = await buildAppClient(context)
   const executeNow = Boolean(params.executeNow)
 
@@ -884,6 +889,7 @@ export async function prepareTransactionGroupSignature(
   params: { groupId: bigint; payload: readonly unknown[]; expiryRounds: bigint },
 ): Promise<PrepareTransactionGroupSignatureResult> {
   assertWalletContext(context)
+  assertExpiryRounds(params.expiryRounds)
   const { client } = await buildAppClient(context)
 
   const status = (await context.algodClient.status().do()) as unknown as Record<string, unknown>
