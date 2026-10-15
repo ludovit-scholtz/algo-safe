@@ -1,6 +1,15 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useWallet } from '@txnlab/use-wallet-react'
-import { ACT_AXFER, ACT_PAY, ACT_REKEY, MAX_PROPOSAL_LIFETIME_ROUNDS, createAssetSafeTxn, createPaymentSafeTxn, createRekeySafeTxn, toSafeTxnGroup } from 'algo-safe'
+import {
+  ACT_AXFER,
+  ACT_PAY,
+  ACT_REKEY,
+  MAX_PROPOSAL_LIFETIME_ROUNDS,
+  createAssetSafeTxn,
+  createPaymentSafeTxn,
+  createRekeySafeTxn,
+  toSafeTxnGroup,
+} from 'algo-safe'
 import algosdk from 'algosdk'
 import { useMemo, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
