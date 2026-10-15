@@ -1803,6 +1803,7 @@ describe('AlgoSafe contract', () => {
     await expect(propose(2n ** 64n - 1n)).rejects.toThrow(/expiry too far/)
     await expect(propose(round + 20_000_100n)).rejects.toThrow(/expiry too far/)
     await propose(round + 19_000_000n)
+    await propose(round + 19_999_900n) // just inside the cap (chain advances a few rounds between read and call)
     await expect(
       client.send.proposeAdminChange({
         args: { groupId: 1n, change: mkAdminChange({ changeType: ADM_SET_PAUSED, activeFlag: 0n }), expiryRound: 2n ** 64n - 1n, ensureBudgetValue: 0n },

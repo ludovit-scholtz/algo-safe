@@ -96,6 +96,7 @@
       "connectWallet": "Conecte una cartera antes de crear una propuesta.",
       "invalidReceiver": "Introduzca una dirección de destinatario de Algorand válida.",
       "nonPositive": "El ID del grupo y las rondas de caducidad deben ser valores positivos.",
+      "expiryTooFar": "Las rondas de vencimiento deben ser como máximo {{max}}.",
       "invalidAlgoAmount": "Introduzca un importe en ALGO válido para la propuesta de pago.",
       "optInAssetId": "Introduzca un ID de activo válido para crear una propuesta de opt-in.",
       "selectOptedInAsset": "Seleccione un activo con opt-in realizado para la propuesta de transferencia de activos.",

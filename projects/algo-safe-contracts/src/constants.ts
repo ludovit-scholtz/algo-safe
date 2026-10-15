@@ -60,4 +60,15 @@ export const PT_ADMIN = 5n
 // on TestNet/MainNet (whose round is already beyond this value) use current round + N instead.
 export const FAR_EXPIRY = 10_000_000n
 
+// Contract limit (v3.4.0): expiryRound may be at most this many rounds ahead of the current round.
+export const MAX_PROPOSAL_LIFETIME_ROUNDS = 20_000_000n
+
+/** Relative expiry for real networks: `currentRound + rounds`, validated against the contract cap. */
+export function boundedExpiry(currentRound: bigint, rounds: bigint = 2000n): bigint {
+  if (rounds <= 0n || rounds > MAX_PROPOSAL_LIFETIME_ROUNDS) {
+    throw new Error(`expiry rounds must be between 1 and ${MAX_PROPOSAL_LIFETIME_ROUNDS}`)
+  }
+  return currentRound + rounds
+}
+
 export const EMPTY_BYTES = new Uint8Array()

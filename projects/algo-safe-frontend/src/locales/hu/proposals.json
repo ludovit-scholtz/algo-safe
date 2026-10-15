@@ -96,6 +96,7 @@
       "connectWallet": "Javaslat létrehozása előtt csatlakoztasson egy tárcát.",
       "invalidReceiver": "Adjon meg érvényes Algorand-címzettcímet.",
       "nonPositive": "A csoportazonosítónak és a lejárati köröknek is pozitív értéknek kell lennie.",
+      "expiryTooFar": "A lejárati körök száma legfeljebb {{max}} lehet.",
       "invalidAlgoAmount": "Adjon meg érvényes ALGO-összeget a fizetési javaslathoz.",
       "optInAssetId": "Opt-in javaslat létrehozásához adjon meg érvényes eszközazonosítót.",
       "selectOptedInAsset": "Válasszon egy opt-in eszközt az eszközátutalási javaslathoz.",

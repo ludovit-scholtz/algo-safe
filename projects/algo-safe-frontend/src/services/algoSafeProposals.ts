@@ -22,6 +22,7 @@ import {
   TX_KEYREG,
   TX_PAYMENT,
   TX_REKEY,
+  MAX_PROPOSAL_LIFETIME_ROUNDS,
   ZERO_ADDR,
   decodeAppTxn,
   decodeAssetConfigTxn,
@@ -836,6 +837,9 @@ export async function proposeLiveTransactionGroup(
   params: { groupId: bigint; payload: readonly unknown[]; expiryRounds: bigint; executeNow?: boolean },
 ): Promise<ProposeTransactionGroupResult> {
   assertWalletContext(context)
+  if (params.expiryRounds <= 0n || params.expiryRounds > MAX_PROPOSAL_LIFETIME_ROUNDS) {
+    throw new Error(`Expiry must be between 1 and ${MAX_PROPOSAL_LIFETIME_ROUNDS} rounds.`)
+  }
   const { client, isLatest } = await buildAppClient(context)
   const executeNow = Boolean(params.executeNow)
 

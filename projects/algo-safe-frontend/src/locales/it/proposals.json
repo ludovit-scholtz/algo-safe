@@ -96,6 +96,7 @@
       "connectWallet": "Collega un wallet prima di creare una proposta.",
       "invalidReceiver": "Inserisci un indirizzo Algorand valido per il destinatario.",
       "nonPositive": "L'ID del gruppo e i round di scadenza devono essere entrambi valori positivi.",
+      "expiryTooFar": "I round di scadenza devono essere al massimo {{max}}.",
       "invalidAlgoAmount": "Inserisci un importo in ALGO valido per la proposta di pagamento.",
       "optInAssetId": "Inserisci un ID asset valido per creare una proposta di opt-in.",
       "selectOptedInAsset": "Seleziona un asset con opt-in già eseguito per la proposta di trasferimento.",

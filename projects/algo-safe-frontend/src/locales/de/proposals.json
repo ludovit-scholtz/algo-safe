@@ -96,6 +96,7 @@
       "connectWallet": "Verbinden Sie eine Wallet, bevor Sie einen Vorschlag erstellen.",
       "invalidReceiver": "Geben Sie eine gültige Algorand-Empfängeradresse ein.",
       "nonPositive": "Gruppen-ID und Ablaufrunden müssen beide positive Werte sein.",
+      "expiryTooFar": "Die Ablaufrunden dürfen höchstens {{max}} betragen.",
       "invalidAlgoAmount": "Geben Sie einen gültigen ALGO-Betrag für den Zahlungsvorschlag ein.",
       "optInAssetId": "Geben Sie eine gültige Asset-ID ein, um einen Opt-in-Vorschlag zu erstellen.",
       "selectOptedInAsset": "Wählen Sie ein Asset mit bestehendem Opt-in für den Asset-Transfer-Vorschlag aus.",

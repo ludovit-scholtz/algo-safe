@@ -96,6 +96,7 @@
       "connectWallet": "제안을 만들기 전에 지갑을 연결하세요.",
       "invalidReceiver": "유효한 Algorand 수신자 주소를 입력하세요.",
       "nonPositive": "그룹 ID와 만료 라운드는 모두 양수여야 합니다.",
+      "expiryTooFar": "만료 라운드는 최대 {{max}}이어야 합니다.",
       "invalidAlgoAmount": "결제 제안에 유효한 ALGO 금액을 입력하세요.",
       "optInAssetId": "opt-in 제안을 만들려면 유효한 자산 ID를 입력하세요.",
       "selectOptedInAsset": "자산 전송 제안에 사용할 opt-in된 자산을 선택하세요.",
